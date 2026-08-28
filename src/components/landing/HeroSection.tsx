@@ -102,7 +102,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos }) => {
                 className="px-6 py-4 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 hover:text-white font-bold text-base border border-slate-700 hover:border-blue-500 hover:shadow-glow-blue transition-all duration-300 flex items-center justify-center gap-2.5 backdrop-blur-md whitespace-nowrap shadow-md"
               >
                 <LogIn className="w-5 h-5 text-blue-400 shrink-0" />
-                <span>Login</span>
+                <span>Sign In</span>
               </Link>
             </div>
 
