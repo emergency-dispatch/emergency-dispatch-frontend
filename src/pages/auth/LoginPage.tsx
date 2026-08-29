@@ -8,15 +8,11 @@ import {
   Eye, 
   EyeOff, 
   LogIn, 
-  ShieldCheck, 
-  Radio,
-  User,
   AlertCircle
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const [role, setRole] = useState<'citizen' | 'dispatcher' | 'responder'>('dispatcher');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -36,7 +32,7 @@ export const LoginPage: React.FC = () => {
     // Simulated login delay
     setTimeout(() => {
       setIsLoading(false);
-      // Navigate to home or portal
+      // Navigate to home or portal (Backend will determine actual role redirect)
       navigate('/');
     }, 1200);
   };
@@ -52,45 +48,8 @@ export const LoginPage: React.FC = () => {
   return (
     <AuthLayout
       title="CAD System Login"
-      subtitle="Access your emergency dispatch control terminal or citizen portal"
+      subtitle="Access your emergency dispatch control terminal or portal"
     >
-      {/* Role Selection Tabs */}
-      <div className="grid grid-cols-3 gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 mb-6 font-mono-data text-xs">
-        <button
-          type="button"
-          onClick={() => setRole('dispatcher')}
-          className={`py-2 rounded-lg font-bold transition-all ${
-            role === 'dispatcher'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Dispatcher
-        </button>
-        <button
-          type="button"
-          onClick={() => setRole('responder')}
-          className={`py-2 rounded-lg font-bold transition-all ${
-            role === 'responder'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Responder
-        </button>
-        <button
-          type="button"
-          onClick={() => setRole('citizen')}
-          className={`py-2 rounded-lg font-bold transition-all ${
-            role === 'citizen'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Citizen
-        </button>
-      </div>
-
       {errorMsg && (
         <div className="mb-4 p-3 rounded-xl bg-red-950/60 border border-red-800 text-red-300 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
@@ -121,7 +80,7 @@ export const LoginPage: React.FC = () => {
         {/* Email or CAD ID */}
         <div className="space-y-1.5">
           <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
-            {role === 'citizen' ? 'Email Address' : 'CAD Badge ID / Email'}
+            CAD Badge ID / Email Address
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -132,7 +91,7 @@ export const LoginPage: React.FC = () => {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder={role === 'citizen' ? 'name@example.com' : 'badge-9042@dispatch.gov'}
+              placeholder="name@example.com or badge-ID"
               className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-900/90 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-mono-data"
             />
           </div>
@@ -205,7 +164,7 @@ export const LoginPage: React.FC = () => {
 
       {/* Switch to Sign Up */}
       <div className="mt-6 pt-5 border-t border-slate-800 text-center text-xs text-slate-400">
-        Don't have a responder or citizen account?{' '}
+        Don't have an account?{' '}
         <Link to="/register" className="text-blue-400 hover:text-blue-300 font-bold transition-colors">
           Sign Up Now
         </Link>
