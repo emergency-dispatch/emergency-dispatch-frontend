@@ -43,9 +43,9 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/60 z-[1100]" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 z-[1400]" onClick={onClose} />
 
-      <aside className="fixed top-0 right-0 h-full w-full max-w-lg bg-[#0B0F19] border-l border-slate-800 z-[1101] flex flex-col shadow-2xl shadow-black/60 animate-drawer-in">
+      <aside className="fixed top-0 right-0 h-full w-full max-w-lg bg-[#0B0F19] border-l border-slate-800 z-[1401] flex flex-col shadow-2xl shadow-black/60 animate-drawer-in">
         <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-slate-800">
           <h2 className="text-base font-bold text-white">{initialStation ? 'Chỉnh sửa trạm' : 'Thêm trạm mới'}</h2>
           <button

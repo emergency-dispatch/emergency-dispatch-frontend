@@ -9,7 +9,7 @@ interface DeleteConfirmDialogProps {
 
 export const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({ stationName, onCancel, onConfirm }) => {
   return (
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-4">
+    <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/60 p-4">
       <div className="w-full max-w-sm rounded-2xl cad-glass border border-slate-700/80 p-5 space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-red-950/60 border border-red-800 flex items-center justify-center shrink-0">

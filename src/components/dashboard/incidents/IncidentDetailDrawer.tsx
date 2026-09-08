@@ -24,9 +24,9 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/60 z-[1100]" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 z-[1400]" onClick={onClose} />
 
-      <aside className="fixed top-0 right-0 h-full w-full max-w-md bg-[#0B0F19] border-l border-slate-800 z-[1101] flex flex-col shadow-2xl shadow-black/60 animate-drawer-in">
+      <aside className="fixed top-0 right-0 h-full w-full max-w-md bg-[#0B0F19] border-l border-slate-800 z-[1401] flex flex-col shadow-2xl shadow-black/60 animate-drawer-in">
         <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-slate-800">
           <div className="min-w-0">
             <p className="text-[11px] font-mono-data text-slate-500 uppercase tracking-widest">Chi tiết sự cố</p>
