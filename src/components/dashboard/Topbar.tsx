@@ -26,7 +26,7 @@ export const Topbar: React.FC = () => {
   }, []);
 
   return (
-    <header className="h-16 shrink-0 bg-[#0F172A]/95 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-5">
+    <header className="relative z-[1300] h-16 shrink-0 bg-[#0F172A]/95 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-5">
       {/* Left: Logo + Station on duty */}
       <div className="flex items-center gap-4 min-w-0">
         <Link to="/" className="flex items-center gap-2 shrink-0">
@@ -77,7 +77,7 @@ export const Topbar: React.FC = () => {
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-80 rounded-xl cad-glass border border-slate-700/80 shadow-2xl shadow-black/60 overflow-hidden z-50">
+            <div className="absolute right-0 mt-2 w-80 rounded-xl cad-glass border border-slate-700/80 shadow-2xl shadow-black/60 overflow-hidden z-[1200]">
               <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
                 <span className="text-xs font-mono-data uppercase tracking-wider text-slate-300 font-bold">
                   Escalation Alerts
@@ -127,7 +127,7 @@ export const Topbar: React.FC = () => {
           </button>
 
           {userOpen && (
-            <div className="absolute right-0 mt-2 w-52 rounded-xl cad-glass border border-slate-700/80 shadow-2xl shadow-black/60 overflow-hidden z-50">
+            <div className="absolute right-0 mt-2 w-52 rounded-xl cad-glass border border-slate-700/80 shadow-2xl shadow-black/60 overflow-hidden z-[1200]">
               <div className="px-4 py-3 border-b border-slate-800">
                 <p className="text-xs font-semibold text-white">{mockDashboardUser.name}</p>
                 <p className="text-[10px] font-mono-data text-slate-500">{mockDashboardUser.role}</p>
