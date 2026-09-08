@@ -97,11 +97,22 @@ export default {
         'beacon-ping': 'beaconPing 2s cubic-bezier(0, 0, 0.2, 1) infinite',
         'scanline': 'scanline 6s linear infinite',
         'float-slow': 'float 6s ease-in-out infinite',
+        'queue-enter': 'queueEnter 1.8s ease-out',
+        'drawer-in': 'drawerSlideIn 0.25s ease-out',
       },
       keyframes: {
         flashCritical: {
           '0%, 100%': { opacity: '1', backgroundColor: 'rgba(220, 38, 38, 0.2)' },
           '50%': { opacity: '0.4', backgroundColor: 'rgba(220, 38, 38, 0.05)' },
+        },
+        queueEnter: {
+          '0%': { transform: 'translateY(-12px)', opacity: '0', backgroundColor: 'rgba(37, 99, 235, 0.28)' },
+          '60%': { opacity: '1', backgroundColor: 'rgba(37, 99, 235, 0.15)' },
+          '100%': { transform: 'translateY(0)', opacity: '1', backgroundColor: 'transparent' },
+        },
+        drawerSlideIn: {
+          '0%': { transform: 'translateX(100%)' },
+          '100%': { transform: 'translateX(0)' },
         },
         radarSweep: {
           '0%': { transform: 'rotate(0deg)' },
