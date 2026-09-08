@@ -3,8 +3,10 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Clock, User } from 'lucide-react';
 import { VEHICLE_STATUS_META, VEHICLE_TYPE_META, stations } from '../../../data/liveMapMock';
+import { SEVERITY_META } from '../../../data/incidentMock';
 import type { Vehicle } from '../../../types/vehicle';
-import { createStationIcon, createVehicleIcon } from './mapIcons';
+import type { Incident } from '../../../types/incident';
+import { createIncidentIcon, createStationIcon, createVehicleIcon } from './mapIcons';
 import { MapLegend } from './MapLegend';
 
 const HCMC_CENTER: [number, number] = [10.7756, 106.7019];
@@ -30,9 +32,17 @@ interface LiveMapViewProps {
   vehicles: Vehicle[];
   selectedVehicleId: string | null;
   onSelectVehicle: (id: string) => void;
+  dispatchIncidents?: Incident[];
+  vehiclesById?: Map<string, Vehicle>;
 }
 
-export const LiveMapView: React.FC<LiveMapViewProps> = ({ vehicles, selectedVehicleId, onSelectVehicle }) => {
+export const LiveMapView: React.FC<LiveMapViewProps> = ({
+  vehicles,
+  selectedVehicleId,
+  onSelectVehicle,
+  dispatchIncidents = [],
+  vehiclesById,
+}) => {
   const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId) ?? null;
 
   return (
@@ -91,6 +101,40 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({ vehicles, selectedVehi
                       <Clock className="w-3.5 h-3.5 shrink-0" />
                       <span>ETA {vehicle.etaMinutes} phút</span>
                     </div>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+
+        {dispatchIncidents.map((incident) => {
+          const severityMeta = SEVERITY_META[incident.severity];
+          const assignedVehicle = incident.assignedVehicleId ? vehiclesById?.get(incident.assignedVehicleId) : null;
+
+          return (
+            <Marker
+              key={incident.id}
+              position={[incident.lat, incident.lng]}
+              icon={createIncidentIcon(incident.severity, false)}
+            >
+              <Popup>
+                <div className="min-w-[180px] space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-white">{incident.title}</span>
+                  </div>
+                  <span
+                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${severityMeta.badgeClass}`}
+                  >
+                    {severityMeta.label}
+                  </span>
+                  <p className="text-xs text-slate-300">{incident.area}</p>
+                  {assignedVehicle ? (
+                    <p className="text-xs text-blue-400 font-semibold">
+                      Đã gán {assignedVehicle.plate} · ETA {assignedVehicle.etaMinutes ?? '--'} phút
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-400 font-semibold">Chưa gán xe</p>
                   )}
                 </div>
               </Popup>

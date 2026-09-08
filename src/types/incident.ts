@@ -24,9 +24,12 @@ export interface Incident {
   plausibilityScore: number;
   status: IncidentStatus;
   area: string;
+  lat: number;
+  lng: number;
   reporterName: string;
   reporterPhone: string;
   createdAt: string;
   mediaType: IncidentMediaType;
   mediaUrl: string | null;
+  assignedVehicleId: string | null;
 }

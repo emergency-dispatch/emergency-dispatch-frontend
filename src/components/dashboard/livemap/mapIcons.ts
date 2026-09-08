@@ -1,6 +1,8 @@
 import L from 'leaflet';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMock';
+import { SEVERITY_COLOR } from '../../../data/incidentMock';
 import type { VehicleStatus } from '../../../types/vehicle';
+import type { IncidentSeverity } from '../../../types/incident';
 
 export function createVehicleIcon(status: VehicleStatus, selected: boolean): L.DivIcon {
   const color = VEHICLE_STATUS_META[status].color;
@@ -16,6 +18,28 @@ export function createVehicleIcon(status: VehicleStatus, selected: boolean): L.D
     <div class="relative" style="width:${size}px;height:${size}px;">
       ${pulseRing}
       <div class="absolute inset-0 rounded-full border-2 pointer-events-none" style="background:${color};border-color:${ringBorder};box-shadow:0 0 8px 1px ${color}99;"></div>
+    </div>
+  `;
+
+  return L.divIcon({
+    html,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+export function createIncidentIcon(severity: IncidentSeverity, selected: boolean): L.DivIcon {
+  const color = SEVERITY_COLOR[severity];
+  const size = selected ? 26 : 20;
+  const ringBorder = selected ? '#F8FAFC' : 'rgba(15,23,42,0.9)';
+
+  const html = `
+    <div class="relative flex items-center justify-center" style="width:${size}px;height:${size}px;">
+      <span class="absolute inset-0 rounded-full animate-ping pointer-events-none" style="background:${color};opacity:0.45;"></span>
+      <div class="relative flex items-center justify-center rounded-full border-2 pointer-events-none" style="width:${size}px;height:${size}px;background:${color};border-color:${ringBorder};box-shadow:0 0 10px 2px ${color}99;">
+        <span class="text-white font-black leading-none pointer-events-none" style="font-size:${Math.round(size * 0.5)}px;">!</span>
+      </div>
     </div>
   `;
 

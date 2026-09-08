@@ -1,29 +1,30 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { IncidentDetailDrawer } from '../../../components/dashboard/incidents/IncidentDetailDrawer';
 import { IncidentQueueList } from '../../../components/dashboard/incidents/IncidentQueueList';
-import { useIncidentQueue } from '../../../hooks/useIncidentQueue';
+import { useDispatchStore } from '../../../context/DispatchContext';
 
 export const IncidentQueuePage: React.FC = () => {
-  const { incidents, highlightIds, updateStatus } = useIncidentQueue();
+  const { incidents, highlightIncidentIds, updateIncidentStatus } = useDispatchStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const selectedIncident = incidents.find((inc) => inc.id === selectedId) ?? null;
+  const pendingIncidents = useMemo(() => incidents.filter((inc) => inc.status === 'pending'), [incidents]);
+  const selectedIncident = pendingIncidents.find((inc) => inc.id === selectedId) ?? null;
 
   const handleApprove = (id: string) => {
-    updateStatus(id, 'approved');
+    updateIncidentStatus(id, 'approved');
     setSelectedId(null);
   };
 
   const handleReject = (id: string) => {
-    updateStatus(id, 'rejected');
+    updateIncidentStatus(id, 'rejected');
     setSelectedId(null);
   };
 
   return (
     <div className="h-full">
       <IncidentQueueList
-        incidents={incidents}
-        highlightIds={highlightIds}
+        incidents={pendingIncidents}
+        highlightIds={highlightIncidentIds}
         selectedId={selectedId}
         onSelect={setSelectedId}
       />
