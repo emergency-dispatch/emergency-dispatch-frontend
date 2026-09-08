@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Building2, Plus } from 'lucide-react';
-import { DeleteConfirmDialog } from '../../../components/dashboard/stations/DeleteConfirmDialog';
+import { ConfirmDialog } from '../../../components/dashboard/common/ConfirmDialog';
 import { StationAssetsPanel } from '../../../components/dashboard/stations/StationAssetsPanel';
 import { StationFormDrawer } from '../../../components/dashboard/stations/StationFormDrawer';
 import { StationsTable } from '../../../components/dashboard/stations/StationsTable';
@@ -75,8 +75,10 @@ export const StationsPage: React.FC = () => {
       )}
 
       {deletingStation && (
-        <DeleteConfirmDialog
-          stationName={deletingStation.name}
+        <ConfirmDialog
+          title="Xóa trạm cứu hộ?"
+          description="Hành động này không thể hoàn tác."
+          itemLabel={deletingStation.name}
           onCancel={() => setDeletingStation(null)}
           onConfirm={handleConfirmDelete}
         />
