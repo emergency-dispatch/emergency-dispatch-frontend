@@ -3,12 +3,18 @@ import { HAZARD_TAG_META } from '../../../data/incidentMock';
 import type { HazardTagKey } from '../../../types/incident';
 
 interface HazardTagBadgeProps {
-  tag: HazardTagKey;
+  tag?: HazardTagKey;
+  tagKey?: HazardTagKey;
   size?: 'sm' | 'md';
 }
 
-export const HazardTagBadge: React.FC<HazardTagBadgeProps> = ({ tag, size = 'sm' }) => {
-  const meta = HAZARD_TAG_META[tag];
+export const HazardTagBadge: React.FC<HazardTagBadgeProps> = ({ tag, tagKey, size = 'sm' }) => {
+  const actualKey = tag || tagKey;
+  if (!actualKey) return null;
+
+  const meta = HAZARD_TAG_META[actualKey];
+  if (!meta) return null;
+
   const Icon = meta.icon;
   const sizeClass = size === 'sm' ? 'text-[10px] px-1.5 py-0.5 gap-1' : 'text-xs px-2 py-1 gap-1.5';
   const iconSizeClass = size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5';

@@ -12,6 +12,7 @@ import { StationsPage } from './pages/dashboard/backoffice/StationsPage';
 import { VehiclesPage } from './pages/dashboard/backoffice/VehiclesPage';
 import { AccountsPage } from './pages/dashboard/backoffice/AccountsPage';
 import { EscalationConfigPage } from './pages/dashboard/backoffice/EscalationConfigPage';
+import { StaffPage } from './pages/staff/StaffPage';
 
 const App: React.FC = () => {
   return (
@@ -22,6 +23,9 @@ const App: React.FC = () => {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/signup" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+        {/* Staff Field Operations Portal */}
+        <Route path="/staff" element={<StaffPage />} />
 
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<Navigate to="command-center/live-map" replace />} />
