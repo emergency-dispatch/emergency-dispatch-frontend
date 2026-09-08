@@ -115,6 +115,43 @@ body {
   animation: pulse-fast 1.5s infinite;
 }
 
+/* Leaflet dark CAD theme overrides (Live Map control room view) */
+.leaflet-container {
+  background: #0B0F19;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #131D33;
+  color: #F8FAFC;
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+}
+
+.leaflet-popup-content {
+  margin: 12px 14px;
+}
+
+.leaflet-popup-tip {
+  background: #131D33;
+  border: 1px solid rgba(51, 65, 85, 0.8);
+}
+
+.leaflet-popup-close-button {
+  color: #94A3B8 !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(11, 15, 25, 0.6) !important;
+  color: #64748B !important;
+  font-size: 10px !important;
+}
+
+.leaflet-control-attribution a {
+  color: #94A3B8 !important;
+}
+
 /* Crosshair HUD Decors */
 .hud-corner-tl {
   position: absolute;
