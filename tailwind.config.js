@@ -7,6 +7,11 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Be Vietnam Pro"', 'Inter', 'system-ui', 'sans-serif'],
+        'be-vietnam': ['"Be Vietnam Pro"', 'sans-serif'],
+        'mono-data': ['"JetBrains Mono"', 'monospace'],
+      },
       colors: {
         // High-Tech CAD & Landing Palette
         brand: {

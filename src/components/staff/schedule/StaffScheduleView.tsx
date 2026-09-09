@@ -59,8 +59,8 @@ export const StaffScheduleView: React.FC = () => {
   );
   const [leaveRequests, setLeaveRequests] = useState<ShiftLeaveRequest[]>(mockShiftLeaveRequests);
 
-  // Active View Mode
-  const [viewMode, setViewMode] = useState<ScheduleViewMode>('month');
+  // Active View Mode (Default to Week view before Month view)
+  const [viewMode, setViewMode] = useState<ScheduleViewMode>('week');
 
   // Month & Week Date Navigators (Base date: Sept 8, 2026)
   const [currentCalendarDate, setCurrentCalendarDate] = useState<Date>(new Date(2026, 8, 8)); // Sept 2026
@@ -184,36 +184,42 @@ export const StaffScheduleView: React.FC = () => {
     // If registered on an empty date in schedules, optionally create tentative shift
     const updatedSchedules = [...schedules];
     data.dates.forEach((dStr) => {
+      const assignedShiftType: ShiftType =
+        data.dayShiftMap?.[dStr] ||
+        (data.shiftTypes && data.shiftTypes[0]) ||
+        data.shiftType ||
+        'morning';
+
       const existingIdx = updatedSchedules.findIndex((s) => s.date === dStr);
       const newShiftItem: ShiftScheduleItem = {
         id: `shift-${dStr}`,
         date: dStr,
         dayOfWeek: new Date(dStr).toLocaleDateString('vi-VN', { weekday: 'long' }),
-        shiftType: data.shiftType,
+        shiftType: assignedShiftType,
         startTime:
-          data.shiftType === 'morning'
+          assignedShiftType === 'morning'
             ? '06:00'
-            : data.shiftType === 'afternoon'
+            : assignedShiftType === 'afternoon'
             ? '14:00'
-            : data.shiftType === 'night'
+            : assignedShiftType === 'night'
             ? '22:00'
-            : data.shiftType === 'full_day'
+            : assignedShiftType === 'full_day'
             ? '08:00'
             : '-',
         endTime:
-          data.shiftType === 'morning'
+          assignedShiftType === 'morning'
             ? '14:00'
-            : data.shiftType === 'afternoon'
+            : assignedShiftType === 'afternoon'
             ? '22:00'
-            : data.shiftType === 'night'
+            : assignedShiftType === 'night'
             ? '06:00'
-            : data.shiftType === 'full_day'
+            : assignedShiftType === 'full_day'
             ? '08:00 (hôm sau)'
             : '-',
         stationName: data.stationName,
         vehiclePlate: data.preferredVehicle || '51D-123.45',
         role: data.desiredRole,
-        dutyHours: data.shiftType === 'full_day' ? 24 : data.shiftType === 'off' ? 0 : 8,
+        dutyHours: assignedShiftType === 'full_day' ? 24 : assignedShiftType === 'off' ? 0 : 8,
         isOvertime: data.registrationType === 'overtime',
         teamMembers: [
           { name: 'Trần Văn Bình', role: 'Lái xe', phone: '0901 111 222' },
@@ -231,8 +237,9 @@ export const StaffScheduleView: React.FC = () => {
     });
 
     setSchedules(updatedSchedules);
+    const shiftsCountText = data.shiftTypes ? `(${data.shiftTypes.length} loại ca)` : '';
     showNotification(
-      `Đã gửi đơn đăng ký ${data.dates.length} ca trực thành công tới Ban Chỉ Huy CAD!`
+      `Đã gửi đơn đăng ký ${data.dates.length} ngày ${shiftsCountText} thành công tới Ban Chỉ Huy CAD!`
     );
   };
 
@@ -490,18 +497,6 @@ export const StaffScheduleView: React.FC = () => {
         {/* View mode switcher */}
         <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl text-xs">
           <button
-            onClick={() => setViewMode('month')}
-            className={`px-3.5 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
-              viewMode === 'month'
-                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <CalendarIcon className="w-4 h-4" />
-            <span>Lịch Tháng (30 Ngày)</span>
-          </button>
-
-          <button
             onClick={() => setViewMode('week')}
             className={`px-3.5 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
               viewMode === 'week'
@@ -511,6 +506,18 @@ export const StaffScheduleView: React.FC = () => {
           >
             <Clock className="w-4 h-4" />
             <span>Lịch Tuần (7 Ngày)</span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('month')}
+            className={`px-3.5 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
+              viewMode === 'month'
+                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <CalendarIcon className="w-4 h-4" />
+            <span>Lịch Tháng (30 Ngày)</span>
           </button>
 
           <button
@@ -591,20 +598,6 @@ export const StaffScheduleView: React.FC = () => {
       </div>
 
       {/* 4. MAIN SCHEDULE VIEW CONTAINER */}
-      {viewMode === 'month' && (
-        <ShiftMonthCalendar
-          currentDate={currentCalendarDate}
-          onPrevMonth={handlePrevMonth}
-          onNextMonth={handleNextMonth}
-          onToday={handleTodayMonth}
-          schedules={schedules}
-          selectedDateStr={selectedShift?.date || null}
-          onSelectShift={(shift) => setSelectedShift(shift)}
-          onQuickRegisterDate={handleQuickRegisterDate}
-          filterShiftType={filterShiftType}
-        />
-      )}
-
       {viewMode === 'week' && (
         <ShiftWeekCalendar
           currentWeekStart={currentWeekMonday}
@@ -615,6 +608,20 @@ export const StaffScheduleView: React.FC = () => {
           selectedDateStr={selectedShift?.date || null}
           onSelectShift={(shift) => setSelectedShift(shift)}
           onRequestSwap={handleOpenSwapForShift}
+          onQuickRegisterDate={handleQuickRegisterDate}
+          filterShiftType={filterShiftType}
+        />
+      )}
+
+      {viewMode === 'month' && (
+        <ShiftMonthCalendar
+          currentDate={currentCalendarDate}
+          onPrevMonth={handlePrevMonth}
+          onNextMonth={handleNextMonth}
+          onToday={handleTodayMonth}
+          schedules={schedules}
+          selectedDateStr={selectedShift?.date || null}
+          onSelectShift={(shift) => setSelectedShift(shift)}
           onQuickRegisterDate={handleQuickRegisterDate}
           filterShiftType={filterShiftType}
         />

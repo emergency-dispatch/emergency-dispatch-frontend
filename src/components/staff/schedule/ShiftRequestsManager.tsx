@@ -240,9 +240,31 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                   </div>
                   <div>
                     <span className="text-slate-500 font-mono-data">Ca trực:</span>{' '}
-                    <span className={`px-1.5 py-0.2 rounded border font-bold text-[10px] ${shiftCfg.bgClass} ${shiftCfg.borderClass} ${shiftCfg.textClass}`}>
-                      {shiftCfg.label}
-                    </span>
+                    <div className="inline-flex flex-wrap items-center gap-1 mt-0.5">
+                      {req.shiftTypes && req.shiftTypes.length > 0 ? (
+                        req.shiftTypes.map((st) => {
+                          const cfg = SHIFT_TYPE_CONFIG[st];
+                          return (
+                            <span
+                              key={st}
+                              className={`px-1.5 py-0.2 rounded border font-bold text-[10px] ${cfg.bgClass} ${cfg.borderClass} ${cfg.textClass}`}
+                            >
+                              {cfg.label}
+                            </span>
+                          );
+                        })
+                      ) : (
+                        <span
+                          className={`px-1.5 py-0.2 rounded border font-bold text-[10px] ${
+                            SHIFT_TYPE_CONFIG[req.shiftType || 'morning'].bgClass
+                          } ${SHIFT_TYPE_CONFIG[req.shiftType || 'morning'].borderClass} ${
+                            SHIFT_TYPE_CONFIG[req.shiftType || 'morning'].textClass
+                          }`}
+                        >
+                          {SHIFT_TYPE_CONFIG[req.shiftType || 'morning'].label}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <span className="text-slate-500 font-mono-data">Đơn vị:</span>{' '}

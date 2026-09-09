@@ -155,7 +155,9 @@ export interface ShiftRegistrationRequest {
   staffName: string;
   registrationType: ShiftRegistrationType;
   dates: string[]; // List of YYYY-MM-DD
-  shiftType: ShiftType;
+  shiftType?: ShiftType;
+  shiftTypes?: ShiftType[]; // Multiple selected shift types
+  dayShiftMap?: Record<string, ShiftType>; // Per-day specific shift assignments
   stationName: string;
   desiredRole: string;
   preferredVehicle?: string;
