@@ -25,6 +25,7 @@ import {
   Sunset,
   Moon,
   Flame,
+  Eye,
 } from 'lucide-react';
 import type {
   ShiftScheduleItem,
@@ -337,36 +338,142 @@ export const StaffScheduleView: React.FC = () => {
         </div>
       )}
 
-      {/* 1. TOP HEADER: Active Shift & GPS Check-In Terminal */}
-      <div className="bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] border border-cyan-500/40 rounded-2xl p-5 shadow-2xl space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-700/80">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-md shadow-cyan-950">
+      {/* 1. TOP KPI METRICS CARDS (Generous padding, clean Vietnamese typography) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Metric 1: Total Hours */}
+        <div className="p-4 sm:p-5 bg-gradient-to-b from-slate-900/90 to-[#0F172A] border border-slate-800/90 hover:border-cyan-500/40 rounded-2xl shadow-xl transition-all duration-200 flex items-center justify-between group">
+          <div className="space-y-1.5">
+            <div className="text-2xl sm:text-3xl font-black text-cyan-400 font-mono-data tracking-tight">
+              {totalDutyHours}h
+            </div>
+            <div className="text-xs sm:text-sm font-semibold text-slate-300">
+              Tổng Giờ Trực Tháng
+            </div>
+            <div className="text-[11px] text-slate-500">
+              Tháng 09/2026 (Đạt 100%)
+            </div>
+          </div>
+          <div className="p-3 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 group-hover:scale-110 transition-transform">
+            <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        </div>
+
+        {/* Metric 2: Night & OT */}
+        <div className="p-4 sm:p-5 bg-gradient-to-b from-slate-900/90 to-[#0F172A] border border-slate-800/90 hover:border-purple-500/40 rounded-2xl shadow-xl transition-all duration-200 flex items-center justify-between group">
+          <div className="space-y-1.5">
+            <div className="text-2xl sm:text-3xl font-black text-purple-400 font-mono-data tracking-tight">
+              {String(totalNightShifts).padStart(2, '0')}{' '}
+              <span className="text-slate-500 font-normal text-lg">/</span>{' '}
+              <span className="text-rose-400">{String(totalOvertimeShifts).padStart(2, '0')}</span>
+            </div>
+            <div className="text-xs sm:text-sm font-semibold text-slate-300">
+              Ca Đêm & Tăng Cường
+            </div>
+            <div className="text-[11px] text-slate-500">
+              {totalNightShifts} đêm • {totalOvertimeShifts} ca tăng cường
+            </div>
+          </div>
+          <div className="p-3 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 group-hover:scale-110 transition-transform">
+            <Moon className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        </div>
+
+        {/* Metric 3: Punctuality */}
+        <div className="p-4 sm:p-5 bg-gradient-to-b from-slate-900/90 to-[#0F172A] border border-slate-800/90 hover:border-emerald-500/40 rounded-2xl shadow-xl transition-all duration-200 flex items-center justify-between group">
+          <div className="space-y-1.5">
+            <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono-data tracking-tight">
+              100%
+            </div>
+            <div className="text-xs sm:text-sm font-semibold text-slate-300">
+              Chỉ Số Đúng Giờ
+            </div>
+            <div className="text-[11px] text-emerald-400/80 flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" />
+              Định vị GPS chuẩn xác
+            </div>
+          </div>
+          <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-110 transition-transform">
+            <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        </div>
+
+        {/* Metric 4: Leave balance */}
+        <div className="p-4 sm:p-5 bg-gradient-to-b from-slate-900/90 to-[#0F172A] border border-slate-800/90 hover:border-amber-500/40 rounded-2xl shadow-xl transition-all duration-200 flex items-center justify-between group">
+          <div className="space-y-1.5">
+            <div className="text-2xl sm:text-3xl font-black text-amber-400 font-mono-data tracking-tight">
+              12 <span className="text-sm font-sans font-bold text-amber-300">Ngày</span>
+            </div>
+            <div className="text-xs sm:text-sm font-semibold text-slate-300">
+              Phép Năm Còn Lại
+            </div>
+            <div className="text-[11px] text-slate-500">
+              Hạn dùng đến 31/12/2026
+            </div>
+          </div>
+          <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 group-hover:scale-110 transition-transform">
+            <Coffee className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        </div>
+      </div>
+
+      {/* 2. COMPACT UNIFIED TODAY'S ACTIVE SHIFT BANNER */}
+      <div className="bg-[#0F172A] border border-cyan-500/30 rounded-2xl p-4 sm:p-5 shadow-xl transition-all">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          {/* Left: Shift info & badges */}
+          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+            <div className="p-3 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shrink-0">
               <CalendarCheck className="w-6 h-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase font-mono-data font-bold text-cyan-400">
-                  CA TRỰC TÁC CHIẾN HÔM NAY
+
+            <div className="space-y-1.5 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2.5 py-0.5 rounded-md border border-cyan-500/30">
+                  HÔM NAY: Thứ Ba (08/09/2026)
                 </span>
                 <span
-                  className={`px-2 py-0.5 rounded text-[11px] font-mono-data font-bold border ${
+                  className={`px-2.5 py-0.5 rounded-md text-xs font-bold border ${
                     isCheckInDone
-                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                      : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                      : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                   }`}
                 >
-                  {isCheckInDone ? 'ĐÃ ĐIỂM DANH ON-DUTY' : 'CHƯA ĐIỂM DANH'}
+                  {isCheckInDone ? '● Đã Điểm Danh GPS' : '○ Chưa Điểm Danh'}
                 </span>
               </div>
-              <h2 className="text-lg sm:text-xl font-black text-white">
-                {todayShift.dayOfWeek} ({todayShift.date}) — {SHIFT_TYPE_CONFIG[todayShift.shiftType].label}
-              </h2>
+
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-300 pt-0.5">
+                <span className="font-bold text-white text-sm">
+                  {SHIFT_TYPE_CONFIG[todayShift.shiftType].label} ({todayShift.startTime} - {todayShift.endTime})
+                </span>
+                <span className="text-slate-600 hidden sm:inline">•</span>
+                <span className="flex items-center gap-1 text-slate-300">
+                  <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                  {todayShift.stationName}
+                </span>
+                <span className="text-slate-600 hidden sm:inline">•</span>
+                <span className="text-cyan-400 font-mono-data font-bold">
+                  Xe: {todayShift.vehiclePlate}
+                </span>
+                <span className="text-slate-600 hidden sm:inline">•</span>
+                <span className="flex items-center gap-1 text-slate-300">
+                  <Users className="w-3.5 h-3.5 text-emerald-400" />
+                  Kíp 3 cán bộ
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Quick Action Buttons on Header */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Right: Actions (View Details, Register, Check-in) */}
+          <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800">
+            <button
+              onClick={() => setSelectedShift(todayShift)}
+              className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-cyan-400 hover:text-white border border-cyan-500/40 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+              title="Xem chi tiết ca trực hôm nay (Quân số kíp xe, phương tiện, lịch sử GPS)"
+              aria-label="Xem chi tiết ca trực"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+
             <button
               onClick={() => {
                 setQuickRegisterDate(undefined);
@@ -387,107 +494,8 @@ export const StaffScheduleView: React.FC = () => {
               }`}
             >
               <ShieldCheck className="w-4 h-4" />
-              <span>{isCheckInDone ? 'Bàn Giao & Kết Thúc Ca' : 'Điểm Danh GPS Vào Ca'}</span>
+              <span>{isCheckInDone ? 'Bàn Giao Ca' : 'Điểm Danh GPS'}</span>
             </button>
-          </div>
-        </div>
-
-        {/* Shift Details: Station, Vehicle & Crew */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1">
-            <div className="text-slate-400 font-mono-data uppercase flex items-center gap-1.5 font-bold">
-              <Building2 className="w-3.5 h-3.5 text-blue-400" />
-              Đơn Vị & Phương Tiện Trực
-            </div>
-            <div className="text-sm font-bold text-white">{todayShift.stationName}</div>
-            <div className="text-cyan-400 font-mono-data font-bold">Xe: {todayShift.vehiclePlate}</div>
-          </div>
-
-          <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1">
-            <div className="text-slate-400 font-mono-data uppercase flex items-center gap-1.5 font-bold">
-              <Clock className="w-3.5 h-3.5 text-yellow-400" />
-              Khung Giờ Tác Chiến
-            </div>
-            <div className="text-sm font-bold text-white">
-              {todayShift.startTime} - {todayShift.endTime}
-            </div>
-            <div className="text-slate-400">
-              GPS Điểm danh:{' '}
-              <span className="text-emerald-400 font-mono-data font-bold">
-                {todayShift.checkInTime || '13:48'}
-              </span>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1">
-            <div className="text-slate-400 font-mono-data uppercase flex items-center gap-1.5 font-bold">
-              <Users className="w-3.5 h-3.5 text-emerald-400" />
-              Đồng Đội Kíp Xe ({todayShift.teamMembers.length} cán bộ)
-            </div>
-            <div className="space-y-1 pt-0.5">
-              {todayShift.teamMembers.map((m) => (
-                <div key={m.name} className="flex items-center justify-between text-slate-300">
-                  <span>
-                    {m.name} ({m.role})
-                  </span>
-                  <a
-                    href={`tel:${m.phone}`}
-                    className="text-cyan-400 hover:underline font-mono-data"
-                  >
-                    <Phone className="w-3 h-3 inline mr-1" />
-                    {m.phone}
-                  </a>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. KPI METRICS CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div className="p-3.5 bg-[#0F172A] border border-slate-800 rounded-2xl shadow-xl text-center space-y-1">
-          <div className="text-lg sm:text-xl font-black text-cyan-400 font-mono-data">
-            {totalDutyHours}h
-          </div>
-          <div className="text-[11px] text-slate-400 font-mono-data uppercase">
-            Tổng Giờ Trực Tháng
-          </div>
-        </div>
-
-        <div className="p-3.5 bg-[#0F172A] border border-slate-800 rounded-2xl shadow-xl text-center space-y-1">
-          <div className="text-lg sm:text-xl font-black text-purple-400 font-mono-data">
-            {String(totalNightShifts).padStart(2, '0')}
-          </div>
-          <div className="text-[11px] text-slate-400 font-mono-data uppercase">
-            Ca Trực Đêm
-          </div>
-        </div>
-
-        <div className="p-3.5 bg-[#0F172A] border border-slate-800 rounded-2xl shadow-xl text-center space-y-1">
-          <div className="text-lg sm:text-xl font-black text-rose-400 font-mono-data">
-            {String(totalOvertimeShifts).padStart(2, '0')}
-          </div>
-          <div className="text-[11px] text-slate-400 font-mono-data uppercase">
-            Trực Tăng Cường OT
-          </div>
-        </div>
-
-        <div className="p-3.5 bg-[#0F172A] border border-slate-800 rounded-2xl shadow-xl text-center space-y-1">
-          <div className="text-lg sm:text-xl font-black text-emerald-400 font-mono-data">
-            100%
-          </div>
-          <div className="text-[11px] text-slate-400 font-mono-data uppercase">
-            Đúng Giờ GPS
-          </div>
-        </div>
-
-        <div className="p-3.5 bg-[#0F172A] border border-slate-800 rounded-2xl shadow-xl text-center space-y-1 col-span-2 sm:col-span-1">
-          <div className="text-lg sm:text-xl font-black text-amber-400 font-mono-data">
-            12 Ngày
-          </div>
-          <div className="text-[11px] text-slate-400 font-mono-data uppercase">
-            Phép Năm Còn Lại
           </div>
         </div>
       </div>
