@@ -107,7 +107,9 @@ export interface StaffProfile {
   }[];
 }
 
-export type ShiftType = 'morning' | 'afternoon' | 'night' | 'off';
+export type ShiftType = 'morning' | 'afternoon' | 'night' | 'off' | 'full_day';
+
+export type ShiftRegistrationType = 'regular' | 'overtime' | 'leave';
 
 export interface ShiftScheduleItem {
   id: string;
@@ -128,6 +130,9 @@ export interface ShiftScheduleItem {
   checkInTime?: string;
   checkOutTime?: string;
   note?: string;
+  dutyHours?: number;
+  isOvertime?: boolean;
+  registrationId?: string;
 }
 
 export interface ShiftSwapRequest {
@@ -140,6 +145,42 @@ export interface ShiftSwapRequest {
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
+  approvedBy?: string;
+  responseNote?: string;
+}
+
+export interface ShiftRegistrationRequest {
+  id: string;
+  staffId: string;
+  staffName: string;
+  registrationType: ShiftRegistrationType;
+  dates: string[]; // List of YYYY-MM-DD
+  shiftType: ShiftType;
+  stationName: string;
+  desiredRole: string;
+  preferredVehicle?: string;
+  reason?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  responseNote?: string;
+}
+
+export interface ShiftLeaveRequest {
+  id: string;
+  staffId: string;
+  staffName: string;
+  leaveType: 'annual' | 'compensatory' | 'sick' | 'personal';
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  reason: string;
+  emergencyContact?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  approvedBy?: string;
+  responseNote?: string;
 }
 
 export interface EquipmentCheckItem {

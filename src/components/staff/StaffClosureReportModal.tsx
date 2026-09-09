@@ -135,8 +135,16 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-4xl bg-[#0B0F19] border border-cyan-500/40 rounded-2xl shadow-2xl shadow-cyan-950/60 overflow-hidden text-white flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Fullscreen Backdrop Blur */}
+      <div
+        className="fixed inset-0 bg-slate-950/60 backdrop-blur-md transition-opacity"
+        onClick={onClose}
+      />
+
+      {/* Centering Dialog Container */}
+      <div className="flex min-h-full items-center justify-center p-2 sm:p-4 md:p-6 text-center">
+        <div className="relative z-10 w-full max-w-4xl bg-[#0B0F19] border border-cyan-500/40 rounded-2xl shadow-2xl shadow-cyan-950/60 overflow-hidden text-white text-left flex flex-col max-h-[92vh] my-4 animate-fadeIn">
         {/* Header */}
         <div className="px-5 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -392,5 +400,6 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };

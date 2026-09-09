@@ -78,14 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos }) => {
 
           {/* Right Action Area with buffer margin */}
           <div className="hidden sm:flex items-center gap-3 shrink-0 whitespace-nowrap ml-8 xl:ml-12">
-            <Link
-              to="/staff"
-              className="px-3.5 py-2 text-xs font-semibold text-cyan-300 hover:text-white bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 rounded-xl transition-all flex items-center gap-1.5 font-mono-data whitespace-nowrap shadow-sm hover:border-cyan-400"
-              title="Cổng tác chiến cho nhân viên hiện trường"
-            >
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-              <span>Staff MDT</span>
-            </Link>
+
 
             <Link
               to="/login"

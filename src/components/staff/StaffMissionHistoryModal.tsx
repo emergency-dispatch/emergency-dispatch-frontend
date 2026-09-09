@@ -21,8 +21,16 @@ export const StaffMissionHistoryModal: React.FC<StaffMissionHistoryModalProps> =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-3xl bg-[#0F172A] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden text-white flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Fullscreen Backdrop Blur */}
+      <div
+        className="fixed inset-0 bg-slate-950/60 backdrop-blur-md transition-opacity"
+        onClick={onClose}
+      />
+
+      {/* Centering Dialog Container */}
+      <div className="flex min-h-full items-center justify-center p-3 sm:p-6 text-center">
+        <div className="relative z-10 w-full max-w-3xl bg-[#0F172A] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden text-white text-left flex flex-col max-h-[85vh] my-6 animate-fadeIn">
         {/* Header */}
         <div className="px-5 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
@@ -116,5 +124,6 @@ export const StaffMissionHistoryModal: React.FC<StaffMissionHistoryModalProps> =
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };
