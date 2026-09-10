@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { API_CONFIG } from '../config/api';
 import { authService } from '../services/authService';
 import { userService } from '../services/userService';
@@ -16,12 +17,13 @@ export interface AuthContextType {
   user: UserDto | UserResponseDto | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isLoggingOut: boolean;
   login: (dto: LoginRequestDto) => Promise<AuthResponseDto>;
   googleLogin: (idToken: string) => Promise<AuthResponseDto>;
   register: (dto: RegisterRequestDto) => Promise<AuthResponseDto>;
   verifyEmail: (dto: VerifyEmailDto) => Promise<boolean>;
   resendVerification: (email: string) => Promise<boolean>;
-  logout: () => Promise<void>;
+  logout: (redirectTo?: string) => Promise<void>;
   refreshProfile: () => Promise<UserResponseDto | null>;
   updateProfile: (dto: UpdateProfileDto) => Promise<UserResponseDto>;
 }
@@ -29,6 +31,7 @@ export interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const navigate = useNavigate();
   const [user, setUser] = useState<UserDto | UserResponseDto | null>(() => {
     try {
       const cached = localStorage.getItem(API_CONFIG.USER_KEY);
@@ -38,6 +41,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
 
   const saveAuthSession = (authData: AuthResponseDto) => {
     localStorage.setItem(API_CONFIG.TOKEN_KEY, authData.accessToken);
@@ -157,7 +161,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return true;
   };
 
-  const logout = async () => {
+  const logout = async (redirectTo: string = '/login') => {
+    setIsLoggingOut(true);
+    // Immediately navigate away with empty history state to prevent route guards from capturing old path
+    navigate(redirectTo, { replace: true, state: {} });
+
     const refreshToken = localStorage.getItem(API_CONFIG.REFRESH_TOKEN_KEY) || undefined;
     try {
       await authService.logout(refreshToken);
@@ -165,6 +173,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Always succeed locally
     } finally {
       clearAuthSession();
+      setIsLoggingOut(false);
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (window as any).google?.accounts?.id?.disableAutoSelect?.();
@@ -190,6 +199,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         user,
         isAuthenticated: !!user && !!localStorage.getItem(API_CONFIG.TOKEN_KEY),
         isLoading,
+        isLoggingOut,
         login,
         googleLogin,
         register,

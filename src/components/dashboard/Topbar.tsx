@@ -32,8 +32,7 @@ export const Topbar: React.FC = () => {
   }, []);
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/login');
+    await logout('/login');
   };
 
   const displayName = user?.fullName || 'Điều phối viên';

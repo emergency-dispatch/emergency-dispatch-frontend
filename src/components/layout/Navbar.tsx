@@ -110,8 +110,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos }) => {
 
   const handleLogout = async () => {
     setUserDropdownOpen(false);
-    await logout();
-    navigate('/');
+    await logout('/');
   };
 
   const getRolePortal = () => {

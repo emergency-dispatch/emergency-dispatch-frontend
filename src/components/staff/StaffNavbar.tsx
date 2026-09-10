@@ -60,11 +60,10 @@ export const StaffNavbar: React.FC<StaffNavbarProps> = ({
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await logout('/login');
     } catch (err) {
       console.error('Staff logout error:', err);
     }
-    navigate('/login');
   };
 
   const displayName = user?.fullName || profile.name || 'Cán bộ tác chiến';
