@@ -23,12 +23,3 @@ export interface DashboardNotification {
   unclaimedMinutes: number;
   acknowledged: boolean;
 }
-
-export interface DashboardUser {
-  name: string;
-  role: string;
-  avatarInitials: string;
-  status: 'online' | 'away' | 'offline';
-  station: string;
-  area: string;
-}

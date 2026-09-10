@@ -46,7 +46,7 @@ const App: React.FC = () => {
             }
           />
 
-          {/* Operator Command Center & Backoffice (Protected: Operator, Admin) */}
+          {/* Operator Command Center (Protected: Operator, Admin) & Backoffice (Protected: Admin only) */}
           <Route
             path="/dashboard"
             element={
@@ -61,10 +61,13 @@ const App: React.FC = () => {
             <Route path="command-center/live-map" element={<LiveMapPage />} />
             <Route path="command-center/incidents" element={<IncidentQueuePage />} />
             <Route path="command-center/analytics" element={<AnalyticsPage />} />
-            <Route path="backoffice/stations" element={<StationsPage />} />
-            <Route path="backoffice/vehicles" element={<VehiclesPage />} />
-            <Route path="backoffice/accounts" element={<AccountsPage />} />
-            <Route path="backoffice/escalation" element={<EscalationConfigPage />} />
+
+            <Route element={<RoleRoute allowedRoles={[UserRole.Admin]} />}>
+              <Route path="backoffice/stations" element={<StationsPage />} />
+              <Route path="backoffice/vehicles" element={<VehiclesPage />} />
+              <Route path="backoffice/accounts" element={<AccountsPage />} />
+              <Route path="backoffice/escalation" element={<EscalationConfigPage />} />
+            </Route>
           </Route>
 
           {/* Fallback */}

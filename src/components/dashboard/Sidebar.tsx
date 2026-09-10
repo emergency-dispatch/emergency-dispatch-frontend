@@ -2,6 +2,8 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronsLeft, ChevronsRight, ShieldAlert } from 'lucide-react';
 import { dashboardNavGroups } from '../../data/dashboardMock';
+import { useAuth } from '../../hooks/useAuth';
+import { UserRole } from '../../types/auth';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -9,6 +11,12 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
+  const { user } = useAuth();
+  // Back-office is Admin-only; Operator only sees Command Center.
+  const visibleNavGroups = dashboardNavGroups.filter(
+    (group) => group.id !== 'backoffice' || user?.role === UserRole.Admin
+  );
+
   return (
     <aside
       className={`flex flex-col h-full shrink-0 bg-white border-r border-slate-200 transition-all duration-300 ${
@@ -29,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
 
       {/* Nav groups */}
       <nav className="flex-1 overflow-y-auto py-4 space-y-6">
-        {dashboardNavGroups.map((group) => (
+        {visibleNavGroups.map((group) => (
           <div key={group.id} className="px-3">
             {!collapsed && (
               <div className="px-2.5 mb-2 text-[10px] font-mono-data uppercase tracking-widest text-slate-400 font-bold">

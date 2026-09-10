@@ -1,5 +1,5 @@
 import { BarChart3, Building2, ListChecks, Map, Settings2, Truck, Users } from 'lucide-react';
-import type { DashboardNavGroup, DashboardNotification, DashboardUser } from '../types/dashboard';
+import type { DashboardNavGroup, DashboardNotification } from '../types/dashboard';
 
 export const dashboardNavGroups: DashboardNavGroup[] = [
   {
@@ -22,15 +22,6 @@ export const dashboardNavGroups: DashboardNavGroup[] = [
     ],
   },
 ];
-
-export const mockDashboardUser: DashboardUser = {
-  name: 'Phạm Trung Tín',
-  role: 'Dispatch Operator',
-  avatarInitials: 'PT',
-  status: 'online',
-  station: 'Trạm PCCC Quận 1',
-  area: 'Khu vực Trung tâm',
-};
 
 // Escalation Logic Engine: Level 4-5 incidents unclaimed past 5 minutes should alert the operator.
 export const mockNotifications: DashboardNotification[] = [
