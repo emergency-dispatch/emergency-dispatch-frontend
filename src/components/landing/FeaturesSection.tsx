@@ -73,32 +73,27 @@ export const FeaturesSection: React.FC = () => {
   ];
 
   return (
-    <section id="features" className="py-24 bg-[#0F172A] relative overflow-hidden cad-grid-bg">
-      
-      {/* Background ambient lighting */}
-      <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-red-600/10 rounded-full blur-[140px] pointer-events-none"></div>
-      <div className="absolute bottom-1/4 left-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[140px] pointer-events-none"></div>
-
+    <section id="features" className="py-20 sm:py-24 bg-white relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-800/90 border border-slate-700 shadow-md whitespace-nowrap">
-            <Zap className="w-4 h-4 text-amber-400 shrink-0" />
-            <span className="text-xs font-mono-data uppercase tracking-widest text-slate-300 font-bold">
-              Core Capabilities
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50 border border-red-100 shadow-xs whitespace-nowrap">
+            <Zap className="w-4 h-4 text-red-600 shrink-0" />
+            <span className="text-xs font-mono-data uppercase tracking-widest text-red-600 font-bold">
+              TÍNH NĂNG NỀN TẢNG CAD
             </span>
           </div>
 
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight text-balance">
-            Engineered for Extreme{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-orange-400 to-blue-400">
-              Reliability &amp; Speed
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight text-balance">
+            Tối Ưu Hóa Tác Chiến{' '}
+            <span className="text-red-600">
+              Tốc Độ &amp; Chuẩn Xác
             </span>
           </h2>
 
-          <p className="text-base sm:text-lg text-slate-300 leading-relaxed text-balance">
-            A comprehensive suite of next-generation CAD technologies designed to eliminate human latency and streamline critical emergency operations.
+          <p className="text-base sm:text-lg text-slate-600 leading-relaxed text-balance">
+            Bộ công cụ điều phối thông minh kết hợp thị giác AI giúp rút ngắn thời gian xử lý sự cố khẩn cấp và bảo vệ tính mạng người dân.
           </p>
         </div>
 
@@ -110,34 +105,30 @@ export const FeaturesSection: React.FC = () => {
             return (
               <div
                 key={idx}
-                className={`group relative rounded-2xl cad-glass p-6 sm:p-7 border border-slate-800 transition-all duration-300 flex flex-col justify-between h-full hover:-translate-y-1.5 ${feature.border} ${feature.glow}`}
+                className="group relative rounded-2xl bg-white p-6 sm:p-7 border border-slate-200 shadow-sm hover:shadow-lg hover:border-red-500 transition-all duration-300 flex flex-col justify-between h-full hover:-translate-y-1"
               >
-                {/* HUD Corners */}
-                <div className="hud-corner-tl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="hud-corner-tr opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
                 <div>
                   <div className="flex items-center justify-between mb-5">
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300 shrink-0`}>
+                    <div className="w-12 h-12 rounded-xl bg-red-600 text-white flex items-center justify-center shadow-md shadow-red-500/20 group-hover:scale-105 transition-transform duration-300 shrink-0">
                       <Icon className="w-6 h-6" />
                     </div>
-                    <span className="text-[11px] font-mono-data text-slate-400 font-bold px-2.5 py-1 rounded bg-slate-900 border border-slate-800 whitespace-nowrap">
+                    <span className="text-[11px] font-mono-data text-slate-700 font-bold px-2.5 py-1 rounded bg-slate-100 border border-slate-200 whitespace-nowrap">
                       {feature.badge}
                     </span>
                   </div>
 
-                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors text-balance leading-snug">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-red-600 transition-colors text-balance leading-snug">
                     {feature.title}
                   </h3>
 
-                  <p className="text-sm text-slate-300 leading-relaxed text-balance">
+                  <p className="text-sm text-slate-600 leading-relaxed text-balance">
                     {feature.description}
                   </p>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs font-mono-data text-slate-400">
-                  <span className="text-emerald-400 font-semibold whitespace-nowrap">CAD VERIFIED</span>
-                  <span className="group-hover:text-white transition-colors whitespace-nowrap">FEATURE 0{idx + 1}</span>
+                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-mono-data text-slate-500">
+                  <span className="text-red-600 font-semibold whitespace-nowrap">CAD TIÊU CHUẨN</span>
+                  <span className="group-hover:text-slate-900 transition-colors whitespace-nowrap">PHÂN HỆ 0{idx + 1}</span>
                 </div>
               </div>
             );

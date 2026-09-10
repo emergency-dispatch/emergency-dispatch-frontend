@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StaffNavbar } from '../../components/staff/StaffNavbar';
 import { StaffSidebar, type StaffNavTab } from '../../components/staff/StaffSidebar';
 import { StaffStatusStepper } from '../../components/staff/StaffStatusStepper';
@@ -19,14 +19,64 @@ import {
   mockRouteSteps,
   mockRoutePolyline,
 } from '../../data/staffMock';
-import type { StaffMission, MissionStatus, DigitalClosureReport } from '../../types/staff';
+import type { StaffMission, MissionStatus, DigitalClosureReport, StaffProfile } from '../../types/staff';
 import { SEVERITY_META } from '../../data/incidentMock';
 import { HazardTagBadge } from '../../components/dashboard/incidents/HazardTagBadge';
 import { MapPin, Phone, User, ShieldAlert, Clock } from 'lucide-react';
 import { staffAudioService } from '../../services/staffAudioService';
+import { useAuth } from '../../hooks/useAuth';
 
 export const StaffPage: React.FC = () => {
-  const [profile] = useState(mockStaffProfile);
+  const { user, refreshProfile } = useAuth();
+
+  const [profile, setProfile] = useState<StaffProfile>(() => {
+    if (user) {
+      return {
+        ...mockStaffProfile,
+        id: user.id || mockStaffProfile.id,
+        name: user.fullName || mockStaffProfile.name,
+        email: user.email || mockStaffProfile.email,
+        phone: user.phoneNumber || mockStaffProfile.phone,
+        role: user.role === 'RescueStaff' ? 'Chỉ Huy Xe Phản Ứng Cứu Hộ' : (user.role || mockStaffProfile.role),
+        stationName: user.stationName || mockStaffProfile.stationName,
+        badgeNumber: user.id ? `ED-${user.id.slice(-4).toUpperCase()}` : mockStaffProfile.badgeNumber,
+      };
+    }
+    return mockStaffProfile;
+  });
+
+  useEffect(() => {
+    refreshProfile().then((userData) => {
+      if (userData) {
+        setProfile((prev) => ({
+          ...prev,
+          id: userData.id || prev.id,
+          name: userData.fullName || prev.name,
+          email: userData.email || prev.email,
+          phone: userData.phoneNumber || prev.phone,
+          role: userData.role === 'RescueStaff' ? 'Chỉ Huy Xe Phản Ứng Cứu Hộ' : (userData.role || prev.role),
+          stationName: userData.stationName || prev.stationName,
+          badgeNumber: userData.citizenIdNumber ? `ED-${userData.citizenIdNumber.slice(-4)}` : (userData.id ? `ED-${userData.id.slice(-4).toUpperCase()}` : prev.badgeNumber),
+        }));
+      }
+    });
+  }, [refreshProfile]);
+
+  const handleProfileUpdated = useCallback((updatedUser: any) => {
+    if (updatedUser) {
+      setProfile((prev) => ({
+        ...prev,
+        id: updatedUser.id || prev.id,
+        name: updatedUser.fullName || prev.name,
+        email: updatedUser.email || prev.email,
+        phone: updatedUser.phoneNumber || prev.phone,
+        role: updatedUser.role === 'RescueStaff' ? 'Chỉ Huy Xe Phản Ứng Cứu Hộ' : (updatedUser.role || prev.role),
+        stationName: updatedUser.stationName || prev.stationName,
+        badgeNumber: updatedUser.citizenIdNumber ? `ED-${updatedUser.citizenIdNumber.slice(-4)}` : (updatedUser.id ? `ED-${updatedUser.id.slice(-4).toUpperCase()}` : prev.badgeNumber),
+      }));
+    }
+  }, []);
+
   const [activeTab, setActiveTab] = useState<StaffNavTab>('mission');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
 
@@ -185,7 +235,7 @@ export const StaffPage: React.FC = () => {
   const severityMeta = SEVERITY_META[activeMission.severity];
 
   return (
-    <div className="flex h-screen w-screen bg-[#070B14] text-slate-100 overflow-hidden font-sans select-none">
+    <div className="flex h-screen w-screen bg-slate-50 text-slate-900 overflow-hidden font-sans select-none">
       {/* 1. Left Feature Sidebar Component */}
       <StaffSidebar
         activeTab={activeTab}
@@ -230,28 +280,28 @@ export const StaffPage: React.FC = () => {
                 />
 
                 {/* Incident Summary Card */}
-                <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3 shrink-0">
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded text-xs font-mono-data font-bold flex items-center gap-1 border ${severityMeta.badgeClass}`}>
+                      <span className={`px-2 py-0.5 rounded text-xs font-mono font-bold flex items-center gap-1 border ${severityMeta.badgeClass}`}>
                         <ShieldAlert className="w-3.5 h-3.5" />
                         MỨC ĐỘ {activeMission.severity} ({severityMeta.label})
                       </span>
-                      <span className="text-xs text-slate-400 font-mono-data">
+                      <span className="text-xs text-slate-500 font-mono">
                         #{activeMission.incidentId}
                       </span>
                     </div>
 
-                    <span className="text-xs text-cyan-400 font-mono-data font-bold">
+                    <span className="text-xs text-red-600 font-mono font-bold">
                       {activeMission.area}
                     </span>
                   </div>
 
-                  <h3 className="text-sm sm:text-base font-bold text-white leading-snug">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
                     {activeMission.title}
                   </h3>
 
-                  <p className="text-xs text-slate-300 leading-relaxed">
+                  <p className="text-xs text-slate-600 leading-relaxed">
                     {activeMission.description}
                   </p>
 
@@ -263,20 +313,20 @@ export const StaffPage: React.FC = () => {
                   </div>
 
                   {/* Address & Caller */}
-                  <div className="pt-2 border-t border-slate-800/80 space-y-2 text-xs">
-                    <div className="flex items-start gap-2 text-slate-300">
-                      <MapPin className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                      <span className="font-medium text-white">{activeMission.address}</span>
+                  <div className="pt-2 border-t border-slate-100 space-y-2 text-xs">
+                    <div className="flex items-start gap-2 text-slate-600">
+                      <MapPin className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                      <span className="font-medium text-slate-900">{activeMission.address}</span>
                     </div>
 
-                    <div className="flex items-center justify-between text-slate-400 bg-slate-900/60 p-2 rounded-lg">
+                    <div className="flex items-center justify-between text-slate-600 bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
                       <div className="flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-blue-400" />
-                        <span>Người báo: <strong className="text-slate-200">{activeMission.callerName}</strong></span>
+                        <User className="w-3.5 h-3.5 text-red-600" />
+                        <span>Người báo: <strong className="text-slate-900">{activeMission.callerName}</strong></span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                        <a href={`tel:${activeMission.callerPhone}`} className="text-emerald-400 font-mono-data font-semibold hover:underline">
+                        <Phone className="w-3.5 h-3.5 text-red-600" />
+                        <a href={`tel:${activeMission.callerPhone}`} className="text-red-600 font-mono font-bold hover:underline">
                           {activeMission.callerPhone}
                         </a>
                       </div>
@@ -315,7 +365,9 @@ export const StaffPage: React.FC = () => {
           {activeTab === 'equipment' && <StaffEquipmentView />}
 
           {/* TAB 5: Staff Profile & Certifications */}
-          {activeTab === 'profile' && <StaffProfileView profile={profile} />}
+          {activeTab === 'profile' && (
+            <StaffProfileView profile={profile} onProfileUpdated={handleProfileUpdated} />
+          )}
         </main>
       </div>
 

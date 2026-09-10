@@ -44,50 +44,50 @@ export const SHIFT_TYPE_CONFIG: Record<
     shortLabel: 'Sáng',
     time: '06:00 - 14:00',
     icon: Sun,
-    bgClass: 'bg-amber-500/15 hover:bg-amber-500/25',
-    borderClass: 'border-amber-500/40',
-    textClass: 'text-amber-300',
-    dotClass: 'bg-amber-400',
+    bgClass: 'bg-amber-50 hover:bg-amber-100',
+    borderClass: 'border-amber-200',
+    textClass: 'text-amber-800',
+    dotClass: 'bg-amber-500',
   },
   afternoon: {
     label: 'Ca Chiều',
     shortLabel: 'Chiều',
     time: '14:00 - 22:00',
     icon: Sunset,
-    bgClass: 'bg-cyan-500/15 hover:bg-cyan-500/25',
-    borderClass: 'border-cyan-500/40',
-    textClass: 'text-cyan-300',
-    dotClass: 'bg-cyan-400',
+    bgClass: 'bg-blue-50 hover:bg-blue-100',
+    borderClass: 'border-blue-200',
+    textClass: 'text-blue-800',
+    dotClass: 'bg-blue-600',
   },
   night: {
     label: 'Ca Đêm',
     shortLabel: 'Đêm',
     time: '22:00 - 06:00',
     icon: Moon,
-    bgClass: 'bg-purple-500/15 hover:bg-purple-500/25',
-    borderClass: 'border-purple-500/40',
-    textClass: 'text-purple-300',
-    dotClass: 'bg-purple-400',
+    bgClass: 'bg-purple-50 hover:bg-purple-100',
+    borderClass: 'border-purple-200',
+    textClass: 'text-purple-800',
+    dotClass: 'bg-purple-600',
   },
   full_day: {
     label: 'Trực Chiến 24h',
     shortLabel: '24 Giờ',
     time: '08:00 - 08:00',
     icon: Flame,
-    bgClass: 'bg-rose-500/20 hover:bg-rose-500/30',
-    borderClass: 'border-rose-500/50',
-    textClass: 'text-rose-300',
-    dotClass: 'bg-rose-400',
+    bgClass: 'bg-red-50 hover:bg-red-100',
+    borderClass: 'border-red-200',
+    textClass: 'text-red-700 font-bold',
+    dotClass: 'bg-red-600',
   },
   off: {
     label: 'Nghỉ Ca / Nghỉ Bù',
     shortLabel: 'Nghỉ Ca',
     time: 'Nghỉ ngơi',
     icon: Coffee,
-    bgClass: 'bg-slate-800/60 hover:bg-slate-800',
-    borderClass: 'border-slate-700/60',
-    textClass: 'text-slate-400',
-    dotClass: 'bg-slate-500',
+    bgClass: 'bg-slate-100 hover:bg-slate-200',
+    borderClass: 'border-slate-200',
+    textClass: 'text-slate-600',
+    dotClass: 'bg-slate-400',
   },
 };
 
@@ -157,25 +157,25 @@ export const ShiftMonthCalendar: React.FC<ShiftMonthCalendarProps> = ({
   const todayStr = '2026-09-08'; // System reference date
 
   return (
-    <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xl space-y-4">
+    <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4 text-slate-900">
       {/* Calendar Header Navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <div className="flex items-center bg-slate-900 border border-slate-700/80 rounded-xl p-0.5">
+          <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl p-0.5">
             <button
               onClick={onPrevMonth}
               title="Tháng trước"
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-white rounded-lg transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <div className="px-3 font-black text-sm text-cyan-400 font-mono-data tracking-wide min-w-[140px] text-center">
+            <div className="px-3 font-black text-sm text-red-600 font-mono-data tracking-wide min-w-[140px] text-center">
               {monthTitle}
             </div>
             <button
               onClick={onNextMonth}
               title="Tháng sau"
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-white rounded-lg transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -183,7 +183,7 @@ export const ShiftMonthCalendar: React.FC<ShiftMonthCalendarProps> = ({
 
           <button
             onClick={onToday}
-            className="px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold rounded-xl transition-all shadow-sm"
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 text-xs font-semibold rounded-xl transition-all shadow-sm"
           >
             Hôm Nay
           </button>
@@ -204,12 +204,12 @@ export const ShiftMonthCalendar: React.FC<ShiftMonthCalendarProps> = ({
       </div>
 
       {/* Weekday Header Row */}
-      <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center text-xs font-bold text-slate-400 font-mono-data">
+      <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center text-xs font-bold text-slate-500 font-mono-data">
         {DAY_NAMES.map((name, idx) => (
           <div
             key={name}
             className={`py-2 rounded-lg ${
-              idx >= 5 ? 'text-amber-400/90 bg-amber-950/10' : 'bg-slate-900/60'
+              idx >= 5 ? 'text-red-700 bg-red-50/50' : 'bg-slate-50'
             }`}
           >
             {name}
@@ -242,12 +242,12 @@ export const ShiftMonthCalendar: React.FC<ShiftMonthCalendarProps> = ({
               }}
               className={`min-h-[105px] sm:min-h-[125px] p-2 rounded-xl border flex flex-col justify-between transition-all duration-200 cursor-pointer group relative overflow-hidden ${
                 !cell.isCurrentMonth
-                  ? 'bg-slate-950/30 border-slate-900/60 opacity-35'
+                  ? 'bg-slate-50/60 border-slate-100 opacity-40'
                   : isSelected
-                  ? 'bg-cyan-950/50 border-cyan-400 shadow-lg shadow-cyan-950/50 ring-1 ring-cyan-400'
+                  ? 'bg-red-50/40 border-red-500 shadow-md ring-1 ring-red-500'
                   : isToday
-                  ? 'bg-slate-900/95 border-emerald-500/80 shadow-md shadow-emerald-950/30 ring-1 ring-emerald-500/40'
-                  : 'bg-slate-900/70 border-slate-800/90 hover:border-slate-700 hover:bg-slate-850'
+                  ? 'bg-slate-50 border-red-500 shadow-sm ring-1 ring-red-400'
+                  : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/70'
               } ${isFilteredOut ? 'opacity-25 grayscale' : ''}`}
             >
               {/* Day Number Header */}
@@ -255,26 +255,26 @@ export const ShiftMonthCalendar: React.FC<ShiftMonthCalendarProps> = ({
                 <span
                   className={`text-xs font-mono-data font-bold px-1.5 py-0.5 rounded ${
                     isToday
-                      ? 'bg-emerald-500 text-slate-950 font-black'
+                      ? 'bg-red-600 text-white font-black'
                       : isSelected
-                      ? 'bg-cyan-500 text-slate-950 font-black'
+                      ? 'bg-red-600 text-white font-black'
                       : cell.isCurrentMonth
-                      ? 'text-slate-200 group-hover:text-white'
-                      : 'text-slate-600'
+                      ? 'text-slate-700 group-hover:text-slate-900'
+                      : 'text-slate-400'
                   }`}
                 >
                   {cell.day}
                 </span>
 
                 {isToday && (
-                  <span className="text-[9px] font-mono-data font-bold text-emerald-400 uppercase tracking-tighter">
+                  <span className="text-[9px] font-mono-data font-bold text-red-600 uppercase tracking-tighter">
                     Hôm Nay
                   </span>
                 )}
 
                 {/* Overtime tag */}
                 {shift?.isOvertime && (
-                  <span className="px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[9px] font-mono-data font-bold">
+                  <span className="px-1 py-0.2 rounded bg-red-100 text-red-700 border border-red-200 text-[9px] font-mono-data font-bold">
                     OT
                   </span>
                 )}
@@ -292,12 +292,12 @@ export const ShiftMonthCalendar: React.FC<ShiftMonthCalendarProps> = ({
                         <span className="truncate">{config.shortLabel}</span>
                       </div>
                       {shift.status === 'checked_in' && (
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                        <span className="w-2 h-2 rounded-full bg-red-600 animate-ping shrink-0" />
                       )}
                     </div>
 
                     {shift.shiftType !== 'off' && (
-                      <div className="text-[10px] font-mono-data text-slate-300 truncate mt-0.5">
+                      <div className="text-[10px] font-mono-data opacity-80 truncate mt-0.5">
                         {shift.startTime}
                       </div>
                     )}
@@ -305,41 +305,41 @@ export const ShiftMonthCalendar: React.FC<ShiftMonthCalendarProps> = ({
 
                   {/* Vehicle plate or Role preview on hover/normal */}
                   {shift.vehiclePlate && shift.vehiclePlate !== '-' && (
-                    <div className="text-[10px] font-mono-data text-cyan-400 truncate flex items-center gap-1">
-                      <Radio className="w-2.5 h-2.5 shrink-0 text-cyan-500" />
+                    <div className="text-[10px] font-mono-data text-red-600 truncate flex items-center gap-1">
+                      <Radio className="w-2.5 h-2.5 shrink-0 text-red-500" />
                       <span>{shift.vehiclePlate}</span>
                     </div>
                   )}
                 </div>
               ) : cell.isCurrentMonth ? (
                 <div className="flex flex-col items-center justify-center py-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-cyan-600 transition-colors">
+                  <span className="p-1 rounded-full bg-slate-100 text-slate-600 hover:text-white hover:bg-red-600 transition-colors">
                     <Plus className="w-3.5 h-3.5" />
                   </span>
-                  <span className="text-[9px] text-slate-400 font-mono-data mt-0.5">Đăng ký</span>
+                  <span className="text-[9px] text-slate-500 font-mono-data mt-0.5">Đăng ký</span>
                 </div>
               ) : null}
 
               {/* Status footer pill */}
               <div className="pt-0.5 flex items-center justify-between text-[10px] font-mono-data">
                 {shift?.status === 'checked_in' && (
-                  <span className="text-emerald-400 flex items-center gap-1 font-bold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span className="text-emerald-700 flex items-center gap-1 font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                     On-duty
                   </span>
                 )}
                 {shift?.status === 'completed' && (
-                  <span className="text-slate-400 flex items-center gap-1">
-                    <CheckCircle2 className="w-2.5 h-2.5 text-slate-500" />
+                  <span className="text-slate-500 flex items-center gap-1">
+                    <CheckCircle2 className="w-2.5 h-2.5 text-slate-400" />
                     Đã trực ({shift.dutyHours || 8}h)
                   </span>
                 )}
                 {shift?.status === 'swapped' && (
-                  <span className="text-amber-400 italic">Đã đổi ca</span>
+                  <span className="text-amber-700 italic">Đã đổi ca</span>
                 )}
                 {shift?.status === 'scheduled' && shift.shiftType !== 'off' && (
-                  <span className="text-slate-400 flex items-center gap-1">
-                    <Clock className="w-2.5 h-2.5 text-slate-500" />
+                  <span className="text-slate-500 flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5 text-slate-400" />
                     Đã lên lịch
                   </span>
                 )}

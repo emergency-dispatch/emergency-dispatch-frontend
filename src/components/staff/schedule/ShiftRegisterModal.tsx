@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   CalendarPlus,
@@ -239,35 +240,35 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
     : selectedDates.length *
       (SHIFT_OPTIONS.find((s) => s.type === selectedShiftTypes[0])?.hours || 8);
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 z-[9999] overflow-y-auto">
       {/* Fullscreen Backdrop Blur */}
       <div
-        className="fixed inset-0 bg-slate-950/60 backdrop-blur-md transition-opacity"
+        className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 bg-slate-950/60 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
 
       {/* Centering Dialog Container */}
       <div className="flex min-h-full items-center justify-center p-3 sm:p-6 text-center">
-        <div className="relative z-10 w-full max-w-3xl bg-[#0F172A] border border-cyan-500/40 rounded-2xl shadow-2xl p-5 sm:p-6 text-white text-left space-y-5 my-6 animate-fadeIn">
+        <div className="relative z-10 w-full max-w-3xl bg-white border border-slate-200 rounded-2xl shadow-2xl p-5 sm:p-6 text-slate-900 text-left space-y-5 my-6 animate-fadeIn">
           {/* Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
             <div className="flex items-center gap-2.5">
-              <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-md shadow-cyan-950">
+              <div className="p-2.5 rounded-xl bg-red-50 text-red-600 border border-red-200 shadow-sm">
                 <CalendarPlus className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-base sm:text-lg text-white">
+                <h3 className="font-bold text-base sm:text-lg text-slate-900">
                   Đăng Ký Lịch Trực Nhiều Ngày & Nhiều Ca
                 </h3>
-                <p className="text-xs text-slate-400 font-mono-data">
+                <p className="text-xs text-slate-500 font-mono-data">
                   Cho phép chọn nhiều ca trực hoặc phân ca chi tiết từng ngày
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -276,7 +277,7 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
           <form onSubmit={handleSubmit} className="space-y-4 text-xs">
             {/* 1. Registration Type Switcher */}
             <div className="space-y-1.5">
-              <label className="block text-slate-300 font-mono-data font-semibold">
+              <label className="block text-slate-700 font-mono-data font-semibold">
                 1. Loại hình đăng ký ca trực:
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -285,12 +286,12 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
                   onClick={() => setRegType('regular')}
                   className={`p-3 rounded-xl border text-left transition-all ${
                     regType === 'regular'
-                      ? 'bg-cyan-950/60 border-cyan-500 text-white shadow-md shadow-cyan-950/40 ring-1 ring-cyan-500'
-                      : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
+                      ? 'bg-red-50/50 border-red-500 text-slate-900 shadow-sm ring-1 ring-red-500'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300'
                   }`}
                 >
-                  <div className="font-bold text-xs text-white">Ca Trực Định Kỳ / Tháng Mới</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">
+                  <div className="font-bold text-xs text-slate-900">Ca Trực Định Kỳ / Tháng Mới</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
                     Đăng ký nguyện vọng lịch chuẩn nhiều ngày theo chu kỳ
                   </div>
                 </button>
@@ -300,15 +301,15 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
                   onClick={() => setRegType('overtime')}
                   className={`p-3 rounded-xl border text-left transition-all ${
                     regType === 'overtime'
-                      ? 'bg-rose-950/60 border-rose-500 text-white shadow-md shadow-rose-950/40 ring-1 ring-rose-500'
-                      : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
+                      ? 'bg-red-50/50 border-red-500 text-slate-900 shadow-sm ring-1 ring-red-500'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300'
                   }`}
                 >
-                  <div className="font-bold text-xs text-rose-300 flex items-center gap-1.5">
+                  <div className="font-bold text-xs text-red-600 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5" />
                     <span>Trực Tác Chiến Tăng Cường (Overtime)</span>
                   </div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">
+                  <div className="text-[11px] text-slate-500 mt-0.5">
                     Đăng ký tăng cường kíp xe trực cao điểm, lễ hội, cuối tuần
                   </div>
                 </button>
@@ -316,10 +317,10 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
             </div>
 
             {/* 2. MULTI-SHIFT SELECTION */}
-            <div className="space-y-2 p-3.5 bg-slate-900/90 rounded-2xl border border-slate-800">
+            <div className="space-y-2 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="text-slate-200 font-mono-data font-bold flex items-center gap-1.5">
-                  <Layers className="w-4 h-4 text-cyan-400" />
+                <label className="text-slate-800 font-mono-data font-bold flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-red-600" />
                   <span>2. Chọn các ca trực mong muốn (Có thể chọn nhiều ca):</span>
                 </label>
 
@@ -329,8 +330,8 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
                   onClick={() => setIsPerDayMode(!isPerDayMode)}
                   className={`px-3 py-1 rounded-xl text-xs font-mono-data font-semibold flex items-center gap-1.5 border transition-all ${
                     isPerDayMode
-                      ? 'bg-cyan-600 text-white border-cyan-400 shadow-md shadow-cyan-950'
-                      : 'bg-slate-800 text-slate-300 hover:text-white border-slate-700'
+                      ? 'bg-red-600 text-white border-red-600 shadow-sm'
+                      : 'bg-white text-slate-700 hover:text-slate-900 border-slate-300'
                   }`}
                 >
                   <Settings2 className="w-3.5 h-3.5" />
@@ -352,16 +353,16 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
                       onClick={() => handleToggleShiftType(opt.type)}
                       className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-center transition-all relative ${
                         isSelected
-                          ? `${cfg.bgClass} ${cfg.borderClass} ${cfg.textClass} ring-1 ${cfg.borderClass} shadow-lg shadow-cyan-950/30`
-                          : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                          ? `${cfg.bgClass} ${cfg.borderClass} ${cfg.textClass} ring-1 ${cfg.borderClass} shadow-sm`
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                       }`}
                     >
                       {/* Selection Checkmark Badge */}
                       <div
                         className={`absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
                           isSelected
-                            ? 'bg-cyan-500 text-slate-950 font-black'
-                            : 'border border-slate-700 bg-slate-950/60'
+                            ? 'bg-red-600 text-white font-black'
+                            : 'border border-slate-300 bg-white'
                         }`}
                       >
                         {isSelected && <Check className="w-3 h-3" />}
@@ -369,7 +370,7 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
 
                       <Icon className="w-5 h-5 mb-1" />
                       <span className="font-bold text-xs">{opt.title}</span>
-                      <span className="text-[10px] font-mono-data text-slate-400 mt-0.5">
+                      <span className="text-[10px] font-mono-data opacity-80 mt-0.5">
                         {opt.time} ({opt.hours}h)
                       </span>
                     </button>
@@ -378,12 +379,12 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
               </div>
 
               {/* Selected Shift Types Summary Badge */}
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-300 font-mono-data pt-1">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-mono-data pt-1">
                 <span>Đã chọn {selectedShiftTypes.length} loại ca:</span>
                 {selectedShiftTypes.map((st) => (
                   <span
                     key={st}
-                    className={`px-2 py-0.2 rounded border font-bold ${SHIFT_TYPE_CONFIG[st].badge}`}
+                    className={`px-2 py-0.5 rounded border font-bold ${SHIFT_TYPE_CONFIG[st].bgClass} ${SHIFT_TYPE_CONFIG[st].borderClass} ${SHIFT_TYPE_CONFIG[st].textClass}`}
                   >
                     {SHIFT_TYPE_CONFIG[st].label}
                   </span>
@@ -392,70 +393,70 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
             </div>
 
             {/* 3. MULTI-DAY DATE PICKER & MINI CALENDAR */}
-            <div className="space-y-3 p-3.5 bg-slate-900/90 rounded-2xl border border-slate-800">
+            <div className="space-y-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="text-slate-200 font-mono-data font-bold flex items-center gap-1.5">
-                  <CalendarDays className="w-4 h-4 text-cyan-400" />
+                <label className="text-slate-800 font-mono-data font-bold flex items-center gap-1.5">
+                  <CalendarDays className="w-4 h-4 text-red-600" />
                   <span>3. Chọn các ngày trực trong Tháng 09/2026:</span>
                 </label>
 
                 {/* Total Stats Tag */}
-                <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono-data font-bold text-xs">
+                <span className="px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono-data font-bold text-xs">
                   Đã chọn {selectedDates.length} ngày ({totalCalculatedHours} giờ trực)
                 </span>
               </div>
 
               {/* Quick Preset Buttons */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-[11px] text-slate-400 font-mono-data">Chọn nhanh:</span>
+                <span className="text-[11px] text-slate-500 font-mono-data">Chọn nhanh:</span>
                 <button
                   type="button"
                   onClick={() => handleSelectFullWeek(14)}
-                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] transition-colors"
+                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[11px] transition-colors shadow-sm"
                 >
                   + Tuần 14-20/9
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSelectFullWeek(21)}
-                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] transition-colors"
+                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[11px] transition-colors shadow-sm"
                 >
                   + Tuần 21-27/9
                 </button>
                 <button
                   type="button"
                   onClick={handleSelectWeekdays}
-                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] transition-colors"
+                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[11px] transition-colors shadow-sm"
                 >
                   + Tất cả T2-T6
                 </button>
                 <button
                   type="button"
                   onClick={handleSelectWeekends}
-                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] transition-colors"
+                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[11px] transition-colors shadow-sm"
                 >
                   + Cuối Tuần (T7, CN)
                 </button>
                 <button
                   type="button"
                   onClick={handleSelectAllMonth}
-                  className="px-2 py-1 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-500/30 text-[11px] transition-colors font-bold"
+                  className="px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-[11px] transition-colors font-bold shadow-sm"
                 >
                   + Cả Tháng 9 (30 Ngày)
                 </button>
                 <button
                   type="button"
                   onClick={handleClearDates}
-                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-red-950/60 text-slate-400 hover:text-red-300 text-[11px] transition-colors ml-auto"
+                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-red-50 text-slate-500 hover:text-red-600 text-[11px] transition-colors ml-auto shadow-sm"
                 >
                   Xóa Chọn
                 </button>
               </div>
 
               {/* Interactive Mini Calendar Grid (Month 09/2026) */}
-              <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800/90 space-y-2">
+              <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2 shadow-sm">
                 {/* Weekday Header */}
-                <div className="grid grid-cols-7 gap-1 text-center font-mono-data text-[11px] font-bold text-slate-400">
+                <div className="grid grid-cols-7 gap-1 text-center font-mono-data text-[11px] font-bold text-slate-500">
                   {DAY_NAMES.map((name) => (
                     <div key={name} className="py-1">
                       {name}
@@ -484,10 +485,10 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
                         onClick={() => handleToggleDate(dateStr)}
                         className={`h-9 rounded-lg font-mono-data text-xs font-bold transition-all flex flex-col items-center justify-center relative ${
                           isSelected
-                            ? 'bg-gradient-to-br from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950 ring-1 ring-cyan-300 scale-[1.02]'
+                            ? 'bg-red-600 text-white shadow-sm ring-1 ring-red-400 scale-[1.02]'
                             : isToday
-                            ? 'bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 hover:bg-slate-800'
-                            : 'bg-slate-900/80 border border-slate-800 text-slate-300 hover:border-slate-600 hover:bg-slate-800 hover:text-white'
+                            ? 'bg-red-50 border border-red-300 text-red-700 hover:bg-red-100'
+                            : 'bg-slate-50 border border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-100'
                         }`}
                       >
                         <span>{dayNum}</span>
@@ -495,7 +496,7 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
                           <span className="w-1.5 h-1.5 rounded-full bg-white absolute bottom-1" />
                         )}
                         {isToday && !isSelected && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 absolute bottom-1" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-600 absolute bottom-1" />
                         )}
                       </button>
                     );
@@ -504,27 +505,27 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
               </div>
 
               {/* Add Date Range Tool (From Date -> To Date) */}
-              <div className="flex flex-wrap items-center gap-2 p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
-                <span className="text-[11px] text-slate-400 font-mono-data shrink-0">
+              <div className="flex flex-wrap items-center gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[11px] text-slate-500 font-mono-data shrink-0">
                   Hoặc chọn khoảng ngày:
                 </span>
                 <input
                   type="date"
                   value={rangeStart}
                   onChange={(e) => setRangeStart(e.target.value)}
-                  className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono-data text-xs outline-none focus:border-cyan-500"
+                  className="p-1.5 rounded-lg bg-white border border-slate-300 text-slate-900 font-mono-data text-xs outline-none focus:border-red-500"
                 />
-                <span className="text-slate-500 font-mono-data text-xs">➔</span>
+                <span className="text-slate-400 font-mono-data text-xs">➔</span>
                 <input
                   type="date"
                   value={rangeEnd}
                   onChange={(e) => setRangeEnd(e.target.value)}
-                  className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono-data text-xs outline-none focus:border-cyan-500"
+                  className="p-1.5 rounded-lg bg-white border border-slate-300 text-slate-900 font-mono-data text-xs outline-none focus:border-red-500"
                 />
                 <button
                   type="button"
                   onClick={handleAddRange}
-                  className="px-3 py-1.5 bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 border border-cyan-500/40 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                  className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Thêm Khoảng Ngày</span>
@@ -533,21 +534,21 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
 
               {/* 4. PER-DAY SHIFT CUSTOMIZER TABLE (IF ENABLED) */}
               {isPerDayMode && (
-                <div className="p-3 bg-slate-950/90 rounded-xl border border-cyan-500/40 space-y-2 animate-fadeIn">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 animate-fadeIn">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-cyan-300 font-mono-data">
+                    <span className="font-bold text-xs text-slate-900 font-mono-data">
                       Bảng Phân Ca Chi Tiết Từng Ngày ({selectedDates.length} ngày):
                     </span>
 
                     {/* Quick Apply All */}
                     <div className="flex items-center gap-1 text-[10px] font-mono-data">
-                      <span className="text-slate-400">Áp dụng cho tất cả:</span>
+                      <span className="text-slate-500">Áp dụng cho tất cả:</span>
                       {SHIFT_OPTIONS.map((opt) => (
                         <button
                           key={opt.type}
                           type="button"
                           onClick={() => handleApplyShiftToAllDays(opt.type)}
-                          className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px]"
+                          className="px-1.5 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px]"
                         >
                           {opt.title}
                         </button>
@@ -562,9 +563,9 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
                       return (
                         <div
                           key={dateStr}
-                          className="p-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between gap-1"
+                          className="p-2 rounded-lg bg-white border border-slate-200 flex items-center justify-between gap-1 shadow-sm"
                         >
-                          <span className="font-mono-data font-bold text-[11px] text-white">
+                          <span className="font-mono-data font-bold text-[11px] text-slate-800">
                             {dateStr}
                           </span>
 
@@ -579,7 +580,7 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
                                 className={`px-1.5 py-0.5 rounded text-[10px] font-mono-data font-bold transition-colors ${
                                   curShift === opt.type
                                     ? `${SHIFT_TYPE_CONFIG[opt.type].bgClass} ${SHIFT_TYPE_CONFIG[opt.type].textClass} border ${SHIFT_TYPE_CONFIG[opt.type].borderClass}`
-                                    : 'bg-slate-800 text-slate-500 hover:text-slate-300'
+                                    : 'bg-slate-100 text-slate-400 hover:text-slate-700'
                                 }`}
                               >
                                 {opt.type === 'morning'
@@ -602,21 +603,21 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
               {/* Selected Dates Chips Preview */}
               {!isPerDayMode && (
                 <div className="space-y-1">
-                  <div className="text-[11px] text-slate-400 font-mono-data">
+                  <div className="text-[11px] text-slate-500 font-mono-data">
                     Danh sách {selectedDates.length} ngày đã chọn:
                   </div>
-                  <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-1.5 bg-slate-950/40 rounded-xl border border-slate-800/80">
+                  <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-1.5 bg-slate-50 rounded-xl border border-slate-200">
                     {selectedDates.map((d) => (
                       <span
                         key={d}
-                        className="px-2 py-0.5 rounded-md bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-mono-data text-[11px] flex items-center gap-1"
+                        className="px-2 py-0.5 rounded-md bg-red-50 border border-red-200 text-red-700 font-mono-data text-[11px] flex items-center gap-1"
                       >
                         <span>{d}</span>
                         {selectedDates.length > 1 && (
                           <button
                             type="button"
                             onClick={() => handleRemoveDate(d)}
-                            className="hover:text-red-400 transition-colors ml-0.5"
+                            className="hover:text-red-900 transition-colors ml-0.5 font-bold"
                           >
                             ×
                           </button>
@@ -631,14 +632,14 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
             {/* 5. Station, Role, and Vehicle Selection */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-400 font-mono-data mb-1 flex items-center gap-1">
-                  <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                <label className="text-slate-700 text-xs font-mono-data mb-1 flex items-center gap-1">
+                  <Building2 className="w-3.5 h-3.5 text-slate-500" />
                   <span>Đơn vị / Trạm trực tiếp nhận:</span>
                 </label>
                 <select
                   value={stationName}
                   onChange={(e) => setStationName(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-cyan-500 focus:outline-none"
+                  className="w-full p-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-red-500 focus:outline-none"
                 >
                   {mockAvailableStations.map((st) => (
                     <option key={st} value={st}>
@@ -649,14 +650,14 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-400 font-mono-data mb-1 flex items-center gap-1">
-                  <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                <label className="text-slate-700 text-xs font-mono-data mb-1 flex items-center gap-1">
+                  <Radio className="w-3.5 h-3.5 text-slate-500" />
                   <span>Phương tiện ưu tiên tác chiến:</span>
                 </label>
                 <select
                   value={preferredVehicle}
                   onChange={(e) => setPreferredVehicle(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-cyan-500 focus:outline-none"
+                  className="w-full p-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-red-500 focus:outline-none"
                 >
                   {mockAvailableVehicles.map((v) => (
                     <option key={v.plate} value={v.plate}>
@@ -668,13 +669,13 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-slate-400 font-mono-data mb-1">
+              <label className="block text-slate-700 text-xs font-mono-data mb-1">
                 Vị trí / Nhiệm vụ kíp trực đảm nhận:
               </label>
               <select
                 value={desiredRole}
                 onChange={(e) => setDesiredRole(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-cyan-500 focus:outline-none"
+                className="w-full p-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-red-500 focus:outline-none"
               >
                 {mockAvailableRoles.map((r) => (
                   <option key={r} value={r}>
@@ -686,7 +687,7 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
 
             {/* 6. Notes / Reason */}
             <div>
-              <label className="block text-slate-400 font-mono-data mb-1">
+              <label className="block text-slate-700 text-xs font-mono-data mb-1">
                 Ghi chú & Nguyện vọng tác chiến (Tùy chọn):
               </label>
               <textarea
@@ -694,23 +695,23 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Ghi rõ lý do nếu đăng ký trực tăng cường hoặc yêu cầu phân công đặc biệt..."
-                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-cyan-500 focus:outline-none placeholder:text-slate-600"
+                className="w-full p-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-red-500 focus:outline-none placeholder:text-slate-400"
               />
             </div>
 
             {/* Buttons */}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors font-medium"
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors font-medium text-sm"
               >
                 Hủy Bỏ
               </button>
 
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold flex items-center gap-2 shadow-lg shadow-cyan-950/60 border border-cyan-400 active:scale-95 transition-all"
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold flex items-center gap-2 shadow-sm border border-red-600 active:scale-95 transition-all text-sm"
               >
                 <Send className="w-4 h-4" />
                 <span>
@@ -721,6 +722,7 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
           </form>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

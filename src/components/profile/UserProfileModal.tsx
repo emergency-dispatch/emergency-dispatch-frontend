@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   User,
@@ -130,21 +131,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
     setIsLoading(true);
 
     try {
-      const res = await authService.changePassword({
+      await authService.changePassword({
         currentPassword,
         newPassword,
       });
-      if (res.success) {
-        setSuccessMsg('Đổi mật khẩu thành công. Thông báo bảo mật đã được gửi tới email.');
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-        setTimeout(() => setSuccessMsg(''), 4000);
-      } else {
-        setErrorMsg(res.message || 'Đổi mật khẩu thất bại.');
-      }
+
+      setSuccessMsg('Đổi mật khẩu bảo mật thành công!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setSuccessMsg(''), 3500);
     } catch (err) {
-      setErrorMsg(getApiErrorMessage(err, 'Lỗi đổi mật khẩu. Vui lòng kiểm tra mật khẩu hiện tại.'));
+      setErrorMsg(getApiErrorMessage(err, 'Đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại.'));
     } finally {
       setIsLoading(false);
     }
@@ -162,36 +160,36 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
     [BloodType.AB_Negative]: 'AB-',
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-2xl max-h-[90vh] rounded-2xl bg-[#0F172A] border border-slate-700 shadow-2xl text-slate-100 flex flex-col overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fadeIn">
+      <div className="relative w-full max-w-2xl max-h-[90vh] rounded-2xl bg-white border border-slate-200 shadow-2xl text-slate-900 flex flex-col overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/80">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
+            <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
               {user?.fullName?.substring(0, 2).toUpperCase() || 'US'}
             </div>
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span>{user?.fullName || 'Hồ sơ người dùng'}</span>
-                <span className="text-[10px] font-mono-data uppercase px-2 py-0.5 rounded-full bg-blue-950 border border-blue-800 text-blue-400 font-semibold">
+                <span className="text-[10px] font-mono-data uppercase px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700 font-bold">
                   {user?.role || UserRole.Citizen}
                 </span>
               </h2>
-              <p className="text-xs text-slate-400 font-mono-data">{user?.email}</p>
+              <p className="text-xs text-slate-500 font-mono-data">{user?.email}</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-800 bg-slate-900/40 px-6 gap-2 pt-2">
+        <div className="flex border-b border-slate-200 bg-slate-50 px-6 gap-2 pt-2">
           <button
             type="button"
             onClick={() => {
@@ -199,10 +197,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono-data font-semibold border-b-2 transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer ${
               activeTab === 'general'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-red-600 text-red-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <User className="w-3.5 h-3.5" />
@@ -216,10 +214,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono-data font-semibold border-b-2 transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer ${
               activeTab === 'medical'
-                ? 'border-red-500 text-red-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-red-600 text-red-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Heart className="w-3.5 h-3.5" />
@@ -233,10 +231,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono-data font-semibold border-b-2 transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer ${
               activeTab === 'security'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-red-600 text-red-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Lock className="w-3.5 h-3.5" />
@@ -247,15 +245,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         {/* Alerts */}
         <div className="px-6 pt-4 shrink-0">
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-red-950/70 border border-red-800 text-red-300 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-800 text-emerald-300 text-xs flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
               <span>{successMsg}</span>
             </div>
           )}
@@ -268,11 +266,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                     Họ và tên
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                       <User className="w-4 h-4" />
                     </div>
                     <input
@@ -280,34 +278,34 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                       required
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-blue-500 font-mono-data"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                     Email tài khoản (Không thể đổi)
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                       <Mail className="w-4 h-4" />
                     </div>
                     <input
                       type="email"
                       disabled
                       value={user?.email || ''}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 text-sm font-mono-data cursor-not-allowed"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 text-sm font-mono-data cursor-not-allowed"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                     Số điện thoại
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                       <Phone className="w-4 h-4" />
                     </div>
                     <input
@@ -315,13 +313,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       placeholder="+84 ..."
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-blue-500 font-mono-data"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                     Số CCCD / CMND
                   </label>
                   <input
@@ -329,18 +327,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     value={citizenIdNumber}
                     onChange={(e) => setCitizenIdNumber(e.target.value)}
                     placeholder="012345678901"
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-blue-500 font-mono-data"
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                     Giới tính
                   </label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value as Gender)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-blue-500 font-mono-data"
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   >
                     <option value={Gender.Male}>Nam</option>
                     <option value={Gender.Female}>Nữ</option>
@@ -349,29 +347,29 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                     Đơn vị / Trạm trực
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                       <Building2 className="w-4 h-4" />
                     </div>
                     <input
                       type="text"
                       disabled
                       value={user?.stationName || 'Chưa phân bổ trạm'}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 text-sm font-mono-data cursor-not-allowed"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 text-sm font-mono-data cursor-not-allowed"
                     />
                   </div>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                   Địa chỉ thường trú / Cư trú
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <MapPin className="w-4 h-4" />
                   </div>
                   <input
@@ -379,7 +377,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     placeholder="Số nhà, Tên đường, Phường/Xã, Quận/Huyện, Tỉnh/Thành..."
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-blue-500 font-mono-data"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
               </div>
@@ -388,7 +386,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-glow-blue transition-all disabled:opacity-50 flex items-center gap-2 border border-blue-500"
+                  className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-sm transition-all disabled:opacity-50 flex items-center gap-2 border border-red-600 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
                   <span>{isLoading ? 'Đang lưu...' : 'Lưu thông tin'}</span>
@@ -400,19 +398,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
           {/* TAB 2: Medical & Emergency Contact */}
           {activeTab === 'medical' && (
             <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <div className="p-3.5 rounded-xl bg-red-950/30 border border-red-900/50 text-xs text-red-300 leading-relaxed font-mono-data">
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 leading-relaxed font-mono-data">
                 Thông tin nhóm máu và bệnh lý giúp đội ngũ cứu hộ cơ động và y tế chuẩn bị phác đồ sơ cấp cứu tức thời khi bạn gặp sự cố nguy cấp.
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                     Nhóm máu y tế
                   </label>
                   <select
                     value={bloodType}
                     onChange={(e) => setBloodType(e.target.value as BloodType)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-red-500 font-mono-data"
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   >
                     {Object.values(BloodType).map((bt) => (
                       <option key={bt} value={bt}>
@@ -423,7 +421,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                     Tên người liên hệ khẩn cấp
                   </label>
                   <input
@@ -431,12 +429,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     value={emergencyContactName}
                     onChange={(e) => setEmergencyContactName(e.target.value)}
                     placeholder="Họ tên người thân (vd: Bố/Mẹ/Vợ)"
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-red-500 font-mono-data"
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                     SĐT người liên hệ khẩn cấp
                   </label>
                   <input
@@ -444,12 +442,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     value={emergencyContactPhone}
                     onChange={(e) => setEmergencyContactPhone(e.target.value)}
                     placeholder="+84 ..."
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-red-500 font-mono-data"
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                     Mối quan hệ
                   </label>
                   <input
@@ -457,13 +455,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     value={emergencyContactRelationship}
                     onChange={(e) => setEmergencyContactRelationship(e.target.value)}
                     placeholder="Bố, Mẹ, Vợ/Chồng, Anh/Chị..."
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-red-500 font-mono-data"
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                   Ghi chú bệnh nền / Dị ứng thuốc
                 </label>
                 <textarea
@@ -471,7 +469,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                   value={medicalNotes}
                   onChange={(e) => setMedicalNotes(e.target.value)}
                   placeholder="Dị ứng kháng sinh Penicillin, tiền sử tim mạch, huyết áp cao, hen suyễn..."
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-red-500 font-mono-data resize-none"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data resize-none"
                 />
               </div>
 
@@ -479,7 +477,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-glow-red transition-all disabled:opacity-50 flex items-center gap-2 border border-red-500"
+                  className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-sm transition-all disabled:opacity-50 flex items-center gap-2 border border-red-600 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
                   <span>{isLoading ? 'Đang lưu...' : 'Lưu hồ sơ y tế'}</span>
@@ -491,19 +489,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
           {/* TAB 3: Change Password */}
           {activeTab === 'security' && (
             <form onSubmit={handleChangePassword} className="space-y-4">
-              <div className="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/70 text-xs text-slate-300 leading-relaxed font-mono-data flex items-start gap-2.5">
-                <KeyRound className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed font-mono-data flex items-start gap-2.5">
+                <KeyRound className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                 <span>
                   Để bảo mật hệ thống điều phối, sau khi đổi mật khẩu thành công, toàn bộ phiên đăng nhập cũ sẽ bị thu hồi và một email cảnh báo bảo mật thời gian thực sẽ được gửi tới hòm thư của bạn.
                 </span>
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                   Mật khẩu hiện tại
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <Lock className="w-4 h-4" />
                   </div>
                   <input
@@ -512,12 +510,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono-data"
+                    className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                   <button
                     type="button"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
                   >
                     {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -525,11 +523,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                   Mật khẩu mới (Tối thiểu 6 ký tự)
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <Lock className="w-4 h-4" />
                   </div>
                   <input
@@ -539,12 +537,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono-data"
+                    className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
                   >
                     {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -552,11 +550,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                   Xác nhận mật khẩu mới
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <Lock className="w-4 h-4" />
                   </div>
                   <input
@@ -565,7 +563,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 font-mono-data"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
               </div>
@@ -574,7 +572,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-glow-blue transition-all disabled:opacity-50 flex items-center gap-2 border border-indigo-500"
+                  className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-sm transition-all disabled:opacity-50 flex items-center gap-2 border border-red-600 cursor-pointer"
                 >
                   <KeyRound className="w-4 h-4" />
                   <span>{isLoading ? 'Đang xử lý...' : 'Cập nhật mật khẩu'}</span>
@@ -584,6 +582,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

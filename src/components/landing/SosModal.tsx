@@ -12,11 +12,8 @@ import {
   Car, 
   HeartPulse, 
   ShieldAlert, 
-  Compass, 
-  Radio, 
   Sparkles,
-  Truck,
-  ArrowRight
+  Truck
 } from 'lucide-react';
 
 interface SosModalProps {
@@ -27,16 +24,15 @@ interface SosModalProps {
 export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
   const [selectedHazard, setSelectedHazard] = useState<string>('traffic');
   const [submittingState, setSubmittingState] = useState<'idle' | 'analyzing' | 'dispatched'>('idle');
-  const [locationLocked, setLocationLocked] = useState<boolean>(true);
   const [hasPhoto, setHasPhoto] = useState<boolean>(true);
 
   if (!isOpen) return null;
 
   const hazardOptions = [
-    { id: 'traffic', label: 'Traffic Collision', icon: Car, color: 'border-orange-500 text-orange-400 bg-orange-500/10' },
-    { id: 'fire', label: 'Fire & Smoke', icon: Flame, color: 'border-red-500 text-red-400 bg-red-500/10' },
-    { id: 'medical', label: 'Medical Emergency', icon: HeartPulse, color: 'border-rose-500 text-rose-400 bg-rose-500/10' },
-    { id: 'security', label: 'Violence / Police', icon: ShieldAlert, color: 'border-blue-500 text-blue-400 bg-blue-500/10' },
+    { id: 'traffic', label: 'Tai nạn giao thông', icon: Car },
+    { id: 'fire', label: 'Hỏa hoạn & Khói', icon: Flame },
+    { id: 'medical', label: 'Cấp cứu y tế', icon: HeartPulse },
+    { id: 'security', label: 'An ninh & Trật tự', icon: ShieldAlert },
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -53,22 +49,16 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl overflow-y-auto animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-fadeIn">
       
       {/* Modal Card */}
-      <div className="relative w-full max-w-2xl rounded-2xl cad-glass p-6 sm:p-8 border-2 border-red-500/70 shadow-glow-red bg-[#0F172A] text-white my-8">
+      <div className="relative w-full max-w-2xl rounded-2xl bg-white p-6 sm:p-8 border border-slate-200 shadow-2xl text-slate-900 my-8">
         
-        {/* HUD decorative corners */}
-        <div className="hud-corner-tl"></div>
-        <div className="hud-corner-tr"></div>
-        <div className="hud-corner-bl"></div>
-        <div className="hud-corner-br"></div>
-
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-lg bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
-          aria-label="Close dialog"
+          className="absolute top-5 right-5 p-2 rounded-lg bg-slate-100 text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
+          aria-label="Đóng cửa sổ"
         >
           <X className="w-5 h-5" />
         </button>
@@ -78,54 +68,54 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
             
             {/* Header */}
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-red-600 shadow-glow-red flex items-center justify-center animate-pulse">
-                <AlertTriangle className="w-6 h-6 text-white" />
+              <div className="p-3 rounded-xl bg-red-600 text-white flex items-center justify-center shadow-sm">
+                <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                  <span>Emergency SOS Dispatch</span>
-                  <span className="text-[10px] font-mono-data px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/40">
-                    PRIORITY 1
+                <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
+                  <span>Phát tín hiệu cứu nạn SOS</span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 font-bold">
+                    ƯU TIÊN CẤP 1
                   </span>
                 </h3>
-                <p className="text-xs text-slate-400 font-mono-data">
-                  Direct AI-Assisted CAD Ingestion System
+                <p className="text-xs text-slate-500">
+                  Hệ thống tiếp nhận cứu hộ khẩn cấp ResQ-AI
                 </p>
               </div>
             </div>
 
             {/* Emergency Direct Hotlines Box */}
-            <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-xs font-mono-data text-slate-300">
-                <PhoneCall className="w-4 h-4 text-red-500 animate-bounce" />
-                <span>Immediate Danger? Direct Call:</span>
+            <div className="p-3.5 rounded-xl bg-red-50/50 border border-red-100 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs text-red-700 font-medium">
+                <PhoneCall className="w-4 h-4 text-red-600 shrink-0" />
+                <span>Nguy hiểm cận kề? Gọi ngay tổng đài:</span>
               </div>
               <div className="flex items-center gap-2">
                 <a
                   href="tel:113"
-                  className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-mono-data text-xs font-bold transition-colors"
+                  className="px-3 py-1 rounded-md bg-white border border-red-200 text-red-600 hover:bg-red-600 hover:text-white font-mono text-xs font-bold transition-colors shadow-xs"
                 >
-                  113 (Police)
+                  113 (Cảnh sát)
                 </a>
                 <a
                   href="tel:114"
-                  className="px-3 py-1 rounded bg-red-600 hover:bg-red-500 text-white font-mono-data text-xs font-bold transition-colors"
+                  className="px-3 py-1 rounded-md bg-red-600 text-white font-mono text-xs font-bold hover:bg-red-700 transition-colors shadow-xs"
                 >
-                  114 (Fire)
+                  114 (Cứu hỏa)
                 </a>
                 <a
                   href="tel:115"
-                  className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-mono-data text-xs font-bold transition-colors"
+                  className="px-3 py-1 rounded-md bg-white border border-red-200 text-red-600 hover:bg-red-600 hover:text-white font-mono text-xs font-bold transition-colors shadow-xs"
                 >
-                  115 (EMS)
+                  115 (Cấp cứu)
                 </a>
               </div>
             </div>
 
             {/* Incident Type Selector */}
             <div className="space-y-2">
-              <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
-                Select Incident Nature:
+              <label className="block text-xs font-mono uppercase tracking-wider text-slate-700 font-bold">
+                Chọn loại tình huống khẩn cấp:
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {hazardOptions.map((opt) => {
@@ -136,10 +126,10 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
                       type="button"
                       key={opt.id}
                       onClick={() => setSelectedHazard(opt.id)}
-                      className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-2 text-center transition-all ${
+                      className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-2 text-center transition-all cursor-pointer ${
                         isSelected 
-                          ? `${opt.color} border-2 scale-105 shadow-md` 
-                          : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                          ? 'border-2 border-red-600 bg-red-50 text-red-600 font-bold shadow-xs' 
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
                       }`}
                     >
                       <Icon className="w-5 h-5" />
@@ -151,43 +141,43 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* GPS Telemetry Pill */}
-            <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <MapPin className="w-4 h-4 text-emerald-400 animate-pulse" />
-                <div className="text-xs font-mono-data">
-                  <span className="text-slate-400 block text-[10px]">GPS LOCATION LOCKED</span>
-                  <span className="text-white font-bold">21.0285° N, 105.8542° E (±2.4m)</span>
+                <MapPin className="w-4 h-4 text-red-600" />
+                <div className="text-xs">
+                  <span className="text-slate-500 block text-[10px] font-mono uppercase">VỊ TRÍ ĐỊNH VỊ TỰ ĐỘNG</span>
+                  <span className="text-slate-900 font-mono font-bold">21.0285° N, 105.8542° E (±2.4m)</span>
                 </div>
               </div>
-              <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-mono-data font-bold border border-emerald-500/30">
-                ACTIVE
+              <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-mono font-bold border border-emerald-200">
+                ĐÃ KHÓA TỌA ĐỘ
               </span>
             </div>
 
             {/* Media Upload Simulation */}
             <div className="space-y-2">
-              <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
-                Attach Visual / Voice Evidence (Optional):
+              <label className="block text-xs font-mono uppercase tracking-wider text-slate-700 font-bold">
+                Hình ảnh / Âm thanh hiện trường (Tùy chọn):
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <div 
                   onClick={() => setHasPhoto(!hasPhoto)}
                   className={`p-3 rounded-xl border flex items-center gap-2.5 cursor-pointer transition-colors ${
-                    hasPhoto ? 'bg-blue-950/40 border-blue-500/50 text-blue-300' : 'bg-slate-900 border-slate-800 text-slate-400'
+                    hasPhoto ? 'bg-red-50/60 border-red-300 text-slate-800' : 'bg-slate-50 border-slate-200 text-slate-500'
                   }`}
                 >
-                  <Camera className="w-4 h-4 text-blue-400" />
-                  <div className="text-xs font-mono-data">
-                    <span className="font-bold block">{hasPhoto ? 'photo_accident.jpg' : 'Attach Photo'}</span>
-                    <span className="text-[10px] text-slate-400">{hasPhoto ? 'Ready for VLM Triage' : 'Tap to upload'}</span>
+                  <Camera className="w-4 h-4 text-red-600" />
+                  <div className="text-xs">
+                    <span className="font-bold block">{hasPhoto ? 'photo_accident.jpg' : 'Chụp ảnh hiện trường'}</span>
+                    <span className="text-[10px] text-slate-500">{hasPhoto ? 'Đã tải ảnh lên' : 'Chạm để tải ảnh'}</span>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 flex items-center gap-2.5">
-                  <Mic className="w-4 h-4 text-red-400 animate-pulse" />
-                  <div className="text-xs font-mono-data">
-                    <span className="font-bold block text-slate-300">Voice Note</span>
-                    <span className="text-[10px] text-slate-500">Auto-transcribing</span>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 flex items-center gap-2.5">
+                  <Mic className="w-4 h-4 text-red-600" />
+                  <div className="text-xs">
+                    <span className="font-bold block text-slate-800">Ghi âm trực tiếp</span>
+                    <span className="text-[10px] text-slate-500">Tự động chuyển văn bản</span>
                   </div>
                 </div>
               </div>
@@ -196,11 +186,11 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
             {/* Submit Action Button */}
             <button
               type="submit"
-              className="w-full py-4 rounded-xl bg-gradient-to-r from-red-600 via-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-base uppercase tracking-wider font-mono-data shadow-glow-red hover:shadow-glow-red-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2.5 border border-red-500"
+              className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm uppercase tracking-wider shadow-md hover:shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
             >
-              <AlertTriangle className="w-5 h-5 text-white animate-bounce" />
-              <span>Broadcast Emergency SOS to CAD</span>
-              <Send className="w-4 h-4 text-red-200" />
+              <AlertTriangle className="w-5 h-5 text-white" />
+              <span>Gửi cảnh báo khẩn cấp đến CAD</span>
+              <Send className="w-4 h-4 text-white" />
             </button>
 
           </form>
@@ -210,23 +200,23 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
         {submittingState === 'analyzing' && (
           <div className="py-12 text-center space-y-6">
             <div className="relative inline-flex items-center justify-center">
-              <div className="w-20 h-20 rounded-full border-4 border-red-500/20 border-t-red-500 animate-spin"></div>
-              <Sparkles className="w-8 h-8 text-cyan-400 absolute animate-pulse" />
+              <div className="w-20 h-20 rounded-full border-4 border-red-200 border-t-red-600 animate-spin"></div>
+              <Sparkles className="w-8 h-8 text-red-600 absolute animate-pulse" />
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-2xl font-black text-white">
-                VLM AI Analyzing Incident Telemetry...
+              <h3 className="text-2xl font-extrabold text-slate-900">
+                AI đang phân tích hiện trường...
               </h3>
-              <p className="text-sm text-slate-300 font-mono-data">
-                Evaluating hazard vectors, collision severity, and querying nearby emergency stations.
+              <p className="text-sm text-slate-600">
+                Mô hình đang nhận diện mức độ nghiêm trọng và quét các trạm cứu hộ gần nhất.
               </p>
             </div>
 
-            <div className="max-w-md mx-auto p-4 rounded-xl bg-slate-900/90 border border-slate-800 text-left font-mono-data text-xs space-y-1.5 text-slate-400">
-              <div className="text-emerald-400 font-bold">✔ High-Precision GPS Fixed: (21.0285, 105.8542)</div>
-              <div className="text-cyan-400 font-bold">✔ Vision Model Extracting Hazard Tags...</div>
-              <div className="text-blue-400 font-bold">✔ Querying 14 Rescue Units in 3.5km radius...</div>
+            <div className="max-w-md mx-auto p-4 rounded-xl bg-slate-50 border border-slate-200 text-left font-mono text-xs space-y-1.5 text-slate-600">
+              <div className="text-emerald-600 font-bold">✔ Đã khóa tọa độ GPS: (21.0285, 105.8542)</div>
+              <div className="text-red-600 font-bold">✔ AI đang bóc tách phân loại rủi ro...</div>
+              <div className="text-slate-700 font-bold">✔ Tìm kiếm đội phản ứng trong bán kính 3.5km...</div>
             </div>
           </div>
         )}
@@ -234,50 +224,50 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
         {/* State 3: Dispatched Confirmation */}
         {submittingState === 'dispatched' && (
           <div className="py-8 text-center space-y-6 animate-fadeIn">
-            <div className="w-16 h-16 rounded-full bg-emerald-600/20 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/30">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-500 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
               <CheckCircle2 className="w-9 h-9" />
             </div>
 
             <div className="space-y-1">
-              <span className="text-xs font-mono-data text-emerald-400 font-bold tracking-widest uppercase">
-                SOS TRANSMISSION CONFIRMED
+              <span className="text-xs font-mono text-emerald-600 font-bold tracking-widest uppercase">
+                TÍN HIỆU CỨU NẠN ĐÃ ĐƯỢC TIẾP NHẬN
               </span>
-              <h3 className="text-2xl sm:text-3xl font-black text-white">
-                Rescue Units Dispatched
+              <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+                Lực lượng cứu hộ đang xuất phát
               </h3>
-              <p className="text-sm text-slate-300">
-                Incident <strong className="text-red-400 font-mono-data">#VN-8942</strong> triaged as <strong className="text-white font-mono-data">Level 4 (Severe)</strong>. Responders en-route.
+              <p className="text-sm text-slate-600">
+                Mã sự cố <strong className="text-red-600 font-mono">#VN-8942</strong> được xếp loại <strong className="text-slate-900 font-mono">Mức 4 (Nghiêm trọng)</strong>.
               </p>
             </div>
 
             {/* Units Card */}
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 text-left space-y-3 font-mono-data">
-              <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800">
-                <span className="text-slate-400">ASSIGNED UNITS:</span>
-                <span className="text-emerald-400 font-bold">ETA: 3m 40s</span>
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left space-y-3 font-mono">
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200">
+                <span className="text-slate-600">ĐỘI ỨNG CỨU TIẾP NHẬN:</span>
+                <span className="text-red-600 font-bold">Dự kiến đến (ETA): 3m 40s</span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-emerald-400" />
-                  <span className="text-white font-bold">Ambulance AM-04 (EMS)</span>
+                  <Truck className="w-4 h-4 text-red-600" />
+                  <span className="text-slate-900 font-bold">Xe cấp cứu AM-04 (Y tế)</span>
                 </div>
-                <span className="text-slate-400">2.1 km away</span>
+                <span className="text-slate-500">Cách 2.1 km</span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <Flame className="w-4 h-4 text-red-400" />
-                  <span className="text-white font-bold">Rescue Engine FE-09 (Fire)</span>
+                  <Flame className="w-4 h-4 text-red-600" />
+                  <span className="text-slate-900 font-bold">Xe cứu nạn FE-09 (PCCC)</span>
                 </div>
-                <span className="text-slate-400">1.4 km away</span>
+                <span className="text-slate-500">Cách 1.4 km</span>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
               <button
                 onClick={handleReset}
-                className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm font-mono-data shadow-glow-blue transition-all"
+                className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-sm transition-all cursor-pointer"
               >
-                Open Live Tracking HUD Map
+                Mở bản đồ theo dõi xe cứu hộ trực tiếp
               </button>
             </div>
           </div>

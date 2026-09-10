@@ -32,24 +32,24 @@ const STEPS: {
     label: 'Accepted',
     sublabel: 'Đã tiếp nhận',
     icon: CheckCircle2,
-    activeColor: 'from-blue-600 to-cyan-600',
-    badgeBg: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
+    activeColor: 'from-red-600 to-red-700',
+    badgeBg: 'bg-red-50 text-red-700 border-red-200',
   },
   {
     key: 'en_route',
     label: 'En route',
     sublabel: 'Đang di chuyển',
     icon: Navigation,
-    activeColor: 'from-amber-500 to-yellow-600',
-    badgeBg: 'bg-amber-500/20 text-yellow-400 border-amber-500/40',
+    activeColor: 'from-amber-500 to-amber-600',
+    badgeBg: 'bg-amber-50 text-amber-800 border-amber-200',
   },
   {
     key: 'on_scene',
     label: 'On scene',
     sublabel: 'Tại hiện trường',
     icon: Flame,
-    activeColor: 'from-red-600 to-orange-600',
-    badgeBg: 'bg-red-500/20 text-red-400 border-red-500/40',
+    activeColor: 'from-red-600 to-rose-600',
+    badgeBg: 'bg-red-50 text-red-700 border-red-200',
   },
   {
     key: 'completed',
@@ -57,7 +57,7 @@ const STEPS: {
     sublabel: 'Hoàn tất xử lý',
     icon: FileCheck2,
     activeColor: 'from-emerald-600 to-green-600',
-    badgeBg: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
+    badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   },
 ];
 
@@ -101,23 +101,23 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
   };
 
   return (
-    <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-xl space-y-3 shrink-0">
+    <div className="bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-4 shadow-sm space-y-3 shrink-0">
       {/* Top Header: Mission ID & Stopwatch */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono-data uppercase tracking-wider text-slate-400">
+          <span className="text-xs font-mono uppercase tracking-wider text-slate-500 font-bold">
             Trạng Thái:
           </span>
-          <span className={`px-2 py-0.5 rounded-md text-xs font-bold font-mono-data border ${STEPS[currentIndex]?.badgeBg}`}>
+          <span className="px-2 py-0.5 rounded-md text-xs font-bold font-mono border bg-red-50 text-red-600 border-red-200">
             {STEPS[currentIndex]?.label.toUpperCase()} ({STEPS[currentIndex]?.sublabel})
           </span>
         </div>
 
         {/* Stopwatch timer */}
-        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-slate-900 border border-slate-800 font-mono-data">
-          <Clock className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-[11px] text-slate-400">THỜI GIAN:</span>
-          <span className="text-xs sm:text-sm font-bold text-cyan-400">{formatTimer(elapsedSeconds)}</span>
+        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-slate-50 border border-slate-200 font-mono">
+          <Clock className="w-3.5 h-3.5 text-red-600" />
+          <span className="text-[11px] text-slate-500 font-medium">THỜI GIAN:</span>
+          <span className="text-xs sm:text-sm font-bold text-red-600">{formatTimer(elapsedSeconds)}</span>
         </div>
       </div>
 
@@ -142,29 +142,29 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
               }}
               className={`relative flex flex-col items-center text-center p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer select-none ${
                 isCurrent
-                  ? `bg-gradient-to-b from-slate-800/90 to-slate-900 border-cyan-500/80 shadow-md shadow-cyan-950/40`
+                  ? 'bg-red-50/70 border-red-500 shadow-xs'
                   : isDone
-                  ? 'bg-slate-900/60 border-slate-700 text-slate-300'
-                  : 'bg-slate-900/30 border-slate-800/60 text-slate-500 opacity-60'
+                  ? 'bg-slate-50 border-slate-200 text-slate-700'
+                  : 'bg-slate-50/40 border-slate-200/60 text-slate-400 opacity-60'
               }`}
             >
               {/* Step indicator circle */}
               <div
                 className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center mb-1 transition-all ${
                   isCurrent
-                    ? `bg-gradient-to-r ${step.activeColor} text-white shadow-sm animate-pulse`
+                    ? 'bg-red-600 text-white shadow-xs'
                     : isDone
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                    : 'bg-slate-800 text-slate-400'
+                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                    : 'bg-slate-100 text-slate-400'
                 }`}
               >
                 {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
               </div>
 
-              <div className="text-[11px] sm:text-xs font-bold truncate w-full text-white">
+              <div className="text-[11px] sm:text-xs font-bold truncate w-full text-slate-900">
                 {step.label}
               </div>
-              <div className="text-[9px] text-slate-400 truncate w-full hidden sm:block">
+              <div className="text-[9px] text-slate-500 truncate w-full hidden sm:block">
                 {step.sublabel}
               </div>
             </div>
@@ -177,9 +177,9 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
         {mission.status === 'accepted' && (
           <button
             onClick={handleNextStep}
-            className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-amber-950/40 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+            className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
           >
-            <Navigation className="w-4 h-4 text-slate-950 fill-current" />
+            <Navigation className="w-4 h-4 text-white fill-current" />
             <span>XUẤT PHÁT TỚI HIỆN TRƯỜNG (EN ROUTE)</span>
             <ArrowRight className="w-4 h-4" />
           </button>
@@ -188,9 +188,9 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
         {mission.status === 'en_route' && (
           <button
             onClick={handleNextStep}
-            className="w-full py-2.5 px-4 bg-gradient-to-r from-red-600 via-orange-600 to-red-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-red-950/60 flex items-center justify-center gap-2 transition-all active:scale-[0.98] animate-pulse"
+            className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
           >
-            <Flame className="w-4 h-4 text-yellow-300" />
+            <Flame className="w-4 h-4 text-white" />
             <span>XÁC NHẬN ĐÃ TỚI HIỆN TRƯỜNG (ON SCENE)</span>
             <ArrowRight className="w-4 h-4" />
           </button>
@@ -199,10 +199,10 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
         {mission.status === 'on_scene' && (
           <button
             onClick={handleNextStep}
-            className="w-full py-2.5 px-4 bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+            className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
           >
             <FileCheck2 className="w-4 h-4 text-white" />
-            <span>HOÀN TẤT XỬ LÝ & LẬP BÁO CÁO (COMPLETED)</span>
+            <span>HOÀN TẤT XỬ LÝ &amp; LẬP BÁO CÁO (COMPLETED)</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         )}
@@ -210,9 +210,9 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
         {mission.status === 'completed' && (
           <button
             onClick={onOpenReportModal}
-            className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold text-xs sm:text-sm rounded-xl border border-emerald-500/40 flex items-center justify-center gap-2 transition-all"
+            className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs sm:text-sm rounded-xl border border-slate-300 flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
-            <FileCheck2 className="w-4 h-4" />
+            <FileCheck2 className="w-4 h-4 text-emerald-600" />
             <span>ĐÃ HOÀN TẤT - XEM BÁO CÁO ĐIỆN TỬ</span>
           </button>
         )}
@@ -222,23 +222,23 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
       <div>
         <button
           onClick={() => setShowTimeline(!showTimeline)}
-          className="flex items-center justify-between w-full text-xs text-slate-400 hover:text-slate-200 transition-colors pt-1"
+          className="flex items-center justify-between w-full text-xs text-slate-500 hover:text-slate-800 transition-colors pt-1 cursor-pointer"
         >
           <div className="flex items-center gap-1.5">
-            <ListOrdered className="w-3.5 h-3.5 text-slate-400" />
+            <ListOrdered className="w-3.5 h-3.5 text-slate-500" />
             <span>Nhật Ký Hành Trình Tác Chiến ({mission.timeline.length} mốc)</span>
           </div>
           {showTimeline ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
 
         {showTimeline && (
-          <div className="mt-3 p-3 bg-slate-900/90 rounded-xl border border-slate-800 space-y-2 text-xs">
+          <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
             {mission.timeline.map((entry) => (
               <div key={entry.id} className="flex items-start gap-2.5">
-                <span className="font-mono-data text-cyan-400 text-[11px] shrink-0 mt-0.5">
+                <span className="font-mono text-red-600 font-bold text-[11px] shrink-0 mt-0.5">
                   [{entry.timestamp}]
                 </span>
-                <span className="text-slate-300">{entry.label}</span>
+                <span className="text-slate-700">{entry.label}</span>
               </div>
             ))}
           </div>

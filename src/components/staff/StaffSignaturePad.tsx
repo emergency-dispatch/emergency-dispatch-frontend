@@ -27,7 +27,7 @@ export const StaffSignaturePad: React.FC<StaffSignaturePadProps> = ({
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
 
-    ctx.strokeStyle = '#38bdf8'; // Cyan signature ink
+    ctx.strokeStyle = '#0f172a'; // Clean dark pen ink
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -110,15 +110,15 @@ export const StaffSignaturePad: React.FC<StaffSignaturePadProps> = ({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-mono-data font-bold uppercase text-slate-300 flex items-center gap-1.5">
-          <PenTool className="w-3.5 h-3.5 text-cyan-400" />
+        <label className="text-xs font-mono-data font-bold uppercase text-slate-700 flex items-center gap-1.5">
+          <PenTool className="w-3.5 h-3.5 text-red-600" />
           Chữ Ký Số Của Chỉ Huy Hiện Trường / Người Bàn Giao
         </label>
         {hasDrawn && (
           <button
             type="button"
             onClick={clearCanvas}
-            className="text-[11px] text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
+            className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 transition-colors"
           >
             <Eraser className="w-3 h-3" />
             Ký lại
@@ -126,7 +126,7 @@ export const StaffSignaturePad: React.FC<StaffSignaturePadProps> = ({
         )}
       </div>
 
-      <div className="relative rounded-xl border border-slate-700 bg-slate-950 overflow-hidden shadow-inner touch-none">
+      <div className="relative rounded-xl border border-slate-300 bg-slate-50/50 overflow-hidden shadow-inner touch-none">
         <canvas
           ref={canvasRef}
           onMouseDown={startDrawing}
@@ -136,11 +136,11 @@ export const StaffSignaturePad: React.FC<StaffSignaturePadProps> = ({
           onTouchStart={startDrawing}
           onTouchMove={draw}
           onTouchEnd={stopDrawing}
-          className="w-full h-28 cursor-crosshair block"
+          className="w-full h-28 cursor-crosshair block bg-white"
         />
 
         {!hasDrawn && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-500 text-xs font-mono-data">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 text-xs font-mono-data">
             Ký trực tiếp bằng ngón tay hoặc chuột vào đây
           </div>
         )}

@@ -27,8 +27,8 @@ const createVehicleMarkerIcon = (heading: number = 0) => {
     className: 'custom-staff-vehicle-icon',
     html: `
       <div style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
-        <div style="position: absolute; inset: 0; border-radius: 9999px; background: rgba(6, 182, 212, 0.25); animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-        <div style="width: 36px; height: 36px; border-radius: 9999px; background: #0284c7; border: 2.5px solid #ffffff; display: flex; align-items: center; justify-content: center; transform: rotate(${heading}deg); box-shadow: 0 0 15px rgba(6, 182, 212, 0.8);">
+        <div style="position: absolute; inset: 0; border-radius: 9999px; background: rgba(220, 38, 38, 0.25); animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+        <div style="width: 36px; height: 36px; border-radius: 9999px; background: #dc2626; border: 2.5px solid #ffffff; display: flex; align-items: center; justify-content: center; transform: rotate(${heading}deg); box-shadow: 0 0 15px rgba(220, 38, 38, 0.6);">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
             <polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>
           </svg>
@@ -42,7 +42,7 @@ const createVehicleMarkerIcon = (heading: number = 0) => {
 
 // Custom incident target marker icon
 const createIncidentTargetIcon = (severity: number) => {
-  const color = severity >= 4 ? '#ef4444' : severity === 3 ? '#f97316' : '#eab308';
+  const color = severity >= 4 ? '#b91c1c' : severity === 3 ? '#ea580c' : '#ca8a04';
   return L.divIcon({
     className: 'custom-incident-target-icon',
     html: `
@@ -62,12 +62,12 @@ const createIncidentTargetIcon = (severity: number) => {
 
 // Custom step turn icon
 const createStepMarkerIcon = (index: number, isCurrent: boolean) => {
-  const bg = isCurrent ? '#06b6d4' : '#334155';
-  const border = isCurrent ? '#ffffff' : '#94a3b8';
+  const bg = isCurrent ? '#dc2626' : '#64748b';
+  const border = '#ffffff';
   return L.divIcon({
     className: 'custom-step-node-icon',
     html: `
-      <div style="width: 22px; height: 22px; border-radius: 9999px; background: ${bg}; border: 2px solid ${border}; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #ffffff; font-family: monospace; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">
+      <div style="width: 22px; height: 22px; border-radius: 9999px; background: ${bg}; border: 2px solid ${border}; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #ffffff; font-family: monospace; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
         ${index + 1}
       </div>
     `,
@@ -127,7 +127,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full min-h-[420px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-[#090D16]">
+    <div className="relative w-full h-full min-h-[420px] rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white">
       <MapContainer
         center={vehicleCoords}
         zoom={15}
@@ -136,7 +136,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
       >
         <TileLayer
           url={getTileUrl()}
-          attribution="&copy; Esri &mdash; Emergency Field Navigation"
+          attribution="&copy; OpenStreetMap &mdash; Emergency Field Navigation"
         />
 
         <MapController
@@ -149,9 +149,9 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
         <Polyline
           positions={mission.routePolyline}
           pathOptions={{
-            color: '#06b6d4',
+            color: '#f87171',
             weight: 8,
-            opacity: 0.35,
+            opacity: 0.4,
             lineCap: 'round',
             lineJoin: 'round',
           }}
@@ -161,7 +161,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
         <Polyline
           positions={mission.routePolyline}
           pathOptions={{
-            color: '#38bdf8',
+            color: '#dc2626',
             weight: 4.5,
             opacity: 0.95,
             dashArray: mission.status === 'en_route' ? '8, 8' : undefined,
@@ -176,10 +176,10 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
             position={[step.lat, step.lng]}
             icon={createStepMarkerIcon(idx, idx === currentStepIndex)}
           >
-            <Popup className="dark-popup">
-              <div className="p-1 font-mono-data text-xs">
+            <Popup className="light-popup">
+              <div className="p-1 font-mono-data text-xs text-slate-900">
                 <strong>Chặng {idx + 1}:</strong> {step.instruction}
-                <div className="text-slate-400 mt-1">{step.distanceMeters}m • ~{step.durationSeconds}s</div>
+                <div className="text-slate-500 mt-1">{step.distanceMeters}m • ~{step.durationSeconds}s</div>
               </div>
             </Popup>
           </Marker>
@@ -187,20 +187,20 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
 
         {/* Vehicle Marker */}
         <Marker position={vehicleCoords} icon={createVehicleMarkerIcon(45)}>
-          <Popup className="dark-popup">
-            <div className="p-1 font-mono-data text-xs">
-              <div className="font-bold text-cyan-400">{mission.vehiclePlate}</div>
-              <div className="text-slate-300">Vị trí hiện tại của xe</div>
+          <Popup className="light-popup">
+            <div className="p-1 font-mono-data text-xs text-slate-900">
+              <div className="font-bold text-red-600">{mission.vehiclePlate}</div>
+              <div className="text-slate-600">Vị trí hiện tại của xe</div>
             </div>
           </Popup>
         </Marker>
 
         {/* Incident Target Marker */}
         <Marker position={incidentCoords} icon={createIncidentTargetIcon(mission.severity)}>
-          <Popup className="dark-popup">
-            <div className="p-1 text-xs">
-              <div className="font-bold text-red-400">ĐIỂM SỰ CỐ: {mission.title}</div>
-              <div className="text-slate-300 mt-0.5">{mission.address}</div>
+          <Popup className="light-popup">
+            <div className="p-1 text-xs text-slate-900">
+              <div className="font-bold text-red-600">ĐIỂM SỰ CỐ: {mission.title}</div>
+              <div className="text-slate-600 mt-0.5">{mission.address}</div>
             </div>
           </Popup>
         </Marker>
@@ -211,7 +211,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
         {/* Recenter button */}
         <button
           onClick={() => setRecenterCount((prev) => prev + 1)}
-          className="p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-cyan-400 hover:text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
+          className="p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-red-600 shadow-md transition-all active:scale-95"
           title="Định vị lại vị trí xe"
         >
           <LocateFixed className="w-5 h-5" />
@@ -222,7 +222,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
           onClick={() =>
             setTileMode((prev) => (prev === 'dark' ? 'satellite' : prev === 'satellite' ? 'osm' : 'dark'))
           }
-          className="p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white shadow-lg backdrop-blur-md transition-all"
+          className="p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-md transition-all"
           title={`Đổi lớp bản đồ (Hiện tại: ${tileMode})`}
         >
           <Layers className="w-5 h-5" />
@@ -231,7 +231,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
         {/* External Google Maps Navigation Link */}
         <button
           onClick={openGoogleMaps}
-          className="p-2.5 rounded-xl bg-blue-600/90 hover:bg-blue-500 border border-blue-400 text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
+          className="p-2.5 rounded-xl bg-red-600 hover:bg-red-700 border border-red-600 text-white shadow-md transition-all active:scale-95"
           title="Mở chỉ đường Google Maps ngoài"
         >
           <ExternalLink className="w-5 h-5" />
@@ -239,8 +239,8 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
       </div>
 
       {/* Floating Bottom Info Pill */}
-      <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/85 border border-slate-800 backdrop-blur-md text-xs font-mono-data text-slate-300 shadow-xl">
-        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+      <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/95 border border-slate-200 backdrop-blur-md text-xs font-mono-data text-slate-700 shadow-md">
+        <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
         <span>ĐIỀU HƯỚNG TỰ ĐỘNG THEO DÕI GPS VỆ TINH</span>
       </div>
     </div>
