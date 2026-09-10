@@ -35,8 +35,8 @@ export const EscalationConfigPage: React.FC = () => {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-lg font-bold text-white flex items-center gap-2.5">
-            <Settings2 className="w-5 h-5 text-blue-400" />
+          <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2.5">
+            <Settings2 className="w-5 h-5 text-red-600" />
             Escalation Logic Engine
           </h1>
           <p className="text-xs text-slate-500 mt-1 ml-[30px]">
@@ -45,7 +45,7 @@ export const EscalationConfigPage: React.FC = () => {
         </div>
         <button
           onClick={() => setIsCreating(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-sm shadow-red-500/25"
         >
           <Plus className="w-4 h-4" />
           Thêm quy tắc
@@ -54,7 +54,7 @@ export const EscalationConfigPage: React.FC = () => {
 
       <div className="space-y-3">
         {rules.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500">
+          <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
             Chưa có quy tắc leo thang nào
           </div>
         ) : (

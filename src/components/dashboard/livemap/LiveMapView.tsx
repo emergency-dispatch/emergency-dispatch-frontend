@@ -49,7 +49,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
     <div className="relative h-full w-full">
       <MapContainer center={HCMC_CENTER} zoom={12} className="h-full w-full">
         <TileLayer
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
           attribution="Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors"
         />
 
@@ -58,8 +58,8 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
         {stations.map((station) => (
           <Marker key={station.id} position={[station.lat, station.lng]} icon={createStationIcon()}>
             <Popup>
-              <div className="text-xs font-semibold text-white">{station.name}</div>
-              <div className="text-[11px] text-slate-400">{station.area}</div>
+              <div className="text-xs font-semibold text-slate-900">{station.name}</div>
+              <div className="text-[11px] text-slate-500">{station.area}</div>
             </Popup>
           </Marker>
         ))}
@@ -80,7 +80,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
               <Popup>
                 <div className="min-w-[180px] space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-bold text-white font-mono-data">{vehicle.plate}</span>
+                    <span className="text-sm font-bold text-slate-900 font-mono-data">{vehicle.plate}</span>
                     <span
                       className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
                       style={{ color: statusMeta.color, backgroundColor: `${statusMeta.color}1A` }}
@@ -88,16 +88,16 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
                       {statusMeta.label}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-300">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600">
                     <TypeIcon className="w-3.5 h-3.5 shrink-0" />
                     <span>{typeMeta.label}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-300">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600">
                     <User className="w-3.5 h-3.5 shrink-0" />
                     <span>{vehicle.driver}</span>
                   </div>
                   {vehicle.etaMinutes !== null && (
-                    <div className="flex items-center gap-1.5 text-xs text-blue-400 font-semibold">
+                    <div className="flex items-center gap-1.5 text-xs text-red-600 font-semibold">
                       <Clock className="w-3.5 h-3.5 shrink-0" />
                       <span>ETA {vehicle.etaMinutes} phút</span>
                     </div>
@@ -121,20 +121,20 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
               <Popup>
                 <div className="min-w-[180px] space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-bold text-white">{incident.title}</span>
+                    <span className="text-sm font-bold text-slate-900">{incident.title}</span>
                   </div>
                   <span
                     className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${severityMeta.badgeClass}`}
                   >
                     {severityMeta.label}
                   </span>
-                  <p className="text-xs text-slate-300">{incident.area}</p>
+                  <p className="text-xs text-slate-600">{incident.area}</p>
                   {assignedVehicle ? (
-                    <p className="text-xs text-blue-400 font-semibold">
+                    <p className="text-xs text-red-600 font-semibold">
                       Đã gán {assignedVehicle.plate} · ETA {assignedVehicle.etaMinutes ?? '--'} phút
                     </p>
                   ) : (
-                    <p className="text-xs text-amber-400 font-semibold">Chưa gán xe</p>
+                    <p className="text-xs text-amber-600 font-semibold">Chưa gán xe</p>
                   )}
                 </div>
               </Popup>

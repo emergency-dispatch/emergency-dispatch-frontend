@@ -33,16 +33,16 @@ export const AccountsPage: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <h1 className="text-lg font-bold text-white flex items-center gap-2.5">
-          <Users className="w-5 h-5 text-blue-400" />
+        <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2.5">
+          <Users className="w-5 h-5 text-red-600" />
           Accounts & Roles
         </h1>
 
-        <div className="flex items-center rounded-lg border border-slate-800 bg-slate-900/60 p-1">
+        <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-1">
           <button
             onClick={() => setTab('users')}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-              tab === 'users' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+              tab === 'users' ? 'bg-red-600 text-white' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -51,7 +51,7 @@ export const AccountsPage: React.FC = () => {
           <button
             onClick={() => setTab('permissions')}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-              tab === 'permissions' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+              tab === 'permissions' ? 'bg-red-600 text-white' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />

@@ -14,7 +14,7 @@ export const IncidentThumbnail: React.FC<IncidentThumbnailProps> = ({ incident, 
 
   if (incident.mediaUrl) {
     return (
-      <div className={`relative overflow-hidden rounded-lg bg-slate-900 ${className}`}>
+      <div className={`relative overflow-hidden rounded-lg bg-slate-100 ${className}`}>
         <img src={incident.mediaUrl} alt={incident.title} className="w-full h-full object-cover" />
         {incident.mediaType === 'video' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/30">
@@ -28,7 +28,7 @@ export const IncidentThumbnail: React.FC<IncidentThumbnailProps> = ({ incident, 
   return (
     <div
       className={`relative flex items-center justify-center rounded-lg overflow-hidden ${className}`}
-      style={{ background: `linear-gradient(135deg, ${meta.color}33, #0B0F19)` }}
+      style={{ background: `linear-gradient(135deg, ${meta.color}26, #F1F5F9)` }}
     >
       <Icon className="w-6 h-6" style={{ color: meta.color }} />
       {incident.mediaType === 'video' && (

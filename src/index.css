@@ -117,18 +117,18 @@ body {
   animation: pulse-fast 1.5s infinite;
 }
 
-/* Leaflet dark CAD theme overrides (Live Map control room view) */
+/* Leaflet light CAD theme overrides (Live Map control room view) */
 .leaflet-container {
-  background: #0B0F19;
-  font-family: 'Inter', system-ui, sans-serif;
+  background: #F1F5F9;
+  font-family: 'Be Vietnam Pro', 'Inter', system-ui, sans-serif;
 }
 
 .leaflet-popup-content-wrapper {
-  background: #131D33;
-  color: #F8FAFC;
-  border: 1px solid rgba(51, 65, 85, 0.8);
+  background: #FFFFFF;
+  color: #0F172A;
+  border: 1px solid #E2E8F0;
   border-radius: 0.75rem;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.12);
 }
 
 .leaflet-popup-content {
@@ -136,8 +136,8 @@ body {
 }
 
 .leaflet-popup-tip {
-  background: #131D33;
-  border: 1px solid rgba(51, 65, 85, 0.8);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
 }
 
 .leaflet-popup-close-button {
@@ -145,13 +145,13 @@ body {
 }
 
 .leaflet-control-attribution {
-  background: rgba(11, 15, 25, 0.6) !important;
+  background: rgba(255, 255, 255, 0.75) !important;
   color: #64748B !important;
   font-size: 10px !important;
 }
 
 .leaflet-control-attribution a {
-  color: #94A3B8 !important;
+  color: #475569 !important;
 }
 
 /* HUD Decors (Simplified/Hidden for clean minimal look) */

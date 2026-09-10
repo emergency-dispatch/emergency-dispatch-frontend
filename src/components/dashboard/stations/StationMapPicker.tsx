@@ -5,7 +5,7 @@ import L from 'leaflet';
 import type { LeafletMouseEvent } from 'leaflet';
 
 const pickerIcon = L.divIcon({
-  html: `<div style="width:16px;height:16px;border-radius:9999px;background:#2563EB;border:2px solid #F8FAFC;box-shadow:0 0 8px 2px rgba(37,99,235,0.6);"></div>`,
+  html: `<div style="width:16px;height:16px;border-radius:9999px;background:#DC2626;border:2px solid #FFFFFF;box-shadow:0 0 8px 2px rgba(220,38,38,0.5);"></div>`,
   className: '',
   iconSize: [16, 16],
   iconAnchor: [8, 8],
@@ -40,7 +40,7 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({ lat, lng, ra
   return (
     <MapContainer center={[lat, lng]} zoom={13} className="h-full w-full">
       <TileLayer
-        url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
         attribution="Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors"
       />
 
@@ -49,7 +49,7 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({ lat, lng, ra
       <Circle
         center={[lat, lng]}
         radius={radiusKm * 1000}
-        pathOptions={{ color: '#2563EB', fillColor: '#2563EB', fillOpacity: 0.12, weight: 1.5 }}
+        pathOptions={{ color: '#DC2626', fillColor: '#DC2626', fillOpacity: 0.1, weight: 1.5 }}
       />
 
       <Marker

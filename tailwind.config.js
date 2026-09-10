@@ -41,33 +41,33 @@ export default {
         severity: {
           1: {
             DEFAULT: '#10B981', // Emerald - Low
-            bg: 'rgba(16, 185, 129, 0.15)',
-            border: '#059669',
-            text: '#34D399',
+            bg: 'rgba(16, 185, 129, 0.12)',
+            border: '#A7F3D0',
+            text: '#047857',
           },
           2: {
             DEFAULT: '#F59E0B', // Amber - Moderate
-            bg: 'rgba(245, 158, 11, 0.15)',
-            border: '#D97706',
-            text: '#FBBF24',
+            bg: 'rgba(245, 158, 11, 0.12)',
+            border: '#FDE68A',
+            text: '#B45309',
           },
           3: {
             DEFAULT: '#F97316', // Orange - High
-            bg: 'rgba(249, 115, 22, 0.15)',
-            border: '#EA580C',
-            text: '#FB923C',
+            bg: 'rgba(249, 115, 22, 0.12)',
+            border: '#FED7AA',
+            text: '#C2410C',
           },
           4: {
             DEFAULT: '#DC2626', // Emergency Red - Severe
-            bg: 'rgba(220, 38, 38, 0.18)',
-            border: '#DC2626',
-            text: '#F87171',
+            bg: 'rgba(220, 38, 38, 0.12)',
+            border: '#FECACA',
+            text: '#B91C1C',
           },
           5: {
             DEFAULT: '#8B5CF6', // Purple/Violet Alert - Critical
-            bg: 'rgba(139, 92, 246, 0.2)',
-            border: '#7C3AED',
-            text: '#A78BFA',
+            bg: 'rgba(139, 92, 246, 0.12)',
+            border: '#DDD6FE',
+            text: '#6D28D9',
           },
         },
         // Hazard Category Colors

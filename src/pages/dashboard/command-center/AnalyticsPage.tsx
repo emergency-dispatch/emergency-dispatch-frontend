@@ -19,8 +19,8 @@ export const AnalyticsPage: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <h1 className="text-lg font-bold text-white flex items-center gap-2.5">
-          <BarChart3 className="w-5 h-5 text-blue-400" />
+        <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2.5">
+          <BarChart3 className="w-5 h-5 text-red-600" />
           Analytics &amp; Heatmap Dashboard
         </h1>
         <AnalyticsFiltersBar
@@ -58,12 +58,12 @@ export const AnalyticsPage: React.FC = () => {
         />
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
         <div className="flex items-center gap-2 mb-4">
-          <Thermometer className="w-4 h-4 text-blue-400 shrink-0" />
-          <h3 className="text-sm font-bold text-white">Bản đồ nhiệt khu vực xảy ra sự cố</h3>
+          <Thermometer className="w-4 h-4 text-red-600 shrink-0" />
+          <h3 className="text-sm font-bold text-slate-900">Bản đồ nhiệt khu vực xảy ra sự cố</h3>
         </div>
-        <div className="h-[420px] rounded-lg overflow-hidden border border-slate-800">
+        <div className="h-[420px] rounded-lg overflow-hidden border border-slate-200">
           <AnalyticsHeatmapView points={snapshot.heatmap} />
         </div>
       </div>
@@ -72,16 +72,16 @@ export const AnalyticsPage: React.FC = () => {
         <ChartCard title="Sự cố theo thời gian" icon={TrendingUp}>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={snapshot.trend}>
-              <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="label" stroke="#64748B" fontSize={11} tickLine={false} axisLine={{ stroke: '#334155' }} />
-              <YAxis stroke="#64748B" fontSize={11} tickLine={false} axisLine={false} width={28} />
-              <Tooltip content={ChartTooltip} cursor={{ stroke: '#334155' }} />
+              <CartesianGrid stroke="#E2E8F0" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={{ stroke: '#CBD5E1' }} />
+              <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} width={28} />
+              <Tooltip content={ChartTooltip} cursor={{ stroke: '#CBD5E1' }} />
               <Line
                 type="monotone"
                 dataKey="count"
-                stroke="#2563EB"
+                stroke="#DC2626"
                 strokeWidth={2}
-                dot={{ r: 3, fill: '#2563EB', strokeWidth: 0 }}
+                dot={{ r: 3, fill: '#DC2626', strokeWidth: 0 }}
                 activeDot={{ r: 5 }}
               />
             </LineChart>
@@ -91,18 +91,18 @@ export const AnalyticsPage: React.FC = () => {
         <ChartCard title="Sự cố theo loại" icon={BarChart3}>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={snapshot.byType} layout="vertical" margin={{ left: 8 }}>
-              <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" stroke="#64748B" fontSize={11} tickLine={false} axisLine={{ stroke: '#334155' }} />
+              <CartesianGrid stroke="#E2E8F0" strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={{ stroke: '#CBD5E1' }} />
               <YAxis
                 type="category"
                 dataKey="label"
-                stroke="#94A3B8"
+                stroke="#64748B"
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
                 width={112}
               />
-              <Tooltip content={ChartTooltip} cursor={{ fill: 'rgba(51, 65, 85, 0.25)' }} />
+              <Tooltip content={ChartTooltip} cursor={{ fill: 'rgba(226, 232, 240, 0.5)' }} />
               <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                 {snapshot.byType.map((entry) => (
                   <Cell key={entry.type} fill={entry.color} />

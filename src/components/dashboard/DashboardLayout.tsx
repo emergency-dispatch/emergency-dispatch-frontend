@@ -9,12 +9,12 @@ export const DashboardLayout: React.FC = () => {
 
   return (
     <DispatchProvider>
-      <div className="h-screen w-screen flex bg-[#0B0F19] text-slate-100 overflow-hidden cad-grid-bg">
+      <div className="h-screen w-screen flex bg-white text-slate-900 overflow-hidden">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <Topbar />
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto cad-grid-bg">
             <Outlet />
           </main>
         </div>

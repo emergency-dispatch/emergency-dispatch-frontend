@@ -57,7 +57,7 @@ export function getMaintenanceStatus(dueDateIso: string): MaintenanceStatus {
 }
 
 export const MAINTENANCE_META: Record<MaintenanceStatus, { label: string; badgeClass: string }> = {
-  ok: { label: 'Còn hạn', badgeClass: 'bg-emerald-500/15 text-emerald-400 border-emerald-700/60' },
-  expiring_soon: { label: 'Sắp hết hạn', badgeClass: 'bg-amber-500/15 text-amber-400 border-amber-700/60' },
-  overdue: { label: 'Quá hạn', badgeClass: 'bg-red-500/15 text-red-400 border-red-700/60' },
+  ok: { label: 'Còn hạn', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  expiring_soon: { label: 'Sắp hết hạn', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' },
+  overdue: { label: 'Quá hạn', badgeClass: 'bg-red-50 text-red-700 border-red-200' },
 };

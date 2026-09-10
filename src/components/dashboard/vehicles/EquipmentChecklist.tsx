@@ -13,8 +13,8 @@ export const EquipmentChecklist: React.FC<EquipmentChecklistProps> = ({ items, o
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-mono-data uppercase tracking-wider text-slate-400 font-bold">Checklist thiết bị</p>
-        <span className="text-[11px] font-mono-data text-slate-500 whitespace-nowrap">
+        <p className="text-xs font-mono-data uppercase tracking-wider text-slate-500 font-bold">Checklist thiết bị</p>
+        <span className="text-[11px] font-mono-data text-slate-400 whitespace-nowrap">
           {equippedCount}/{items.length} đầy đủ
         </span>
       </div>
@@ -27,16 +27,16 @@ export const EquipmentChecklist: React.FC<EquipmentChecklistProps> = ({ items, o
             onClick={() => onToggle(item.id)}
             className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left transition-colors ${
               item.equipped
-                ? 'border-slate-800 bg-slate-900/50 hover:border-slate-700'
-                : 'border-red-900/60 bg-red-950/20 hover:border-red-800'
+                ? 'border-slate-200 bg-white hover:border-slate-300'
+                : 'border-red-200 bg-red-50 hover:border-red-300'
             }`}
           >
             {item.equipped ? (
-              <CircleCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <CircleCheck className="w-4 h-4 text-emerald-600 shrink-0" />
             ) : (
-              <CircleX className="w-4 h-4 text-red-400 shrink-0" />
+              <CircleX className="w-4 h-4 text-red-600 shrink-0" />
             )}
-            <span className={`text-sm ${item.equipped ? 'text-slate-300' : 'text-red-300'}`}>{item.name}</span>
+            <span className={`text-sm ${item.equipped ? 'text-slate-700' : 'text-red-700'}`}>{item.name}</span>
           </button>
         ))}
       </div>

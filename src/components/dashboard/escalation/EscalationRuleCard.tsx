@@ -17,25 +17,25 @@ export const EscalationRuleCard: React.FC<EscalationRuleCardProps> = ({ rule, on
 
   return (
     <div
-      className={`rounded-xl border p-4 space-y-3 transition-colors ${
-        rule.enabled ? 'border-slate-800 bg-slate-900/50' : 'border-slate-800/60 bg-slate-900/20 opacity-70'
+      className={`rounded-xl border p-4 space-y-3 transition-colors bg-white shadow-xs ${
+        rule.enabled ? 'border-slate-200' : 'border-slate-100 opacity-70'
       }`}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div
             className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
-              rule.enabled ? 'bg-blue-600/15 border-blue-800/60' : 'bg-slate-800 border-slate-700'
+              rule.enabled ? 'bg-red-50 border-red-200' : 'bg-slate-100 border-slate-200'
             }`}
           >
-            <Timer className={`w-4 h-4 ${rule.enabled ? 'text-blue-400' : 'text-slate-500'}`} />
+            <Timer className={`w-4 h-4 ${rule.enabled ? 'text-red-600' : 'text-slate-400'}`} />
           </div>
-          <h3 className="text-sm font-bold text-white truncate">{rule.name}</h3>
+          <h3 className="text-sm font-bold text-slate-900 truncate">{rule.name}</h3>
         </div>
         <ToggleSwitch checked={rule.enabled} onChange={onToggle} label={`Bật/tắt quy tắc ${rule.name}`} />
       </div>
 
-      <div className="flex items-center flex-wrap gap-2 text-sm text-slate-300">
+      <div className="flex items-center flex-wrap gap-2 text-sm text-slate-600">
         <span>Nếu sự cố</span>
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-bold font-mono-data whitespace-nowrap ${severityMeta.badgeClass}`}
@@ -43,7 +43,7 @@ export const EscalationRuleCard: React.FC<EscalationRuleCardProps> = ({ rule, on
           Cấp ≥ {rule.minSeverity}
         </span>
         <span>không có đội tiếp nhận sau</span>
-        <span className="inline-flex items-center px-2 py-0.5 rounded-md border border-slate-700 bg-slate-800/60 text-[11px] font-bold font-mono-data text-white whitespace-nowrap">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-md border border-slate-200 bg-slate-50 text-[11px] font-bold font-mono-data text-slate-900 whitespace-nowrap">
           {rule.waitMinutes} phút
         </span>
       </div>
@@ -55,24 +55,24 @@ export const EscalationRuleCard: React.FC<EscalationRuleCardProps> = ({ rule, on
         ))}
       </div>
 
-      <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
         <span className="flex items-center gap-1.5 text-[11px] font-mono-data">
-          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${rule.enabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
-          <span className={rule.enabled ? 'text-emerald-400' : 'text-slate-500'}>
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${rule.enabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+          <span className={rule.enabled ? 'text-emerald-600' : 'text-slate-400'}>
             {rule.enabled ? 'Đang giám sát nền' : 'Đã tắt'}
           </span>
         </span>
         <div className="flex items-center gap-1.5">
           <button
             onClick={onEdit}
-            className="p-1.5 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-950/40 transition-colors"
+            className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
             aria-label="Sửa quy tắc"
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onDelete}
-            className="p-1.5 rounded-md text-slate-400 hover:text-red-400 hover:bg-red-950/40 transition-colors"
+            className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
             aria-label="Xóa quy tắc"
           >
             <Trash2 className="w-3.5 h-3.5" />

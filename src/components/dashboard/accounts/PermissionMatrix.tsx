@@ -13,12 +13,12 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ matrix, onTo
   const groups = Array.from(new Set(PERMISSIONS.map((p) => p.group)));
 
   return (
-    <div className="rounded-xl border border-slate-800 overflow-hidden">
+    <div className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-xs">
       <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[760px] border-collapse">
           <thead>
-            <tr className="bg-slate-900/70 border-b border-slate-800">
-              <th className="sticky left-0 bg-slate-900/95 backdrop-blur px-4 py-3 text-left text-[11px] font-mono-data uppercase tracking-wider text-slate-400 font-bold z-10 min-w-[240px]">
+            <tr className="bg-slate-50 border-b border-slate-200">
+              <th className="sticky left-0 bg-slate-50/95 backdrop-blur px-4 py-3 text-left text-[11px] font-mono-data uppercase tracking-wider text-slate-500 font-bold z-10 min-w-[240px]">
                 Quyền hạn
               </th>
               {ROLE_ORDER.map((role) => {
@@ -36,7 +36,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ matrix, onTo
                       </span>
                       <button
                         onClick={() => onToggleAllForRole(role, !allChecked)}
-                        className="block mx-auto text-[10px] font-mono-data text-slate-500 hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+                        className="block mx-auto text-[10px] font-mono-data text-slate-400 hover:text-slate-900 transition-colors underline decoration-dotted underline-offset-2"
                       >
                         {allChecked ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                       </button>
@@ -52,14 +52,14 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ matrix, onTo
                 <tr>
                   <td
                     colSpan={ROLE_ORDER.length + 1}
-                    className="sticky left-0 bg-slate-950/90 px-4 py-1.5 text-[10px] font-mono-data uppercase tracking-widest text-blue-400 font-bold border-y border-slate-800"
+                    className="sticky left-0 bg-slate-100 px-4 py-1.5 text-[10px] font-mono-data uppercase tracking-widest text-red-600 font-bold border-y border-slate-200"
                   >
                     {group}
                   </td>
                 </tr>
                 {PERMISSIONS.filter((p) => p.group === group).map((perm) => (
-                  <tr key={perm.id} className="border-b border-slate-800/60 hover:bg-slate-900/40 group">
-                    <td className="sticky left-0 bg-[#0B0F19] group-hover:bg-slate-900 px-4 py-2.5 text-slate-300 text-sm whitespace-nowrap z-10">
+                  <tr key={perm.id} className="border-b border-slate-100 hover:bg-slate-50 group">
+                    <td className="sticky left-0 bg-white group-hover:bg-slate-50 px-4 py-2.5 text-slate-700 text-sm whitespace-nowrap z-10">
                       {perm.label}
                     </td>
                     {ROLE_ORDER.map((role) => {
@@ -71,8 +71,8 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({ matrix, onTo
                             aria-label={`${checked ? 'Tắt' : 'Bật'} quyền ${perm.label} cho ${ROLE_META[role].label}`}
                             className={`w-6 h-6 rounded-md border-2 flex items-center justify-center mx-auto transition-colors ${
                               checked
-                                ? 'bg-blue-600 border-blue-500'
-                                : 'bg-slate-900 border-slate-700 hover:border-slate-500'
+                                ? 'bg-red-600 border-red-500'
+                                : 'bg-white border-slate-300 hover:border-slate-400'
                             }`}
                           >
                             {checked && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}

@@ -15,7 +15,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ checked, onChange, l
       aria-label={label}
       onClick={onChange}
       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
-        checked ? 'bg-emerald-600' : 'bg-slate-700'
+        checked ? 'bg-emerald-600' : 'bg-slate-300'
       }`}
     >
       <span

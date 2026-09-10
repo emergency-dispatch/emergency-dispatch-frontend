@@ -15,7 +15,7 @@ export const MaintenanceTimeline: React.FC<MaintenanceTimelineProps> = ({ lastDa
   const daysLeft = Math.round((next - now) / (1000 * 60 * 60 * 24));
 
   const barColor = isOverdue ? 'bg-red-500' : progressPct > 80 ? 'bg-amber-500' : 'bg-emerald-500';
-  const labelColor = isOverdue ? 'text-red-400' : daysLeft <= 30 ? 'text-amber-400' : 'text-slate-400';
+  const labelColor = isOverdue ? 'text-red-600' : daysLeft <= 30 ? 'text-amber-600' : 'text-slate-500';
 
   return (
     <div className="space-y-2">
@@ -24,10 +24,10 @@ export const MaintenanceTimeline: React.FC<MaintenanceTimelineProps> = ({ lastDa
         <span>Kế tiếp: {new Date(nextDate).toLocaleDateString('vi-VN')}</span>
       </div>
 
-      <div className="relative h-2.5 rounded-full bg-slate-800 overflow-visible">
+      <div className="relative h-2.5 rounded-full bg-slate-200 overflow-visible">
         <div className={`h-full rounded-full ${barColor}`} style={{ width: `${progressPct}%` }} />
         <div
-          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white border-2 border-slate-900 shadow"
+          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white border-2 border-slate-700 shadow"
           style={{ left: `calc(${progressPct}% - 6px)` }}
           title="Hôm nay"
         />
