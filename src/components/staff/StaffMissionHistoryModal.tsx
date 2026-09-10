@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { History, X, CheckCircle2, MapPin, Clock, FileText, ChevronRight, UserCheck, ShieldAlert } from 'lucide-react';
 import type { StaffMission, DigitalClosureReport } from '../../types/staff';
 import { SEVERITY_META } from '../../data/incidentMock';
@@ -20,11 +21,11 @@ export const StaffMissionHistoryModal: React.FC<StaffMissionHistoryModalProps> =
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 z-[9999] overflow-y-auto">
       {/* Fullscreen Backdrop Blur */}
       <div
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
@@ -124,6 +125,7 @@ export const StaffMissionHistoryModal: React.FC<StaffMissionHistoryModalProps> =
         </div>
       </div>
     </div>
-  </div>
+  </div>,
+  document.body
 );
 };

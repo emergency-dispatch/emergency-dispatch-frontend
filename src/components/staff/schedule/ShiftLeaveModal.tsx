@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Coffee,
@@ -53,11 +54,11 @@ export const ShiftLeaveModal: React.FC<ShiftLeaveModalProps> = ({
     });
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 z-[9999] overflow-y-auto">
       {/* Fullscreen Backdrop Blur */}
       <div
-        className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 bg-slate-950/40 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
@@ -183,6 +184,7 @@ export const ShiftLeaveModal: React.FC<ShiftLeaveModalProps> = ({
           </form>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Mail, KeyRound, AlertCircle, CheckCircle2, RefreshCw, X, ShieldCheck } from 'lucide-react';
 import { authService } from '../../services/authService';
 import { getApiErrorMessage } from '../../services/apiClient';
@@ -93,8 +94,8 @@ export const VerifyEmailModal: React.FC<VerifyEmailModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+  return createPortal(
+    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
       <div className="relative w-full max-w-md rounded-2xl bg-white border border-slate-200 p-6 shadow-2xl text-slate-900">
         <button
           onClick={onClose}
@@ -200,6 +201,7 @@ export const VerifyEmailModal: React.FC<VerifyEmailModalProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

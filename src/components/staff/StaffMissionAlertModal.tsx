@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
   Siren,
@@ -85,8 +86,8 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
     onDecline('Xe đang bận hỗ trợ hoặc gặp sự cố kỹ thuật');
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+  return createPortal(
+    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
       <div className="relative w-full max-w-2xl bg-white border-2 border-red-600 rounded-2xl shadow-2xl overflow-hidden text-slate-900 flex flex-col max-h-[90vh]">
         {/* Flashing Top Siren Header */}
         <div className="relative bg-red-600 px-4 sm:px-6 py-3.5 flex items-center justify-between overflow-hidden shadow-md text-white">
@@ -216,6 +217,7 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

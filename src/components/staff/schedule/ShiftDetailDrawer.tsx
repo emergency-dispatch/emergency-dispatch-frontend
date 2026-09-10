@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Building2,
@@ -36,11 +37,11 @@ export const ShiftDetailDrawer: React.FC<ShiftDetailDrawerProps> = ({
   const config = SHIFT_TYPE_CONFIG[shift.shiftType];
   const isToday = shift.date === '2026-09-08';
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 z-[9999] overflow-hidden">
       {/* Fullscreen Backdrop Blur */}
       <div
-        className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
@@ -253,6 +254,7 @@ export const ShiftDetailDrawer: React.FC<ShiftDetailDrawerProps> = ({
         </div>
       </div>
     </div>
-  </div>
+  </div>,
+  document.body
 );
 };

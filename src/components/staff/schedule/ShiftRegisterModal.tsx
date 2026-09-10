@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   CalendarPlus,
@@ -239,11 +240,11 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
     : selectedDates.length *
       (SHIFT_OPTIONS.find((s) => s.type === selectedShiftTypes[0])?.hours || 8);
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 z-[9999] overflow-y-auto">
       {/* Fullscreen Backdrop Blur */}
       <div
-        className="fixed inset-0 bg-slate-950/60 backdrop-blur-md transition-opacity"
+        className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 bg-slate-950/60 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
 
@@ -721,6 +722,7 @@ export const ShiftRegisterModal: React.FC<ShiftRegisterModalProps> = ({
           </form>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

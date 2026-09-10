@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StaffNavbar } from '../../components/staff/StaffNavbar';
 import { StaffSidebar, type StaffNavTab } from '../../components/staff/StaffSidebar';
 import { StaffStatusStepper } from '../../components/staff/StaffStatusStepper';
@@ -19,14 +19,64 @@ import {
   mockRouteSteps,
   mockRoutePolyline,
 } from '../../data/staffMock';
-import type { StaffMission, MissionStatus, DigitalClosureReport } from '../../types/staff';
+import type { StaffMission, MissionStatus, DigitalClosureReport, StaffProfile } from '../../types/staff';
 import { SEVERITY_META } from '../../data/incidentMock';
 import { HazardTagBadge } from '../../components/dashboard/incidents/HazardTagBadge';
 import { MapPin, Phone, User, ShieldAlert, Clock } from 'lucide-react';
 import { staffAudioService } from '../../services/staffAudioService';
+import { useAuth } from '../../hooks/useAuth';
 
 export const StaffPage: React.FC = () => {
-  const [profile] = useState(mockStaffProfile);
+  const { user, refreshProfile } = useAuth();
+
+  const [profile, setProfile] = useState<StaffProfile>(() => {
+    if (user) {
+      return {
+        ...mockStaffProfile,
+        id: user.id || mockStaffProfile.id,
+        name: user.fullName || mockStaffProfile.name,
+        email: user.email || mockStaffProfile.email,
+        phone: user.phoneNumber || mockStaffProfile.phone,
+        role: user.role === 'RescueStaff' ? 'Chỉ Huy Xe Phản Ứng Cứu Hộ' : (user.role || mockStaffProfile.role),
+        stationName: user.stationName || mockStaffProfile.stationName,
+        badgeNumber: user.id ? `ED-${user.id.slice(-4).toUpperCase()}` : mockStaffProfile.badgeNumber,
+      };
+    }
+    return mockStaffProfile;
+  });
+
+  useEffect(() => {
+    refreshProfile().then((userData) => {
+      if (userData) {
+        setProfile((prev) => ({
+          ...prev,
+          id: userData.id || prev.id,
+          name: userData.fullName || prev.name,
+          email: userData.email || prev.email,
+          phone: userData.phoneNumber || prev.phone,
+          role: userData.role === 'RescueStaff' ? 'Chỉ Huy Xe Phản Ứng Cứu Hộ' : (userData.role || prev.role),
+          stationName: userData.stationName || prev.stationName,
+          badgeNumber: userData.citizenIdNumber ? `ED-${userData.citizenIdNumber.slice(-4)}` : (userData.id ? `ED-${userData.id.slice(-4).toUpperCase()}` : prev.badgeNumber),
+        }));
+      }
+    });
+  }, [refreshProfile]);
+
+  const handleProfileUpdated = useCallback((updatedUser: any) => {
+    if (updatedUser) {
+      setProfile((prev) => ({
+        ...prev,
+        id: updatedUser.id || prev.id,
+        name: updatedUser.fullName || prev.name,
+        email: updatedUser.email || prev.email,
+        phone: updatedUser.phoneNumber || prev.phone,
+        role: updatedUser.role === 'RescueStaff' ? 'Chỉ Huy Xe Phản Ứng Cứu Hộ' : (updatedUser.role || prev.role),
+        stationName: updatedUser.stationName || prev.stationName,
+        badgeNumber: updatedUser.citizenIdNumber ? `ED-${updatedUser.citizenIdNumber.slice(-4)}` : (updatedUser.id ? `ED-${updatedUser.id.slice(-4).toUpperCase()}` : prev.badgeNumber),
+      }));
+    }
+  }, []);
+
   const [activeTab, setActiveTab] = useState<StaffNavTab>('mission');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
 
@@ -315,7 +365,9 @@ export const StaffPage: React.FC = () => {
           {activeTab === 'equipment' && <StaffEquipmentView />}
 
           {/* TAB 5: Staff Profile & Certifications */}
-          {activeTab === 'profile' && <StaffProfileView profile={profile} />}
+          {activeTab === 'profile' && (
+            <StaffProfileView profile={profile} onProfileUpdated={handleProfileUpdated} />
+          )}
         </main>
       </div>
 
