@@ -1,13 +1,15 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { vehicleSeeds } from '../data/liveMapMock';
-import { createRandomIncident, incidentSeeds } from '../data/incidentMock';
+import { incidentService } from '../services/incidentService';
+import { getApiErrorMessage } from '../services/apiClient';
+import { mapIncidentResponseToIncident, severityToBackend } from '../types/incident';
 import type { Vehicle } from '../types/vehicle';
-import type { Incident, IncidentStatus } from '../types/incident';
+import type { Incident, IncidentSeverity } from '../types/incident';
 
 const VEHICLE_TICK_MS = 2500;
 const VEHICLE_STEP_FRACTION = 0.08;
 const ARRIVAL_THRESHOLD = 0.0006;
-const INCIDENT_SPAWN_MS = 11000;
+const QUEUE_POLL_MS = 20000;
 const HIGHLIGHT_DURATION_MS = 2200;
 const AVG_SPEED_KMH = 28;
 
@@ -41,7 +43,14 @@ interface DispatchContextValue {
   vehicles: Vehicle[];
   incidents: Incident[];
   highlightIncidentIds: Set<string>;
-  updateIncidentStatus: (id: string, status: IncidentStatus) => void;
+  incidentsLoading: boolean;
+  incidentsError: string | null;
+  approveIncident: (
+    id: string,
+    confirmedSeverity: Exclude<IncidentSeverity, 0>,
+    operatorNotes?: string
+  ) => Promise<boolean>;
+  rejectIncident: (id: string, reason: string) => Promise<boolean>;
   assignVehicle: (vehicleId: string, incidentId: string) => void;
   cancelAssignment: (vehicleId: string) => void;
   findNearestAvailableVehicle: (incident: Incident) => Vehicle | null;
@@ -51,17 +60,20 @@ interface DispatchContextValue {
 const DispatchContext = createContext<DispatchContextValue | null>(null);
 
 /**
- * Owns the vehicle-position and incident-intake simulations (mock Socket.io
- * channels — no backend yet) plus dispatch actions. Mounted once in
- * DashboardLayout so movement keeps simulating across page navigation, and so
- * Incident Queue approvals are immediately visible in Live Map's dispatch panel.
+ * Owns incident-queue data (real API: GET/PUT /api/Incidents/*) and the
+ * vehicle-position simulation (mock — no backend Vehicle/Dispatch API yet).
+ * Mounted once in DashboardLayout so both keep running across page navigation,
+ * and so Incident Queue approvals are immediately visible in Live Map's dispatch panel.
  */
 export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [vehicles, setVehicles] = useState<Vehicle[]>(vehicleSeeds);
-  const [incidents, setIncidents] = useState<Incident[]>(() => sortByPriority(incidentSeeds));
+  const [incidents, setIncidents] = useState<Incident[]>([]);
   const [highlightIncidentIds, setHighlightIncidentIds] = useState<Set<string>>(new Set());
+  const [incidentsLoading, setIncidentsLoading] = useState(true);
+  const [incidentsError, setIncidentsError] = useState<string | null>(null);
   const targetsRef = useRef(new Map(vehicleSeeds.filter((v) => v.target).map((v) => [v.id, v.target!])));
 
+  // Vehicle movement simulation — unchanged, still mock (no Vehicle entity on the backend yet).
   useEffect(() => {
     const interval = setInterval(() => {
       setVehicles((prev) =>
@@ -94,26 +106,92 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const incoming = createRandomIncident();
-      setIncidents((prev) => sortByPriority([...prev, incoming]));
-      setHighlightIncidentIds((prev) => new Set(prev).add(incoming.id));
+  // Incident queue: fetch real data + poll (no SignalR/realtime push on the backend yet).
+  const refreshQueue = useCallback(async (isInitial: boolean) => {
+    try {
+      const res = await incidentService.getQueue();
+      if (!res.success) {
+        setIncidentsError(res.message || 'Không thể tải hàng đợi sự cố.');
+        return;
+      }
 
-      setTimeout(() => {
-        setHighlightIncidentIds((prev) => {
-          const next = new Set(prev);
-          next.delete(incoming.id);
-          return next;
-        });
-      }, HIGHLIGHT_DURATION_MS);
-    }, INCIDENT_SPAWN_MS);
+      const fresh = res.data.map(mapIncidentResponseToIncident);
+      const freshIds = new Set(fresh.map((i) => i.id));
 
-    return () => clearInterval(interval);
+      setIncidents((prev) => {
+        if (!isInitial) {
+          const seenIds = new Set(prev.map((i) => i.id));
+          const newlyArrivedIds = fresh.filter((i) => !seenIds.has(i.id)).map((i) => i.id);
+          if (newlyArrivedIds.length > 0) {
+            setHighlightIncidentIds((h) => new Set([...h, ...newlyArrivedIds]));
+            setTimeout(() => {
+              setHighlightIncidentIds((h) => {
+                const next = new Set(h);
+                newlyArrivedIds.forEach((id) => next.delete(id));
+                return next;
+              });
+            }, HIGHLIGHT_DURATION_MS);
+          }
+        }
+
+        // Locally-approved incidents already dropped off the backend queue (status
+        // moved to Verified) but Live Map's dispatch panel still needs them visible.
+        const keepLocal = prev.filter((i) => i.status !== 'pending' && !freshIds.has(i.id));
+        return sortByPriority([...keepLocal, ...fresh]);
+      });
+      setIncidentsError(null);
+    } catch (err) {
+      setIncidentsError(getApiErrorMessage(err, 'Không thể tải hàng đợi sự cố.'));
+    } finally {
+      if (isInitial) setIncidentsLoading(false);
+    }
   }, []);
 
-  const updateIncidentStatus = (id: string, status: IncidentStatus) => {
-    setIncidents((prev) => prev.map((inc) => (inc.id === id ? { ...inc, status } : inc)));
+  useEffect(() => {
+    refreshQueue(true);
+    const interval = setInterval(() => refreshQueue(false), QUEUE_POLL_MS);
+    return () => clearInterval(interval);
+  }, [refreshQueue]);
+
+  const approveIncident = async (
+    id: string,
+    confirmedSeverity: Exclude<IncidentSeverity, 0>,
+    operatorNotes?: string
+  ): Promise<boolean> => {
+    try {
+      const res = await incidentService.verify(id, {
+        confirmedSeverity: severityToBackend(confirmedSeverity),
+        operatorNotes,
+      });
+      if (!res.success) {
+        setIncidentsError(res.message || 'Xác minh sự cố thất bại.');
+        return false;
+      }
+      setIncidents((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, status: 'approved', severity: confirmedSeverity } : i))
+      );
+      setIncidentsError(null);
+      return true;
+    } catch (err) {
+      setIncidentsError(getApiErrorMessage(err, 'Xác minh sự cố thất bại.'));
+      return false;
+    }
+  };
+
+  const rejectIncident = async (id: string, reason: string): Promise<boolean> => {
+    try {
+      const res = await incidentService.cancel(id, reason);
+      if (!res.success) {
+        setIncidentsError(res.message || 'Hủy sự cố thất bại.');
+        return false;
+      }
+      setIncidents((prev) => prev.filter((i) => i.id !== id));
+      setIncidentsError(null);
+      return true;
+    } catch (err) {
+      setIncidentsError(getApiErrorMessage(err, 'Hủy sự cố thất bại.'));
+      return false;
+    }
   };
 
   const findNearestAvailableVehicle = (incident: Incident): Vehicle | null => {
@@ -176,7 +254,10 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         vehicles,
         incidents,
         highlightIncidentIds,
-        updateIncidentStatus,
+        incidentsLoading,
+        incidentsError,
+        approveIncident,
+        rejectIncident,
         assignVehicle,
         cancelAssignment,
         findNearestAvailableVehicle,

@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 
-export type IncidentSeverity = 1 | 2 | 3 | 4 | 5;
+// 0 = Unclassified (AI fallback/timeout, needs manual Operator review)
+export type IncidentSeverity = 0 | 1 | 2 | 3 | 4 | 5;
 
 export interface DashboardNavItem {
   label: string;

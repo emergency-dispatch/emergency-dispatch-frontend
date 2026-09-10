@@ -1,7 +1,7 @@
 import React from 'react';
 import { CirclePlay } from 'lucide-react';
-import { HAZARD_TAG_META } from '../../../data/incidentMock';
-import type { Incident } from '../../../types/incident';
+import { HAZARD_TAG_META, UNKNOWN_HAZARD_TAG_META } from '../../../data/incidentMock';
+import type { HazardTagKey, Incident } from '../../../types/incident';
 
 interface IncidentThumbnailProps {
   incident: Incident;
@@ -9,7 +9,8 @@ interface IncidentThumbnailProps {
 }
 
 export const IncidentThumbnail: React.FC<IncidentThumbnailProps> = ({ incident, className = '' }) => {
-  const meta = HAZARD_TAG_META[incident.hazardTags[0]];
+  const primaryTag = incident.hazardTags[0];
+  const meta = (primaryTag && HAZARD_TAG_META[primaryTag as HazardTagKey]) || UNKNOWN_HAZARD_TAG_META;
   const Icon = meta.icon;
 
   if (incident.mediaUrl) {

@@ -1,15 +1,21 @@
-import React from 'react';
-import { BrainCircuit, CircleCheck, CircleX, Clock, ImageOff, MapPin, Phone, User, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, BrainCircuit, CircleCheck, CircleX, Clock, ImageOff, Loader2, MapPin, Phone, User, X } from 'lucide-react';
 import { HazardTagBadge } from './HazardTagBadge';
 import { PlausibilityBadge } from './PlausibilityBadge';
 import { SeverityBadge } from './SeverityBadge';
-import type { Incident } from '../../../types/incident';
+import { SEVERITY_META } from '../../../data/incidentMock';
+import type { Incident, IncidentSeverity } from '../../../types/incident';
+
+type ConfirmableSeverity = Exclude<IncidentSeverity, 0>;
+const CONFIRMABLE_LEVELS: ConfirmableSeverity[] = [1, 2, 3, 4, 5];
 
 interface IncidentDetailDrawerProps {
   incident: Incident | null;
   onClose: () => void;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onApprove: (id: string, confirmedSeverity: ConfirmableSeverity) => void;
+  onReject: (id: string, reason: string) => void;
+  isSubmitting?: boolean;
+  errorMsg?: string | null;
 }
 
 export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
@@ -17,10 +23,29 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   onClose,
   onApprove,
   onReject,
+  isSubmitting = false,
+  errorMsg = null,
 }) => {
+  const [confirmedSeverity, setConfirmedSeverity] = useState<ConfirmableSeverity | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+
+  // Reset local form state whenever a different incident is opened.
+  useEffect(() => {
+    if (!incident) return;
+    setConfirmedSeverity(incident.severity === 0 ? null : (incident.severity as ConfirmableSeverity));
+    setRejecting(false);
+    setRejectReason('');
+  }, [incident?.id]);
+
   if (!incident) return null;
 
   const waitMinutes = Math.max(0, Math.round((Date.now() - new Date(incident.createdAt).getTime()) / 60000));
+  const isUnclassified = incident.severity === 0;
+
+  const handleConfirmReject = () => {
+    onReject(incident.id, rejectReason.trim() || 'Điều phối viên từ chối sự cố tại Command Center.');
+  };
 
   return (
     <>
@@ -72,11 +97,42 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                   <PlausibilityBadge score={incident.plausibilityScore} />
                 </div>
               </div>
+              {incident.hazardTags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {incident.hazardTags.map((tag) => (
+                    <HazardTagBadge key={tag} tag={tag} size="md" />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="text-xs font-mono-data uppercase tracking-widest text-slate-400 font-bold mb-2">
+                Xác nhận mức độ nghiêm trọng {isUnclassified && <span className="text-red-600">(bắt buộc)</span>}
+              </p>
               <div className="flex flex-wrap gap-1.5">
-                {incident.hazardTags.map((tag) => (
-                  <HazardTagBadge key={tag} tag={tag} size="md" />
-                ))}
+                {CONFIRMABLE_LEVELS.map((level) => {
+                  const meta = SEVERITY_META[level];
+                  const isActive = confirmedSeverity === level;
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setConfirmedSeverity(level)}
+                      className={`px-2.5 py-1.5 rounded-md border text-[11px] font-bold font-mono-data whitespace-nowrap transition-colors ${
+                        isActive ? meta.badgeClass : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      {meta.label}
+                    </button>
+                  );
+                })}
               </div>
+              {isUnclassified && (
+                <p className="text-[11px] text-slate-500 mt-1.5">
+                  AI không phân loại được sự cố này — vui lòng chọn mức độ thủ công trước khi duyệt.
+                </p>
+              )}
             </div>
 
             <div>
@@ -93,7 +149,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span className="truncate">{incident.reporterPhone}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm text-slate-700 min-w-0">
+              <div className="flex items-center gap-2 text-sm text-slate-700 min-w-0 col-span-2">
                 <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span className="truncate">{incident.area}</span>
               </div>
@@ -102,24 +158,70 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 <span className="truncate">{waitMinutes} phút trước</span>
               </div>
             </div>
+
+            {rejecting && (
+              <div className="rounded-xl border border-red-200 bg-red-50/60 p-4 space-y-2.5">
+                <p className="text-xs font-mono-data uppercase tracking-widest text-red-600 font-bold">
+                  Lý do từ chối
+                </p>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Vd: Báo khống, trùng lặp với sự cố khác..."
+                  rows={2}
+                  className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-300"
+                />
+              </div>
+            )}
           </div>
         </div>
 
+        {errorMsg && (
+          <div className="shrink-0 mx-4 mb-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
         <div className="shrink-0 p-4 border-t border-slate-200 grid grid-cols-2 gap-3">
-          <button
-            onClick={() => onReject(incident.id)}
-            className="flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-100 hover:bg-red-50 border border-slate-200 hover:border-red-300 text-slate-600 hover:text-red-600 font-bold text-sm transition-colors"
-          >
-            <CircleX className="w-4 h-4" />
-            Từ chối
-          </button>
-          <button
-            onClick={() => onApprove(incident.id)}
-            className="flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition-colors"
-          >
-            <CircleCheck className="w-4 h-4" />
-            Duyệt lên bản đồ
-          </button>
+          {rejecting ? (
+            <>
+              <button
+                onClick={() => setRejecting(false)}
+                disabled={isSubmitting}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 font-bold text-sm transition-colors disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmReject}
+                disabled={isSubmitting}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm shadow-lg shadow-red-600/25 transition-colors disabled:opacity-60"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CircleX className="w-4 h-4" />}
+                Xác nhận từ chối
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setRejecting(true)}
+                disabled={isSubmitting}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-100 hover:bg-red-50 border border-slate-200 hover:border-red-300 text-slate-600 hover:text-red-600 font-bold text-sm transition-colors disabled:opacity-50"
+              >
+                <CircleX className="w-4 h-4" />
+                Từ chối
+              </button>
+              <button
+                onClick={() => confirmedSeverity && onApprove(incident.id, confirmedSeverity)}
+                disabled={isSubmitting || !confirmedSeverity}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CircleCheck className="w-4 h-4" />}
+                Duyệt lên bản đồ
+              </button>
+            </>
+          )}
         </div>
       </aside>
     </>
