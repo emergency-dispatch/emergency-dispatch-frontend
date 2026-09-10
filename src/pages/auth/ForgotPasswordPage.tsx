@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { 
@@ -10,8 +10,10 @@ import {
   CheckCircle2, 
   ArrowRight, 
   AlertCircle,
-  ShieldAlert
+  RefreshCw
 } from 'lucide-react';
+import { authService } from '../../services/authService';
+import { getApiErrorMessage } from '../../services/apiClient';
 
 export const ForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,50 +25,108 @@ export const ForgotPasswordPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [countdown, setCountdown] = useState(60);
+  const [canResend, setCanResend] = useState(false);
 
-  const handleSendCode = (e: React.FormEvent) => {
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (step === 2 && countdown > 0) {
+      timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    } else if (countdown === 0) {
+      setCanResend(true);
+    }
+    return () => clearTimeout(timer);
+  }, [step, countdown]);
+
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      setErrorMsg('Please enter your account email address');
+      setErrorMsg('Vui lòng nhập địa chỉ email của bạn');
       return;
     }
     setErrorMsg('');
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const res = await authService.forgotPassword({ email: email.trim() });
+      if (res.success) {
+        setStep(2);
+        setCountdown(60);
+        setCanResend(false);
+      } else {
+        setErrorMsg(res.message || 'Không thể gửi mã xác thực. Vui lòng thử lại.');
+      }
+    } catch (err) {
+      setErrorMsg(getApiErrorMessage(err, 'Lỗi gửi yêu cầu khôi phục. Vui lòng kiểm tra lại địa chỉ email.'));
+    } finally {
       setIsLoading(false);
-      setStep(2);
-    }, 1000);
+    }
   };
 
-  const handleResetPassword = (e: React.FormEvent) => {
+  const handleResendCode = async () => {
+    if (!canResend || isLoading) return;
+    setErrorMsg('');
+    setIsLoading(true);
+
+    try {
+      const res = await authService.forgotPassword({ email: email.trim() });
+      if (res.success) {
+        setCountdown(60);
+        setCanResend(false);
+      }
+    } catch (err) {
+      setErrorMsg(getApiErrorMessage(err, 'Không thể gửi lại mã. Vui lòng thử lại.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otpCode || !newPassword) {
-      setErrorMsg('Please enter the verification code and new password');
+      setErrorMsg('Vui lòng nhập đầy đủ mã OTP và mật khẩu mới');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setErrorMsg('Mật khẩu mới phải có ít nhất 6 ký tự');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setErrorMsg('Passwords do not match');
+      setErrorMsg('Mật khẩu xác nhận không khớp');
       return;
     }
     setErrorMsg('');
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const res = await authService.resetPassword({
+        email: email.trim(),
+        token: otpCode.trim(),
+        newPassword,
+        confirmPassword,
+      });
+
+      if (res.success) {
+        setStep(3);
+      } else {
+        setErrorMsg(res.message || 'Mã xác thực không hợp lệ hoặc đã hết hạn.');
+      }
+    } catch (err) {
+      setErrorMsg(getApiErrorMessage(err, 'Lỗi đặt lại mật khẩu. Vui lòng thử lại.'));
+    } finally {
       setIsLoading(false);
-      setStep(3);
-    }, 1200);
+    }
   };
 
   return (
     <AuthLayout
-      title={step === 3 ? "Password Reset Complete" : "Reset Password"}
+      title={step === 3 ? 'Đặt Lại Mật Khẩu Thành Công' : 'Khôi Phục Mật Khẩu'}
       subtitle={
         step === 1
-          ? "Enter your registered email to receive a secure recovery code"
+          ? 'Nhập email đã đăng ký để nhận mã khôi phục bảo mật 6 số'
           : step === 2
-            ? `Enter the 6-digit code sent to ${email}`
-            : "Your credentials have been securely updated"
+            ? `Nhập mã 6 số đã gửi tới ${email} và tạo mật khẩu mới`
+            : 'Mật khẩu của bạn đã được cập nhật an toàn'
       }
     >
       {errorMsg && (
@@ -81,7 +141,7 @@ export const ForgotPasswordPage: React.FC = () => {
         <form onSubmit={handleSendCode} className="space-y-5">
           <div className="space-y-1.5">
             <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
-              Account Email Address
+              Địa chỉ Email tài khoản
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -107,7 +167,7 @@ export const ForgotPasswordPage: React.FC = () => {
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             ) : (
               <>
-                <span>Send Verification Code</span>
+                <span>Gửi mã xác thực OTP</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -119,9 +179,25 @@ export const ForgotPasswordPage: React.FC = () => {
       {step === 2 && (
         <form onSubmit={handleResetPassword} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
-              6-Digit Verification Code
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+                Mã xác thực 6 chữ số
+              </label>
+              {canResend ? (
+                <button
+                  type="button"
+                  onClick={handleResendCode}
+                  className="text-[11px] font-mono-data text-blue-400 hover:underline flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Gửi lại mã</span>
+                </button>
+              ) : (
+                <span className="text-[11px] font-mono-data text-slate-500">
+                  Gửi lại sau {countdown}s
+                </span>
+              )}
+            </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                 <KeyRound className="w-4 h-4" />
@@ -131,16 +207,16 @@ export const ForgotPasswordPage: React.FC = () => {
                 required
                 maxLength={6}
                 value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value)}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                 placeholder="123456"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700 text-white placeholder-slate-500 text-base font-mono-data tracking-widest text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700 text-white placeholder-slate-500 text-base font-mono-data tracking-widest text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-bold"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
             <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
-              New Password
+              Mật khẩu mới (Tối thiểu 6 ký tự)
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -149,9 +225,10 @@ export const ForgotPasswordPage: React.FC = () => {
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
+                minLength={6}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Minimum 8 characters"
+                placeholder="Tối thiểu 6 ký tự"
                 className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-mono-data"
               />
               <button
@@ -166,7 +243,7 @@ export const ForgotPasswordPage: React.FC = () => {
 
           <div className="space-y-1.5">
             <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
-              Confirm New Password
+              Xác nhận mật khẩu mới
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -177,7 +254,7 @@ export const ForgotPasswordPage: React.FC = () => {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Re-enter new password"
+                placeholder="Nhập lại mật khẩu mới"
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-mono-data"
               />
             </div>
@@ -191,7 +268,7 @@ export const ForgotPasswordPage: React.FC = () => {
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             ) : (
-              <span>Confirm &amp; Update Password</span>
+              <span>Xác nhận &amp; Cập nhật mật khẩu</span>
             )}
           </button>
         </form>
@@ -206,10 +283,10 @@ export const ForgotPasswordPage: React.FC = () => {
 
           <div className="space-y-1">
             <h3 className="text-xl font-bold text-white">
-              Password Successfully Updated
+              Cập Nhật Mật Khẩu Thành Công
             </h3>
             <p className="text-xs text-slate-400 font-mono-data">
-              You can now authenticate with your new credentials.
+              Bạn có thể đăng nhập ngay với thông tin mật khẩu mới.
             </p>
           </div>
 
@@ -217,7 +294,7 @@ export const ForgotPasswordPage: React.FC = () => {
             to="/login"
             className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm font-mono-data shadow-glow-blue flex items-center justify-center gap-2 transition-all block"
           >
-            <span>Proceed to Login</span>
+            <span>Tiến hành Đăng nhập</span>
             <ArrowRight className="w-4 h-4 inline" />
           </Link>
         </div>
@@ -226,9 +303,9 @@ export const ForgotPasswordPage: React.FC = () => {
       {/* Back to Login Link */}
       {step !== 3 && (
         <div className="mt-6 pt-5 border-t border-slate-800 text-center text-xs text-slate-400">
-          Remember your credentials?{' '}
+          Nhớ lại mật khẩu?{' '}
           <Link to="/login" className="text-blue-400 hover:text-blue-300 font-bold transition-colors">
-            Back to Sign In
+            Quay lại Đăng nhập
           </Link>
         </div>
       )}

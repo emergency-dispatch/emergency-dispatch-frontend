@@ -1,11 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Bell, ChevronDown, LogOut, MapPin, Settings, ShieldAlert, User } from 'lucide-react';
-import { mockDashboardUser, mockNotifications } from '../../data/dashboardMock';
+import { mockNotifications } from '../../data/dashboardMock';
+import { useAuth } from '../../hooks/useAuth';
+import { UserProfileModal } from '../profile/UserProfileModal';
 
 export const Topbar: React.FC = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
 
@@ -25,6 +31,21 @@ export const Topbar: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const displayName = user?.fullName || 'Điều phối viên';
+  const displayRole = user?.role || 'Operator';
+  const displayStation = user?.stationName || 'Trung tâm Điều phối Cứu nạn ResQ';
+  const initials = displayName
+    .split(' ')
+    .map((w) => w[0])
+    .slice(-2)
+    .join('')
+    .toUpperCase() || 'CAD';
+
   return (
     <header className="relative z-[1300] h-16 shrink-0 bg-[#0F172A]/95 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-5">
       {/* Left: Logo + Station on duty */}
@@ -43,15 +64,15 @@ export const Topbar: React.FC = () => {
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/70 border border-slate-800 min-w-0">
           <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
           <div className="flex flex-col leading-tight min-w-0">
-            <span className="text-xs font-semibold text-white truncate">{mockDashboardUser.station}</span>
-            <span className="text-[10px] font-mono-data text-slate-500 truncate">{mockDashboardUser.area}</span>
+            <span className="text-xs font-semibold text-white truncate">{displayStation}</span>
+            <span className="text-[10px] font-mono-data text-slate-500 truncate">Vùng phản ứng trọng điểm</span>
           </div>
           <span className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-800 shrink-0">
             <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
             </span>
-            <span className="text-[10px] font-mono-data text-emerald-400 font-semibold whitespace-nowrap">ON DUTY</span>
+            <span className="text-[10px] font-mono-data text-emerald-400 font-semibold whitespace-nowrap">TRỰC CA</span>
           </span>
         </div>
       </div>
@@ -80,11 +101,11 @@ export const Topbar: React.FC = () => {
             <div className="absolute right-0 mt-2 w-80 rounded-xl cad-glass border border-slate-700/80 shadow-2xl shadow-black/60 overflow-hidden z-[1200]">
               <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
                 <span className="text-xs font-mono-data uppercase tracking-wider text-slate-300 font-bold">
-                  Escalation Alerts
+                  Cảnh báo leo thang
                 </span>
                 {hasCriticalAlert && (
                   <span className="text-[10px] font-mono-data text-red-400 font-bold whitespace-nowrap">
-                    {criticalUnclaimed.length} UNCLAIMED &gt;5MIN
+                    {criticalUnclaimed.length} CHƯA TIẾP NHẬN &gt;5PH
                   </span>
                 )}
               </div>
@@ -115,46 +136,65 @@ export const Topbar: React.FC = () => {
           >
             <div className="relative shrink-0">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-xs font-bold text-white border border-slate-700">
-                {mockDashboardUser.avatarInitials}
+                {initials}
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#0F172A]" />
             </div>
             <div className="hidden lg:flex flex-col items-start leading-tight">
-              <span className="text-xs font-semibold text-white">{mockDashboardUser.name}</span>
-              <span className="text-[10px] font-mono-data text-slate-500">{mockDashboardUser.role}</span>
+              <span className="text-xs font-semibold text-white">{displayName}</span>
+              <span className="text-[10px] font-mono-data text-slate-500">{displayRole}</span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-500 hidden lg:block" />
           </button>
 
           {userOpen && (
-            <div className="absolute right-0 mt-2 w-52 rounded-xl cad-glass border border-slate-700/80 shadow-2xl shadow-black/60 overflow-hidden z-[1200]">
+            <div className="absolute right-0 mt-2 w-56 rounded-xl cad-glass border border-slate-700/80 shadow-2xl shadow-black/60 overflow-hidden z-[1200]">
               <div className="px-4 py-3 border-b border-slate-800">
-                <p className="text-xs font-semibold text-white">{mockDashboardUser.name}</p>
-                <p className="text-[10px] font-mono-data text-slate-500">{mockDashboardUser.role}</p>
+                <p className="text-xs font-semibold text-white truncate">{displayName}</p>
+                <p className="text-[10px] font-mono-data text-blue-400 font-semibold">{displayRole}</p>
+                <p className="text-[10px] font-mono-data text-slate-500 truncate mt-0.5">{user?.email}</p>
               </div>
               <div className="py-1.5">
-                <button className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors">
-                  <User className="w-3.5 h-3.5" />
-                  Hồ sơ cá nhân
+                <button
+                  onClick={() => {
+                    setUserOpen(false);
+                    setProfileModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors"
+                >
+                  <User className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Hồ sơ cá nhân &amp; Y tế</span>
                 </button>
-                <button className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors">
-                  <Settings className="w-3.5 h-3.5" />
-                  Cài đặt
+                <button
+                  onClick={() => {
+                    setUserOpen(false);
+                    setProfileModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors"
+                >
+                  <Settings className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Đổi mật khẩu &amp; Cài đặt</span>
                 </button>
               </div>
               <div className="py-1.5 border-t border-slate-800">
-                <Link
-                  to="/login"
-                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-400 hover:bg-red-950/40 transition-colors"
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-400 hover:bg-red-950/40 transition-colors text-left"
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  Đăng xuất
-                </Link>
+                  <span>Đăng xuất</span>
+                </button>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+      />
     </header>
   );
 };
