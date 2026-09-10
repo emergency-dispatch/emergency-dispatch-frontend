@@ -29,6 +29,7 @@ export const LiveMapPage: React.FC = () => {
     [dispatchIncidents]
   );
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
+  const incidentsById = useMemo(() => new Map(incidents.map((i) => [i.id, i])), [incidents]);
 
   const handleSelectVehicle = (id: string) => {
     setSelectedVehicleId((current) => (current === id ? null : id));
@@ -43,6 +44,7 @@ export const LiveMapPage: React.FC = () => {
           onSelectVehicle={handleSelectVehicle}
           dispatchIncidents={dispatchMode ? dispatchIncidents : []}
           vehiclesById={vehiclesById}
+          incidentsById={incidentsById}
         />
 
         <button

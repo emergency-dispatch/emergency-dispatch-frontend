@@ -7,7 +7,8 @@ import type { IncidentSeverity } from '../../../types/incident';
 export function createVehicleIcon(status: VehicleStatus, selected: boolean): L.DivIcon {
   const color = VEHICLE_STATUS_META[status].color;
   const size = selected ? 22 : 16;
-  const ringBorder = selected ? '#F8FAFC' : 'rgba(15,23,42,0.9)';
+  // Always white: stays legible whether the tile layer is light, dark, or satellite.
+  const ringBorder = '#FFFFFF';
 
   const pulseRing =
     status === 'en_route'
@@ -32,7 +33,7 @@ export function createVehicleIcon(status: VehicleStatus, selected: boolean): L.D
 export function createIncidentIcon(severity: IncidentSeverity, selected: boolean): L.DivIcon {
   const color = SEVERITY_COLOR[severity];
   const size = selected ? 26 : 20;
-  const ringBorder = selected ? '#F8FAFC' : 'rgba(15,23,42,0.9)';
+  const ringBorder = '#FFFFFF';
 
   const html = `
     <div class="relative flex items-center justify-center" style="width:${size}px;height:${size}px;">
@@ -53,7 +54,7 @@ export function createIncidentIcon(severity: IncidentSeverity, selected: boolean
 
 export function createStationIcon(): L.DivIcon {
   const html = `
-    <div style="width:14px;height:14px;background:#131D33;border:2px solid #64748B;transform:rotate(45deg);box-shadow:0 1px 4px rgba(0,0,0,0.6);"></div>
+    <div style="width:14px;height:14px;background:#131D33;border:2px solid #FFFFFF;transform:rotate(45deg);box-shadow:0 1px 4px rgba(0,0,0,0.6);"></div>
   `;
 
   return L.divIcon({
