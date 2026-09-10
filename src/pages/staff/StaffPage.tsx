@@ -185,7 +185,7 @@ export const StaffPage: React.FC = () => {
   const severityMeta = SEVERITY_META[activeMission.severity];
 
   return (
-    <div className="flex h-screen w-screen bg-[#070B14] text-slate-100 overflow-hidden font-sans select-none">
+    <div className="flex h-screen w-screen bg-slate-50 text-slate-900 overflow-hidden font-sans select-none">
       {/* 1. Left Feature Sidebar Component */}
       <StaffSidebar
         activeTab={activeTab}
@@ -230,28 +230,28 @@ export const StaffPage: React.FC = () => {
                 />
 
                 {/* Incident Summary Card */}
-                <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3 shrink-0">
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded text-xs font-mono-data font-bold flex items-center gap-1 border ${severityMeta.badgeClass}`}>
+                      <span className={`px-2 py-0.5 rounded text-xs font-mono font-bold flex items-center gap-1 border ${severityMeta.badgeClass}`}>
                         <ShieldAlert className="w-3.5 h-3.5" />
                         MỨC ĐỘ {activeMission.severity} ({severityMeta.label})
                       </span>
-                      <span className="text-xs text-slate-400 font-mono-data">
+                      <span className="text-xs text-slate-500 font-mono">
                         #{activeMission.incidentId}
                       </span>
                     </div>
 
-                    <span className="text-xs text-cyan-400 font-mono-data font-bold">
+                    <span className="text-xs text-red-600 font-mono font-bold">
                       {activeMission.area}
                     </span>
                   </div>
 
-                  <h3 className="text-sm sm:text-base font-bold text-white leading-snug">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
                     {activeMission.title}
                   </h3>
 
-                  <p className="text-xs text-slate-300 leading-relaxed">
+                  <p className="text-xs text-slate-600 leading-relaxed">
                     {activeMission.description}
                   </p>
 
@@ -263,20 +263,20 @@ export const StaffPage: React.FC = () => {
                   </div>
 
                   {/* Address & Caller */}
-                  <div className="pt-2 border-t border-slate-800/80 space-y-2 text-xs">
-                    <div className="flex items-start gap-2 text-slate-300">
-                      <MapPin className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                      <span className="font-medium text-white">{activeMission.address}</span>
+                  <div className="pt-2 border-t border-slate-100 space-y-2 text-xs">
+                    <div className="flex items-start gap-2 text-slate-600">
+                      <MapPin className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                      <span className="font-medium text-slate-900">{activeMission.address}</span>
                     </div>
 
-                    <div className="flex items-center justify-between text-slate-400 bg-slate-900/60 p-2 rounded-lg">
+                    <div className="flex items-center justify-between text-slate-600 bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
                       <div className="flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-blue-400" />
-                        <span>Người báo: <strong className="text-slate-200">{activeMission.callerName}</strong></span>
+                        <User className="w-3.5 h-3.5 text-red-600" />
+                        <span>Người báo: <strong className="text-slate-900">{activeMission.callerName}</strong></span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                        <a href={`tel:${activeMission.callerPhone}`} className="text-emerald-400 font-mono-data font-semibold hover:underline">
+                        <Phone className="w-3.5 h-3.5 text-red-600" />
+                        <a href={`tel:${activeMission.callerPhone}`} className="text-red-600 font-mono font-bold hover:underline">
                           {activeMission.callerPhone}
                         </a>
                       </div>

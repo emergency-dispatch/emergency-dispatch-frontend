@@ -62,22 +62,22 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
     leaveRequests.filter((l) => l.status === 'pending').length;
 
   return (
-    <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xl space-y-4">
+    <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4 text-slate-900">
       {/* Header & Quick Action Buttons */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-cyan-400" />
-            <h3 className="font-bold text-sm sm:text-base text-white">
+            <FileText className="w-5 h-5 text-red-600" />
+            <h3 className="font-bold text-sm sm:text-base text-slate-900">
               Quản Lý Đơn Đăng Ký & Yêu Cầu Ca Trực
             </h3>
             {totalPending > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono-data font-bold text-xs">
+              <span className="px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-600 font-mono-data font-bold text-xs">
                 {totalPending} chờ duyệt
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-400 font-mono-data mt-0.5">
+          <p className="text-xs text-slate-500 font-mono-data mt-0.5">
             Theo dõi trạng thái phê duyệt từ Ban Chỉ Huy Điều Hành CAD
           </p>
         </div>
@@ -86,7 +86,7 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onOpenRegisterModal}
-            className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-cyan-950 transition-all"
+            className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-red-600/20 transition-all"
           >
             <CalendarPlus className="w-3.5 h-3.5" />
             <span>Đăng Ký Ca Mới</span>
@@ -94,17 +94,17 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
 
           <button
             onClick={onOpenSwapModal}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 font-semibold text-xs flex items-center gap-1.5 transition-all"
+            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-semibold text-xs flex items-center gap-1.5 transition-all shadow-sm"
           >
-            <ArrowLeftRight className="w-3.5 h-3.5" />
+            <ArrowLeftRight className="w-3.5 h-3.5 text-slate-500" />
             <span>Đổi Ca Trực</span>
           </button>
 
           <button
             onClick={onOpenLeaveModal}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-semibold text-xs flex items-center gap-1.5 transition-all"
+            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-semibold text-xs flex items-center gap-1.5 transition-all shadow-sm"
           >
-            <Coffee className="w-3.5 h-3.5" />
+            <Coffee className="w-3.5 h-3.5 text-slate-500" />
             <span>Xin Nghỉ Phép</span>
           </button>
         </div>
@@ -113,13 +113,13 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
       {/* Tabs & Status Filter */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Category Tabs */}
-        <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl text-xs">
+        <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 p-1 rounded-xl text-xs">
           <button
             onClick={() => setActiveTab('all')}
             className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
               activeTab === 'all'
-                ? 'bg-cyan-600 text-white font-bold'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-red-600 text-white font-bold shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Tất Cả ({registrationRequests.length + swapRequests.length + leaveRequests.length})
@@ -129,8 +129,8 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
             onClick={() => setActiveTab('registrations')}
             className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
               activeTab === 'registrations'
-                ? 'bg-cyan-600 text-white font-bold'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-red-600 text-white font-bold shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Đăng Ký Ca ({registrationRequests.length})
@@ -140,8 +140,8 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
             onClick={() => setActiveTab('swaps')}
             className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
               activeTab === 'swaps'
-                ? 'bg-cyan-600 text-white font-bold'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-red-600 text-white font-bold shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Đổi Ca ({swapRequests.length})
@@ -151,8 +151,8 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
             onClick={() => setActiveTab('leaves')}
             className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
               activeTab === 'leaves'
-                ? 'bg-cyan-600 text-white font-bold'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-red-600 text-white font-bold shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Nghỉ Phép ({leaveRequests.length})
@@ -163,7 +163,7 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as any)}
-          className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-300 focus:outline-none focus:border-cyan-500"
+          className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-700 focus:outline-none focus:border-red-500"
         >
           <option value="all">Tất cả trạng thái duyệt</option>
           <option value="pending">Đang Chờ Duyệt</option>
@@ -177,20 +177,18 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
         {/* 1. Shift Registration Requests */}
         {(activeTab === 'all' || activeTab === 'registrations') &&
           filteredRegistrations.map((req) => {
-            const shiftCfg = SHIFT_TYPE_CONFIG[req.shiftType];
-
             return (
               <div
                 key={req.id}
-                className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 hover:border-slate-700 transition-all space-y-2 text-xs"
+                className="p-4 bg-white rounded-xl border border-slate-200 hover:border-slate-300 transition-all space-y-2 text-xs shadow-sm"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
+                    <span className="p-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200">
                       <CalendarPlus className="w-4 h-4" />
                     </span>
                     <div>
-                      <span className="font-bold text-white text-xs">
+                      <span className="font-bold text-slate-900 text-xs">
                         Đăng Ký {req.registrationType === 'overtime' ? 'Trực Tăng Cường OT' : 'Ca Trực Mới'}
                       </span>
                       <span className="text-[11px] font-mono-data text-slate-400 ml-2">
@@ -202,19 +200,19 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                   {/* Status Badge */}
                   <div className="flex items-center gap-2">
                     {req.status === 'approved' && (
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-mono-data font-bold text-[10px] flex items-center gap-1">
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono-data font-bold text-[10px] flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3" />
                         ĐÃ DUYỆT
                       </span>
                     )}
                     {req.status === 'pending' && (
-                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono-data font-bold text-[10px] flex items-center gap-1">
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-mono-data font-bold text-[10px] flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         CHỜ DUYỆT
                       </span>
                     )}
                     {req.status === 'rejected' && (
-                      <span className="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 font-mono-data font-bold text-[10px] flex items-center gap-1">
+                      <span className="px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono-data font-bold text-[10px] flex items-center gap-1">
                         <XCircle className="w-3 h-3" />
                         TỪ CHỐI
                       </span>
@@ -223,7 +221,7 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                     {req.status === 'pending' && (
                       <button
                         onClick={() => onCancelRegistration(req.id)}
-                        className="p-1 text-slate-500 hover:text-red-400 transition-colors"
+                        className="p-1 text-slate-400 hover:text-red-600 transition-colors"
                         title="Hủy đơn đăng ký này"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -233,10 +231,10 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                 </div>
 
                 {/* Details Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-slate-300">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-slate-700">
                   <div>
                     <span className="text-slate-500 font-mono-data">Ngày đăng ký:</span>{' '}
-                    <strong className="text-cyan-400 font-mono-data">{req.dates.join(', ')}</strong>
+                    <strong className="text-red-600 font-mono-data">{req.dates.join(', ')}</strong>
                   </div>
                   <div>
                     <span className="text-slate-500 font-mono-data">Ca trực:</span>{' '}
@@ -268,18 +266,18 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                   </div>
                   <div>
                     <span className="text-slate-500 font-mono-data">Đơn vị:</span>{' '}
-                    <strong className="text-white">{req.stationName}</strong>
+                    <strong className="text-slate-900">{req.stationName}</strong>
                   </div>
                 </div>
 
                 {req.reason && (
-                  <div className="text-[11px] text-slate-400 italic bg-slate-950/60 p-2 rounded-lg">
+                  <div className="text-[11px] text-slate-600 italic bg-slate-50 border border-slate-200 p-2 rounded-lg">
                     Lý do / Nguyện vọng: {req.reason}
                   </div>
                 )}
 
                 {req.approvedBy && (
-                  <div className="text-[11px] text-emerald-400 font-mono-data flex items-center gap-1.5">
+                  <div className="text-[11px] text-emerald-700 font-mono-data flex items-center gap-1.5">
                     <UserCheck className="w-3.5 h-3.5" />
                     <span>
                       Phê duyệt bởi: <strong>{req.approvedBy}</strong> ({req.responseNote})
@@ -295,15 +293,15 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
           filteredSwaps.map((req) => (
             <div
               key={req.id}
-              className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 hover:border-slate-700 transition-all space-y-2 text-xs"
+              className="p-4 bg-white rounded-xl border border-slate-200 hover:border-slate-300 transition-all space-y-2 text-xs shadow-sm"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
+                  <span className="p-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200">
                     <ArrowLeftRight className="w-4 h-4" />
                   </span>
                   <div>
-                    <span className="font-bold text-white text-xs">Yêu Cầu Hoán Đổi Ca Trực</span>
+                    <span className="font-bold text-slate-900 text-xs">Yêu Cầu Hoán Đổi Ca Trực</span>
                     <span className="text-[11px] font-mono-data text-slate-400 ml-2">
                       #{req.id}
                     </span>
@@ -313,17 +311,17 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                 {/* Status */}
                 <div className="flex items-center gap-2">
                   {req.status === 'approved' ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-mono-data font-bold text-[10px] flex items-center gap-1">
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono-data font-bold text-[10px] flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" />
                       ĐÃ DUYỆT
                     </span>
                   ) : req.status === 'pending' ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono-data font-bold text-[10px] flex items-center gap-1">
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-mono-data font-bold text-[10px] flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       CHỜ DUYỆT
                     </span>
                   ) : (
-                    <span className="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 font-mono-data font-bold text-[10px]">
+                    <span className="px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono-data font-bold text-[10px]">
                       TỪ CHỐI
                     </span>
                   )}
@@ -331,7 +329,7 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                   {req.status === 'pending' && (
                     <button
                       onClick={() => onCancelSwap(req.id)}
-                      className="p-1 text-slate-500 hover:text-red-400 transition-colors"
+                      className="p-1 text-slate-400 hover:text-red-600 transition-colors"
                       title="Hủy đơn đổi ca này"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -340,31 +338,31 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-slate-300">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-slate-700">
                 <div>
                   <span className="text-slate-500 font-mono-data">Ngày đổi ca:</span>{' '}
-                  <strong className="text-white font-mono-data">{req.targetDate}</strong>
+                  <strong className="text-slate-900 font-mono-data">{req.targetDate}</strong>
                 </div>
                 <div>
                   <span className="text-slate-500 font-mono-data">Đồng đội hoán đổi:</span>{' '}
-                  <strong className="text-cyan-300">{req.toStaffName}</strong>
+                  <strong className="text-red-700">{req.toStaffName}</strong>
                 </div>
                 <div>
                   <span className="text-slate-500 font-mono-data">Hoán đổi:</span>{' '}
-                  <strong className="text-slate-200">
+                  <strong className="text-slate-800">
                     {req.originalShift} ➔ {req.swapShift}
                   </strong>
                 </div>
               </div>
 
               {req.reason && (
-                <div className="text-[11px] text-slate-400 italic bg-slate-950/60 p-2 rounded-lg">
+                <div className="text-[11px] text-slate-600 italic bg-slate-50 border border-slate-200 p-2 rounded-lg">
                   Lý do: {req.reason}
                 </div>
               )}
 
               {req.approvedBy && (
-                <div className="text-[11px] text-emerald-400 font-mono-data flex items-center gap-1.5">
+                <div className="text-[11px] text-emerald-700 font-mono-data flex items-center gap-1.5">
                   <UserCheck className="w-3.5 h-3.5" />
                   <span>
                     Chỉ huy phê duyệt: <strong>{req.approvedBy}</strong> ({req.responseNote})
@@ -379,15 +377,15 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
           filteredLeaves.map((req) => (
             <div
               key={req.id}
-              className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 hover:border-slate-700 transition-all space-y-2 text-xs"
+              className="p-4 bg-white rounded-xl border border-slate-200 hover:border-slate-300 transition-all space-y-2 text-xs shadow-sm"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                  <span className="p-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200">
                     <Coffee className="w-4 h-4" />
                   </span>
                   <div>
-                    <span className="font-bold text-white text-xs">
+                    <span className="font-bold text-slate-900 text-xs">
                       Đơn Xin Nghỉ Phép / Nghỉ Bù ({req.totalDays} ngày)
                     </span>
                     <span className="text-[11px] font-mono-data text-slate-400 ml-2">
@@ -398,17 +396,17 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
 
                 <div className="flex items-center gap-2">
                   {req.status === 'approved' ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-mono-data font-bold text-[10px] flex items-center gap-1">
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono-data font-bold text-[10px] flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" />
                       ĐÃ DUYỆT
                     </span>
                   ) : req.status === 'pending' ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono-data font-bold text-[10px] flex items-center gap-1">
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-mono-data font-bold text-[10px] flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       CHỜ DUYỆT
                     </span>
                   ) : (
-                    <span className="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 font-mono-data font-bold text-[10px]">
+                    <span className="px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono-data font-bold text-[10px]">
                       TỪ CHỐI
                     </span>
                   )}
@@ -416,7 +414,7 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                   {req.status === 'pending' && (
                     <button
                       onClick={() => onCancelLeave(req.id)}
-                      className="p-1 text-slate-500 hover:text-red-400 transition-colors"
+                      className="p-1 text-slate-400 hover:text-red-600 transition-colors"
                       title="Hủy đơn xin nghỉ này"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -425,16 +423,16 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-slate-300">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-slate-700">
                 <div>
                   <span className="text-slate-500 font-mono-data">Thời gian nghỉ:</span>{' '}
-                  <strong className="text-amber-300 font-mono-data">
+                  <strong className="text-red-700 font-mono-data">
                     {req.startDate} {req.startDate !== req.endDate ? `➔ ${req.endDate}` : ''}
                   </strong>
                 </div>
                 <div>
                   <span className="text-slate-500 font-mono-data">Loại nghỉ:</span>{' '}
-                  <strong className="text-white">
+                  <strong className="text-slate-900">
                     {req.leaveType === 'compensatory'
                       ? 'Nghỉ bù sau ca trực đêm'
                       : req.leaveType === 'annual'
@@ -445,7 +443,7 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
               </div>
 
               {req.reason && (
-                <div className="text-[11px] text-slate-400 italic bg-slate-950/60 p-2 rounded-lg">
+                <div className="text-[11px] text-slate-600 italic bg-slate-50 border border-slate-200 p-2 rounded-lg">
                   Lý do: {req.reason}
                 </div>
               )}
@@ -455,7 +453,7 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
         {filteredRegistrations.length === 0 &&
           filteredSwaps.length === 0 &&
           filteredLeaves.length === 0 && (
-            <div className="py-12 text-center text-slate-500 text-xs">
+            <div className="py-12 text-center text-slate-400 text-xs">
               Chưa có đơn đăng ký hay yêu cầu nào phù hợp với bộ lọc hiện tại.
             </div>
           )}

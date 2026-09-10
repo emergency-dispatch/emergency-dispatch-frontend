@@ -327,13 +327,13 @@ export const StaffScheduleView: React.FC = () => {
       {/* Toast Notification */}
       {notificationMsg && (
         <div
-          className={`p-3.5 rounded-xl text-xs flex items-center gap-2.5 shadow-2xl animate-fadeIn border ${
+          className={`p-3.5 rounded-xl text-xs flex items-center gap-2.5 shadow-sm animate-fadeIn border ${
             notificationMsg.type === 'success'
-              ? 'bg-emerald-950/95 border-emerald-500/80 text-emerald-300'
-              : 'bg-cyan-950/95 border-cyan-500/80 text-cyan-300'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-red-50 border-red-200 text-red-800'
           }`}
         >
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
           <span className="font-medium">{notificationMsg.text}</span>
         </div>
       )}
@@ -341,122 +341,122 @@ export const StaffScheduleView: React.FC = () => {
       {/* 1. TOP KPI METRICS CARDS (Generous padding, clean Vietnamese typography) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Metric 1: Total Hours */}
-        <div className="p-4 sm:p-5 bg-gradient-to-b from-slate-900/90 to-[#0F172A] border border-slate-800/90 hover:border-cyan-500/40 rounded-2xl shadow-xl transition-all duration-200 flex items-center justify-between group">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200 hover:border-red-300 rounded-2xl shadow-sm transition-all duration-200 flex items-center justify-between group">
           <div className="space-y-1.5">
-            <div className="text-2xl sm:text-3xl font-black text-cyan-400 font-mono-data tracking-tight">
+            <div className="text-2xl sm:text-3xl font-black text-red-600 font-mono-data tracking-tight">
               {totalDutyHours}h
             </div>
-            <div className="text-xs sm:text-sm font-semibold text-slate-300">
+            <div className="text-xs sm:text-sm font-semibold text-slate-800">
               Tổng Giờ Trực Tháng
             </div>
             <div className="text-[11px] text-slate-500">
               Tháng 09/2026 (Đạt 100%)
             </div>
           </div>
-          <div className="p-3 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 group-hover:scale-110 transition-transform">
+          <div className="p-3 rounded-xl bg-red-50 text-red-600 border border-red-200 group-hover:scale-110 transition-transform">
             <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
         </div>
 
         {/* Metric 2: Night & OT */}
-        <div className="p-4 sm:p-5 bg-gradient-to-b from-slate-900/90 to-[#0F172A] border border-slate-800/90 hover:border-purple-500/40 rounded-2xl shadow-xl transition-all duration-200 flex items-center justify-between group">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200 hover:border-slate-300 rounded-2xl shadow-sm transition-all duration-200 flex items-center justify-between group">
           <div className="space-y-1.5">
-            <div className="text-2xl sm:text-3xl font-black text-purple-400 font-mono-data tracking-tight">
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono-data tracking-tight">
               {String(totalNightShifts).padStart(2, '0')}{' '}
-              <span className="text-slate-500 font-normal text-lg">/</span>{' '}
-              <span className="text-rose-400">{String(totalOvertimeShifts).padStart(2, '0')}</span>
+              <span className="text-slate-400 font-normal text-lg">/</span>{' '}
+              <span className="text-red-600">{String(totalOvertimeShifts).padStart(2, '0')}</span>
             </div>
-            <div className="text-xs sm:text-sm font-semibold text-slate-300">
+            <div className="text-xs sm:text-sm font-semibold text-slate-800">
               Ca Đêm & Tăng Cường
             </div>
             <div className="text-[11px] text-slate-500">
               {totalNightShifts} đêm • {totalOvertimeShifts} ca tăng cường
             </div>
           </div>
-          <div className="p-3 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 group-hover:scale-110 transition-transform">
+          <div className="p-3 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 group-hover:scale-110 transition-transform">
             <Moon className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
         </div>
 
         {/* Metric 3: Punctuality */}
-        <div className="p-4 sm:p-5 bg-gradient-to-b from-slate-900/90 to-[#0F172A] border border-slate-800/90 hover:border-emerald-500/40 rounded-2xl shadow-xl transition-all duration-200 flex items-center justify-between group">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200 hover:border-emerald-300 rounded-2xl shadow-sm transition-all duration-200 flex items-center justify-between group">
           <div className="space-y-1.5">
-            <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono-data tracking-tight">
+            <div className="text-2xl sm:text-3xl font-black text-emerald-600 font-mono-data tracking-tight">
               100%
             </div>
-            <div className="text-xs sm:text-sm font-semibold text-slate-300">
+            <div className="text-xs sm:text-sm font-semibold text-slate-800">
               Chỉ Số Đúng Giờ
             </div>
-            <div className="text-[11px] text-emerald-400/80 flex items-center gap-1">
+            <div className="text-[11px] text-emerald-600 flex items-center gap-1 font-medium">
               <ShieldCheck className="w-3 h-3" />
               Định vị GPS chuẩn xác
             </div>
           </div>
-          <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-110 transition-transform">
+          <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 group-hover:scale-110 transition-transform">
             <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
         </div>
 
         {/* Metric 4: Leave balance */}
-        <div className="p-4 sm:p-5 bg-gradient-to-b from-slate-900/90 to-[#0F172A] border border-slate-800/90 hover:border-amber-500/40 rounded-2xl shadow-xl transition-all duration-200 flex items-center justify-between group">
+        <div className="p-4 sm:p-5 bg-white border border-slate-200 hover:border-amber-300 rounded-2xl shadow-sm transition-all duration-200 flex items-center justify-between group">
           <div className="space-y-1.5">
-            <div className="text-2xl sm:text-3xl font-black text-amber-400 font-mono-data tracking-tight">
-              12 <span className="text-sm font-sans font-bold text-amber-300">Ngày</span>
+            <div className="text-2xl sm:text-3xl font-black text-amber-600 font-mono-data tracking-tight">
+              12 <span className="text-sm font-sans font-bold text-amber-700">Ngày</span>
             </div>
-            <div className="text-xs sm:text-sm font-semibold text-slate-300">
+            <div className="text-xs sm:text-sm font-semibold text-slate-800">
               Phép Năm Còn Lại
             </div>
             <div className="text-[11px] text-slate-500">
               Hạn dùng đến 31/12/2026
             </div>
           </div>
-          <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 group-hover:scale-110 transition-transform">
+          <div className="p-3 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 group-hover:scale-110 transition-transform">
             <Coffee className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
         </div>
       </div>
 
       {/* 2. COMPACT UNIFIED TODAY'S ACTIVE SHIFT BANNER */}
-      <div className="bg-[#0F172A] border border-cyan-500/30 rounded-2xl p-4 sm:p-5 shadow-xl transition-all">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm transition-all">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           {/* Left: Shift info & badges */}
           <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-            <div className="p-3 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shrink-0">
+            <div className="p-3 rounded-xl bg-red-50 text-red-600 border border-red-200 shrink-0">
               <CalendarCheck className="w-6 h-6" />
             </div>
 
             <div className="space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2.5 py-0.5 rounded-md border border-cyan-500/30">
+                <span className="text-xs font-bold text-red-700 bg-red-50 px-2.5 py-0.5 rounded-md border border-red-200">
                   HÔM NAY: Thứ Ba (08/09/2026)
                 </span>
                 <span
                   className={`px-2.5 py-0.5 rounded-md text-xs font-bold border ${
                     isCheckInDone
-                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                      : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-amber-50 text-amber-700 border-amber-200'
                   }`}
                 >
                   {isCheckInDone ? '● Đã Điểm Danh GPS' : '○ Chưa Điểm Danh'}
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-300 pt-0.5">
-                <span className="font-bold text-white text-sm">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 pt-0.5">
+                <span className="font-bold text-slate-900 text-sm">
                   {SHIFT_TYPE_CONFIG[todayShift.shiftType].label} ({todayShift.startTime} - {todayShift.endTime})
                 </span>
-                <span className="text-slate-600 hidden sm:inline">•</span>
-                <span className="flex items-center gap-1 text-slate-300">
-                  <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                <span className="text-slate-300 hidden sm:inline">•</span>
+                <span className="flex items-center gap-1 text-slate-700">
+                  <Building2 className="w-3.5 h-3.5 text-slate-500" />
                   {todayShift.stationName}
                 </span>
-                <span className="text-slate-600 hidden sm:inline">•</span>
-                <span className="text-cyan-400 font-mono-data font-bold">
+                <span className="text-slate-300 hidden sm:inline">•</span>
+                <span className="text-red-600 font-mono-data font-bold">
                   Xe: {todayShift.vehiclePlate}
                 </span>
-                <span className="text-slate-600 hidden sm:inline">•</span>
-                <span className="flex items-center gap-1 text-slate-300">
-                  <Users className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-slate-300 hidden sm:inline">•</span>
+                <span className="flex items-center gap-1 text-slate-700">
+                  <Users className="w-3.5 h-3.5 text-slate-500" />
                   Kíp 3 cán bộ
                 </span>
               </div>
@@ -464,10 +464,10 @@ export const StaffScheduleView: React.FC = () => {
           </div>
 
           {/* Right: Actions (View Details, Register, Check-in) */}
-          <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800">
+          <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
             <button
               onClick={() => setSelectedShift(todayShift)}
-              className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-cyan-400 hover:text-white border border-cyan-500/40 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+              className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 shadow-sm flex items-center justify-center transition-all hover:scale-105 active:scale-95"
               title="Xem chi tiết ca trực hôm nay (Quân số kíp xe, phương tiện, lịch sử GPS)"
               aria-label="Xem chi tiết ca trực"
             >
@@ -479,7 +479,7 @@ export const StaffScheduleView: React.FC = () => {
                 setQuickRegisterDate(undefined);
                 setShowRegisterModal(true);
               }}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-cyan-950/60 border border-cyan-400 flex items-center gap-1.5 transition-all"
+              className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs sm:text-sm shadow-sm border border-slate-300 flex items-center gap-1.5 transition-all"
             >
               <Plus className="w-4 h-4" />
               <span>Đăng Ký Ca Mới</span>
@@ -487,10 +487,10 @@ export const StaffScheduleView: React.FC = () => {
 
             <button
               onClick={handleCheckInToggle}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-lg flex items-center gap-2 transition-all active:scale-95 ${
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-sm flex items-center gap-2 transition-all active:scale-95 ${
                 isCheckInDone
-                  ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-                  : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white shadow-emerald-950/60 border border-emerald-400 animate-pulse'
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                  : 'bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/20 border border-red-600 animate-pulse'
               }`}
             >
               <ShieldCheck className="w-4 h-4" />
@@ -501,15 +501,15 @@ export const StaffScheduleView: React.FC = () => {
       </div>
 
       {/* 3. VIEW MODE CONTROLLER & FILTER TOOLBAR */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-[#0F172A] border border-slate-800 p-3 rounded-2xl shadow-xl">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white border border-slate-200 p-3 rounded-2xl shadow-sm">
         {/* View mode switcher */}
-        <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl text-xs">
+        <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 p-1 rounded-xl text-xs">
           <button
             onClick={() => setViewMode('week')}
             className={`px-3.5 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
               viewMode === 'week'
-                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-red-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Clock className="w-4 h-4" />
@@ -520,8 +520,8 @@ export const StaffScheduleView: React.FC = () => {
             onClick={() => setViewMode('month')}
             className={`px-3.5 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
               viewMode === 'month'
-                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-red-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <CalendarIcon className="w-4 h-4" />
@@ -532,8 +532,8 @@ export const StaffScheduleView: React.FC = () => {
             onClick={() => setViewMode('list')}
             className={`px-3.5 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
               viewMode === 'list'
-                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-red-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <List className="w-4 h-4" />
@@ -544,14 +544,14 @@ export const StaffScheduleView: React.FC = () => {
             onClick={() => setViewMode('requests')}
             className={`px-3.5 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
               viewMode === 'requests'
-                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-red-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <FileText className="w-4 h-4" />
             <span>Quản Lý Đơn</span>
             {pendingRequestsCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 font-mono-data text-[10px] font-black">
+              <span className="px-1.5 py-0.2 rounded-full bg-red-600 text-white font-mono-data text-[10px] font-black">
                 {pendingRequestsCount}
               </span>
             )}
@@ -562,43 +562,43 @@ export const StaffScheduleView: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           {/* Shift Type Filter */}
           {viewMode !== 'requests' && (
-            <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl px-2 py-1 text-xs">
-              <Filter className="w-3.5 h-3.5 text-slate-400" />
+            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+              <Filter className="w-3.5 h-3.5 text-slate-500" />
               <select
                 value={filterShiftType}
                 onChange={(e) => setFilterShiftType(e.target.value as any)}
-                className="bg-transparent text-slate-300 font-mono-data text-xs outline-none cursor-pointer"
+                className="bg-transparent text-slate-700 font-mono-data text-xs outline-none cursor-pointer"
               >
-                <option value="all" className="bg-slate-900">Lọc ca: Tất cả</option>
-                <option value="morning" className="bg-slate-900">Ca Sáng (06h-14h)</option>
-                <option value="afternoon" className="bg-slate-900">Ca Chiều (14h-22h)</option>
-                <option value="night" className="bg-slate-900">Ca Đêm (22h-06h)</option>
-                <option value="full_day" className="bg-slate-900">Trực Chiến 24h</option>
-                <option value="off" className="bg-slate-900">Nghỉ Ca</option>
+                <option value="all">Lọc ca: Tất cả</option>
+                <option value="morning">Ca Sáng (06h-14h)</option>
+                <option value="afternoon">Ca Chiều (14h-22h)</option>
+                <option value="night">Ca Đêm (22h-06h)</option>
+                <option value="full_day">Trực Chiến 24h</option>
+                <option value="off">Nghỉ Ca</option>
               </select>
             </div>
           )}
 
           <button
             onClick={() => setShowSwapModal(true)}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
           >
-            <ArrowLeftRight className="w-3.5 h-3.5" />
+            <ArrowLeftRight className="w-3.5 h-3.5 text-slate-500" />
             <span>Đổi Ca</span>
           </button>
 
           <button
             onClick={() => setShowLeaveModal(true)}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
           >
-            <Coffee className="w-3.5 h-3.5" />
+            <Coffee className="w-3.5 h-3.5 text-slate-500" />
             <span>Xin Nghỉ</span>
           </button>
 
           <button
             onClick={handleExportSchedule}
             title="Xuất file lịch trực PDF & iCal"
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition-colors"
+            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-xl transition-colors shadow-sm"
           >
             <Download className="w-4 h-4" />
           </button>
@@ -690,21 +690,23 @@ export const StaffScheduleView: React.FC = () => {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           {/* Fullscreen Backdrop Blur */}
           <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-md transition-opacity"
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
             onClick={() => setShowSwapModal(false)}
           />
 
           {/* Centering Dialog Container */}
           <div className="flex min-h-full items-center justify-center p-3 sm:p-6 text-center">
-            <div className="relative z-10 w-full max-w-lg bg-[#0F172A] border border-cyan-500/40 rounded-2xl shadow-2xl p-5 text-white text-left space-y-4 my-6 animate-fadeIn">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+            <div className="relative z-10 w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-2xl p-5 text-slate-900 text-left space-y-4 my-6 animate-fadeIn">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                 <div className="flex items-center gap-2">
-                  <ArrowLeftRight className="w-5 h-5 text-cyan-400" />
-                  <h3 className="font-bold text-base">Đăng Ký Đổi Ca Trực Quân Số</h3>
+                  <div className="p-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200">
+                    <ArrowLeftRight className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-base text-slate-900">Đăng Ký Đổi Ca Trực Quân Số</h3>
                 </div>
                 <button
                   onClick={() => setShowSwapModal(false)}
-                  className="text-slate-400 hover:text-white"
+                  className="text-slate-400 hover:text-slate-700 p-1"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -712,26 +714,26 @@ export const StaffScheduleView: React.FC = () => {
 
               <form onSubmit={handleCreateSwap} className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-slate-400 font-mono-data mb-1">
+                  <label className="block text-slate-700 font-mono-data font-semibold mb-1">
                     Ngày muốn đổi ca:
                   </label>
                   <input
                     type="date"
                     value={swapTargetDate}
                     onChange={(e) => setSwapTargetDate(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono-data focus:border-cyan-500 focus:outline-none"
+                    className="w-full p-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 font-mono-data focus:border-red-500 focus:outline-none"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 font-mono-data mb-1">
+                  <label className="block text-slate-700 font-mono-data font-semibold mb-1">
                     Đồng đội đổi ca cùng:
                   </label>
                   <select
                     value={swapTargetStaff}
                     onChange={(e) => setSwapTargetStaff(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-cyan-500 focus:outline-none"
+                    className="w-full p-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-red-500 focus:outline-none cursor-pointer"
                   >
                     <option value="Đ/c Lê Văn Toàn (Kíp 2)">
                       Đ/c Lê Văn Toàn (Kíp 2 - Trạm PCCC Q.1)
@@ -750,13 +752,13 @@ export const StaffScheduleView: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-400 font-mono-data mb-1">
+                    <label className="block text-slate-700 font-mono-data font-semibold mb-1">
                       Ca gốc hiện tại:
                     </label>
                     <select
                       value={swapOriginalShift}
                       onChange={(e) => setSwapOriginalShift(e.target.value as any)}
-                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-cyan-500 focus:outline-none"
+                      className="w-full p-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-red-500 focus:outline-none cursor-pointer"
                     >
                       <option value="morning">Ca Sáng (06h - 14h)</option>
                       <option value="afternoon">Ca Chiều (14h - 22h)</option>
@@ -765,13 +767,13 @@ export const StaffScheduleView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 font-mono-data mb-1">
+                    <label className="block text-slate-700 font-mono-data font-semibold mb-1">
                       Ca muốn nhận lại:
                     </label>
                     <select
                       value={swapTargetShift}
                       onChange={(e) => setSwapTargetShift(e.target.value as any)}
-                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-cyan-500 focus:outline-none"
+                      className="w-full p-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-red-500 focus:outline-none cursor-pointer"
                     >
                       <option value="morning">Ca Sáng (06h - 14h)</option>
                       <option value="afternoon">Ca Chiều (14h - 22h)</option>
@@ -781,7 +783,7 @@ export const StaffScheduleView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 font-mono-data mb-1">
+                  <label className="block text-slate-700 font-mono-data font-semibold mb-1">
                     Lý do xin đổi ca:
                   </label>
                   <textarea
@@ -789,22 +791,22 @@ export const StaffScheduleView: React.FC = () => {
                     value={swapReason}
                     onChange={(e) => setSwapReason(e.target.value)}
                     placeholder="Ghi rõ lý do cần hoán đổi ca trực tác chiến..."
-                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-cyan-500 focus:outline-none"
+                    className="w-full p-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-red-500 focus:outline-none"
                     required
                   />
                 </div>
 
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={() => setShowSwapModal(false)}
-                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white"
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium"
                   >
                     Hủy
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold flex items-center gap-1.5 shadow-md shadow-cyan-950"
+                    className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold flex items-center gap-1.5 shadow-md shadow-red-600/20"
                   >
                     <Send className="w-3.5 h-3.5" />
                     Gửi Đơn Xin Đổi Ca

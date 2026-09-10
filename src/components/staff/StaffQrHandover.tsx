@@ -55,22 +55,22 @@ export const StaffQrHandover: React.FC<StaffQrHandoverProps> = ({
   };
 
   return (
-    <div className="space-y-3 bg-slate-900/90 border border-slate-800 rounded-xl p-4">
+    <div className="space-y-3 bg-slate-50 border border-slate-200 rounded-xl p-4">
       {/* Tabs switch */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-        <label className="text-xs font-mono-data font-bold uppercase text-slate-300 flex items-center gap-1.5">
-          <QrCode className="w-3.5 h-3.5 text-cyan-400" />
+      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+        <label className="text-xs font-mono-data font-bold uppercase text-slate-700 flex items-center gap-1.5">
+          <QrCode className="w-3.5 h-3.5 text-red-600" />
           Xác Nhận Bàn Giao Hiện Trường & Nạn Nhân
         </label>
 
-        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+        <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-lg border border-slate-200 text-xs">
           <button
             type="button"
             onClick={() => setActiveTab('scanner')}
             className={`px-2.5 py-1 rounded font-medium transition-all ${
               activeTab === 'scanner'
-                ? 'bg-cyan-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-red-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Quét Mã QR
@@ -80,8 +80,8 @@ export const StaffQrHandover: React.FC<StaffQrHandoverProps> = ({
             onClick={() => setActiveTab('generator')}
             className={`px-2.5 py-1 rounded font-medium transition-all ${
               activeTab === 'generator'
-                ? 'bg-cyan-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-red-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Tạo Mã QR Bàn Giao
@@ -92,32 +92,32 @@ export const StaffQrHandover: React.FC<StaffQrHandoverProps> = ({
       {activeTab === 'scanner' ? (
         <div className="space-y-3">
           {/* Simulated Scanner Viewport */}
-          <div className="relative w-full h-44 bg-slate-950 rounded-xl border border-dashed border-cyan-500/40 overflow-hidden flex flex-col items-center justify-center">
+          <div className="relative w-full h-44 bg-white rounded-xl border-2 border-dashed border-red-300 overflow-hidden flex flex-col items-center justify-center shadow-inner">
             {isScanning ? (
               <>
                 {/* Laser scan line animation */}
-                <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_12px_#06b6d4] animate-pulse top-1/2 -translate-y-1/2" />
+                <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent shadow-[0_0_12px_rgba(239,68,68,0.5)] animate-pulse top-1/2 -translate-y-1/2" />
 
                 {/* Reticle brackets */}
-                <div className="w-32 h-32 border-2 border-cyan-400/80 rounded-lg relative flex items-center justify-center bg-cyan-950/20">
-                  <ScanLine className="w-12 h-12 text-cyan-400 animate-pulse" />
+                <div className="w-32 h-32 border-2 border-red-500 rounded-lg relative flex items-center justify-center bg-red-50/20">
+                  <ScanLine className="w-12 h-12 text-red-600 animate-pulse" />
                 </div>
 
-                <div className="mt-2 text-xs font-mono-data text-cyan-300">
+                <div className="mt-2 text-xs font-mono-data text-red-600 font-medium">
                   Đang hướng camera về mã QR đơn vị tiếp nhận...
                 </div>
               </>
             ) : (
               <div className="text-center p-4 space-y-2">
-                <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 flex items-center justify-center mx-auto">
+                <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-600 flex items-center justify-center mx-auto">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
-                <div className="text-sm font-bold text-white">Quét Xác Nhận Thành Công!</div>
-                <div className="text-xs text-emerald-400 font-mono-data">{scannedEntity}</div>
+                <div className="text-sm font-bold text-slate-900">Quét Xác Nhận Thành Công!</div>
+                <div className="text-xs text-emerald-600 font-mono-data font-bold">{scannedEntity}</div>
                 <button
                   type="button"
                   onClick={handleRescan}
-                  className="mt-1 inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 transition-colors font-medium"
                 >
                   <RefreshCw className="w-3 h-3" />
                   Quét lại mã khác
@@ -128,7 +128,7 @@ export const StaffQrHandover: React.FC<StaffQrHandoverProps> = ({
 
           {/* Quick preset trigger buttons (Simulation convenience) */}
           <div className="space-y-1.5">
-            <div className="text-[11px] text-slate-400 font-mono-data">
+            <div className="text-[11px] text-slate-500 font-mono-data">
               Hoặc chọn nhanh đơn vị tiếp nhận tại chỗ (Mô phỏng quét QR):
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -137,14 +137,14 @@ export const StaffQrHandover: React.FC<StaffQrHandoverProps> = ({
                   key={receiver.name}
                   type="button"
                   onClick={() => handleSimulatedScan(receiver)}
-                  className={`p-2.5 rounded-lg border text-left text-xs transition-all flex flex-col justify-between ${
+                  className={`p-2.5 rounded-lg border text-left text-xs transition-all flex flex-col justify-between shadow-sm ${
                     scannedEntity === receiver.name
-                      ? 'bg-emerald-950/60 border-emerald-500/80 text-white'
-                      : 'bg-slate-950/80 border-slate-800 text-slate-300 hover:border-slate-700 hover:bg-slate-800/60'
+                      ? 'bg-red-50 border-red-500 text-red-900 ring-1 ring-red-500'
+                      : 'bg-white border-slate-200 text-slate-700 hover:border-red-300 hover:bg-slate-50'
                   }`}
                 >
-                  <div className="font-semibold text-white leading-tight mb-1">{receiver.name}</div>
-                  <div className="text-[10px] text-slate-400 truncate">{receiver.contact}</div>
+                  <div className="font-semibold text-slate-900 leading-tight mb-1">{receiver.name}</div>
+                  <div className="text-[10px] text-slate-500 truncate">{receiver.contact}</div>
                 </button>
               ))}
             </div>
@@ -152,9 +152,9 @@ export const StaffQrHandover: React.FC<StaffQrHandoverProps> = ({
         </div>
       ) : (
         /* QR Code Generator View */
-        <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-center gap-4">
+        <div className="p-4 bg-white rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center gap-4 shadow-sm">
           {/* High-res SVG QR Simulation */}
-          <div className="w-36 h-36 bg-white p-2.5 rounded-xl shadow-lg shrink-0 flex items-center justify-center">
+          <div className="w-36 h-36 bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-sm shrink-0 flex items-center justify-center">
             <svg viewBox="0 0 100 100" className="w-full h-full text-slate-950">
               <rect x="0" y="0" width="100" height="100" fill="white" />
               {/* Corner squares */}
@@ -196,13 +196,13 @@ export const StaffQrHandover: React.FC<StaffQrHandoverProps> = ({
           </div>
 
           <div className="space-y-1.5 text-xs">
-            <div className="font-mono-data font-bold text-white text-sm">
-              MÃ BÀN GIAO: <span className="text-cyan-400">{missionId}</span>
+            <div className="font-mono-data font-bold text-slate-900 text-sm">
+              MÃ BÀN GIAO: <span className="text-red-600">{missionId}</span>
             </div>
-            <p className="text-slate-300">
+            <p className="text-slate-600">
               Đưa mã QR này cho đại diện Bệnh viện / Công an quét để đồng bộ hồ sơ tiếp nhận hiện trường tức thì vào hệ thống CAD liên ngành.
             </p>
-            <div className="text-[11px] font-mono-data text-slate-400">
+            <div className="text-[11px] font-mono-data text-slate-500">
               SHA256: 9f8a...3e12 • Ký số xác thực bởi Trung tâm Chỉ Huy
             </div>
           </div>
