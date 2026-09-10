@@ -3,12 +3,12 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { GoogleButton } from '../../components/auth/GoogleButton';
 import { VerifyEmailModal } from '../../components/auth/VerifyEmailModal';
-import { 
-  Mail, 
-  Lock, 
-  Eye, 
-  EyeOff, 
-  LogIn, 
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  LogIn,
   AlertCircle,
   CheckCircle2
 } from 'lucide-react';
@@ -81,7 +81,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <AuthLayout
-      title="resq-ai cad login"
+      title="Resq-ai Login"
       subtitle="Truy cập thiết bị đầu cuối điều phối khẩn cấp hoặc cổng tác chiến"
     >
       {successRedirectMsg && (
@@ -111,8 +111,8 @@ export const LoginPage: React.FC = () => {
 
       {/* Google Login Button */}
       <div className="space-y-4 mb-6">
-        <GoogleButton 
-          text="Đăng nhập với Google" 
+        <GoogleButton
+          text="Đăng nhập với Google"
           onClick={handleGoogleLogin}
           isLoading={isLoading}
         />
