@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { GoogleButton } from '../../components/auth/GoogleButton';
@@ -16,11 +16,12 @@ import { useAuth } from '../../hooks/useAuth';
 import { getApiErrorMessage } from '../../services/apiClient';
 import { API_CONFIG } from '../../config/api';
 import { UserRole } from '../../types/auth';
+import { getDefaultRouteForRole, isRouteAllowedForRole } from '../../utils/routeUtils';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, googleLogin } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, login, googleLogin } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,6 +33,27 @@ export const LoginPage: React.FC = () => {
 
   // Read message or redirect if passed from navigation
   const successRedirectMsg = (location.state as { message?: string })?.message;
+
+  const handleRoleRedirect = (role: UserRole) => {
+    const rawRedirect =
+      (location.state as { from?: { pathname?: string } })?.from?.pathname ||
+      new URLSearchParams(location.search).get('redirect') ||
+      undefined;
+
+    if (rawRedirect && isRouteAllowedForRole(rawRedirect, role)) {
+      navigate(rawRedirect, { replace: true });
+      return;
+    }
+
+    navigate(getDefaultRouteForRole(role), { replace: true });
+  };
+
+  // If already authenticated, redirect to appropriate role portal
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && user) {
+      handleRoleRedirect(user.role);
+    }
+  }, [authLoading, isAuthenticated, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,21 +70,7 @@ export const LoginPage: React.FC = () => {
         password,
       });
 
-      // Role-based or previous target redirect
-      const stateFrom = (location.state as { from?: { pathname: string } })?.from?.pathname;
-      if (stateFrom && stateFrom !== '/login') {
-        navigate(stateFrom, { replace: true });
-        return;
-      }
-
-      const role = authData.user.role;
-      if (role === UserRole.RescueStaff) {
-        navigate('/staff', { replace: true });
-      } else if (role === UserRole.Operator || role === UserRole.Admin) {
-        navigate('/dashboard', { replace: true });
-      } else {
-        navigate('/', { replace: true });
-      }
+      handleRoleRedirect(authData.user.role);
     } catch (err) {
       const message = getApiErrorMessage(err, 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.');
       setErrorMsg(message);
@@ -81,14 +89,7 @@ export const LoginPage: React.FC = () => {
     setErrorMsg('');
     try {
       const authData = await googleLogin(credential);
-      const role = authData.user.role;
-      if (role === UserRole.RescueStaff) {
-        navigate('/staff', { replace: true });
-      } else if (role === UserRole.Operator || role === UserRole.Admin) {
-        navigate('/dashboard', { replace: true });
-      } else {
-        navigate('/', { replace: true });
-      }
+      handleRoleRedirect(authData.user.role);
     } catch (err) {
       setErrorMsg(getApiErrorMessage(err, 'Đăng nhập Google thất bại.'));
     } finally {

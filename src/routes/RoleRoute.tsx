@@ -9,15 +9,15 @@ interface RoleRouteProps {
 }
 
 export const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles, children }) => {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, isLoggingOut } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
+  if (isLoading || isLoggingOut) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-white text-slate-900">
         <div className="w-10 h-10 border-4 border-red-500/20 border-t-red-600 rounded-full animate-spin mb-4" />
         <p className="text-xs font-mono-data tracking-wider uppercase text-slate-500">
-          Kiểm tra quyền truy cập...
+          {isLoggingOut ? 'Đang đăng xuất...' : 'Kiểm tra quyền truy cập...'}
         </p>
       </div>
     );

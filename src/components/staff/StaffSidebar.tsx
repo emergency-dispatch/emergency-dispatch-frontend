@@ -85,11 +85,10 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await logout('/login');
     } catch (err) {
       console.error('Logout error:', err);
     }
-    navigate('/login');
   };
 
   const displayName = user?.fullName || profile.name || 'Cán bộ tác chiến';
