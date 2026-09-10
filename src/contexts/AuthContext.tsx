@@ -165,6 +165,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Always succeed locally
     } finally {
       clearAuthSession();
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).google?.accounts?.id?.disableAutoSelect?.();
+      } catch {
+        // Ignore if google SDK is not present
+      }
     }
   };
 
