@@ -32,32 +32,27 @@ export const AiHighlightSection: React.FC = () => {
   ];
 
   return (
-    <section id="ai-technology" className="py-24 bg-[#0B0F19] relative overflow-hidden border-t border-b border-slate-800/80">
-      
-      {/* Background Neon Aura */}
-      <div className="absolute top-1/2 left-1/3 -translate-y-1/2 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[140px] pointer-events-none"></div>
-      <div className="absolute bottom-10 right-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
-
+    <section id="ai-technology" className="py-20 sm:py-24 bg-slate-50 relative overflow-hidden border-t border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-950/70 border border-blue-800/60 shadow-lg shadow-blue-950/50 whitespace-nowrap">
-            <BrainCircuit className="w-4 h-4 text-blue-400 animate-pulse shrink-0" />
-            <span className="text-xs font-mono-data uppercase tracking-widest text-blue-300 font-bold">
-              Vision-Language AI Technology
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50 border border-red-100 shadow-xs whitespace-nowrap">
+            <BrainCircuit className="w-4 h-4 text-red-600 shrink-0" />
+            <span className="text-xs font-mono-data uppercase tracking-widest text-red-600 font-bold">
+              CÔNG NGHỆ THỊ GIÁC AI VLM
             </span>
           </div>
 
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight text-balance">
-            Sub-Second Emergency Perception &amp;{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-rose-400">
-              Hazard Inference
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight text-balance">
+            Phân Tích Hiện Trường &amp;{' '}
+            <span className="text-red-600">
+              Nhận Diện Mối Nguy
             </span>
           </h2>
 
-          <p className="text-base sm:text-lg text-slate-300 leading-relaxed text-balance">
-            Our multi-modal VLM models analyze uploaded citizen photos, video streams, and audio transcripts in under 200ms—classifying critical hazards before the call even finishes ringing.
+          <p className="text-base sm:text-lg text-slate-600 leading-relaxed text-balance">
+            Mô hình VLM đa phương thức phân tích ảnh hiện trường từ người dân trong 200ms để phát hiện va chạm, cháy nổ, kẹt người và vật thể nguy hiểm trước khi cuộc gọi kết thúc.
           </p>
         </div>
 
@@ -66,27 +61,27 @@ export const AiHighlightSection: React.FC = () => {
           
           {/* Left Column: Visual AI Incident Demonstration Card */}
           <div className="lg:col-span-7 flex flex-col">
-            <div className="relative rounded-2xl cad-glass p-4 sm:p-5 border border-slate-700/80 shadow-2xl flex-1 flex flex-col justify-between overflow-hidden group">
+            <div className="relative rounded-2xl bg-white p-4 sm:p-5 border border-slate-200 shadow-lg flex-1 flex flex-col justify-between overflow-hidden group">
               
               {/* Header Info */}
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500 animate-ping"></div>
-                  <span className="text-xs font-mono-data font-bold text-white tracking-wider">
-                    LIVE INFERENCE STREAM #VLM-9021
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></div>
+                  <span className="text-xs font-mono-data font-bold text-slate-900 tracking-wider">
+                    LUỒNG PHÂN TÍCH THỜI GIAN THỰC #VLM-9021
                   </span>
                 </div>
                 <button
                   onClick={() => setScanActive(!scanActive)}
-                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-mono-data text-blue-400 border border-slate-700 flex items-center gap-1.5 transition-colors"
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-[11px] font-mono-data text-slate-700 border border-slate-200 flex items-center gap-1.5 transition-colors font-semibold"
                 >
-                  <Scan className="w-3.5 h-3.5" />
-                  <span>{scanActive ? 'AI Scan: ACTIVE' : 'AI Scan: PAUSED'}</span>
+                  <Scan className="w-3.5 h-3.5 text-red-600" />
+                  <span>{scanActive ? 'Quét AI: BẬT' : 'Quét AI: TẠM DỪNG'}</span>
                 </button>
               </div>
 
               {/* Photo Card with AI Bounding Boxes */}
-              <div className="relative rounded-xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner aspect-[16/10] sm:aspect-[16/9]">
+              <div className="relative rounded-xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner aspect-[16/10] sm:aspect-[16/9]">
                 
                 {/* Incident Image */}
                 <img 
@@ -135,18 +130,18 @@ export const AiHighlightSection: React.FC = () => {
               </div>
 
               {/* Surrounding AI Inference Tags */}
-              <div className="mt-4 pt-3 border-t border-slate-800">
-                <p className="text-xs text-slate-400 font-mono-data uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                  Detected Hazard Vectors &amp; Semantic Entities:
+              <div className="mt-4 pt-3 border-t border-slate-100">
+                <p className="text-xs text-slate-500 font-mono-data uppercase tracking-wider mb-2 flex items-center gap-1.5 font-bold">
+                  <Sparkles className="w-3.5 h-3.5 text-red-600" />
+                  Mối nguy &amp; Thực thể hiện trường được trích xuất:
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {tags.map((tag) => (
                     <span 
                       key={tag.label} 
-                      className={`px-2.5 py-1 rounded-md text-xs font-mono-data font-bold border transition-all duration-200 hover:scale-105 cursor-default ${tag.color}`}
+                      className="px-2.5 py-1 rounded-lg text-xs font-mono-data font-bold bg-slate-50 text-slate-800 border border-slate-200 hover:border-red-500 hover:text-red-600 transition-all cursor-default"
                     >
-                      {tag.label} <span className="opacity-75 text-[10px]">[{tag.confidence}]</span>
+                      {tag.label} <span className="opacity-75 text-[10px] text-red-600">[{tag.confidence}]</span>
                     </span>
                   ))}
                 </div>
@@ -159,79 +154,77 @@ export const AiHighlightSection: React.FC = () => {
           <div className="lg:col-span-5 flex flex-col space-y-6">
             
             {/* Severity Level Banner Card */}
-            <div className="rounded-2xl cad-glass p-6 border-2 border-red-500/70 shadow-glow-red relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/10 rounded-full blur-2xl pointer-events-none"></div>
-
+            <div className="rounded-2xl bg-white p-6 border-2 border-red-500 shadow-md relative overflow-hidden">
               <div className="flex items-center justify-between gap-4 mb-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-lg bg-red-600 text-white shadow-md">
+                  <div className="p-2.5 rounded-xl bg-red-600 text-white shadow-md">
                     <ShieldAlert className="w-6 h-6 animate-pulse" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-white">AI Severity Assessment</h3>
-                    <p className="text-xs font-mono-data text-red-400 font-semibold">AUTOMATED TRIAGE RESULT</p>
+                    <h3 className="text-lg font-black text-slate-900">Đánh Giá Mức Độ Khẩn Cấp</h3>
+                    <p className="text-xs font-mono-data text-red-600 font-bold">KẾT QUẢ AI TRIAGE TỰ ĐỘNG</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="px-3 py-1 rounded-lg bg-red-600 text-white font-black text-sm font-mono-data shadow-lg">
-                    Level 4 / 5
+                  <div className="px-3 py-1 rounded-lg bg-red-600 text-white font-black text-sm font-mono-data shadow-md">
+                    Cấp 4 / 5
                   </div>
-                  <span className="text-[10px] font-mono-data text-slate-400">HIGH RISK ALERT</span>
+                  <span className="text-[10px] font-mono-data text-slate-500 font-bold">MỨC NGUY CƠ CAO</span>
                 </div>
               </div>
 
               {/* 5-Step Severity Bar */}
               <div className="space-y-1.5 mb-4">
-                <div className="flex justify-between text-[11px] font-mono-data text-slate-400">
-                  <span>Level 1: Minor</span>
-                  <span>Level 3: Moderate</span>
-                  <span className="text-red-400 font-bold">Level 4: Severe</span>
+                <div className="flex justify-between text-[11px] font-mono-data text-slate-500 font-medium">
+                  <span>Cấp 1: Nhẹ</span>
+                  <span>Cấp 3: Vừa</span>
+                  <span className="text-red-600 font-bold">Cấp 4: Khẩn Cấp</span>
                 </div>
-                <div className="grid grid-cols-5 gap-1.5 h-3">
+                <div className="grid grid-cols-5 gap-1.5 h-2.5">
                   <div className="bg-emerald-500 rounded-sm"></div>
                   <div className="bg-amber-500 rounded-sm"></div>
                   <div className="bg-orange-500 rounded-sm"></div>
-                  <div className="bg-red-600 rounded-sm shadow-glow-red animate-pulse"></div>
-                  <div className="bg-slate-800 rounded-sm border border-slate-700"></div>
+                  <div className="bg-red-600 rounded-sm shadow-sm animate-pulse"></div>
+                  <div className="bg-slate-200 rounded-sm"></div>
                 </div>
               </div>
 
-              <p className="text-sm text-slate-300 leading-relaxed">
-                <strong className="text-white">AI Verdict:</strong> High-energy vehicular impact with fuel spillage risk and trapped occupants detected. Automated dispatch recommends simultaneous EMS and Heavy Rescue response.
+              <p className="text-sm text-slate-600 leading-relaxed">
+                <strong className="text-slate-900">Kết luận AI:</strong> Va chạm giao thông động năng cao, nguy cơ rò rỉ nhiên liệu và kẹt nạn nhân trong cabin. Hệ thống đề xuất điều động đồng thời 1 xe cứu thương và 1 xe cứu hộ chuyên dụng.
               </p>
             </div>
 
             {/* Interactive Mode Tabs */}
-            <div className="rounded-2xl cad-glass p-6 border border-slate-700 flex-1 flex flex-col justify-between">
+            <div className="rounded-2xl bg-white p-6 border border-slate-200 shadow-sm flex-1 flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-                  <span className="text-xs font-mono-data uppercase tracking-wider text-slate-400 font-bold">
-                    AI Decision Pipeline
+                <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                  <span className="text-xs font-mono-data uppercase tracking-wider text-slate-500 font-bold">
+                    Quy Trình AI Ra Quyết Định
                   </span>
-                  <div className="flex gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                  <div className="flex gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
                     <button
                       onClick={() => setActiveTab('vlm')}
                       className={`px-3 py-1 text-xs font-mono-data rounded-md font-bold transition-all ${
-                        activeTab === 'vlm' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+                        activeTab === 'vlm' ? 'bg-red-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-950'
                       }`}
                     >
-                      Perception
+                      Nhận Diện
                     </button>
                     <button
                       onClick={() => setActiveTab('risk')}
                       className={`px-3 py-1 text-xs font-mono-data rounded-md font-bold transition-all ${
-                        activeTab === 'risk' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+                        activeTab === 'risk' ? 'bg-red-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-950'
                       }`}
                     >
-                      Risk Analysis
+                      Phân Tích
                     </button>
                     <button
                       onClick={() => setActiveTab('resources')}
                       className={`px-3 py-1 text-xs font-mono-data rounded-md font-bold transition-all ${
-                        activeTab === 'resources' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+                        activeTab === 'resources' ? 'bg-red-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-950'
                       }`}
                     >
-                      Dispatch Auto-Plan
+                      Kế Hoạch Xe
                     </button>
                   </div>
                 </div>
@@ -239,18 +232,18 @@ export const AiHighlightSection: React.FC = () => {
                 {/* Tab 1: Perception Content */}
                 {activeTab === 'vlm' && (
                   <div className="space-y-3">
-                    <div className="p-3 rounded-lg bg-slate-900/80 border border-slate-800 text-xs space-y-2">
-                      <div className="flex items-center justify-between text-slate-300 font-mono-data">
-                        <span className="text-cyan-400 font-bold">● VLM Vision Token Extraction</span>
-                        <span>Confidence: 99.1%</span>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+                      <div className="flex items-center justify-between text-slate-700 font-mono-data">
+                        <span className="text-red-600 font-bold">● Trích xuất đặc trưng thị giác VLM</span>
+                        <span>Độ tin cậy: 99.1%</span>
                       </div>
-                      <p className="text-slate-400 leading-relaxed font-mono-data">
-                        "Visual telemetry identifies two sedan vehicles in head-on configuration. Structural cabin intrusion on driver side exceeds 30cm. Active smoke flare at engine bay."
+                      <p className="text-slate-600 leading-relaxed font-mono-data">
+                        "Hai xe con va chạm trực diện biến dạng đầu xe. Cabin người lái bị chèn ép &gt; 30cm. Có khói bốc lên tại khoang động cơ xe bên phải."
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 text-xs font-mono-data text-emerald-400">
+                    <div className="flex items-center gap-2 text-xs font-mono-data text-emerald-600 font-semibold">
                       <CheckCircle className="w-4 h-4" />
-                      <span>Zero Hallucination Guard: PASSED (99.8% Reliability)</span>
+                      <span>Xác minh chống ảo giác AI: ĐẠT (Độ chính xác 99.8%)</span>
                     </div>
                   </div>
                 )}
@@ -260,20 +253,20 @@ export const AiHighlightSection: React.FC = () => {
                   <div className="space-y-3">
                     <div className="space-y-2">
                       <div className="flex justify-between text-xs font-mono-data">
-                        <span className="text-slate-300">Entrapment Probability</span>
-                        <span className="text-red-400 font-bold">94.5% (High)</span>
+                        <span className="text-slate-700 font-medium">Xác suất kẹt nạn nhân trong xe</span>
+                        <span className="text-red-600 font-bold">94.5% (Cao)</span>
                       </div>
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div className="bg-red-500 h-full w-[94.5%]"></div>
+                      <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                        <div className="bg-red-600 h-full w-[94.5%]"></div>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <div className="flex justify-between text-xs font-mono-data">
-                        <span className="text-slate-300">Thermal Combustion Hazard</span>
-                        <span className="text-orange-400 font-bold">88.2% (Moderate-High)</span>
+                        <span className="text-slate-700 font-medium">Nguy cơ bùng phát cháy nổ</span>
+                        <span className="text-amber-600 font-bold">88.2% (Trung bình - Cao)</span>
                       </div>
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div className="bg-orange-500 h-full w-[88.2%]"></div>
+                      <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                        <div className="bg-amber-500 h-full w-[88.2%]"></div>
                       </div>
                     </div>
                   </div>
@@ -282,34 +275,34 @@ export const AiHighlightSection: React.FC = () => {
                 {/* Tab 3: Resource Dispatch Content */}
                 {activeTab === 'resources' && (
                   <div className="space-y-2.5">
-                    <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between text-xs font-mono-data">
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-mono-data">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                        <span className="text-white font-bold">1x Advanced Life Support Ambulance</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span className="text-slate-900 font-bold">1x Xe Cứu Thương Cấp Cứu 115</span>
                       </div>
-                      <span className="text-emerald-400">ETA 3m 40s</span>
+                      <span className="text-emerald-600 font-bold">Dự kiến 3m 40s</span>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between text-xs font-mono-data">
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-mono-data">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-red-400"></span>
-                        <span className="text-white font-bold">1x Heavy Extrication Fire Engine</span>
+                        <span className="w-2 h-2 rounded-full bg-red-600"></span>
+                        <span className="text-slate-900 font-bold">1x Xe Cứu Nạn Chữa Cháy 114</span>
                       </div>
-                      <span className="text-red-400">ETA 2m 15s</span>
+                      <span className="text-red-600 font-bold">Dự kiến 2m 15s</span>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between text-xs font-mono-data">
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-mono-data">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                        <span className="text-white font-bold">2x Traffic Police Patrol Units</span>
+                        <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                        <span className="text-slate-900 font-bold">2x Tuần Tra Cảnh Sát Giao Thông 113</span>
                       </div>
-                      <span className="text-blue-400">On Scene</span>
+                      <span className="text-blue-600 font-bold">Đã có mặt</span>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs font-mono-data text-slate-400">
-                <span>Algorithmic Optimization</span>
-                <span className="text-blue-400 font-bold">Dynamic Multi-Unit CAD Sync</span>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-mono-data text-slate-500">
+                <span>Tối ưu hóa thuật toán</span>
+                <span className="text-red-600 font-bold">Đồng Bộ CAD Đa Lực Lượng</span>
               </div>
             </div>
 

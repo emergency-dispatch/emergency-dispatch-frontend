@@ -6,14 +6,14 @@
 
 :root {
   font-family: 'Be Vietnam Pro', 'Inter', system-ui, -apple-system, sans-serif;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
   margin: 0;
   font-family: 'Be Vietnam Pro', 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #0F172A;
-  color: #F8FAFC;
+  background-color: #F8FAFC;
+  color: #0F172A;
   min-height: 100vh;
   overflow-x: hidden;
   selection-background-color: #DC2626;
@@ -25,24 +25,23 @@ body {
   color: #ffffff;
 }
 
-/* Custom Tactical CAD Scrollbar */
+/* Minimalist Clean Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0B0F19;
+  background: #F1F5F9;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1E293B;
+  background: #CBD5E1;
   border-radius: 3px;
-  border: 1px solid rgba(51, 65, 85, 0.5);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #94A3B8;
 }
 
 /* Monospace font for telemetry/coordinates/metrics */
@@ -50,28 +49,30 @@ body {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* High-Tech Tactical Grid Backgrounds */
+/* Clean Minimalist Backgrounds */
 .cad-grid-bg {
-  background-size: 32px 32px;
+  background-color: #FAFAFA;
   background-image: 
-    linear-gradient(to right, rgba(51, 65, 85, 0.18) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(51, 65, 85, 0.18) 1px, transparent 1px);
+    linear-gradient(to right, rgba(226, 232, 240, 0.6) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(226, 232, 240, 0.6) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
 .cad-radar-grid {
   background-size: 40px 40px;
   background-image: 
-    radial-gradient(circle, rgba(37, 99, 235, 0.12) 1px, transparent 1px),
-    linear-gradient(to right, rgba(30, 41, 59, 0.5) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(30, 41, 59, 0.5) 1px, transparent 1px);
+    radial-gradient(circle, rgba(220, 38, 38, 0.08) 1px, transparent 1px),
+    linear-gradient(to right, rgba(241, 245, 249, 0.8) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(241, 245, 249, 0.8) 1px, transparent 1px);
 }
 
-/* Glassmorphism panel utility */
+/* Minimalist Glass Card Utility */
 .cad-glass {
-  background: rgba(19, 29, 51, 0.72);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
 }
 
 .cad-glass-hover {
@@ -79,25 +80,25 @@ body {
 }
 
 .cad-glass-hover:hover {
-  background: rgba(30, 41, 59, 0.88);
-  border-color: rgba(96, 165, 250, 0.4);
-  box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.25);
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.1);
 }
 
 .cad-glass-red-hover:hover {
-  background: rgba(30, 41, 59, 0.88);
-  border-color: rgba(220, 38, 38, 0.5);
-  box-shadow: 0 10px 30px -10px rgba(220, 38, 38, 0.35);
+  background: #FFFFFF;
+  border-color: #EF4444;
+  box-shadow: 0 10px 30px -10px rgba(220, 38, 38, 0.15);
 }
 
-/* High-tech Glowing Borders & Gradients */
+/* Clean High-Contrast Borders */
 .glow-border-red {
-  box-shadow: 0 0 15px rgba(220, 38, 38, 0.35);
+  box-shadow: 0 0 15px rgba(220, 38, 38, 0.2);
   border-color: #DC2626;
 }
 
 .glow-border-blue {
-  box-shadow: 0 0 15px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.15);
   border-color: #2563EB;
 }
 
@@ -153,44 +154,11 @@ body {
   color: #94A3B8 !important;
 }
 
-/* Crosshair HUD Decors */
-.hud-corner-tl {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 8px;
-  height: 8px;
-  border-top: 2px solid #2563EB;
-  border-left: 2px solid #2563EB;
-}
-
-.hud-corner-tr {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 8px;
-  height: 8px;
-  border-top: 2px solid #2563EB;
-  border-right: 2px solid #2563EB;
-}
-
-.hud-corner-bl {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 8px;
-  height: 8px;
-  border-bottom: 2px solid #2563EB;
-  border-left: 2px solid #2563EB;
-}
-
+/* HUD Decors (Simplified/Hidden for clean minimal look) */
+.hud-corner-tl,
+.hud-corner-tr,
+.hud-corner-bl,
 .hud-corner-br {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 8px;
-  height: 8px;
-  border-bottom: 2px solid #2563EB;
-  border-right: 2px solid #2563EB;
+  display: none;
 }
 

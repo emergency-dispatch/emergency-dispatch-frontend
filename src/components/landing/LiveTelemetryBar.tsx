@@ -25,45 +25,45 @@ export const LiveTelemetryBar: React.FC = () => {
   }, []);
 
   return (
-    <div className="bg-[#080C14] border-y border-slate-800/80 py-3.5 px-4 sm:px-6 lg:px-8 font-mono-data text-xs overflow-hidden">
+    <div className="bg-white border-y border-slate-200 py-3 px-4 sm:px-6 lg:px-8 font-mono-data text-xs overflow-hidden shadow-xs">
       <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
         
         {/* Left Status Marker */}
         <div className="flex items-center gap-2.5">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
           </span>
-          <span className="text-slate-200 font-bold tracking-wider">
-            CAD CLUSTER STATUS: <span className="text-emerald-400">OPTIMAL</span>
+          <span className="text-slate-900 font-bold tracking-wider">
+            TRẠNG THÁI HỆ THỐNG: <span className="text-red-600 font-extrabold">HOẠT ĐỘNG 24/7</span>
           </span>
-          <span className="hidden sm:inline-block text-slate-600">|</span>
-          <span className="hidden sm:inline-flex items-center gap-1 text-slate-400">
-            <Server className="w-3.5 h-3.5 text-blue-400" />
-            <span>NODE: AP-SOUTHEAST-VN</span>
+          <span className="hidden sm:inline-block text-slate-300">|</span>
+          <span className="hidden sm:inline-flex items-center gap-1 text-slate-500">
+            <Server className="w-3.5 h-3.5 text-slate-400" />
+            <span>KHU VỰC: VIETNAM-HN-01</span>
           </span>
         </div>
 
         {/* Real-Time Metrics Ticker */}
-        <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-slate-400">
+        <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-slate-600">
           <div className="flex items-center gap-1.5">
-            <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-            <span>AI Inference: <strong className="text-white">{avgLatency}ms</strong></span>
+            <Cpu className="w-3.5 h-3.5 text-red-500" />
+            <span>Phân tích AI: <strong className="text-slate-900">{avgLatency}ms</strong></span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <Truck className="w-3.5 h-3.5 text-amber-400" />
-            <span>Active Units: <strong className="text-white">{dispatchedVehicles} Dispatched</strong></span>
+            <Truck className="w-3.5 h-3.5 text-slate-500" />
+            <span>Lực lượng trực chiến: <strong className="text-slate-900">{dispatchedVehicles} Phương tiện</strong></span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <AlertCircle className="w-3.5 h-3.5 text-red-400 animate-pulse" />
-            <span>Active CAD Queue: <strong className="text-red-400">{activeIncidents} Cases</strong></span>
+            <AlertCircle className="w-3.5 h-3.5 text-red-600 animate-pulse" />
+            <span>Hàng đợi tiếp nhận: <strong className="text-red-600">{activeIncidents} Vụ việc</strong></span>
           </div>
 
           <div className="hidden lg:flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Zero-Trust Encryption: <strong className="text-emerald-400">AES-256 GCM</strong></span>
+            <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
+            <span>Bảo mật dữ liệu: <strong className="text-slate-900">Chuẩn An ninh Quốc gia</strong></span>
           </div>
         </div>
 

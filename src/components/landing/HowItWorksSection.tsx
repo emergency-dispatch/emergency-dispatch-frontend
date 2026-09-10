@@ -1,19 +1,12 @@
 import React, { useState } from 'react';
 import { 
-  AlertCircle, 
+  Camera, 
   BrainCircuit, 
-  Send, 
-  MapPin, 
   Truck, 
   Navigation, 
-  ShieldCheck, 
-  Camera, 
-  Radio, 
   CheckCircle2, 
   ArrowRight,
-  Sparkles,
-  Layers,
-  Clock
+  Layers
 } from 'lucide-react';
 
 export const HowItWorksSection: React.FC = () => {
@@ -23,114 +16,108 @@ export const HowItWorksSection: React.FC = () => {
     {
       step: 1,
       id: 'step-1',
-      title: 'One-Touch SOS & Media Capture',
-      subtitle: 'Citizen Instant Trigger',
+      title: 'Kích hoạt SOS & Chụp ảnh hiện trường',
+      subtitle: 'Bước 1 - Người dân gửi báo cáo',
       icon: Camera,
-      badgeColor: 'from-red-600 to-rose-600',
+      badgeColor: 'bg-red-600 text-white',
       badgeBorder: 'border-red-500',
-      textColor: 'text-red-400',
-      description: 'Citizens report emergencies with 1 tap. High-precision GPS coordinates, photos, and voice notes are captured and streamed instantly without requiring app installation.',
+      textColor: 'text-red-500',
+      description: 'Người dân phát tín hiệu khẩn cấp chỉ với 1 chạm. Tọa độ GPS chính xác cao, hình ảnh và ghi chú âm thanh được truyền trực tiếp về tổng đài mà không cần cài đặt ứng dụng phức tạp.',
       bulletPoints: [
-        'Automatic sub-5m GPS triangulation',
-        'Direct multi-photo & audio streaming',
-        'Silent panic mode for high-risk situations',
-        'Zero registration barrier for critical speed'
+        'Tự động định vị GPS chính xác sai số < 5m',
+        'Truyền tải ảnh và âm thanh hiện trường tức thì',
+        'Chế độ khẩn cấp im lặng khi gặp nguy hiểm',
+        'Không rào cản đăng nhập, tối ưu thời gian'
       ],
-      mockMetric: 'Report Time: < 3.2s'
+      mockMetric: 'Thời gian gửi: < 3.2s'
     },
     {
       step: 2,
       id: 'step-2',
-      title: 'AI Hazard Scoring & Verification',
-      subtitle: 'Vision-Language Triaging',
+      title: 'AI Phân tích hình ảnh & Đánh giá rủi ro',
+      subtitle: 'Bước 2 - Trợ lý thị giác VLM',
       icon: BrainCircuit,
-      badgeColor: 'from-blue-600 to-indigo-600',
-      badgeBorder: 'border-blue-500',
-      textColor: 'text-blue-400',
-      description: 'Our proprietary Vision-Language Model inspects live images, classifies hazard categories (Fire, Hazmat, Collision), detects entrapment risks, and assigns a calibrated 1-5 severity index.',
+      badgeColor: 'bg-red-600 text-white',
+      badgeBorder: 'border-red-500',
+      textColor: 'text-red-500',
+      description: 'Mô hình Thị giác - Ngôn ngữ (VLM) tự động quét ảnh hiện trường, nhận diện loại tai nạn (Cháy nổ, Va chạm giao thông, Sập đổ), ước tính nạn nhân và gán cấp độ nghiêm trọng từ 1 đến 5.',
       bulletPoints: [
-        'VLM-powered multi-modal perception',
-        'Automated false-alarm & spam filtering',
-        'Instant casualty count estimation',
-        'Risk vector extraction in under 200ms'
+        'Nhận diện đa phương thức bằng thị giác máy tính',
+        'Tự động lọc tin giả mạo và cuộc gọi rác',
+        'Ước tính số lượng thương vong và mức độ nguy cấp',
+        'Trích xuất đặc trưng rủi ro trong chưa đầy 200ms'
       ],
-      mockMetric: 'AI Inference: 142ms'
+      mockMetric: 'Tốc độ suy luận AI: 142ms'
     },
     {
       step: 3,
       id: 'step-3',
-      title: 'Nearest-Unit Automated Dispatch',
-      subtitle: 'Algorithmic Resource Routing',
+      title: 'Điều phối lực lượng gần nhất tự động',
+      subtitle: 'Bước 3 - Thuật toán định tuyến CAD',
       icon: Truck,
-      badgeColor: 'from-amber-600 to-orange-600',
-      badgeBorder: 'border-amber-500',
-      textColor: 'text-amber-400',
-      description: 'The CAD engine instantly calculates the fastest response units across Fire, Police, and EMS bases, matching available on-board equipment and live traffic conditions.',
+      badgeColor: 'bg-red-600 text-white',
+      badgeBorder: 'border-red-500',
+      textColor: 'text-red-500',
+      description: 'Hệ thống CAD tự động tính toán trạm PCCC, Bệnh viện, Công an gần nhất còn trang thiết bị phù hợp và lộ trình giao thông thông thoáng nhất để xuất xe lập tức.',
       bulletPoints: [
-        'Multi-agency resource clustering',
-        'Traffic-aware dynamic routing',
-        'Automated station siren & mobile paging',
-        'Equipment-to-hazard capability matching'
+        'Phối hợp đa lực lượng (Cứu hỏa, Y tế, Cảnh sát)',
+        'Định tuyến thông minh theo tình trạng kẹt xe thời gian thực',
+        'Phát lệnh cảnh báo tự động về thiết bị đội phản ứng',
+        'Khớp nối chuyên biệt trang thiết bị với hiện trường'
       ],
-      mockMetric: 'Dispatch Latency: < 15s'
+      mockMetric: 'Độ trễ điều phối: < 15s'
     },
     {
       step: 4,
       id: 'step-4',
-      title: 'Live Map Tracking & Synchronized ETA',
-      subtitle: 'Bilateral Coordination HUD',
+      title: 'Bản đồ trực tiếp & Đồng bộ thời gian ETA',
+      subtitle: 'Bước 4 - Giám sát di chuyển thời gian thực',
       icon: Navigation,
-      badgeColor: 'from-emerald-600 to-teal-600',
-      badgeBorder: 'border-emerald-500',
-      textColor: 'text-emerald-400',
-      description: 'Citizens and dispatchers track approaching responders in real time with synchronized ETAs, direct emergency VoIP channels, and interactive first-aid guidance.',
+      badgeColor: 'bg-red-600 text-white',
+      badgeBorder: 'border-red-500',
+      textColor: 'text-red-500',
+      description: 'Người dân và tổng đài theo dõi hành trình xe cứu hộ trên bản đồ vệ tinh với thời gian đến dự kiến (ETA) liên tục cập nhật, kèm kênh thoại khẩn cấp và hướng dẫn sơ cứu.',
       bulletPoints: [
-        'Live sub-second telemetry tracking',
-        'Dynamic real-time ETA recalculation',
-        'Encrypted first-responder voice link',
-        'Instant digital incident closure log'
+        'Theo dõi GPS thời gian thực độ trễ dưới 1 giây',
+        'Liên tục cập nhật lại ETA theo luồng giao thông',
+        'Kênh liên lạc thoại trực tiếp với đội cứu hộ',
+        'Tự động lập nhật ký hành trình xử lý vụ việc'
       ],
-      mockMetric: 'Sync Latency: < 50ms'
+      mockMetric: 'Đồng bộ dữ liệu: < 50ms'
     }
   ];
 
   return (
-    <section id="workflow" className="py-24 bg-[#0F172A] relative overflow-hidden cad-grid-bg">
-      
-      {/* Ambient background glows */}
-      <div className="absolute top-1/3 left-10 w-96 h-96 bg-red-600/10 rounded-full blur-[130px] pointer-events-none"></div>
-      <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-600/10 rounded-full blur-[130px] pointer-events-none"></div>
-
+    <section id="workflow" className="py-20 bg-white border-t border-slate-200 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-800/90 border border-slate-700 shadow-md whitespace-nowrap">
-            <Layers className="w-4 h-4 text-red-500 shrink-0" />
-            <span className="text-xs font-mono-data uppercase tracking-widest text-slate-300 font-bold">
-              Autonomous Dispatch Workflow
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50 border border-red-200 shadow-sm whitespace-nowrap">
+            <Layers className="w-4 h-4 text-red-600 shrink-0" />
+            <span className="text-xs font-mono uppercase tracking-widest text-red-600 font-bold">
+              Quy trình vận hành khẩn cấp
             </span>
           </div>
 
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight text-balance">
-            How ResQ-AI Operates in{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-orange-400 to-blue-500">
-              4 Critical Steps
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+            Xử lý ứng cứu chuẩn xác trong{' '}
+            <span className="text-red-600">
+              4 bước tinh gọn
             </span>
           </h2>
 
-          <p className="text-base sm:text-lg text-slate-300 leading-relaxed text-balance">
-            From the instant a citizen taps SOS to the moment responders arrive on scene, every millisecond is orchestrated with computational precision.
+          <p className="text-base text-slate-600 leading-relaxed">
+            Từ lúc người dân kích hoạt SOS đến khi lực lượng tiếp cận hiện trường, quy trình được tự động hóa tối đa nhằm rút ngắn từng giây vàng cứu mạng.
           </p>
         </div>
 
-        {/* 4-Step Horizontal Stepper Header (Desktop & Mobile) */}
-        <div className="relative mb-12">
-          
-          {/* Connecting Track Line behind steps (Hidden on small mobile) */}
-          <div className="hidden md:block absolute top-7 left-[8%] right-[8%] h-0.5 bg-slate-800 z-0">
+        {/* 4-Step Stepper Header */}
+        <div className="relative mb-10">
+          {/* Connecting Track Line */}
+          <div className="hidden md:block absolute top-7 left-[10%] right-[10%] h-0.5 bg-slate-200 z-0">
             <div 
-              className="h-full bg-gradient-to-r from-red-500 via-blue-500 to-emerald-500 transition-all duration-500"
+              className="h-full bg-red-600 transition-all duration-500"
               style={{ width: `${((activeStep - 1) / 3) * 100}%` }}
             ></div>
           </div>
@@ -146,35 +133,35 @@ export const HowItWorksSection: React.FC = () => {
                 <button
                   key={item.step}
                   onClick={() => setActiveStep(item.step)}
-                  className={`text-left p-4 rounded-xl transition-all duration-300 border flex flex-col justify-between h-full ${
+                  className={`text-left p-4 rounded-xl transition-all duration-200 border flex flex-col justify-between h-full cursor-pointer ${
                     isActive 
-                      ? 'bg-slate-900/90 border-blue-500 shadow-glow-blue scale-[1.02]' 
+                      ? 'bg-red-50/60 border-red-500 shadow-sm' 
                       : isPast
-                        ? 'bg-slate-900/60 border-slate-700 hover:border-slate-600'
-                        : 'bg-slate-950/40 border-slate-800/80 hover:border-slate-700 opacity-80'
+                        ? 'bg-white border-slate-300 hover:border-red-300'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-black font-mono-data text-sm shadow-md transition-transform duration-300 shrink-0 ${
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm shadow-sm transition-transform duration-200 shrink-0 ${
                       isActive 
-                        ? 'bg-gradient-to-br ' + item.badgeColor + ' text-white scale-110' 
+                        ? 'bg-red-600 text-white' 
                         : isPast 
-                          ? 'bg-slate-800 text-blue-400 border border-slate-700' 
-                          : 'bg-slate-900 text-slate-500 border border-slate-800'
+                          ? 'bg-red-100 text-red-600 border border-red-200' 
+                          : 'bg-slate-100 text-slate-500 border border-slate-200'
                     }`}>
                       <Icon className="w-5 h-5" />
                     </div>
-                    <span className="font-mono-data text-xs font-bold text-slate-500 whitespace-nowrap">
+                    <span className={`font-mono text-xs font-bold ${isActive ? 'text-red-600' : 'text-slate-400'}`}>
                       0{item.step}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-mono-data uppercase tracking-wider text-slate-400 block mb-0.5 whitespace-nowrap font-semibold">
+                    <span className="text-[11px] uppercase tracking-wider text-slate-500 block mb-1 font-semibold">
                       {item.subtitle}
                     </span>
-                    <h3 className={`text-sm font-bold leading-snug transition-colors text-balance ${
-                      isActive ? 'text-white' : 'text-slate-300'
+                    <h3 className={`text-sm font-bold leading-snug transition-colors ${
+                      isActive ? 'text-slate-900' : 'text-slate-700'
                     }`}>
                       {item.title}
                     </h3>
@@ -183,133 +170,131 @@ export const HowItWorksSection: React.FC = () => {
               );
             })}
           </div>
-
         </div>
 
         {/* Active Step Detailed Deep-Dive Card */}
         {steps.map((item) => {
           if (item.step !== activeStep) return null;
-          const Icon = item.icon;
 
           return (
             <div 
               key={item.step}
-              className="rounded-2xl cad-glass p-6 sm:p-8 border border-slate-700 shadow-2xl transition-all duration-500 animate-fadeIn"
+              className="rounded-2xl bg-white p-6 sm:p-8 border border-slate-200 shadow-md transition-all duration-300"
             >
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
                 
                 {/* Left Step Overview */}
                 <div className="lg:col-span-7 space-y-6">
                   <div className="flex items-center gap-3">
-                    <div className={`px-3 py-1 rounded-md text-xs font-mono-data font-black bg-gradient-to-r ${item.badgeColor} text-white shadow-md`}>
-                      PHASE 0{item.step} OF 04
+                    <div className="px-3 py-1 rounded-md text-xs font-mono font-bold bg-red-600 text-white shadow-sm">
+                      BƯỚC 0{item.step} / 04
                     </div>
-                    <span className="text-xs font-mono-data text-slate-400 font-semibold">
+                    <span className="text-xs font-mono text-slate-500 font-semibold">
                       {item.mockMetric}
                     </span>
                   </div>
 
-                  <h3 className="text-2xl sm:text-3xl font-black text-white">
+                  <h3 className="text-2xl sm:text-3xl font-bold text-slate-900">
                     {item.title}
                   </h3>
 
-                  <p className="text-base text-slate-300 leading-relaxed">
+                  <p className="text-base text-slate-600 leading-relaxed">
                     {item.description}
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     {item.bulletPoints.map((point, idx) => (
-                      <div key={idx} className="flex items-start gap-2.5 bg-slate-900/60 p-3 rounded-lg border border-slate-800">
-                        <CheckCircle2 className={`w-4 h-4 mt-0.5 flex-shrink-0 ${item.textColor}`} />
-                        <span className="text-xs text-slate-200 font-medium leading-tight">
+                      <div key={idx} className="flex items-start gap-2.5 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-600" />
+                        <span className="text-xs text-slate-700 font-medium leading-tight">
                           {point}
                         </span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="flex items-center gap-4 pt-4 border-t border-slate-800">
+                  <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
                     {item.step < 4 ? (
                       <button
                         onClick={() => setActiveStep(item.step + 1)}
-                        className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs tracking-wider uppercase font-mono-data flex items-center gap-2 transition-all shadow-glow-blue"
+                        className="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase flex items-center gap-2 transition-all shadow-sm cursor-pointer"
                       >
-                        <span>Advance to Step 0{item.step + 1}</span>
+                        <span>Tiếp tục Bước 0{item.step + 1}</span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
                     ) : (
                       <button
                         onClick={() => setActiveStep(1)}
-                        className="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs tracking-wider uppercase font-mono-data flex items-center gap-2 transition-all"
+                        className="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs tracking-wider uppercase flex items-center gap-2 transition-all shadow-sm cursor-pointer"
                       >
-                        <span>Restart Workflow Demo</span>
+                        <span>Xem lại từ đầu</span>
                         <CheckCircle2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* Right Step Visual CAD Graphic */}
+                {/* Right Step CAD Console Graphic */}
                 <div className="lg:col-span-5">
-                  <div className="rounded-xl bg-slate-950 p-6 border border-slate-800 shadow-inner relative overflow-hidden font-mono-data">
+                  <div className="rounded-xl bg-slate-900 p-6 border border-slate-800 shadow-md relative overflow-hidden font-mono">
                     <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-800 text-[11px]">
-                      <span className="text-slate-400">TELEMETRY SIMULATOR</span>
-                      <span className={`font-bold ${item.textColor}`}>ACTIVE LOG</span>
+                      <span className="text-slate-400">NHẬT KÝ VẬN HÀNH CAD</span>
+                      <span className="font-bold text-red-400">TRỰC TUYẾN</span>
                     </div>
 
                     <div className="space-y-3 text-xs text-slate-300">
                       {item.step === 1 && (
                         <>
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
-                            <span className="text-red-400 font-bold">[14:32:01.04]</span> SOS Packet Received from Citizen Client #8942
+                          <div className="p-2.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300">
+                            <span className="text-red-400 font-bold">[14:32:01.04]</span> Nhận gói tin SOS từ ứng dụng công dân #8942
                           </div>
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
-                            <span className="text-blue-400 font-bold">[14:32:01.12]</span> GPS coordinates locked: 21.0285, 105.8542 (±2.8m)
+                          <div className="p-2.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300">
+                            <span className="text-slate-300 font-bold">[14:32:01.12]</span> Khóa định vị GPS: 21.0285, 105.8542 (±2.8m)
                           </div>
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
-                            <span className="text-emerald-400 font-bold">[14:32:01.45]</span> 2 High-Res Images &amp; 1 Voice Memo Uploaded
+                          <div className="p-2.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300">
+                            <span className="text-emerald-400 font-bold">[14:32:01.45]</span> Đã tải lên 2 ảnh hiện trường &amp; 1 bản ghi âm
                           </div>
                         </>
                       )}
 
                       {item.step === 2 && (
                         <>
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
-                            <span className="text-cyan-400 font-bold">[14:32:01.62]</span> VLM Engine dispatched inference job #VLM-9021
+                          <div className="p-2.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300">
+                            <span className="text-amber-400 font-bold">[14:32:01.62]</span> VLM Engine khởi tạo tiến trình phân tích #VLM-9021
                           </div>
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
-                            <span className="text-amber-400 font-bold">[14:32:01.76]</span> Classified: Vehicle Rollover (0.99), Fire Hazard (0.96)
+                          <div className="p-2.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300">
+                            <span className="text-slate-200 font-bold">[14:32:01.76]</span> Phân loại: Lật xe giao thông (0.99), Nguy cơ cháy (0.96)
                           </div>
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
-                            <span className="text-red-400 font-bold">[14:32:01.80]</span> Final Score: Level 4 (Severe) -&gt; Broadcasted to CAD
+                          <div className="p-2.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300">
+                            <span className="text-red-400 font-bold">[14:32:01.80]</span> Đánh giá: Mức độ 4 (Nghiêm trọng) -&gt; Đẩy cảnh báo
                           </div>
                         </>
                       )}
 
                       {item.step === 3 && (
                         <>
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
-                            <span className="text-blue-400 font-bold">[14:32:01.95]</span> Geo-Spatial KD-Tree query executed across 32 stations
+                          <div className="p-2.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300">
+                            <span className="text-slate-300 font-bold">[14:32:01.95]</span> Thuật toán quét bán kính trạm cứu hộ trong 5km
                           </div>
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
-                            <span className="text-emerald-400 font-bold">[14:32:02.10]</span> Unit AM-04 (EMS) Assigned -&gt; Alert Acknowledged
+                          <div className="p-2.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300">
+                            <span className="text-emerald-400 font-bold">[14:32:02.10]</span> Xe cứu thương AM-04 tiếp nhận -&gt; Xuất phát
                           </div>
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
-                            <span className="text-red-400 font-bold">[14:32:02.25]</span> Unit FE-09 (Rescue) Assigned -&gt; Route Optimized
+                          <div className="p-2.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300">
+                            <span className="text-red-400 font-bold">[14:32:02.25]</span> Xe cứu hỏa FE-09 tiếp nhận -&gt; Tối ưu lộ trình
                           </div>
                         </>
                       )}
 
                       {item.step === 4 && (
                         <>
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
-                            <span className="text-emerald-400 font-bold">[14:32:03.00]</span> WebSocket HUD stream connected to Citizen
+                          <div className="p-2.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300">
+                            <span className="text-emerald-400 font-bold">[14:32:03.00]</span> Mở kênh WebSocket truyền vị trí xe đến điện thoại người dân
                           </div>
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
-                            <span className="text-blue-400 font-bold">[14:32:05.40]</span> AM-04 Speed: 68 km/h | ETA updated to 3m 40s
+                          <div className="p-2.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300">
+                            <span className="text-slate-300 font-bold">[14:32:05.40]</span> Tốc độ AM-04: 68 km/h | Cập nhật ETA: 3 phút 40 giây
                           </div>
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
-                            <span className="text-cyan-400 font-bold">[14:32:08.10]</span> Two-way tactical voice channel standby ready
+                          <div className="p-2.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300">
+                            <span className="text-blue-400 font-bold">[14:32:08.10]</span> Thiết lập kênh liên lạc khẩn cấp trực tiếp
                           </div>
                         </>
                       )}

@@ -145,23 +145,23 @@ export const LoginPage: React.FC = () => {
       subtitle="Truy cập thiết bị đầu cuối điều phối khẩn cấp hoặc cổng tác chiến"
     >
       {successRedirectMsg && (
-        <div className="mb-4 p-3 rounded-xl bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+        <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
           <span>{successRedirectMsg}</span>
         </div>
       )}
 
       {errorMsg && (
-        <div className="mb-4 p-3 rounded-xl bg-red-950/60 border border-red-800 text-red-300 text-xs flex items-center justify-between gap-2">
+        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
             <span>{errorMsg}</span>
           </div>
           {errorMsg.toLowerCase().includes('xác thực') && (
             <button
               type="button"
               onClick={() => setShowVerifyModal(true)}
-              className="text-xs font-bold text-blue-400 hover:underline shrink-0"
+              className="text-xs font-bold text-red-600 hover:underline shrink-0 cursor-pointer"
             >
               Nhập mã OTP
             </button>
@@ -181,11 +181,11 @@ export const LoginPage: React.FC = () => {
 
         {/* Divider */}
         <div className="relative flex items-center justify-center">
-          <div className="border-t border-slate-800 w-full"></div>
-          <span className="bg-[#131D33] px-3 text-[11px] font-mono-data uppercase tracking-wider text-slate-500 shrink-0">
+          <div className="border-t border-slate-200 w-full"></div>
+          <span className="bg-white px-3 text-[11px] font-mono uppercase tracking-wider text-slate-500 shrink-0">
             hoặc bằng tài khoản
           </span>
-          <div className="border-t border-slate-800 w-full"></div>
+          <div className="border-t border-slate-200 w-full"></div>
         </div>
       </div>
 
@@ -193,11 +193,11 @@ export const LoginPage: React.FC = () => {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Email or CAD ID */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+          <label className="block text-xs font-mono uppercase tracking-wider text-slate-700 font-bold">
             Địa chỉ Email / Mã định danh CAD
           </label>
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
               <Mail className="w-4 h-4" />
             </div>
             <input
@@ -206,7 +206,7 @@ export const LoginPage: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ten@resq.gov.vn hoặc email người dân"
-              className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-900/90 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-mono-data"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all font-mono"
             />
           </div>
         </div>
@@ -214,18 +214,18 @@ export const LoginPage: React.FC = () => {
         {/* Password */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-300 font-semibold">
+            <label className="block text-xs font-mono uppercase tracking-wider text-slate-700 font-bold">
               Mật khẩu
             </label>
             <Link
               to="/forgot-password"
-              className="text-xs font-mono-data text-blue-400 hover:text-blue-300 transition-colors"
+              className="text-xs text-red-600 hover:text-red-700 font-medium transition-colors"
             >
               Quên mật khẩu?
             </Link>
           </div>
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
               <Lock className="w-4 h-4" />
             </div>
             <input
@@ -234,12 +234,12 @@ export const LoginPage: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
-              className="w-full pl-10 pr-10 py-3 rounded-xl bg-slate-900/90 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-mono-data"
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all font-mono"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
+              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -248,12 +248,12 @@ export const LoginPage: React.FC = () => {
 
         {/* Remember Me */}
         <div className="flex items-center pt-1">
-          <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs text-slate-400">
+          <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs text-slate-600">
             <input
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+              className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer"
             />
             <span>Ghi nhớ phiên đăng nhập trên thiết bị này</span>
           </label>
@@ -263,7 +263,7 @@ export const LoginPage: React.FC = () => {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm tracking-wide shadow-glow-blue active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2 border border-blue-500 disabled:opacity-60"
+          className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm tracking-wide shadow-sm active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
         >
           {isLoading ? (
             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -277,9 +277,9 @@ export const LoginPage: React.FC = () => {
       </form>
 
       {/* Switch to Sign Up */}
-      <div className="mt-6 pt-5 border-t border-slate-800 text-center text-xs text-slate-400">
+      <div className="mt-6 pt-5 border-t border-slate-200 text-center text-xs text-slate-600">
         Chưa có tài khoản Người dân?{' '}
-        <Link to="/register" className="text-blue-400 hover:text-blue-300 font-bold transition-colors">
+        <Link to="/register" className="text-red-600 hover:text-red-700 font-bold transition-colors">
           Đăng ký ngay
         </Link>
       </div>
