@@ -14,12 +14,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { getApiErrorMessage } from '../../services/apiClient';
+import { API_CONFIG } from '../../config/api';
 import { UserRole } from '../../types/auth';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -75,8 +76,67 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  const handleGoogleSuccess = async (credential: string) => {
+    setIsLoading(true);
+    setErrorMsg('');
+    try {
+      const authData = await googleLogin(credential);
+      const role = authData.user.role;
+      if (role === UserRole.RescueStaff) {
+        navigate('/staff', { replace: true });
+      } else if (role === UserRole.Operator || role === UserRole.Admin) {
+        navigate('/dashboard', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    } catch (err) {
+      setErrorMsg(getApiErrorMessage(err, 'Đăng nhập Google thất bại.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleGoogleLogin = () => {
-    setErrorMsg('Đăng nhập Google: Đang kết nối với dịch vụ OAuth. Vui lòng sử dụng tài khoản mật khẩu được cấp hoặc liên hệ Quản trị viên.');
+    setErrorMsg('');
+    const clientId = API_CONFIG.GOOGLE_CLIENT_ID;
+
+    // Check if Google SDK is loaded
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const google = (window as any).google;
+    if (!google?.accounts?.id) {
+      setErrorMsg('Google SDK chưa sẵn sàng. Vui lòng thử tải lại trang hoặc kiểm tra kết nối mạng.');
+      return;
+    }
+
+    if (!clientId) {
+      setErrorMsg('Chưa cấu hình Google Client ID. Vui lòng bổ sung VITE_GOOGLE_CLIENT_ID vào file .env và backend appsettings.json.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response: { credential?: string }) => {
+          if (!response.credential) {
+            setErrorMsg('Không nhận được token xác thực từ Google.');
+            setIsLoading(false);
+            return;
+          }
+          await handleGoogleSuccess(response.credential);
+        },
+      });
+
+      google.accounts.id.prompt((notification: { isNotDisplayed: () => boolean; getNotDisplayedReason: () => string }) => {
+        if (notification.isNotDisplayed()) {
+          setIsLoading(false);
+          setErrorMsg(`Không thể mở cửa sổ Google: ${notification.getNotDisplayedReason()}`);
+        }
+      });
+    } catch (err) {
+      setIsLoading(false);
+      setErrorMsg(getApiErrorMessage(err, 'Lỗi kích hoạt Google Sign-In.'));
+    }
   };
 
   return (
@@ -111,9 +171,11 @@ export const LoginPage: React.FC = () => {
 
       {/* Google Login Button */}
       <div className="space-y-4 mb-6">
-        <GoogleButton
-          text="Đăng nhập với Google"
-          onClick={handleGoogleLogin}
+        <GoogleButton 
+          text="Đăng nhập với Google" 
+          onSuccess={handleGoogleSuccess}
+          onError={(err) => setErrorMsg(err)}
+          onClickFallback={handleGoogleLogin}
           isLoading={isLoading}
         />
 

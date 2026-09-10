@@ -4,4 +4,5 @@ export const API_CONFIG = {
   TOKEN_KEY: 'resq_access_token',
   REFRESH_TOKEN_KEY: 'resq_refresh_token',
   USER_KEY: 'resq_user_data',
+  GOOGLE_CLIENT_ID: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
 };

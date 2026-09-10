@@ -72,8 +72,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return response.data;
       }
       return null;
-    } catch {
-      // If unauthorized, session is cleared by apiClient interceptor
+    } catch (err) {
+      // If token is invalid or user not found, clear auth session to prevent continuous 500/401 loops
+      clearAuthSession();
       return null;
     }
   }, []);

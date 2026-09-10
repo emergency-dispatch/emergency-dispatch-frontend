@@ -137,23 +137,43 @@ function handleAuthFailure() {
 /**
  * Utility to extract a clean user-facing error message from Axios errors
  */
+/**
+ * Utility to extract a clean user-facing error message from Axios errors
+ */
 export function getApiErrorMessage(error: unknown, fallbackMessage = 'Đã có lỗi xảy ra. Vui lòng thử lại.'): string {
   if (axios.isAxiosError(error)) {
-    const apiError = error.response?.data as ApiResponse<unknown> | undefined;
-    if (apiError?.message) {
-      return apiError.message;
+    const data = error.response?.data as Record<string, unknown> | undefined;
+    if (data?.message && typeof data.message === 'string') {
+      return data.message;
     }
-    if (apiError?.errors && apiError.errors.length > 0) {
-      return apiError.errors.join(', ');
+    if (data?.errors) {
+      if (Array.isArray(data.errors) && data.errors.length > 0) {
+        return data.errors.join(', ');
+      }
+      if (typeof data.errors === 'object' && data.errors !== null) {
+        const errorValues = Object.values(data.errors as Record<string, unknown[]>).flat();
+        if (errorValues.length > 0) {
+          return errorValues.join(', ');
+        }
+      }
+    }
+    if (data?.title && typeof data.title === 'string') {
+      return data.title;
     }
     if (error.message === 'Network Error') {
-      return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và backend.';
+      return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và backend (http://localhost:5000).';
+    }
+    if (error.response?.status === 401) {
+      return 'Email hoặc mật khẩu không chính xác.';
     }
     if (error.response?.status === 403) {
       return 'Bạn không có quyền thực hiện thao tác này.';
     }
     if (error.response?.status === 404) {
       return 'Không tìm thấy dữ liệu yêu cầu.';
+    }
+    if (error.response?.status === 500) {
+      return 'Lỗi hệ thống máy chủ (500). Vui lòng kiểm tra log backend.';
     }
   } else if (error instanceof Error) {
     return error.message;
