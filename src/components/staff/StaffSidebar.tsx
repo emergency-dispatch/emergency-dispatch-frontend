@@ -11,8 +11,11 @@ import {
   Flame,
   Clock,
   CheckCircle2,
+  LogOut,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { StaffProfile } from '../../types/staff';
+import { useAuth } from '../../hooks/useAuth';
 
 export type StaffNavTab = 'mission' | 'schedule' | 'reports' | 'equipment' | 'profile';
 
@@ -77,6 +80,27 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
   hasActiveMission,
   profile,
 }) => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+    navigate('/login');
+  };
+
+  const displayName = user?.fullName || profile.name || 'Cán bộ tác chiến';
+  const displayRole = user?.role || profile.role || 'Chỉ huy kíp xe';
+  const initials = displayName
+    .split(' ')
+    .map((w) => w[0])
+    .slice(-2)
+    .join('')
+    .toUpperCase() || 'AN';
+
   return (
     <aside
       className={`flex flex-col h-full shrink-0 bg-white border-r border-slate-200 transition-all duration-300 select-none z-20 ${
@@ -157,18 +181,35 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
         })}
       </nav>
 
-      {/* Mini Profile Summary in Footer */}
-      {!collapsed && (
-        <div className="p-3 mx-2 mb-2 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-red-600 text-white font-bold flex items-center justify-center font-mono text-xs">
-              AN
+      {/* Mini Profile Summary in Footer with Logout Button */}
+      {!collapsed ? (
+        <div className="p-2.5 mx-2 mb-2 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-8 h-8 rounded-full bg-red-600 text-white font-bold flex items-center justify-center font-mono text-xs shrink-0 shadow-xs">
+              {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="font-bold text-slate-900 truncate text-[11px]">{profile.name}</div>
-              <div className="text-[10px] text-slate-500 truncate">{profile.role}</div>
+              <div className="font-bold text-slate-900 truncate text-[11px]">{displayName}</div>
+              <div className="text-[10px] text-slate-500 truncate">{displayRole}</div>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            title="Đăng xuất khỏi hệ thống"
+            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      ) : (
+        <div className="mx-2 mb-2 flex justify-center">
+          <button
+            onClick={handleLogout}
+            title="Đăng xuất khỏi hệ thống"
+            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       )}
 
