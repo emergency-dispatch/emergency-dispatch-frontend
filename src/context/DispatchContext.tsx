@@ -171,6 +171,15 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         prev.map((i) => (i.id === id ? { ...i, status: 'approved', severity: confirmedSeverity } : i))
       );
       setIncidentsError(null);
+
+      // Mô phỏng "Điều phối thông minh": hệ thống tự quét xe gần nhất đang Available
+      // và tự gán ngay khi sự cố được xác minh — Operator không cần bấm gán tay.
+      const verifiedIncident = incidents.find((i) => i.id === id);
+      if (verifiedIncident) {
+        const nearest = findNearestAvailableVehicle(verifiedIncident);
+        if (nearest) assignVehicle(nearest.id, id);
+      }
+
       return true;
     } catch (err) {
       setIncidentsError(getApiErrorMessage(err, 'Xác minh sự cố thất bại.'));
@@ -233,6 +242,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const vehicle = vehicles.find((v) => v.id === vehicleId);
     if (!vehicle) return;
 
+    const releasedIncident = incidents.find((i) => i.assignedVehicleId === vehicleId) ?? null;
+
     targetsRef.current.delete(vehicleId);
 
     setVehicles((prev) =>
@@ -246,6 +257,18 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setIncidents((prev) =>
       prev.map((i) => (i.assignedVehicleId === vehicleId ? { ...i, assignedVehicleId: null } : i))
     );
+
+    // Đúng tinh thần "hệ thống tự động": vừa nhả xe này ra thì lập tức thử tìm xe khác
+    // thay thế cho sự cố đó, thay vì để nó đứng yên chờ mãi trong khi vẫn còn xe trống.
+    if (releasedIncident) {
+      const otherAvailable = vehicles.filter((v) => v.status === 'available' && v.id !== vehicleId);
+      if (otherAvailable.length > 0) {
+        const nearest = otherAvailable.reduce((best, v) =>
+          haversineKm(releasedIncident, v) < haversineKm(releasedIncident, best) ? v : best
+        );
+        assignVehicle(nearest.id, releasedIncident.id);
+      }
+    }
   };
 
   return (
