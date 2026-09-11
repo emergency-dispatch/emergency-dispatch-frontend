@@ -1,5 +1,6 @@
-import { Ambulance, Flame, ShieldCheck, Truck } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import type { ComponentType } from 'react';
+import { Ambulance, ShieldCheck, Truck } from 'lucide-react';
+import { FireTruckIcon, type FireTruckIconProps } from '../components/dashboard/livemap/FireTruckIcon';
 import type { Station, Vehicle, VehicleStatus, VehicleType } from '../types/vehicle';
 
 export const VEHICLE_STATUS_META: Record<VehicleStatus, { label: string; color: string }> = {
@@ -8,9 +9,13 @@ export const VEHICLE_STATUS_META: Record<VehicleStatus, { label: string; color: 
   on_scene: { label: 'On scene', color: '#F97316' },
 };
 
-export const VEHICLE_TYPE_META: Record<VehicleType, { label: string; icon: LucideIcon }> = {
+// A shared shape covering both lucide-react icons and the hand-drawn FireTruckIcon
+// (lucide has no dedicated fire-truck glyph) so both plug into the same meta map.
+type VehicleTypeIconComponent = ComponentType<FireTruckIconProps>;
+
+export const VEHICLE_TYPE_META: Record<VehicleType, { label: string; icon: VehicleTypeIconComponent }> = {
   ambulance: { label: 'Xe cứu thương', icon: Ambulance },
-  fire_truck: { label: 'Xe cứu hỏa', icon: Flame },
+  fire_truck: { label: 'Xe cứu hỏa', icon: FireTruckIcon },
   police: { label: 'Xe cảnh sát', icon: ShieldCheck },
   rescue: { label: 'Xe cứu hộ', icon: Truck },
 };
