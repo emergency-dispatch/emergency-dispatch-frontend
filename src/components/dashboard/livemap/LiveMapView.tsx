@@ -104,7 +104,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
             <Marker
               key={vehicle.id}
               position={[vehicle.lat, vehicle.lng]}
-              icon={createVehicleIcon(vehicle.status, isSelected)}
+              icon={createVehicleIcon(vehicle.type, vehicle.status, isSelected)}
               eventHandlers={{ click: () => onSelectVehicle(vehicle.id) }}
             >
               <Popup>

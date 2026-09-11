@@ -42,7 +42,7 @@ export const LiveMapPage: React.FC = () => {
           vehicles={filteredVehicles}
           selectedVehicleId={selectedVehicleId}
           onSelectVehicle={handleSelectVehicle}
-          dispatchIncidents={dispatchMode ? dispatchIncidents : []}
+          dispatchIncidents={dispatchIncidents}
           vehiclesById={vehiclesById}
           incidentsById={incidentsById}
         />
@@ -52,7 +52,9 @@ export const LiveMapPage: React.FC = () => {
           className={`absolute top-4 right-4 z-[1000] flex items-center gap-2 px-3.5 py-2.5 rounded-xl border shadow-lg transition-colors ${
             dispatchMode
               ? 'bg-red-600 border-red-500 text-white'
-              : 'cad-glass text-slate-600 hover:text-slate-900'
+              : pendingDispatchCount > 0
+                ? 'cad-glass text-slate-600 hover:text-slate-900 animate-flash-critical'
+                : 'cad-glass text-slate-600 hover:text-slate-900'
           }`}
         >
           <Route className="w-4 h-4 shrink-0" />
