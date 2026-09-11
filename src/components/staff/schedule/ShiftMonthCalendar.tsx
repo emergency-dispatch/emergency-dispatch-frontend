@@ -80,7 +80,7 @@ export const SHIFT_TYPE_CONFIG: Record<
     dotClass: 'bg-red-600',
   },
   off: {
-    label: 'Nghỉ Ca / Nghỉ Bù',
+    label: 'Nghỉ Ca',
     shortLabel: 'Nghỉ Ca',
     time: 'Nghỉ ngơi',
     icon: Coffee,

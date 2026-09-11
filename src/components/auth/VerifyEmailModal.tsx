@@ -27,7 +27,7 @@ export const VerifyEmailModal: React.FC<VerifyEmailModalProps> = ({
   const [isVerified, setIsVerified] = useState(false);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (isOpen && countdown > 0) {
       timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
     } else if (countdown === 0) {

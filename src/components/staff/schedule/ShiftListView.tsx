@@ -98,7 +98,7 @@ export const ShiftListView: React.FC<ShiftListViewProps> = ({
             <option value="afternoon">Ca Chiều (14h - 22h)</option>
             <option value="night">Ca Đêm (22h - 06h)</option>
             <option value="full_day">Trực Chiến 24h</option>
-            <option value="off">Nghỉ Ca / Nghỉ Bù</option>
+            <option value="off">Nghỉ Ca</option>
           </select>
 
           {/* Export Button */}

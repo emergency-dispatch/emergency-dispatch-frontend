@@ -171,11 +171,13 @@ export const ShiftWeekCalendar: React.FC<ShiftWeekCalendarProps> = ({
                 <div className="my-2.5 space-y-2.5 flex-1">
                   {/* Shift Badge Banner */}
                   <div
-                    className={`p-2 sm:p-2.5 rounded-xl border flex flex-wrap items-center justify-between gap-1 ${config.bgClass} ${config.borderClass} ${config.textClass}`}
+                    className={`p-2 sm:p-2.5 rounded-xl border flex items-center justify-between gap-1 min-w-0 ${config.bgClass} ${config.borderClass} ${config.textClass}`}
                   >
-                    <div className="flex items-center gap-1.5 font-bold text-xs whitespace-nowrap">
-                      <config.icon className="w-4 h-4 shrink-0" />
-                      <span>{config.label}</span>
+                    <div className="flex items-center gap-1.5 font-bold text-xs min-w-0 flex-1">
+                      <config.icon className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate" title={config.label}>
+                        {config.label}
+                      </span>
                     </div>
 
                     {shift.isOvertime && (

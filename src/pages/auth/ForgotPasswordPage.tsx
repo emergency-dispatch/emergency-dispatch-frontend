@@ -29,7 +29,7 @@ export const ForgotPasswordPage: React.FC = () => {
   const [canResend, setCanResend] = useState(false);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (step === 2 && countdown > 0) {
       timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
     } else if (countdown === 0) {
