@@ -1,14 +1,22 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import L from 'leaflet';
-import { VEHICLE_STATUS_META } from '../../../data/liveMapMock';
+import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMock';
 import { SEVERITY_COLOR } from '../../../data/incidentMock';
-import type { VehicleStatus } from '../../../types/vehicle';
+import type { VehicleStatus, VehicleType } from '../../../types/vehicle';
 import type { IncidentSeverity } from '../../../types/incident';
 
-export function createVehicleIcon(status: VehicleStatus, selected: boolean): L.DivIcon {
+export function createVehicleIcon(type: VehicleType, status: VehicleStatus, selected: boolean): L.DivIcon {
   const color = VEHICLE_STATUS_META[status].color;
-  const size = selected ? 22 : 16;
+  const size = selected ? 30 : 22;
+  const iconSize = Math.round(size * 0.55);
   // Always white: stays legible whether the tile layer is light, dark, or satellite.
   const ringBorder = '#FFFFFF';
+
+  const TypeIcon = VEHICLE_TYPE_META[type].icon;
+  const typeIconSvg = renderToStaticMarkup(
+    createElement(TypeIcon, { width: iconSize, height: iconSize, color: '#FFFFFF', strokeWidth: 2.5 })
+  );
 
   const pulseRing =
     status === 'en_route'
@@ -16,9 +24,11 @@ export function createVehicleIcon(status: VehicleStatus, selected: boolean): L.D
       : '';
 
   const html = `
-    <div class="relative" style="width:${size}px;height:${size}px;">
+    <div class="relative flex items-center justify-center" style="width:${size}px;height:${size}px;">
       ${pulseRing}
-      <div class="absolute inset-0 rounded-full border-2 pointer-events-none" style="background:${color};border-color:${ringBorder};box-shadow:0 0 8px 1px ${color}99;"></div>
+      <div class="relative flex items-center justify-center rounded-full border-2 pointer-events-none" style="width:${size}px;height:${size}px;background:${color};border-color:${ringBorder};box-shadow:0 0 8px 1px ${color}99;">
+        ${typeIconSvg}
+      </div>
     </div>
   `;
 

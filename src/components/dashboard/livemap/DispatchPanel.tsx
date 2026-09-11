@@ -7,7 +7,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { GripVertical, Route, Target, X } from 'lucide-react';
+import { AlertTriangle, Ban, GripVertical, Loader2, Route, Target, X } from 'lucide-react';
 import { SEVERITY_META } from '../../../data/incidentMock';
 import { VEHICLE_TYPE_META } from '../../../data/liveMapMock';
 import { useDispatchStore } from '../../../context/DispatchContext';
@@ -49,6 +49,8 @@ interface DroppableIncidentCardProps {
   assignedVehicle: Vehicle | null;
   onAutoAssign: (incident: Incident) => void;
   onCancel: (vehicleId: string) => void;
+  onCancelIncident: (incidentId: string) => void;
+  isCancelling: boolean;
 }
 
 const DroppableIncidentCard: React.FC<DroppableIncidentCardProps> = ({
@@ -56,15 +58,18 @@ const DroppableIncidentCard: React.FC<DroppableIncidentCardProps> = ({
   assignedVehicle,
   onAutoAssign,
   onCancel,
+  onCancelIncident,
+  isCancelling,
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: incident.id, disabled: !!assignedVehicle });
   const severityMeta = SEVERITY_META[incident.severity];
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   return (
     <div
       ref={setNodeRef}
       className={`rounded-lg border p-3 transition-colors ${
-        isOver ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/60'
+        isOver ? 'border-red-500 bg-red-50' : confirmingCancel ? 'border-red-300 bg-red-50/40' : 'border-slate-200 bg-slate-50/60'
       }`}
     >
       <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -73,11 +78,47 @@ const DroppableIncidentCard: React.FC<DroppableIncidentCardProps> = ({
         >
           {severityMeta.label}
         </span>
-        <span className="text-[10px] font-mono-data text-slate-500 shrink-0">{incident.area}</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] font-mono-data text-slate-500">{incident.area}</span>
+          {!confirmingCancel && (
+            <button
+              onClick={() => setConfirmingCancel(true)}
+              disabled={isCancelling}
+              className="p-1 rounded-md text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+              aria-label="Hủy sự cố (AI phân loại sai)"
+              title="Hủy sự cố — AI phân loại sai / báo khống"
+            >
+              <Ban className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
       <p className="text-xs font-semibold text-slate-900 truncate mb-2">{incident.title}</p>
 
-      {assignedVehicle ? (
+      {confirmingCancel ? (
+        <div className="space-y-2">
+          <p className="text-[11px] text-red-600 leading-snug">
+            Hủy sự cố này khỏi bản đồ? AI đã tự động duyệt lên đây — chỉ hủy nếu nghi ngờ phân loại sai hoặc báo khống.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setConfirmingCancel(false)}
+              disabled={isCancelling}
+              className="py-1.5 rounded-md bg-white border border-slate-200 text-slate-600 text-[11px] font-bold hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              Giữ lại
+            </button>
+            <button
+              onClick={() => onCancelIncident(incident.id)}
+              disabled={isCancelling}
+              className="flex items-center justify-center gap-1 py-1.5 rounded-md bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold transition-colors disabled:opacity-60"
+            >
+              {isCancelling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Ban className="w-3 h-3" />}
+              Xác nhận hủy
+            </button>
+          </div>
+        </div>
+      ) : assignedVehicle ? (
         <div className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-md px-2.5 py-2">
           <div className="min-w-0">
             <p className="text-[11px] font-mono-data text-red-600 font-bold truncate">{assignedVehicle.plate}</p>
@@ -105,8 +146,11 @@ const DroppableIncidentCard: React.FC<DroppableIncidentCardProps> = ({
 };
 
 export const DispatchPanel: React.FC = () => {
-  const { vehicles, incidents, assignVehicle, cancelAssignment, findNearestAvailableVehicle } = useDispatchStore();
+  const { vehicles, incidents, assignVehicle, cancelAssignment, findNearestAvailableVehicle, rejectIncident } =
+    useDispatchStore();
   const [activeDragVehicle, setActiveDragVehicle] = useState<Vehicle | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const dispatchIncidents = useMemo(
     () => incidents.filter((i) => i.status === 'approved').sort((a, b) => b.severity - a.severity),
@@ -129,6 +173,27 @@ export const DispatchPanel: React.FC = () => {
     if (nearest) assignVehicle(nearest.id, incident.id);
   };
 
+  const handleCancelIncident = async (incidentId: string) => {
+    setCancellingId(incidentId);
+    setCancelError(null);
+
+    const target = dispatchIncidents.find((i) => i.id === incidentId);
+    const ok = await rejectIncident(
+      incidentId,
+      'Điều phối viên hủy sự cố đã tự động duyệt (nghi ngờ AI phân loại sai hoặc báo khống).'
+    );
+
+    if (ok) {
+      // Free up the vehicle already dispatched to this incident, if any (mock — no Vehicle API yet).
+      if (target?.assignedVehicleId) {
+        cancelAssignment(target.assignedVehicleId);
+      }
+    } else {
+      setCancelError('Hủy sự cố thất bại. Vui lòng thử lại.');
+    }
+    setCancellingId(null);
+  };
+
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="h-full w-full flex flex-col bg-white border-l border-slate-200">
@@ -139,6 +204,13 @@ export const DispatchPanel: React.FC = () => {
           </h2>
           <p className="text-[11px] text-slate-500 mt-0.5">Kéo xe vào thẻ sự cố hoặc bấm gán tự động</p>
         </div>
+
+        {cancelError && (
+          <div className="shrink-0 mx-3 mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-600">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>{cancelError}</span>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-0">
           {dispatchIncidents.length === 0 ? (
@@ -151,6 +223,8 @@ export const DispatchPanel: React.FC = () => {
                 assignedVehicle={incident.assignedVehicleId ? vehiclesById.get(incident.assignedVehicleId) ?? null : null}
                 onAutoAssign={handleAutoAssign}
                 onCancel={cancelAssignment}
+                onCancelIncident={handleCancelIncident}
+                isCancelling={cancellingId === incident.id}
               />
             ))
           )}
