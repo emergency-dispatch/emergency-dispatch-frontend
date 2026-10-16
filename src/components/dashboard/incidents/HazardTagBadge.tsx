@@ -1,6 +1,6 @@
 import React from 'react';
-import { HAZARD_TAG_META, UNKNOWN_HAZARD_TAG_META } from '../../../data/incidentMock';
-import type { HazardTagKey } from '../../../types/incident';
+import { HAZARD_TAG_META, LEGACY_HAZARD_TAG_META, UNKNOWN_HAZARD_TAG_META } from '../../../data/incidentMock';
+import { normalizeHazardTag, type HazardTag, type HazardTagKey } from '../../../types/incident';
 
 interface HazardTagBadgeProps {
   tag?: string;
@@ -13,7 +13,9 @@ export const HazardTagBadge: React.FC<HazardTagBadgeProps> = ({ tag, tagKey, siz
   if (!actualKey) return null;
 
   // AI hazard tags are free-form strings; fall back to a generic badge for ones we don't have icon/color meta for.
-  const meta = HAZARD_TAG_META[actualKey as HazardTagKey] ?? { ...UNKNOWN_HAZARD_TAG_META, label: `#${actualKey}` };
+  const key = normalizeHazardTag(actualKey);
+  const meta = HAZARD_TAG_META[key as HazardTag] ??
+    LEGACY_HAZARD_TAG_META[key as HazardTagKey] ?? { ...UNKNOWN_HAZARD_TAG_META, label: `#${actualKey}` };
 
   const Icon = meta.icon;
   const sizeClass = size === 'sm' ? 'text-[10px] px-1.5 py-0.5 gap-1' : 'text-xs px-2 py-1 gap-1.5';

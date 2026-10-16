@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Ban, Loader2, Route, X } from 'lucide-react';
-import { SEVERITY_META } from '../../../data/incidentMock';
+import { SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import { VEHICLE_TYPE_META } from '../../../data/liveMapMock';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import type { Incident } from '../../../types/incident';
@@ -21,7 +21,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
   onCancelIncident,
   isCancelling,
 }) => {
-  const severityMeta = SEVERITY_META[incident.severity];
+  const severityMeta = SEVERITY_LEVEL_META[incident.severity];
   const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   return (

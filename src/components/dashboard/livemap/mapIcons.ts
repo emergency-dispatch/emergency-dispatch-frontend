@@ -2,9 +2,9 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import L from 'leaflet';
 import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMock';
-import { SEVERITY_COLOR } from '../../../data/incidentMock';
+import { SEVERITY_LEVEL_COLOR } from '../../../data/incidentMock';
 import type { VehicleStatus, VehicleType } from '../../../types/vehicle';
-import type { IncidentSeverity } from '../../../types/incident';
+import type { SeverityLevel } from '../../../types/incident';
 
 export function createVehicleIcon(type: VehicleType, status: VehicleStatus, selected: boolean): L.DivIcon {
   const color = VEHICLE_STATUS_META[status].color;
@@ -40,8 +40,8 @@ export function createVehicleIcon(type: VehicleType, status: VehicleStatus, sele
   });
 }
 
-export function createIncidentIcon(severity: IncidentSeverity, selected: boolean): L.DivIcon {
-  const color = SEVERITY_COLOR[severity];
+export function createIncidentIcon(severity: SeverityLevel, selected: boolean): L.DivIcon {
+  const color = SEVERITY_LEVEL_COLOR[severity];
   const size = selected ? 26 : 20;
   const ringBorder = '#FFFFFF';
 

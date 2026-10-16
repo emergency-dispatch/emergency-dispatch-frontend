@@ -2,9 +2,10 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { vehicleSeeds } from '../data/liveMapMock';
 import { incidentService } from '../services/incidentService';
 import { getApiErrorMessage } from '../services/apiClient';
+import { useAuth } from '../hooks/useAuth';
 import { mapIncidentResponseToIncident, severityToBackend } from '../types/incident';
 import type { Vehicle } from '../types/vehicle';
-import type { Incident, IncidentSeverity } from '../types/incident';
+import type { BlockDuration, Incident, IncidentLock, SeverityLevel } from '../types/incident';
 
 const VEHICLE_TICK_MS = 2500;
 const VEHICLE_STEP_FRACTION = 0.08;
@@ -39,7 +40,10 @@ function sortByPriority(incidents: Incident[]): Incident[] {
   });
 }
 
+const isLockActive = (lock: IncidentLock | null) => !!lock && new Date(lock.expiresAt).getTime() > Date.now();
+
 interface DispatchContextValue {
+  currentOperatorId: string;
   vehicles: Vehicle[];
   incidents: Incident[];
   highlightIncidentIds: Set<string>;
@@ -47,10 +51,13 @@ interface DispatchContextValue {
   incidentsError: string | null;
   approveIncident: (
     id: string,
-    confirmedSeverity: Exclude<IncidentSeverity, 0>,
+    confirmedSeverity: SeverityLevel,
     operatorNotes?: string
   ) => Promise<boolean>;
-  rejectIncident: (id: string, reason: string) => Promise<boolean>;
+  rejectIncident: (id: string, reason: string, blockDuration?: BlockDuration | null) => Promise<boolean>;
+  lockIncident: (id: string) => Promise<{ ok: boolean; message?: string }>;
+  releaseIncident: (id: string) => void;
+  revealReporterPhone: (id: string) => Promise<boolean>;
   assignVehicle: (vehicleId: string, incidentId: string) => void;
   cancelAssignment: (vehicleId: string) => void;
   findNearestAvailableVehicle: (incident: Incident) => Vehicle | null;
@@ -66,6 +73,8 @@ const DispatchContext = createContext<DispatchContextValue | null>(null);
  * and so Incident Queue approvals are immediately visible in Live Map's dispatch panel.
  */
 export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const operator = { id: user?.id ?? 'local-operator', name: user?.fullName ?? 'Bạn' };
   const [vehicles, setVehicles] = useState<Vehicle[]>(vehicleSeeds);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [highlightIncidentIds, setHighlightIncidentIds] = useState<Set<string>>(new Set());
@@ -115,10 +124,17 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return;
       }
 
-      const fresh = res.data.map(mapIncidentResponseToIncident);
-      const freshIds = new Set(fresh.map((i) => i.id));
+      const fetched = res.data.map(mapIncidentResponseToIncident);
+      const freshIds = new Set(fetched.map((i) => i.id));
 
       setIncidents((prev) => {
+        // Backend chưa trả trạng thái khóa → giữ khóa cục bộ còn hiệu lực qua các lần poll.
+        const prevById = new Map(prev.map((i) => [i.id, i]));
+        const fresh = fetched.map((i) => {
+          const localLock = prevById.get(i.id)?.lock ?? null;
+          return i.lock || !isLockActive(localLock) ? i : { ...i, lock: localLock };
+        });
+
         if (!isInitial) {
           const seenIds = new Set(prev.map((i) => i.id));
           const newlyArrivedIds = fresh.filter((i) => !seenIds.has(i.id)).map((i) => i.id);
@@ -155,7 +171,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const approveIncident = async (
     id: string,
-    confirmedSeverity: Exclude<IncidentSeverity, 0>,
+    confirmedSeverity: SeverityLevel,
     operatorNotes?: string
   ): Promise<boolean> => {
     try {
@@ -187,18 +203,65 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const rejectIncident = async (id: string, reason: string): Promise<boolean> => {
+  const rejectIncident = async (
+    id: string,
+    reason: string,
+    blockDuration: BlockDuration | null = null
+  ): Promise<boolean> => {
     try {
       const res = await incidentService.cancel(id, reason);
       if (!res.success) {
         setIncidentsError(res.message || 'Hủy sự cố thất bại.');
         return false;
       }
+      if (blockDuration) {
+        const blockRes = await incidentService.blockReporterPhone(id, blockDuration);
+        if (!blockRes.success) {
+          setIncidentsError(blockRes.message || 'Đã hủy ca nhưng chặn số điện thoại thất bại.');
+        }
+      }
       setIncidents((prev) => prev.filter((i) => i.id !== id));
       setIncidentsError(null);
       return true;
     } catch (err) {
       setIncidentsError(getApiErrorMessage(err, 'Hủy sự cố thất bại.'));
+      return false;
+    }
+  };
+
+  const setIncidentLock = (id: string, lock: IncidentLock | null) => {
+    setIncidents((prev) => prev.map((i) => (i.id === id ? { ...i, lock } : i)));
+  };
+
+  const lockIncident = async (id: string): Promise<{ ok: boolean; message?: string }> => {
+    try {
+      const res = await incidentService.lock(id, operator);
+      if (!res.success || !res.data) {
+        return { ok: false, message: res.message || 'Ca đang được điều phối viên khác xử lý.' };
+      }
+      setIncidentLock(id, {
+        operatorId: res.data.lockedByOperatorId,
+        operatorName: res.data.lockedByOperatorName,
+        expiresAt: res.data.lockExpiresAt,
+      });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: getApiErrorMessage(err, 'Không thể nhận ca xử lý.') };
+    }
+  };
+
+  const releaseIncident = (id: string) => {
+    const incident = incidents.find((i) => i.id === id);
+    if (!incident?.lock || incident.lock.operatorId !== operator.id) return;
+    setIncidentLock(id, null);
+    incidentService.unlock(id).catch(() => undefined);
+  };
+
+  const revealReporterPhone = async (id: string): Promise<boolean> => {
+    try {
+      const res = await incidentService.logPhoneReveal(id);
+      return res.success;
+    } catch {
       return false;
     }
   };
@@ -274,6 +337,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   return (
     <DispatchContext.Provider
       value={{
+        currentOperatorId: operator.id,
         vehicles,
         incidents,
         highlightIncidentIds,
@@ -281,6 +345,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incidentsError,
         approveIncident,
         rejectIncident,
+        lockIncident,
+        releaseIncident,
+        revealReporterPhone,
         assignVehicle,
         cancelAssignment,
         findNearestAvailableVehicle,

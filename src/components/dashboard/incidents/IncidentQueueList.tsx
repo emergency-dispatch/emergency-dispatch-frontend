@@ -1,12 +1,14 @@
 import React from 'react';
 import { AlertTriangle, Inbox, ListChecks, Loader2 } from 'lucide-react';
 import { IncidentRow } from './IncidentRow';
+import { useNow } from '../../../hooks/useNow';
 import type { Incident } from '../../../types/incident';
 
 interface IncidentQueueListProps {
   incidents: Incident[];
   highlightIds: Set<string>;
   selectedId: string | null;
+  currentOperatorId: string;
   onSelect: (id: string) => void;
   isLoading?: boolean;
   loadError?: string | null;
@@ -16,10 +18,13 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
   incidents,
   highlightIds,
   selectedId,
+  currentOperatorId,
   onSelect,
   isLoading = false,
   loadError = null,
 }) => {
+  const now = useNow();
+
   return (
     <div className="h-full flex flex-col">
       <div className="shrink-0 px-6 py-5 border-b border-slate-200 flex items-center justify-between">
@@ -57,6 +62,8 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
               incident={incident}
               isNew={highlightIds.has(incident.id)}
               isSelected={incident.id === selectedId}
+              now={now}
+              currentOperatorId={currentOperatorId}
               onClick={() => onSelect(incident.id)}
             />
           ))

@@ -1,4 +1,4 @@
-import { BarChart3, Building2, ListChecks, Map, Settings2, Truck, Users } from 'lucide-react';
+import { Building2, ListChecks, Map, Settings2, Truck, Users } from 'lucide-react';
 import type { DashboardNavGroup, DashboardNotification } from '../types/dashboard';
 
 export const dashboardNavGroups: DashboardNavGroup[] = [
@@ -8,7 +8,6 @@ export const dashboardNavGroups: DashboardNavGroup[] = [
     items: [
       { label: 'Live Map', path: '/dashboard/command-center/live-map', icon: Map },
       { label: 'Incident Queue', path: '/dashboard/command-center/incidents', icon: ListChecks },
-      { label: 'Analytics', path: '/dashboard/command-center/analytics', icon: BarChart3 },
     ],
   },
   {

@@ -3,15 +3,13 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Clock, ExternalLink, LocateFixed, User } from 'lucide-react';
-import { VEHICLE_STATUS_META, VEHICLE_TYPE_META, stations } from '../../../data/liveMapMock';
-import { SEVERITY_META } from '../../../data/incidentMock';
+import { MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META, stations } from '../../../data/liveMapMock';
+import { SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import type { Vehicle } from '../../../types/vehicle';
 import type { Incident } from '../../../types/incident';
 import { createIncidentIcon, createStationIcon, createVehicleIcon } from './mapIcons';
 import { MapLegend } from './MapLegend';
 import { MapLayerToggle, TILE_URLS, type MapTileMode } from './MapLayerToggle';
-
-const HCMC_CENTER: [number, number] = [10.7756, 106.7019];
 
 interface MapCameraControllerProps {
   vehicles: Vehicle[];
@@ -77,7 +75,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
 
   return (
     <div className="relative h-full w-full">
-      <MapContainer center={HCMC_CENTER} zoom={12} className="h-full w-full">
+      <MapContainer center={MAP_CENTER} zoom={14} className="h-full w-full">
         <TileLayer
           url={TILE_URLS[tileMode]}
           attribution="Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors"
@@ -139,7 +137,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
         })}
 
         {dispatchIncidents.map((incident) => {
-          const severityMeta = SEVERITY_META[incident.severity];
+          const severityMeta = SEVERITY_LEVEL_META[incident.severity];
           const assignedVehicle = incident.assignedVehicleId ? vehiclesById?.get(incident.assignedVehicleId) : null;
 
           return (

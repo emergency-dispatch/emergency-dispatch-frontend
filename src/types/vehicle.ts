@@ -1,11 +1,14 @@
 export type VehicleStatus = 'available' | 'en_route' | 'on_scene';
 
+// 'police' chỉ còn để Admin/Staff dùng; bối cảnh KCN/Khu CNC của Operator không điều xe cảnh sát.
 export type VehicleType = 'ambulance' | 'fire_truck' | 'police' | 'rescue';
+
+export type DispatchVehicleType = Exclude<VehicleType, 'police'>;
 
 export interface Vehicle {
   id: string;
   plate: string;
-  type: VehicleType;
+  type: DispatchVehicleType;
   status: VehicleStatus;
   driver: string;
   stationId: string;
@@ -28,7 +31,7 @@ export interface Station {
 }
 
 export interface VehicleFilters {
-  type: VehicleType | 'all';
+  type: DispatchVehicleType | 'all';
   status: VehicleStatus | 'all';
   area: string | 'all';
 }

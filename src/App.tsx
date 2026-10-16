@@ -14,7 +14,6 @@ import { UnauthorizedPage } from './pages/auth/UnauthorizedPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 import { LiveMapPage } from './pages/dashboard/command-center/LiveMapPage';
 import { IncidentQueuePage } from './pages/dashboard/command-center/IncidentQueuePage';
-import { AnalyticsPage } from './pages/dashboard/command-center/AnalyticsPage';
 import { StationsPage } from './pages/dashboard/backoffice/StationsPage';
 import { VehiclesPage } from './pages/dashboard/backoffice/VehiclesPage';
 import { AccountsPage } from './pages/dashboard/backoffice/AccountsPage';
@@ -60,7 +59,6 @@ const App: React.FC = () => {
             <Route index element={<Navigate to="command-center/live-map" replace />} />
             <Route path="command-center/live-map" element={<LiveMapPage />} />
             <Route path="command-center/incidents" element={<IncidentQueuePage />} />
-            <Route path="command-center/analytics" element={<AnalyticsPage />} />
 
             <Route element={<RoleRoute allowedRoles={[UserRole.Admin]} />}>
               <Route path="backoffice/stations" element={<StationsPage />} />

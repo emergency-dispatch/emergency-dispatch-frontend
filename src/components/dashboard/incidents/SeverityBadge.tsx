@@ -1,13 +1,13 @@
 import React from 'react';
-import { SEVERITY_META } from '../../../data/incidentMock';
-import type { IncidentSeverity } from '../../../types/incident';
+import { SEVERITY_LEVEL_META } from '../../../data/incidentMock';
+import type { SeverityLevel } from '../../../types/incident';
 
 interface SeverityBadgeProps {
-  severity: IncidentSeverity;
+  severity: SeverityLevel;
 }
 
 export const SeverityBadge: React.FC<SeverityBadgeProps> = ({ severity }) => {
-  const meta = SEVERITY_META[severity];
+  const meta = SEVERITY_LEVEL_META[severity];
 
   return (
     <span

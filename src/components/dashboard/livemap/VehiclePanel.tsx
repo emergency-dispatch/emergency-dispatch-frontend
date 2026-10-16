@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Building2 } from 'lucide-react';
-import { VEHICLE_STATUS_META, VEHICLE_TYPE_META, stations } from '../../../data/liveMapMock';
+import { DISPATCH_VEHICLE_TYPES, VEHICLE_STATUS_META, VEHICLE_TYPE_META, stations } from '../../../data/liveMapMock';
 import type { Vehicle, VehicleFilters } from '../../../types/vehicle';
 
 type PanelTab = 'vehicles' | 'stations';
@@ -72,9 +72,9 @@ export const VehiclePanel: React.FC<VehiclePanelProps> = ({
               className="w-full text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:border-red-500"
             >
               <option value="all">Tất cả loại xe</option>
-              {Object.entries(VEHICLE_TYPE_META).map(([key, meta]) => (
-                <option key={key} value={key}>
-                  {meta.label}
+              {DISPATCH_VEHICLE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {VEHICLE_TYPE_META[type].label}
                 </option>
               ))}
             </select>

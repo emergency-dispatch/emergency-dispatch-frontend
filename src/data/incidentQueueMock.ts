@@ -1,0 +1,136 @@
+import type { IncidentResponseDto, TrafficJamReport } from '../types/incident';
+
+// Mock hàng đợi sự cố (bật bằng VITE_USE_MOCK_INCIDENTS=true) — dùng để demo/chụp
+// màn hình khi không chạy backend. Ảnh trong public/mock-incidents/ (nguồn: CREDITS.md).
+
+const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+
+const ai = (hazardTags: string[], severityScore: number, confidenceScore: number, summary: string) => ({
+  hazardTags,
+  severityScore,
+  confidenceScore,
+  summary,
+  isSuccess: true,
+  modelName: 'Pixtral-12B-LoRA',
+  processingDurationMs: 2400,
+});
+
+export const createIncidentQueueMock = (): IncidentResponseDto[] => [
+  {
+    id: 'mock-inc-001',
+    title: 'Cháy lớn kho hàng nhà máy linh kiện',
+    description: 'Kho chứa vật liệu nhựa bốc cháy, khói đen cuồn cuộn, nhiều công nhân đang sơ tán khỏi xưởng.',
+    latitude: 10.8441,
+    longitude: 106.8089,
+    locationAddress: 'Lô I-3, Đường D1, Khu Công nghệ cao',
+    status: 'AiProcessed',
+    severity: 'Level3',
+    reporterName: 'Nguyễn Minh Khoa',
+    reporterPhone: '0903456789',
+    createdAt: minutesAgo(2),
+    mediaItems: [{ id: 'mock-media-001', mediaUrl: '/mock-incidents/warehouse-fire.jpg', mediaType: 'Photo' }],
+    aiClassification: ai(['#Fire'], 3, 0.95, 'Cháy lớn tại kho xưởng, khói đen lan rộng, nguy cơ cháy lan sang xưởng lân cận.'),
+  },
+  {
+    id: 'mock-inc-002',
+    title: 'Sập giàn giáo công trình nhà xưởng',
+    description: 'Giàn giáo tầng 3 công trình nhà xưởng bị sập, có 2 công nhân mắc kẹt bên dưới.',
+    latitude: 10.8372,
+    longitude: 106.8121,
+    locationAddress: 'Lô T2, Đường D2, Khu Công nghệ cao',
+    status: 'AiProcessed',
+    severity: 'Level3',
+    reporterName: 'Trần Quốc Bảo',
+    reporterPhone: '0912345678',
+    // Ca đang được một Operator khác giữ (khóa mềm) — hết hạn sau ~2 phút kể từ lúc tải trang.
+    lockedByOperatorId: 'mock-operator-02',
+    lockedByOperatorName: 'Trần Minh Quân',
+    lockExpiresAt: new Date(Date.now() + 2 * 60_000).toISOString(),
+    createdAt: minutesAgo(4),
+    mediaItems: [{ id: 'mock-media-002', mediaUrl: '/mock-incidents/building-collapse.jpg', mediaType: 'Photo' }],
+    aiClassification: ai(['#Accident'], 3, 0.88, 'Tai nạn lao động: kết cấu sập, khả năng có nạn nhân mắc kẹt cần cứu hộ.'),
+  },
+  {
+    id: 'mock-inc-003',
+    title: 'Cháy xe ô tô trong bãi đỗ nhà máy',
+    description: 'Một xe ô tô bốc cháy trong bãi đỗ xe của nhà máy, lửa đang lan sang xe bên cạnh.',
+    latitude: 10.8478,
+    longitude: 106.8010,
+    locationAddress: 'Bãi xe Lô E2a, Đường N2, Khu Công nghệ cao',
+    status: 'AiProcessed',
+    severity: 'Level2',
+    reporterName: 'Lê Thị Hồng',
+    reporterPhone: '0987654321',
+    createdAt: minutesAgo(6),
+    mediaItems: [{ id: 'mock-media-003', mediaUrl: '/mock-incidents/fire-car.jpg', mediaType: 'Photo' }],
+    aiClassification: ai(['#Fire'], 2, 0.93, 'Phát hiện phương tiện đang cháy, có nguy cơ cháy lan.'),
+  },
+  {
+    id: 'mock-inc-004',
+    title: 'Lật xe container nội khu',
+    description: 'Xe container chở linh kiện bị lật khi vào cua, chắn ngang đường nội khu, tài xế bị thương.',
+    latitude: 10.8341,
+    longitude: 106.7996,
+    locationAddress: 'Giao lộ D1 – N1, Khu Công nghệ cao',
+    status: 'AiProcessed',
+    severity: 'Level2',
+    reporterName: 'Phạm Văn Đức',
+    reporterPhone: '0938112233',
+    createdAt: minutesAgo(9),
+    mediaItems: [{ id: 'mock-media-004', mediaUrl: '/mock-incidents/rollover-truck.jpg', mediaType: 'Photo' }],
+    aiClassification: ai(['#Accident'], 2, 0.9, 'Phương tiện lật nghiêng, có người bị thương, cản trở giao thông.'),
+  },
+  {
+    id: 'mock-inc-005',
+    title: 'Va chạm xe nâng, rò rỉ dầu',
+    description: 'Xe nâng va chạm với xe tải nhỏ trước cổng kho, dầu thủy lực rò rỉ ra mặt đường, không có người bị thương.',
+    latitude: 10.8412,
+    longitude: 106.8165,
+    locationAddress: 'Cổng kho Lô J2, Đường D3, Khu Công nghệ cao',
+    status: 'AiProcessed',
+    severity: 'Level1',
+    reporterName: 'Võ Thanh Tâm',
+    reporterPhone: '0909778899',
+    createdAt: minutesAgo(12),
+    mediaItems: [{ id: 'mock-media-005', mediaUrl: '/mock-incidents/oil-spill.jpg', mediaType: 'Photo' }],
+    aiClassification: ai(['#Accident'], 1, 0.81, 'Va chạm nhẹ, có vệt dầu loang trên mặt đường.'),
+  },
+  {
+    // Ca AI nghi vấn: ảnh không khớp mô tả → Cấp 1 + % tin cậy thấp, Operator cần đối chiếu media.
+    id: 'mock-inc-006',
+    title: 'Báo cháy khu nhà xe công nhân',
+    description: 'Có khói và mùi khét ở khu nhà xe công nhân.',
+    latitude: 10.8395,
+    longitude: 106.7930,
+    locationAddress: 'Nhà xe công nhân Lô S, Đường N3, Khu Công nghệ cao',
+    status: 'AiProcessed',
+    severity: 'Level1',
+    reporterName: 'Hồ Văn Nam',
+    reporterPhone: '0977001122',
+    createdAt: minutesAgo(1),
+    mediaItems: [{ id: 'mock-media-006', mediaUrl: '/mock-incidents/flood-saigon.jpg', mediaType: 'Photo' }],
+    aiClassification: ai(['#Fire'], 1, 0.28, 'Ảnh không khớp mô tả: không phát hiện lửa hoặc khói, nghi báo nhầm.'),
+  },
+];
+
+// Điểm ùn tắc nội khu do người dân/công nhân báo — chỉ hiển thị cảnh báo trên bản đồ.
+export const trafficJamMock: TrafficJamReport[] = [
+  {
+    id: 'mock-tj-001',
+    area: 'Cổng chính Khu CNC – Xa lộ Hà Nội',
+    lat: 10.8489,
+    lng: 106.7921,
+    note: 'Kẹt xe giờ tan ca, xe container xếp hàng dài vào cổng.',
+    reportedAt: minutesAgo(8),
+    mediaUrl: null,
+  },
+  {
+    id: 'mock-tj-002',
+    area: 'Giao lộ Lê Văn Việt – Đường D1',
+    lat: 10.8360,
+    lng: 106.8050,
+    note: 'Ùn ứ do xe hỏng giữa đường, di chuyển chậm.',
+    reportedAt: minutesAgo(15),
+    mediaUrl: null,
+  },
+];
