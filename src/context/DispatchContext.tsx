@@ -47,6 +47,9 @@ interface DispatchContextValue {
   incidentsError: string | null;
   /** Sự cố Cấp 3 quá ngưỡng chưa có đội nhận (Escalated). */
   escalatedIncidentIds: Set<string>;
+  /** Drawer chi tiết sự cố đang mở — banner leo thang tự thu gọn để không che Drawer. */
+  incidentDrawerOpen: boolean;
+  setIncidentDrawerOpen: (open: boolean) => void;
   approveIncident: (
     id: string,
     confirmedSeverity: SeverityLevel,
@@ -80,6 +83,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [incidentsError, setIncidentsError] = useState<string | null>(null);
   const targetsRef = useRef(new Map(vehicleSeeds.filter((v) => v.target).map((v) => [v.id, v.target!])));
   const crewRef = useRef(new Map<string, CrewAssignment>());
+  const [incidentDrawerOpen, setIncidentDrawerOpen] = useState(false);
   const vehiclesRef = useRef(vehicles);
   useEffect(() => {
     vehiclesRef.current = vehicles;
@@ -495,6 +499,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incidentsLoading,
         incidentsError,
         escalatedIncidentIds,
+        incidentDrawerOpen,
+        setIncidentDrawerOpen,
         approveIncident,
         rejectIncident,
         lockIncident,

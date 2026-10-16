@@ -11,17 +11,27 @@ import { isNightShift } from '../../utils/escalation';
  * chưa có đội nhận quá 5 phút (2.5 phút ban đêm). Tự biến mất khi có đơn vị nhận.
  */
 export const EscalationAlert: React.FC = () => {
-  const { incidents, escalatedIncidentIds } = useDispatchStore();
+  const { incidents, escalatedIncidentIds, incidentDrawerOpen } = useDispatchStore();
   const navigate = useNavigate();
   const now = useNow(15000);
   // Thu gọn theo "bộ sự cố" hiện tại — có sự cố mới leo thang thì banner tự mở lại.
   const [collapsedKey, setCollapsedKey] = useState<string | null>(null);
+  // Khi Drawer đang mở, banner mặc định thu gọn; bấm nút nhỏ để xem nhanh ("peek").
+  const [peekKey, setPeekKey] = useState<string | null>(null);
 
   const escalated = incidents.filter((i) => escalatedIncidentIds.has(i.id));
   if (escalated.length === 0) return null;
 
   const key = escalated.map((i) => i.id).sort().join('|');
-  const collapsed = collapsedKey === key;
+  const collapsed = incidentDrawerOpen ? peekKey !== key : collapsedKey === key;
+
+  const expand = () => (incidentDrawerOpen ? setPeekKey(key) : setCollapsedKey(null));
+  const collapse = () => (incidentDrawerOpen ? setPeekKey(null) : setCollapsedKey(key));
+
+  // Drawer chiếm tối đa 64rem bên phải → đặt banner vào giữa vùng còn trống bên trái để không che Drawer.
+  const positionStyle = (halfWidth: string): React.CSSProperties =>
+    incidentDrawerOpen ? { left: `max(1rem, calc((100vw - 64rem) / 2 - ${halfWidth}))` } : {};
+  const centeredClass = incidentDrawerOpen ? '' : 'left-1/2 -translate-x-1/2';
   const thresholdLabel = isNightShift(now) ? '2.5 phút (ca đêm)' : '5 phút';
 
   const openIncident = (id: string, status: string) => {
@@ -35,8 +45,9 @@ export const EscalationAlert: React.FC = () => {
 
       {collapsed ? (
         <button
-          onClick={() => setCollapsedKey(null)}
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-[1501] flex items-center gap-2 px-3.5 py-2 rounded-full bg-red-600 text-white text-xs font-bold shadow-xl animate-flash-critical"
+          onClick={expand}
+          style={positionStyle('6rem')}
+          className={`fixed top-20 ${centeredClass} z-[1501] flex items-center gap-2 px-3.5 py-2 rounded-full bg-red-600 text-white text-xs font-bold shadow-xl animate-flash-critical`}
         >
           <Siren className="w-4 h-4" />
           {escalated.length} sự cố đang leo thang
@@ -44,7 +55,8 @@ export const EscalationAlert: React.FC = () => {
       ) : (
         <div
           role="alert"
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-[1501] w-[min(640px,calc(100%-2rem))] rounded-xl bg-red-600 text-white shadow-2xl shadow-red-900/30"
+          style={positionStyle('320px')}
+          className={`fixed top-20 ${centeredClass} z-[1501] w-[min(640px,calc(100%-2rem))] rounded-xl bg-red-600 text-white shadow-2xl shadow-red-900/30`}
         >
           <div className="flex items-start gap-3 px-4 pt-3.5 pb-2">
             <Siren className="w-5 h-5 shrink-0 mt-0.5 animate-pulse" />
@@ -57,7 +69,7 @@ export const EscalationAlert: React.FC = () => {
               </p>
             </div>
             <button
-              onClick={() => setCollapsedKey(key)}
+              onClick={collapse}
               className="p-1 rounded-md hover:bg-red-500 shrink-0"
               aria-label="Thu gọn cảnh báo"
             >

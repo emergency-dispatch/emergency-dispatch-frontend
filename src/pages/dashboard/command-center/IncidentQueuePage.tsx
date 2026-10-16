@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { IncidentDetailDrawer } from '../../../components/dashboard/incidents/IncidentDetailDrawer';
 import { IncidentQueueList } from '../../../components/dashboard/incidents/IncidentQueueList';
 import { useDispatchStore } from '../../../context/DispatchContext';
@@ -17,6 +17,7 @@ export const IncidentQueuePage: React.FC = () => {
     lockIncident,
     releaseIncident,
     revealReporterPhone,
+    setIncidentDrawerOpen,
   } = useDispatchStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
@@ -25,6 +26,12 @@ export const IncidentQueuePage: React.FC = () => {
 
   const pendingIncidents = useMemo(() => incidents.filter((inc) => inc.status === 'pending'), [incidents]);
   const selectedIncident = pendingIncidents.find((inc) => inc.id === selectedId) ?? null;
+  const isDrawerOpen = !!selectedIncident;
+
+  useEffect(() => {
+    setIncidentDrawerOpen(isDrawerOpen);
+    return () => setIncidentDrawerOpen(false);
+  }, [isDrawerOpen]);
 
   // Mở ca = nhận khóa mềm 2 phút. Ca đang bị người khác giữ vẫn mở được ở chế độ chỉ xem.
   const acquireLock = async (id: string) => {

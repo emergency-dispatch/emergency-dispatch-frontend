@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Ban,
   CheckCircle2,
+  ChevronDown,
   FileCheck2,
   GripVertical,
   Loader2,
@@ -93,19 +94,18 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
       onDragOver={handleDragOver}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
-      className={`rounded-lg border transition-colors ${
-        isDragOver
+      className={`rounded-lg border transition-colors ${isDragOver
           ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-200'
           : isCompleted
             ? 'border-emerald-200 bg-emerald-50/50'
             : isEscalated
               ? 'border-red-500 bg-red-50 ring-2 ring-red-200'
               : confirmingCancel
-            ? 'border-red-300 bg-red-50/40'
-            : isSelected
-              ? 'border-red-300 bg-white shadow-sm'
-              : 'border-slate-200 bg-slate-50/60'
-      }`}
+                ? 'border-red-300 bg-red-50/40'
+                : isSelected
+                  ? 'border-red-300 bg-white shadow-sm'
+                  : 'border-slate-200 bg-slate-50/60'
+        }`}
     >
       <button onClick={onSelect} className="w-full text-left p-3 pb-2">
         <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -245,6 +245,17 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
               </div>
             )}
 
+            {!isSelected && !isFull && !isCompleted && (
+              <button
+                onClick={onSelect}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed border-red-300 text-[11px] font-bold text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <Radar className="w-3.5 h-3.5" />
+                Khớp loại xe
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            )}
+
             {isFull && (
               <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -257,7 +268,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                 <div className="flex items-center justify-between gap-2">
                   <span className="flex items-center gap-1 text-[10px] font-mono-data uppercase tracking-wider text-slate-500 font-bold">
                     <Radar className="w-3 h-3" />
-                    Gợi ý xe · bán kính {suggestion.radiusKm} km
+                    KHỚP LOẠI XE · bán kính {suggestion.radiusKm} km
                   </span>
                   {isEscalated ? (
                     <span className="text-[10px] font-bold text-red-600 whitespace-nowrap">Nhân đôi (leo thang)</span>
@@ -354,6 +365,23 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
   const availableVehicles = useMemo(() => vehicles.filter((v) => v.status === 'available'), [vehicles]);
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
 
+  // Mở chế độ điều phối mà chưa chọn sự cố → tự chọn sự cố ưu tiên nhất còn thiếu xe để gợi ý hiện ngay.
+  // Nếu Operator chủ động bỏ chọn thì không tự chọn lại.
+  const userClearedRef = useRef(false);
+  const firstNeedingVehicles = dispatchIncidents.find(
+    (i) => i.status === 'approved' && i.assignedVehicleIds.length < MAX_VEHICLES_BY_LEVEL[i.severity]
+  );
+  useEffect(() => {
+    if (selectedIncidentId || userClearedRef.current || !firstNeedingVehicles) return;
+    onSelectIncident(firstNeedingVehicles.id);
+  }, [selectedIncidentId, firstNeedingVehicles?.id]);
+
+  const handleToggleIncident = (id: string) => {
+    const next = id === selectedIncidentId ? null : id;
+    userClearedRef.current = next === null;
+    onSelectIncident(next);
+  };
+
   const handleAssign = async (incidentId: string, vehicleId: string) => {
     setAssigningVehicleId(vehicleId);
     setPanelError(null);
@@ -392,9 +420,8 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
               key={key}
               onClick={() => setAlgorithm(key)}
               title={DISPATCH_ALGORITHM_META[key].description}
-              className={`py-1.5 rounded-md text-[11px] font-bold transition-colors ${
-                algorithm === key ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-              }`}
+              className={`py-1.5 rounded-md text-[11px] font-bold transition-colors ${algorithm === key ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
             >
               {DISPATCH_ALGORITHM_META[key].label}
             </button>
@@ -428,7 +455,7 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
               now={now}
               assigningVehicleId={assigningVehicleId}
               isCancelling={cancellingId === incident.id}
-              onSelect={() => onSelectIncident(incident.id === selectedIncidentId ? null : incident.id)}
+              onSelect={() => handleToggleIncident(incident.id)}
               onAssign={(vehicleId) => handleAssign(incident.id, vehicleId)}
               onCancelVehicle={cancelAssignment}
               onCancelIncident={() => handleCancelIncident(incident.id)}

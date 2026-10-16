@@ -39,7 +39,7 @@ export const createIncidentQueueMock = (): IncidentResponseDto[] => [
     longitude: 106.8121,
     locationAddress: 'Lô T2, Đường D2, Khu Công nghệ cao',
     status: 'AiProcessed',
-    severity: 'Level3',
+    severity: 'Level2',
     reporterName: 'Trần Quốc Bảo',
     reporterPhone: '0912345678',
     // Ca đang được một Operator khác giữ (khóa mềm) — hết hạn sau ~2 phút kể từ lúc tải trang.
