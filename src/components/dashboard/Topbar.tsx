@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, ChevronDown, LogOut, MapPin, Settings, ShieldAlert, User } from 'lucide-react';
-import { mockNotifications } from '../../data/dashboardMock';
+import { useDispatchStore } from '../../context/DispatchContext';
 import { useAuth } from '../../hooks/useAuth';
 import { UserProfileModal } from '../profile/UserProfileModal';
 
@@ -15,11 +15,10 @@ export const Topbar: React.FC = () => {
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
 
-  // Escalation Logic Engine: Level 4-5 incidents unclaimed past 5 minutes trigger the blinking alert.
-  const criticalUnclaimed = mockNotifications.filter(
-    (n) => !n.acknowledged && n.severity >= 4 && n.unclaimedMinutes > 5
-  );
-  const unreadCount = mockNotifications.filter((n) => !n.acknowledged).length;
+  // Escalation Daemon: sự cố Cấp 3 chưa có đội nhận quá ngưỡng → chuông nhấp nháy.
+  const { incidents, escalatedIncidentIds } = useDispatchStore();
+  const criticalUnclaimed = incidents.filter((i) => escalatedIncidentIds.has(i.id));
+  const unreadCount = criticalUnclaimed.length;
   const hasCriticalAlert = criticalUnclaimed.length > 0;
 
   useEffect(() => {
@@ -104,25 +103,35 @@ export const Topbar: React.FC = () => {
                 </span>
                 {hasCriticalAlert && (
                   <span className="text-[10px] font-mono-data text-red-600 font-bold whitespace-nowrap">
-                    {criticalUnclaimed.length} CHƯA TIẾP NHẬN &gt;5PH
+                    {criticalUnclaimed.length} CHƯA CÓ ĐỘI NHẬN
                   </span>
                 )}
               </div>
               <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                {mockNotifications.map((n) => (
-                  <div key={n.id} className="px-4 py-3 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-xs font-semibold text-slate-900">{n.title}</span>
-                      {!n.acknowledged && n.severity >= 4 && n.unclaimedMinutes > 5 && (
-                        <span className="shrink-0 w-2 h-2 rounded-full bg-red-500 animate-pulse mt-1" />
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{n.description}</p>
-                    <span className="text-[10px] font-mono-data text-slate-400 mt-1 block">
-                      {n.unclaimedMinutes > 0 ? `Chưa nhận ${n.unclaimedMinutes} phút` : 'Đã tiếp nhận'}
-                    </span>
-                  </div>
-                ))}
+                {criticalUnclaimed.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-xs text-slate-500">Không có sự cố nào đang leo thang</p>
+                ) : (
+                  criticalUnclaimed.map((incident) => {
+                    const waitMinutes = Math.max(
+                      0,
+                      Math.floor((Date.now() - new Date(incident.createdAt).getTime()) / 60000)
+                    );
+                    return (
+                      <div key={incident.id} className="px-4 py-3 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-xs font-semibold text-slate-900">{incident.title}</span>
+                          <span className="shrink-0 w-2 h-2 rounded-full bg-red-500 animate-pulse mt-1" />
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Cấp 3 · {incident.area} · {incident.status === 'pending' ? 'chưa thẩm định' : 'chưa có đội nhận'}
+                        </p>
+                        <span className="text-[10px] font-mono-data text-red-600 mt-1 block">
+                          Chờ {waitMinutes} phút — đã leo thang
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           )}

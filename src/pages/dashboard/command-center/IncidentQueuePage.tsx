@@ -9,6 +9,7 @@ export const IncidentQueuePage: React.FC = () => {
     currentOperatorId,
     incidents,
     highlightIncidentIds,
+    escalatedIncidentIds,
     incidentsLoading,
     incidentsError,
     approveIncident,
@@ -80,6 +81,7 @@ export const IncidentQueuePage: React.FC = () => {
       <IncidentQueueList
         incidents={pendingIncidents}
         highlightIds={highlightIncidentIds}
+        escalatedIds={escalatedIncidentIds}
         selectedId={selectedId}
         currentOperatorId={currentOperatorId}
         onSelect={handleSelect}
@@ -90,6 +92,7 @@ export const IncidentQueuePage: React.FC = () => {
       <IncidentDetailDrawer
         incident={selectedIncident}
         currentOperatorId={currentOperatorId}
+        isEscalated={!!selectedId && escalatedIncidentIds.has(selectedId)}
         isLocking={lockingId === selectedId}
         onClose={handleClose}
         onApprove={handleApprove}

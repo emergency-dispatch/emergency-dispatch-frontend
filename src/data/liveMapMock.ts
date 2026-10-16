@@ -4,10 +4,30 @@ import { FireTruckIcon, type FireTruckIconProps } from '../components/dashboard/
 import type { DispatchVehicleType, Station, Vehicle, VehicleStatus, VehicleType } from '../types/vehicle';
 
 export const VEHICLE_STATUS_META: Record<VehicleStatus, { label: string; color: string }> = {
-  available: { label: 'Available', color: '#10B981' },
-  en_route: { label: 'En route', color: '#2563EB' },
-  on_scene: { label: 'On scene', color: '#F97316' },
+  available: { label: 'Sẵn sàng', color: '#10B981' },
+  awaiting_ack: { label: 'Chờ xác nhận', color: '#A855F7' },
+  accepted: { label: 'Đã nhận', color: '#0EA5E9' },
+  en_route: { label: 'Đang di chuyển', color: '#2563EB' },
+  on_scene: { label: 'Tại hiện trường', color: '#F97316' },
+  recovering: { label: 'Hồi sức', color: '#64748B' },
 };
+
+// Mô phỏng phản hồi của đội cứu hộ (thay cho Staff App khi chưa nối backend).
+// Mặc định đội chấp nhận sau vài giây; một số xe được cài sẵn để demo ca từ chối / quá hạn 120s.
+export type MockCrewResponse =
+  | { kind: 'accept'; afterMs: number }
+  | { kind: 'reject'; afterMs: number; reason: string }
+  | { kind: 'ignore' };
+
+export const DEFAULT_CREW_RESPONSE: MockCrewResponse = { kind: 'accept', afterMs: 6000 };
+
+export const MOCK_CREW_RESPONSES: Record<string, MockCrewResponse> = {
+  'veh-5': { kind: 'reject', afterMs: 8000, reason: 'Xe đang kiểm tra hệ thống phanh, không thể xuất phát' },
+  'veh-9': { kind: 'ignore' },
+};
+
+// Thời gian đội làm việc tại hiện trường trước khi nộp báo cáo kết thúc (mock).
+export const MOCK_ON_SCENE_DURATION_MS = 40 * 1000;
 
 // A shared shape covering both lucide-react icons and the hand-drawn FireTruckIcon
 // (lucide has no dedicated fire-truck glyph) so both plug into the same meta map.

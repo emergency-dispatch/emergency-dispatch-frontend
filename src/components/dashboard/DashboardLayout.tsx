@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { DispatchProvider } from '../../context/DispatchContext';
+import { EscalationAlert } from './EscalationAlert';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
@@ -19,6 +20,7 @@ export const DashboardLayout: React.FC = () => {
           </main>
         </div>
       </div>
+      <EscalationAlert />
     </DispatchProvider>
   );
 };

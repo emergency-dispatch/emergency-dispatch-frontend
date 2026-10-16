@@ -13,6 +13,7 @@ import {
   MapPin,
   Phone,
   RotateCcw,
+  Siren,
   User,
   X,
 } from 'lucide-react';
@@ -35,6 +36,7 @@ const CONFIRMABLE_LEVELS: SeverityLevel[] = [1, 2, 3];
 interface IncidentDetailDrawerProps {
   incident: Incident | null;
   currentOperatorId: string;
+  isEscalated?: boolean;
   isLocking?: boolean;
   onClose: () => void;
   onApprove: (id: string, confirmedSeverity: SeverityLevel, overrideReason?: string) => void;
@@ -48,6 +50,7 @@ interface IncidentDetailDrawerProps {
 export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   incident,
   currentOperatorId,
+  isEscalated = false,
   isLocking = false,
   onClose,
   onApprove,
@@ -136,6 +139,13 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {isEscalated && (
+          <div className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-red-600 text-xs text-white font-semibold">
+            <Siren className="w-3.5 h-3.5 shrink-0 animate-pulse" />
+            Sự cố đã leo thang — Cấp 3 chờ quá lâu chưa có đội nhận. Ưu tiên thẩm định và điều phối ngay.
+          </div>
+        )}
 
         {isLocking ? (
           <div className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-slate-50 border-b border-slate-200 text-xs text-slate-600">

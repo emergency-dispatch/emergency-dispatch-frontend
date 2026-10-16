@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from 'react';
-import { Route } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { ChevronDown, ChevronUp, Route } from 'lucide-react';
 import { DispatchPanel } from '../../../components/dashboard/livemap/DispatchPanel';
 import { LiveMapView } from '../../../components/dashboard/livemap/LiveMapView';
 import { VehiclePanel } from '../../../components/dashboard/livemap/VehiclePanel';
 import { useDispatchStore } from '../../../context/DispatchContext';
+import { trafficJamMock } from '../../../data/incidentQueueMock';
 import type { VehicleFilters } from '../../../types/vehicle';
 
 const DEFAULT_FILTERS: VehicleFilters = { type: 'all', status: 'all', area: 'all' };
@@ -12,7 +14,11 @@ export const LiveMapPage: React.FC = () => {
   const { vehicles, incidents } = useDispatchStore();
   const [filters, setFilters] = useState<VehicleFilters>(DEFAULT_FILTERS);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [dispatchMode, setDispatchMode] = useState(false);
+  // Tablet/màn hình < 1024px: panel thu thành Bottom Sheet (FR-OP-01).
+  const [sheetOpen, setSheetOpen] = useState(true);
+  const location = useLocation();
 
   const filteredVehicles = useMemo(() => {
     return vehicles.filter((v) => {
@@ -25,7 +31,7 @@ export const LiveMapPage: React.FC = () => {
 
   const dispatchIncidents = useMemo(() => incidents.filter((i) => i.status === 'approved'), [incidents]);
   const pendingDispatchCount = useMemo(
-    () => dispatchIncidents.filter((i) => !i.assignedVehicleId).length,
+    () => dispatchIncidents.filter((i) => i.assignedVehicleIds.length === 0).length,
     [dispatchIncidents]
   );
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
@@ -35,14 +41,33 @@ export const LiveMapPage: React.FC = () => {
     setSelectedVehicleId((current) => (current === id ? null : id));
   };
 
+  // Bấm marker sự cố trên bản đồ → mở chế độ điều phối và chọn luôn sự cố đó.
+  const handleSelectIncident = (id: string | null) => {
+    setSelectedIncidentId(id);
+    if (id) {
+      setDispatchMode(true);
+      setSheetOpen(true);
+    }
+  };
+
+  // Mở từ banner leo thang ("Điều phối") → chọn sẵn sự cố đó.
+  const focusIncidentId = (location.state as { focusIncidentId?: string } | null)?.focusIncidentId;
+  useEffect(() => {
+    if (focusIncidentId) handleSelectIncident(focusIncidentId);
+  }, [focusIncidentId, location.key]);
+
   return (
-    <div className="h-full flex">
-      <div className="flex-[7] min-w-0 h-full relative">
+    <div className="h-full flex relative overflow-hidden">
+      <div className="flex-1 lg:flex-none lg:basis-[65%] min-w-0 h-full relative">
         <LiveMapView
           vehicles={filteredVehicles}
           selectedVehicleId={selectedVehicleId}
           onSelectVehicle={handleSelectVehicle}
           dispatchIncidents={dispatchIncidents}
+          selectedIncidentId={selectedIncidentId}
+          onSelectIncident={handleSelectIncident}
+          // TODO(backend): lấy điểm ùn tắc từ API khi có — tạm dùng dữ liệu mock.
+          trafficJams={trafficJamMock}
           vehiclesById={vehiclesById}
           incidentsById={incidentsById}
         />
@@ -67,18 +92,33 @@ export const LiveMapPage: React.FC = () => {
         </button>
       </div>
 
-      <div className="flex-[3] min-w-[320px] max-w-[420px] h-full">
-        {dispatchMode ? (
-          <DispatchPanel />
-        ) : (
-          <VehiclePanel
-            vehicles={filteredVehicles}
-            filters={filters}
-            onFiltersChange={setFilters}
-            selectedVehicleId={selectedVehicleId}
-            onSelectVehicle={handleSelectVehicle}
-          />
-        )}
+      <div
+        className={`z-[1100] bg-white flex flex-col transition-[height] duration-300
+          absolute inset-x-0 bottom-0 rounded-t-2xl shadow-[0_-8px_24px_rgba(15,23,42,0.18)] ${sheetOpen ? 'h-[55%]' : 'h-11'}
+          lg:static lg:h-full lg:basis-[35%] lg:min-w-[340px] lg:rounded-none lg:shadow-none`}
+      >
+        <button
+          onClick={() => setSheetOpen((v) => !v)}
+          className="lg:hidden shrink-0 h-11 flex items-center justify-center gap-2 border-b border-slate-200 text-xs font-bold text-slate-600"
+          aria-label={sheetOpen ? 'Thu gọn bảng điều khiển' : 'Mở bảng điều khiển'}
+        >
+          <span className="w-10 h-1 rounded-full bg-slate-300" />
+          {sheetOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+          {dispatchMode ? 'Điều phối sự cố' : 'Phương tiện & trạm'}
+        </button>
+        <div className={`flex-1 min-h-0 ${sheetOpen ? '' : 'hidden lg:block'}`}>
+          {dispatchMode ? (
+            <DispatchPanel selectedIncidentId={selectedIncidentId} onSelectIncident={handleSelectIncident} />
+          ) : (
+            <VehiclePanel
+              vehicles={filteredVehicles}
+              filters={filters}
+              onFiltersChange={setFilters}
+              selectedVehicleId={selectedVehicleId}
+              onSelectVehicle={handleSelectVehicle}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

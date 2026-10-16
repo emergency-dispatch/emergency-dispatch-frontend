@@ -1,0 +1,96 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronDown, Siren } from 'lucide-react';
+import { INCIDENT_CATEGORY_META } from '../../data/incidentMock';
+import { useDispatchStore } from '../../context/DispatchContext';
+import { useNow } from '../../hooks/useNow';
+import { isNightShift } from '../../utils/escalation';
+
+/**
+ * Báo động leo thang toàn dashboard (FR-SYS-02): viền đỏ + banner khi có sự cố Cấp 3
+ * chưa có đội nhận quá 5 phút (2.5 phút ban đêm). Tự biến mất khi có đơn vị nhận.
+ */
+export const EscalationAlert: React.FC = () => {
+  const { incidents, escalatedIncidentIds } = useDispatchStore();
+  const navigate = useNavigate();
+  const now = useNow(15000);
+  // Thu gọn theo "bộ sự cố" hiện tại — có sự cố mới leo thang thì banner tự mở lại.
+  const [collapsedKey, setCollapsedKey] = useState<string | null>(null);
+
+  const escalated = incidents.filter((i) => escalatedIncidentIds.has(i.id));
+  if (escalated.length === 0) return null;
+
+  const key = escalated.map((i) => i.id).sort().join('|');
+  const collapsed = collapsedKey === key;
+  const thresholdLabel = isNightShift(now) ? '2.5 phút (ca đêm)' : '5 phút';
+
+  const openIncident = (id: string, status: string) => {
+    if (status === 'pending') navigate('/dashboard/command-center/incidents');
+    else navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: id } });
+  };
+
+  return (
+    <>
+      <div className="pointer-events-none fixed inset-0 z-[1500] border-4 border-red-600 animate-pulse" />
+
+      {collapsed ? (
+        <button
+          onClick={() => setCollapsedKey(null)}
+          className="fixed top-20 left-1/2 -translate-x-1/2 z-[1501] flex items-center gap-2 px-3.5 py-2 rounded-full bg-red-600 text-white text-xs font-bold shadow-xl animate-flash-critical"
+        >
+          <Siren className="w-4 h-4" />
+          {escalated.length} sự cố đang leo thang
+        </button>
+      ) : (
+        <div
+          role="alert"
+          className="fixed top-20 left-1/2 -translate-x-1/2 z-[1501] w-[min(640px,calc(100%-2rem))] rounded-xl bg-red-600 text-white shadow-2xl shadow-red-900/30"
+        >
+          <div className="flex items-start gap-3 px-4 pt-3.5 pb-2">
+            <Siren className="w-5 h-5 shrink-0 mt-0.5 animate-pulse" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold">
+                {escalated.length} sự cố Cấp 3 chưa có đơn vị nhận quá {thresholdLabel}
+              </p>
+              <p className="text-[11px] text-red-100 mt-0.5">
+                Đã tự động báo Trưởng trạm &amp; Admin · bán kính tìm xe đã được nhân đôi (tối đa 30 km)
+              </p>
+            </div>
+            <button
+              onClick={() => setCollapsedKey(key)}
+              className="p-1 rounded-md hover:bg-red-500 shrink-0"
+              aria-label="Thu gọn cảnh báo"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="px-3 pb-3 space-y-1.5 max-h-48 overflow-y-auto">
+            {escalated.map((incident) => {
+              const category = INCIDENT_CATEGORY_META[incident.category];
+              const CategoryIcon = category.icon;
+              const waitMinutes = Math.max(0, Math.floor((now - new Date(incident.createdAt).getTime()) / 60000));
+              return (
+                <div key={incident.id} className="flex items-center gap-2.5 rounded-lg bg-red-700/60 px-3 py-2">
+                  <CategoryIcon className="w-4 h-4 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold truncate">{incident.title}</p>
+                    <p className="text-[10px] text-red-100 truncate">
+                      {incident.area} · chờ {waitMinutes} phút ·{' '}
+                      {incident.status === 'pending' ? 'chưa thẩm định' : 'chưa có đội nhận'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => openIncident(incident.id, incident.status)}
+                    className="px-2.5 py-1 rounded-md bg-white text-red-700 text-[11px] font-bold hover:bg-red-50 shrink-0"
+                  >
+                    {incident.status === 'pending' ? 'Thẩm định' : 'Điều phối'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
+  );
+};

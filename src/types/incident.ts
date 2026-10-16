@@ -24,7 +24,17 @@ export type HazardTag = IncidentCategory | 'traffic_jam';
 
 // Local queue lifecycle only ('approved'/'rejected' incidents are already gone from
 // the backend queue by the time we set these — see DispatchContext.approveIncident/rejectIncident).
-export type IncidentStatus = 'pending' | 'approved' | 'rejected';
+export type IncidentStatus = 'pending' | 'approved' | 'rejected' | 'completed';
+
+// Đội cứu hộ từ chối hoặc quá 120s không phản hồi → nhiệm vụ trả về trung tâm, Operator giao lại.
+export interface CrewResponseNotice {
+  id: string;
+  vehicleId: string;
+  plate: string;
+  kind: 'rejected' | 'timeout';
+  reason: string;
+  at: string;
+}
 
 export type IncidentMediaType = 'image' | 'video';
 
@@ -57,7 +67,11 @@ export interface Incident {
   createdAt: string;
   mediaType: IncidentMediaType;
   mediaUrl: string | null;
-  assignedVehicleId: string | null;
+  assignedVehicleIds: string[];
+  /** Xe đã nộp báo cáo kết thúc — ca nhiều xe chỉ đóng khi tất cả xe đã nộp. */
+  reportedVehicleIds: string[];
+  responseNotices: CrewResponseNotice[];
+  completedAt?: string;
   lock: IncidentLock | null;
 }
 
@@ -194,7 +208,9 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto): Inciden
     createdAt: dto.createdAt,
     mediaType: firstMedia?.mediaType === 'Video' ? 'video' : 'image',
     mediaUrl: firstMedia?.mediaUrl ?? null,
-    assignedVehicleId: null,
+    assignedVehicleIds: [],
+    reportedVehicleIds: [],
+    responseNotices: [],
     lock: hasActiveLock
       ? {
           operatorId: dto.lockedByOperatorId!,

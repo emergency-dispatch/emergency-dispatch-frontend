@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Lock } from 'lucide-react';
+import { AlertTriangle, Lock, Siren } from 'lucide-react';
 import { HazardTagBadge } from './HazardTagBadge';
 import { IncidentThumbnail } from './IncidentThumbnail';
 import { ConfidenceBadge } from './ConfidenceBadge';
@@ -12,6 +12,7 @@ interface IncidentRowProps {
   incident: Incident;
   isNew: boolean;
   isSelected: boolean;
+  isEscalated: boolean;
   now: number;
   currentOperatorId: string;
   onClick: () => void;
@@ -21,12 +22,12 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
   incident,
   isNew,
   isSelected,
+  isEscalated,
   now,
   currentOperatorId,
   onClick,
 }) => {
   const waitMinutes = Math.max(0, Math.round((now - new Date(incident.createdAt).getTime()) / 60000));
-  const isOverdue = incident.severity === 3 && waitMinutes > 5;
   const isLowConfidence = incident.confidenceScore < LOW_CONFIDENCE_THRESHOLD;
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
@@ -39,7 +40,11 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
     <button
       onClick={onClick}
       className={`w-full flex items-center gap-4 px-5 py-3.5 text-left border-b border-slate-100 border-l-2 transition-colors ${
-        isSelected ? 'bg-red-50 border-l-red-500' : 'border-l-transparent hover:bg-slate-50'
+        isSelected
+          ? 'bg-red-50 border-l-red-500'
+          : isEscalated
+            ? 'bg-red-50/60 border-l-red-600'
+            : 'border-l-transparent hover:bg-slate-50'
       } ${lockedByOther ? 'opacity-60' : ''} ${isNew ? 'animate-queue-enter' : ''}`}
     >
       <IncidentThumbnail incident={incident} className="w-14 h-14 shrink-0" />
@@ -61,9 +66,10 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
               Độ tin cậy thấp
             </span>
           )}
-          {isOverdue && (
-            <span className="text-[10px] font-mono-data text-red-600 font-bold uppercase tracking-wide animate-pulse">
-              Quá hạn
+          {isEscalated && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-red-600 text-[10px] font-bold text-white uppercase tracking-wide animate-pulse shrink-0">
+              <Siren className="w-3 h-3" />
+              Leo thang
             </span>
           )}
         </div>

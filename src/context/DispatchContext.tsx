@@ -1,38 +1,34 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { vehicleSeeds } from '../data/liveMapMock';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { DEFAULT_CREW_RESPONSE, MOCK_CREW_RESPONSES, MOCK_ON_SCENE_DURATION_MS, vehicleSeeds } from '../data/liveMapMock';
+import { CREW_ACK_TIMEOUT_MS, MAX_VEHICLES_BY_LEVEL, VEHICLE_RECOVERY_MS } from '../data/dispatchConfig';
 import { incidentService } from '../services/incidentService';
+import { dispatchService } from '../services/dispatchService';
 import { getApiErrorMessage } from '../services/apiClient';
 import { useAuth } from '../hooks/useAuth';
+import { useNow } from '../hooks/useNow';
 import { mapIncidentResponseToIncident, severityToBackend } from '../types/incident';
+import { estimateEtaMinutes, haversineKm } from '../utils/dispatch';
+import { isIncidentEscalated } from '../utils/escalation';
 import type { Vehicle } from '../types/vehicle';
-import type { BlockDuration, Incident, IncidentLock, SeverityLevel } from '../types/incident';
+import type { BlockDuration, CrewResponseNotice, Incident, IncidentLock, SeverityLevel } from '../types/incident';
 
 const VEHICLE_TICK_MS = 2500;
 const VEHICLE_STEP_FRACTION = 0.08;
 const ARRIVAL_THRESHOLD = 0.0006;
 const QUEUE_POLL_MS = 20000;
+const CREW_TICK_MS = 1000;
+const ACCEPTED_TO_EN_ROUTE_MS = 3000;
+const ESCALATION_CHECK_MS = 5000;
+
+// Giai đoạn nhiệm vụ của từng xe đã giao (mô phỏng phản hồi Staff App).
+interface CrewAssignment {
+  incidentId: string;
+  phase: 'awaiting' | 'accepted' | 'en_route' | 'on_scene' | 'recovering';
+  ackDeadline: number;
+  respondAt: number;
+  nextAt: number;
+}
 const HIGHLIGHT_DURATION_MS = 2200;
-const AVG_SPEED_KMH = 28;
-
-interface LatLng {
-  lat: number;
-  lng: number;
-}
-
-function haversineKm(a: LatLng, b: LatLng): number {
-  const R = 6371;
-  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
-  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
-  const lat1 = (a.lat * Math.PI) / 180;
-  const lat2 = (b.lat * Math.PI) / 180;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
-
-function estimateEtaMinutes(km: number): number {
-  return Math.max(1, Math.round((km / AVG_SPEED_KMH) * 60));
-}
-
 function sortByPriority(incidents: Incident[]): Incident[] {
   return [...incidents].sort((a, b) => {
     if (b.severity !== a.severity) return b.severity - a.severity;
@@ -49,6 +45,8 @@ interface DispatchContextValue {
   highlightIncidentIds: Set<string>;
   incidentsLoading: boolean;
   incidentsError: string | null;
+  /** Sự cố Cấp 3 quá ngưỡng chưa có đội nhận (Escalated). */
+  escalatedIncidentIds: Set<string>;
   approveIncident: (
     id: string,
     confirmedSeverity: SeverityLevel,
@@ -58,10 +56,10 @@ interface DispatchContextValue {
   lockIncident: (id: string) => Promise<{ ok: boolean; message?: string }>;
   releaseIncident: (id: string) => void;
   revealReporterPhone: (id: string) => Promise<boolean>;
-  assignVehicle: (vehicleId: string, incidentId: string) => void;
+  /** Giao 1 xe cho sự cố (1-click hoặc kéo-thả). Cấp 3 gọi nhiều lần, tối đa 5 xe. */
+  assignVehicle: (vehicleId: string, incidentId: string) => Promise<{ ok: boolean; message?: string }>;
   cancelAssignment: (vehicleId: string) => void;
-  findNearestAvailableVehicle: (incident: Incident) => Vehicle | null;
-  estimateEtaKm: (incident: Incident, vehicle: Vehicle) => { km: number; etaMinutes: number };
+  dismissResponseNotice: (incidentId: string, noticeId: string) => void;
 }
 
 const DispatchContext = createContext<DispatchContextValue | null>(null);
@@ -81,6 +79,115 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [incidentsLoading, setIncidentsLoading] = useState(true);
   const [incidentsError, setIncidentsError] = useState<string | null>(null);
   const targetsRef = useRef(new Map(vehicleSeeds.filter((v) => v.target).map((v) => [v.id, v.target!])));
+  const crewRef = useRef(new Map<string, CrewAssignment>());
+  const vehiclesRef = useRef(vehicles);
+  useEffect(() => {
+    vehiclesRef.current = vehicles;
+  }, [vehicles]);
+
+  // Mô phỏng phản hồi đội cứu hộ: 120s Chấp nhận/Từ chối → Accepted → EnRoute → OnScene
+  // → nộp báo cáo → hồi sức 5 phút → Available. TODO(backend): thay bằng sự kiện SignalR từ Staff App.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const vehicleUpdates = new Map<string, Partial<Vehicle>>();
+      const releases: Array<{ vehicleId: string; incidentId: string; notice: CrewResponseNotice }> = [];
+      const reports: Array<{ vehicleId: string; incidentId: string }> = [];
+
+      crewRef.current.forEach((a, vehicleId) => {
+        const response = MOCK_CREW_RESPONSES[vehicleId] ?? DEFAULT_CREW_RESPONSE;
+        const plate = vehiclesRef.current.find((v) => v.id === vehicleId)?.plate ?? vehicleId;
+        const makeNotice = (kind: CrewResponseNotice['kind'], reason: string): CrewResponseNotice => ({
+          id: `${vehicleId}-${now}`,
+          vehicleId,
+          plate,
+          kind,
+          reason,
+          at: new Date(now).toISOString(),
+        });
+
+        if (a.phase === 'awaiting') {
+          if (response.kind === 'reject' && now >= a.respondAt) {
+            releases.push({ vehicleId, incidentId: a.incidentId, notice: makeNotice('rejected', response.reason) });
+            crewRef.current.delete(vehicleId);
+          } else if (response.kind === 'accept' && now >= a.respondAt) {
+            a.phase = 'accepted';
+            a.nextAt = now + ACCEPTED_TO_EN_ROUTE_MS;
+            vehicleUpdates.set(vehicleId, { status: 'accepted', ackDeadline: null });
+          } else if (now >= a.ackDeadline) {
+            releases.push({
+              vehicleId,
+              incidentId: a.incidentId,
+              notice: makeNotice('timeout', 'Quá 120 giây không phản hồi'),
+            });
+            crewRef.current.delete(vehicleId);
+          }
+        } else if (a.phase === 'accepted' && now >= a.nextAt) {
+          a.phase = 'en_route';
+          vehicleUpdates.set(vehicleId, { status: 'en_route' });
+        } else if (a.phase === 'en_route') {
+          if (vehiclesRef.current.find((v) => v.id === vehicleId)?.status === 'on_scene') {
+            a.phase = 'on_scene';
+            a.nextAt = now + MOCK_ON_SCENE_DURATION_MS;
+          }
+        } else if (a.phase === 'on_scene' && now >= a.nextAt) {
+          a.phase = 'recovering';
+          a.nextAt = now + VEHICLE_RECOVERY_MS;
+          reports.push({ vehicleId, incidentId: a.incidentId });
+          vehicleUpdates.set(vehicleId, {
+            status: 'recovering',
+            incidentId: null,
+            etaMinutes: null,
+            recoveryUntil: new Date(a.nextAt).toISOString(),
+          });
+        } else if (a.phase === 'recovering' && now >= a.nextAt) {
+          crewRef.current.delete(vehicleId);
+          vehicleUpdates.set(vehicleId, { status: 'available', recoveryUntil: null });
+        }
+      });
+
+      if (vehicleUpdates.size === 0 && releases.length === 0) return;
+
+      releases.forEach((r) => targetsRef.current.delete(r.vehicleId));
+      const releasedIds = new Set(releases.map((r) => r.vehicleId));
+      const stamp = new Date(now).toISOString();
+      setVehicles((prev) =>
+        prev.map((v) => {
+          if (releasedIds.has(v.id)) {
+            return { ...v, status: 'available', incidentId: null, etaMinutes: null, ackDeadline: null, lastUpdated: stamp };
+          }
+          const update = vehicleUpdates.get(v.id);
+          return update ? { ...v, ...update, lastUpdated: stamp } : v;
+        })
+      );
+
+      if (releases.length === 0 && reports.length === 0) return;
+      setIncidents((prev) =>
+        prev.map((i) => {
+          const released = releases.filter((r) => r.incidentId === i.id);
+          const reported = reports.filter((r) => r.incidentId === i.id).map((r) => r.vehicleId);
+          if (released.length === 0 && reported.length === 0) return i;
+
+          const releasedVehicleIds = new Set(released.map((r) => r.vehicleId));
+          const assignedVehicleIds = i.assignedVehicleIds.filter((id) => !releasedVehicleIds.has(id));
+          const reportedVehicleIds = [...i.reportedVehicleIds, ...reported];
+          // Ca nhiều xe chỉ đóng khi tất cả xe đã giao đều nộp báo cáo.
+          const allReported =
+            assignedVehicleIds.length > 0 && assignedVehicleIds.every((id) => reportedVehicleIds.includes(id));
+
+          return {
+            ...i,
+            assignedVehicleIds,
+            reportedVehicleIds,
+            responseNotices: [...i.responseNotices, ...released.map((r) => r.notice)],
+            ...(allReported && i.status === 'approved' ? { status: 'completed' as const, completedAt: stamp } : {}),
+          };
+        })
+      );
+    }, CREW_TICK_MS);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Vehicle movement simulation — unchanged, still mock (no Vehicle entity on the backend yet).
   useEffect(() => {
@@ -187,15 +294,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         prev.map((i) => (i.id === id ? { ...i, status: 'approved', severity: confirmedSeverity } : i))
       );
       setIncidentsError(null);
-
-      // Mô phỏng "Điều phối thông minh": hệ thống tự quét xe gần nhất đang Available
-      // và tự gán ngay khi sự cố được xác minh — Operator không cần bấm gán tay.
-      const verifiedIncident = incidents.find((i) => i.id === id);
-      if (verifiedIncident) {
-        const nearest = findNearestAvailableVehicle(verifiedIncident);
-        if (nearest) assignVehicle(nearest.id, id);
-      }
-
+      // Không tự gán xe: sự cố đã duyệt chờ Operator chọn xe từ gợi ý điều phối trên Live Map.
       return true;
     } catch (err) {
       setIncidentsError(getApiErrorMessage(err, 'Xác minh sự cố thất bại.'));
@@ -220,6 +319,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setIncidentsError(blockRes.message || 'Đã hủy ca nhưng chặn số điện thoại thất bại.');
         }
       }
+      // Sự cố đã điều xe (hủy từ Dispatch Panel) → trả các xe về Available.
+      incidents.find((i) => i.id === id)?.assignedVehicleIds.forEach(releaseVehicleLocally);
       setIncidents((prev) => prev.filter((i) => i.id !== id));
       setIncidentsError(null);
       return true;
@@ -266,72 +367,122 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const findNearestAvailableVehicle = (incident: Incident): Vehicle | null => {
-    const available = vehicles.filter((v) => v.status === 'available');
-    if (available.length === 0) return null;
-
-    return available.reduce((nearest, v) =>
-      haversineKm(incident, v) < haversineKm(incident, nearest) ? v : nearest
-    );
-  };
-
-  const estimateEtaKm = (incident: Incident, vehicle: Vehicle) => {
-    const km = haversineKm(incident, vehicle);
-    return { km, etaMinutes: estimateEtaMinutes(km) };
-  };
-
-  const assignVehicle = (vehicleId: string, incidentId: string) => {
+  const assignVehicle = async (vehicleId: string, incidentId: string): Promise<{ ok: boolean; message?: string }> => {
     const incident = incidents.find((i) => i.id === incidentId);
     const vehicle = vehicles.find((v) => v.id === vehicleId);
-    if (!incident || !vehicle || vehicle.status !== 'available') return;
+    if (!incident || !vehicle) return { ok: false, message: 'Không tìm thấy sự cố hoặc xe.' };
+    if (vehicle.status !== 'available') return { ok: false, message: `Xe ${vehicle.plate} không còn sẵn sàng.` };
 
-    const { etaMinutes } = estimateEtaKm(incident, vehicle);
+    const maxVehicles = MAX_VEHICLES_BY_LEVEL[incident.severity];
+    if (incident.assignedVehicleIds.length >= maxVehicles) {
+      return {
+        ok: false,
+        message:
+          maxVehicles === 1
+            ? 'Sự cố Cấp 1–2 chỉ được giao 1 xe.'
+            : `Sự cố Cấp 3 được giao tối đa ${maxVehicles} xe.`,
+      };
+    }
+
+    try {
+      const res = await dispatchService.assignVehicle(incidentId, vehicleId);
+      if (!res.success) {
+        // HTTP 409: xe vừa bị người khác giao trước → đánh dấu bận để không gợi ý lại.
+        if (res.data?.conflict) {
+          setVehicles((prev) =>
+            prev.map((v) =>
+              v.id === vehicleId ? { ...v, status: 'en_route', etaMinutes: null, lastUpdated: new Date().toISOString() } : v
+            )
+          );
+        }
+        return { ok: false, message: `${res.message || 'Giao xe thất bại.'} (${vehicle.plate})` };
+      }
+    } catch (err) {
+      return { ok: false, message: getApiErrorMessage(err, 'Giao xe thất bại.') };
+    }
+
+    const etaMinutes = estimateEtaMinutes(haversineKm(incident, vehicle));
     targetsRef.current.set(vehicleId, { lat: incident.lat, lng: incident.lng });
+
+    // Xe chưa lăn bánh: chờ đội cứu hộ xác nhận trong 120s.
+    const now = Date.now();
+    const response = MOCK_CREW_RESPONSES[vehicleId] ?? DEFAULT_CREW_RESPONSE;
+    crewRef.current.set(vehicleId, {
+      incidentId,
+      phase: 'awaiting',
+      ackDeadline: now + CREW_ACK_TIMEOUT_MS,
+      respondAt: response.kind === 'ignore' ? Infinity : now + response.afterMs,
+      nextAt: 0,
+    });
 
     setVehicles((prev) =>
       prev.map((v) =>
         v.id === vehicleId
-          ? { ...v, status: 'en_route', incidentId, etaMinutes, lastUpdated: new Date().toISOString() }
+          ? {
+              ...v,
+              status: 'awaiting_ack',
+              incidentId,
+              etaMinutes,
+              ackDeadline: new Date(now + CREW_ACK_TIMEOUT_MS).toISOString(),
+              lastUpdated: new Date(now).toISOString(),
+            }
           : v
       )
     );
-
     setIncidents((prev) =>
-      prev.map((i) => (i.id === incidentId ? { ...i, assignedVehicleId: vehicleId } : i))
+      prev.map((i) =>
+        i.id === incidentId && !i.assignedVehicleIds.includes(vehicleId)
+          ? { ...i, assignedVehicleIds: [...i.assignedVehicleIds, vehicleId] }
+          : i
+      )
+    );
+    return { ok: true };
+  };
+
+  function releaseVehicleLocally(vehicleId: string) {
+    targetsRef.current.delete(vehicleId);
+    crewRef.current.delete(vehicleId);
+    setVehicles((prev) =>
+      prev.map((v) =>
+        v.id === vehicleId
+          ? {
+              ...v,
+              status: 'available',
+              incidentId: null,
+              etaMinutes: null,
+              ackDeadline: null,
+              lastUpdated: new Date().toISOString(),
+            }
+          : v
+      )
+    );
+  }
+
+  const dismissResponseNotice = (incidentId: string, noticeId: string) => {
+    setIncidents((prev) =>
+      prev.map((i) =>
+        i.id === incidentId ? { ...i, responseNotices: i.responseNotices.filter((n) => n.id !== noticeId) } : i
+      )
     );
   };
 
+  const escalationNow = useNow(ESCALATION_CHECK_MS);
+  const escalatedIncidentIds = useMemo(() => {
+    const byId = new Map(vehicles.map((v) => [v.id, v]));
+    return new Set(incidents.filter((i) => isIncidentEscalated(i, byId, escalationNow)).map((i) => i.id));
+  }, [incidents, vehicles, escalationNow]);
+
+  // Nhả xe khỏi sự cố — không tự gán xe thay thế, Operator chọn lại từ gợi ý.
   const cancelAssignment = (vehicleId: string) => {
-    const vehicle = vehicles.find((v) => v.id === vehicleId);
-    if (!vehicle) return;
-
-    const releasedIncident = incidents.find((i) => i.assignedVehicleId === vehicleId) ?? null;
-
-    targetsRef.current.delete(vehicleId);
-
-    setVehicles((prev) =>
-      prev.map((v) =>
-        v.id === vehicleId
-          ? { ...v, status: 'available', incidentId: null, etaMinutes: null, lastUpdated: new Date().toISOString() }
-          : v
+    releaseVehicleLocally(vehicleId);
+    setIncidents((prev) =>
+      prev.map((i) =>
+        i.assignedVehicleIds.includes(vehicleId)
+          ? { ...i, assignedVehicleIds: i.assignedVehicleIds.filter((id) => id !== vehicleId) }
+          : i
       )
     );
-
-    setIncidents((prev) =>
-      prev.map((i) => (i.assignedVehicleId === vehicleId ? { ...i, assignedVehicleId: null } : i))
-    );
-
-    // Đúng tinh thần "hệ thống tự động": vừa nhả xe này ra thì lập tức thử tìm xe khác
-    // thay thế cho sự cố đó, thay vì để nó đứng yên chờ mãi trong khi vẫn còn xe trống.
-    if (releasedIncident) {
-      const otherAvailable = vehicles.filter((v) => v.status === 'available' && v.id !== vehicleId);
-      if (otherAvailable.length > 0) {
-        const nearest = otherAvailable.reduce((best, v) =>
-          haversineKm(releasedIncident, v) < haversineKm(releasedIncident, best) ? v : best
-        );
-        assignVehicle(nearest.id, releasedIncident.id);
-      }
-    }
+    dispatchService.releaseVehicle(vehicleId).catch(() => undefined);
   };
 
   return (
@@ -343,6 +494,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         highlightIncidentIds,
         incidentsLoading,
         incidentsError,
+        escalatedIncidentIds,
         approveIncident,
         rejectIncident,
         lockIncident,
@@ -350,8 +502,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         revealReporterPhone,
         assignVehicle,
         cancelAssignment,
-        findNearestAvailableVehicle,
-        estimateEtaKm,
+        dismissResponseNotice,
       }}
     >
       {children}

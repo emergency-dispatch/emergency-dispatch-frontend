@@ -2,9 +2,9 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import L from 'leaflet';
 import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMock';
-import { SEVERITY_LEVEL_COLOR } from '../../../data/incidentMock';
+import { HAZARD_TAG_META, INCIDENT_CATEGORY_META, SEVERITY_LEVEL_COLOR } from '../../../data/incidentMock';
 import type { VehicleStatus, VehicleType } from '../../../types/vehicle';
-import type { SeverityLevel } from '../../../types/incident';
+import type { IncidentCategory, SeverityLevel } from '../../../types/incident';
 
 export function createVehicleIcon(type: VehicleType, status: VehicleStatus, selected: boolean): L.DivIcon {
   const color = VEHICLE_STATUS_META[status].color;
@@ -40,16 +40,25 @@ export function createVehicleIcon(type: VehicleType, status: VehicleStatus, sele
   });
 }
 
-export function createIncidentIcon(severity: SeverityLevel, selected: boolean): L.DivIcon {
+// Marker sự cố: icon theo nhánh (🔥 Cháy nổ / 🚗 Tai nạn), màu theo cấp độ.
+export function createIncidentIcon(category: IncidentCategory, severity: SeverityLevel, selected: boolean): L.DivIcon {
   const color = SEVERITY_LEVEL_COLOR[severity];
-  const size = selected ? 26 : 20;
+  const size = selected ? 34 : 26;
   const ringBorder = '#FFFFFF';
+  const categorySvg = renderToStaticMarkup(
+    createElement(INCIDENT_CATEGORY_META[category].icon, {
+      width: Math.round(size * 0.55),
+      height: Math.round(size * 0.55),
+      color: '#FFFFFF',
+      strokeWidth: 2.5,
+    })
+  );
 
   const html = `
     <div class="relative flex items-center justify-center" style="width:${size}px;height:${size}px;">
       <span class="absolute inset-0 rounded-full animate-ping pointer-events-none" style="background:${color};opacity:0.45;"></span>
       <div class="relative flex items-center justify-center rounded-full border-2 pointer-events-none" style="width:${size}px;height:${size}px;background:${color};border-color:${ringBorder};box-shadow:0 0 10px 2px ${color}99;">
-        <span class="text-white font-black leading-none pointer-events-none" style="font-size:${Math.round(size * 0.5)}px;">!</span>
+        ${categorySvg}
       </div>
     </div>
   `;
@@ -60,6 +69,31 @@ export function createIncidentIcon(severity: SeverityLevel, selected: boolean): 
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
+}
+
+// Điểm ùn tắc nội khu (#Traffic_Jam) — chỉ là cảnh báo, không có cấp độ.
+export function createTrafficJamIcon(): L.DivIcon {
+  const { color, icon } = HAZARD_TAG_META.traffic_jam;
+  const svg = renderToStaticMarkup(createElement(icon, { width: 13, height: 13, color: '#FFFFFF', strokeWidth: 2.5 }));
+  const html = `
+    <div class="flex items-center justify-center rounded-md border-2 pointer-events-none" style="width:22px;height:22px;background:${color};border-color:#FFFFFF;box-shadow:0 1px 6px rgba(0,0,0,0.35);">
+      ${svg}
+    </div>
+  `;
+
+  return L.divIcon({ html, className: '', iconSize: [22, 22], iconAnchor: [11, 11] });
+}
+
+// Cụm marker xe khi nhiều xe nằm sát nhau ở mức zoom hiện tại.
+export function createClusterIcon(count: number): L.DivIcon {
+  const size = count >= 5 ? 38 : 32;
+  const html = `
+    <div class="flex items-center justify-center rounded-full border-2 font-bold text-white" style="width:${size}px;height:${size}px;background:#131D33;border-color:#FFFFFF;box-shadow:0 0 0 4px rgba(19,29,51,0.25);font-size:12px;">
+      ${count}
+    </div>
+  `;
+
+  return L.divIcon({ html, className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
 }
 
 export function createStationIcon(): L.DivIcon {

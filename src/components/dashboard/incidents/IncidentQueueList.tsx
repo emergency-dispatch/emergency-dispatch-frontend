@@ -7,6 +7,7 @@ import type { Incident } from '../../../types/incident';
 interface IncidentQueueListProps {
   incidents: Incident[];
   highlightIds: Set<string>;
+  escalatedIds: Set<string>;
   selectedId: string | null;
   currentOperatorId: string;
   onSelect: (id: string) => void;
@@ -17,6 +18,7 @@ interface IncidentQueueListProps {
 export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
   incidents,
   highlightIds,
+  escalatedIds,
   selectedId,
   currentOperatorId,
   onSelect,
@@ -62,6 +64,7 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
               incident={incident}
               isNew={highlightIds.has(incident.id)}
               isSelected={incident.id === selectedId}
+              isEscalated={escalatedIds.has(incident.id)}
               now={now}
               currentOperatorId={currentOperatorId}
               onClick={() => onSelect(incident.id)}
