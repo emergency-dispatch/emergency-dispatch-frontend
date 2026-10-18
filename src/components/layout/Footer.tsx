@@ -32,7 +32,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenSos }) => {
             </div>
 
             <p className="text-sm text-slate-600 leading-relaxed max-w-sm">
-              Hệ thống tiếp nhận và điều phối cứu hộ khẩn cấp thông minh thế hệ mới. Ứng dụng mô hình AI thị giác máy tính, tối ưu hóa điều động và giám sát cứu nạn theo thời gian thực.
+              Hệ thống điều phối cứu hộ khẩn cấp thời gian thực Khu Công nghệ cao / KCN ứng dụng AI phân loại mức độ nguy hiểm sự cố (Cháy nổ, Tai nạn, Ùn tắc nội khu).
             </p>
 
             <div className="pt-2 flex flex-wrap items-center gap-3 text-xs font-mono text-slate-600">
@@ -84,34 +84,28 @@ export const Footer: React.FC<FooterProps> = ({ onOpenSos }) => {
             </ul>
           </div>
 
-          {/* Col 3: National Hotlines (3 cols) */}
+          {/* Col 3: National & Park Hotlines (3 cols) */}
           <div className="lg:col-span-3 space-y-4">
             <h4 className="text-xs font-mono uppercase tracking-widest text-slate-900 font-bold">
               Đầu số khẩn cấp
             </h4>
             <ul className="space-y-2 text-sm font-mono">
               <li>
-                <a href="tel:113" className="text-slate-700 hover:text-red-600 transition-colors flex items-center justify-between gap-3 p-1.5 rounded hover:bg-white">
-                  <span>113 - Cảnh sát</span>
-                  <span className="text-xs text-red-600 font-bold shrink-0">An ninh</span>
+                <a href="tel:02837360000" className="text-slate-700 hover:text-red-600 transition-colors flex items-center justify-between gap-3 p-1.5 rounded hover:bg-white">
+                  <span>028.3736 - An ninh KCN</span>
+                  <span className="text-xs text-red-600 font-bold shrink-0">Nội khu 24/7</span>
                 </a>
               </li>
               <li>
                 <a href="tel:114" className="text-slate-700 hover:text-red-600 transition-colors flex items-center justify-between gap-3 p-1.5 rounded hover:bg-white">
                   <span>114 - Cứu hỏa &amp; Cứu nạn</span>
-                  <span className="text-xs text-red-600 font-bold shrink-0">Hỏa hoạn</span>
+                  <span className="text-xs text-red-600 font-bold shrink-0">PCCC KCN</span>
                 </a>
               </li>
               <li>
                 <a href="tel:115" className="text-slate-700 hover:text-red-600 transition-colors flex items-center justify-between gap-3 p-1.5 rounded hover:bg-white">
                   <span>115 - Cấp cứu Y tế</span>
                   <span className="text-xs text-red-600 font-bold shrink-0">Y tế</span>
-                </a>
-              </li>
-              <li>
-                <a href="tel:111" className="text-slate-700 hover:text-red-600 transition-colors flex items-center justify-between gap-3 p-1.5 rounded hover:bg-white">
-                  <span>111 - Bảo vệ Trẻ em</span>
-                  <span className="text-xs text-slate-500 font-bold shrink-0">Tổng đài quốc gia</span>
                 </a>
               </li>
             </ul>

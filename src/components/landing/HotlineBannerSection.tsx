@@ -15,27 +15,27 @@ interface HotlineBannerSectionProps {
 export const HotlineBannerSection: React.FC<HotlineBannerSectionProps> = ({ onOpenSos }) => {
   const hotlines = [
     {
-      number: '113',
-      name: 'Cảnh sát phản ứng nhanh',
-      vietnameseName: 'An ninh, trật tự & tội phạm',
+      number: '028.3736',
+      name: 'An ninh & PCCC Nội Khu',
+      vietnameseName: 'Chỉ huy & Điều hành Sự cố KCN (24/7)',
       icon: ShieldAlert,
-      badge: 'An ninh trật tự',
-      tel: 'tel:113'
+      badge: 'Hotline KCN',
+      tel: 'tel:02837360000'
     },
     {
       number: '114',
       name: 'Cứu hỏa & Cứu nạn cứu hộ',
-      vietnameseName: 'Hỏa hoạn, nổ & mắc kẹt',
+      vietnameseName: 'Hỏa hoạn kho xưởng, nổ & mắc kẹt',
       icon: Flame,
-      badge: 'Cứu nạn cứu hộ',
+      badge: 'PCCC Chuyên Trách',
       tel: 'tel:114'
     },
     {
       number: '115',
       name: 'Cấp cứu y tế khẩn cấp',
-      vietnameseName: 'Tai nạn chấn thương & đột quỵ',
+      vietnameseName: 'Tai nạn lao động & ngộ độc khí',
       icon: HeartPulse,
-      badge: 'Y tế khẩn cấp',
+      badge: 'Cấp Cứu Y Tế',
       tel: 'tel:115'
     }
   ];
@@ -50,14 +50,14 @@ export const HotlineBannerSection: React.FC<HotlineBannerSectionProps> = ({ onOp
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 border border-red-200 whitespace-nowrap">
               <PhoneCall className="w-3.5 h-3.5 text-red-600 shrink-0" />
               <span className="text-xs font-mono text-red-600 font-bold uppercase tracking-wider">
-                Đường dây nóng quốc gia
+                Đường dây nóng hỗ trợ khẩn cấp
               </span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight">
-              Đầu số khẩn cấp toàn quốc
+              Đầu số khẩn cấp nội khu &amp; quốc gia
             </h2>
             <p className="text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
-              Trong các tình huống đe dọa trực tiếp tính mạng, gọi ngay đường dây nóng chuyên trách hoặc dùng nút SOS của ResQ-AI để điều phối đa lực lượng đồng thời.
+              Khi xảy ra cháy nổ hoặc tai nạn lao động nghiêm trọng trong KCN, hãy gọi ngay đường dây nóng an ninh nội bộ hoặc phát tín hiệu SOS để hệ thống tự động điều xe gần nhất.
             </p>
           </div>
 

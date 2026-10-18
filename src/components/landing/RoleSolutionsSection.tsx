@@ -5,7 +5,9 @@ import {
   Truck, 
   CheckCircle, 
   ArrowRight, 
-  UserCheck
+  UserCheck,
+  ShieldCheck,
+  Building2
 } from 'lucide-react';
 
 interface RoleSolutionsSectionProps {
@@ -16,51 +18,68 @@ export const RoleSolutionsSection: React.FC<RoleSolutionsSectionProps> = ({ onOp
   const roles = [
     {
       id: 1,
-      name: 'Cổng thông tin người dân',
-      subtitle: 'Phát tín hiệu SOS & Theo dõi thời gian thực',
+      name: 'Công nhân / Người lao động',
+      subtitle: 'Mobile Client · Web / PWA',
       icon: Smartphone,
-      description: 'Giao diện không rào cản giúp người dân gửi cảnh báo tức thì, tự động truyền tọa độ GPS, xem bản đồ xe cấp cứu và nhận hướng dẫn sơ cứu.',
+      description: 'Giao diện không rào cản giúp công nhân phát tín hiệu SOS Cháy nổ & Tai nạn, định vị GPS nhà xưởng và báo cáo điểm ùn tắc nội khu.',
       features: [
-        'Nút SOS 1 chạm tự động định vị GPS chính xác',
-        'Tải lên trực tiếp hình ảnh và bản ghi âm hiện trường',
-        'Bản đồ theo dõi trực tiếp xe cứu thương / cứu hỏa',
-        'Đồng bộ hồ sơ y tế khẩn cấp và người liên hệ',
-        'Hướng dẫn sơ cứu CPR & cầm máu trong khi chờ đợi'
+        'Nút SOS 1 chạm tự động định vị GPS nhà xưởng',
+        'Chụp ảnh/video hiện trường báo Cháy nổ & Tai nạn',
+        'Báo cáo điểm ùn tắc giao thông cổng KCN (#Traffic_Jam)',
+        'Bản đồ theo dõi trực tiếp vị trí xe cứu hộ & ETA',
+        'Lịch sử báo cáo sự cố & hàng đợi ngoại tuyến'
       ],
-      actionLabel: 'Mở bản dùng thử SOS',
+      actionLabel: 'Mở SOS báo nạn',
       actionType: 'sos'
     },
     {
       id: 2,
-      name: 'Trung tâm điều hành CAD',
-      subtitle: 'Bản đồ số & Hàng đợi sự cố tự động',
+      name: 'Điều phối viên CAD',
+      subtitle: 'Command Center · Web Dashboard',
       icon: MonitorCheck,
-      description: 'Bàn điều khiển CAD toàn diện cho nhân viên tổng đài. Tự động phân loại sự cố bằng AI, điều phối xe đa lực lượng và bản đồ nhiệt trực tiếp.',
+      description: 'Bàn điều khiển CAD cho điều phối viên an ninh KCN. Tự động xếp hạng ưu tiên theo phân tích AI, thẩm định Human-in-the-Loop và điều xe thông minh.',
       features: [
-        'Bản đồ GIS thời gian thực hiển thị vị trí xe & sự cố',
-        'Hàng đợi ưu tiên tự động và đánh giá mức độ nguy cấp',
-        'Điều phối đa lực lượng (Cảnh sát 113, Cứu hỏa 114, Cấp cứu 115)',
-        'Cảnh báo tình trạng ùn tắc giao thông & giường bệnh',
-        'Truyền lệnh điều động tức thì tới thiết bị di động của đội'
+        'Live Map GIS thời gian thực toàn khu công nghệ cao',
+        'Hàng đợi sự cố ưu tiên theo AI (Cấp 1–3 & Cấp 0)',
+        'Thẩm định Human-in-the-Loop có khóa mềm chống trùng',
+        'Gợi ý điều phối xe gần nhất (Nearest & Load-Aware)',
+        'Giám sát điểm ùn tắc nội khu để dẫn đường tối ưu'
       ],
-      actionLabel: 'Cổng tổng đài viên',
+      actionLabel: 'Cổng điều phối viên',
       actionType: 'link',
       actionHref: '/login'
     },
     {
       id: 3,
-      name: 'Thiết bị đội phản ứng',
-      subtitle: 'Dẫn đường tác chiến & Nhật ký số',
+      name: 'Lực lượng Cứu hộ & An ninh',
+      subtitle: 'Rescue Staff · Mobile & Web Fallback',
       icon: Truck,
-      description: 'Giao diện chuyên dụng cho đội phản ứng tại hiện trường. Dẫn đường xe ưu tiên, nhận báo cáo nguy cơ AI, gắn thẻ nạn nhân và báo cáo đóng sự cố.',
+      description: 'Giao diện tác chiến hiện trường cho đội PCCC cơ sở, y tế và an ninh tuần tra KCN. Nhận lệnh tác chiến, dẫn đường né kẹt xe và lập báo cáo số.',
       features: [
-        'Dẫn đường GPS ưu tiên luồng giao thông khẩn cấp',
-        'Phân loại và cập nhật tình trạng nạn nhân tại chỗ',
-        'Báo cáo nguy hiểm trước khi đến (hóa chất, sập đổ, vũ khí)',
-        'Liên kết truyền dữ liệu trước đến khoa cấp cứu bệnh viện',
-        'Đóng ca sự cố và lập biên bản nhanh bằng giọng nói'
+        'Chuông cảnh báo ưu tiên cao, 120s xác nhận nhiệm vụ',
+        'Turn-by-Turn hiển thị điểm ùn tắc né kẹt xe',
+        'Truyền viễn trắc GPS 3–5s/lần về trung tâm chỉ huy',
+        'Cập nhật trạng thái: Accepted → EnRoute → OnScene',
+        'Báo cáo kết thúc số hóa bắt buộc kèm ảnh sau xử lý'
       ],
-      actionLabel: 'Cổng đội cứu nạn',
+      actionLabel: 'Cổng đội phản ứng',
+      actionType: 'link',
+      actionHref: '/login'
+    },
+    {
+      id: 4,
+      name: 'Quản trị & Điều hành KCN',
+      subtitle: 'System Administrator · Back-office',
+      icon: ShieldCheck,
+      description: 'Phân hệ quản trị tài sản an ninh KCN, thiết lập quy tắc leo thang tự động khi xảy ra thảm họa và quản lý phân quyền theo vai trò.',
+      features: [
+        'Quản lý danh bạ trạm cứu hỏa, chốt an ninh & bốt gác',
+        'Quản lý đội xe chuyên dụng, xe chữa cháy mini & thiết bị',
+        'Cấu hình quy tắc leo thang tự động (Escalation Daemon)',
+        'Phân quyền tài khoản theo vai trò (RBAC 4 cấp)',
+        'Ghi nhật ký kiểm toán không thể sửa xóa (Audit Trail)'
+      ],
+      actionLabel: 'Cổng quản trị viên',
       actionType: 'link',
       actionHref: '/login'
     }
@@ -82,17 +101,17 @@ export const RoleSolutionsSection: React.FC<RoleSolutionsSectionProps> = ({ onOp
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
             Giải pháp chuyên biệt cho{' '}
             <span className="text-red-600">
-              từng lực lượng tham gia
+              4 vai trò trong Khu Công nghiệp
             </span>
           </h2>
 
           <p className="text-base text-slate-600 leading-relaxed">
-            Hệ sinh thái liên kết đồng bộ người dân cần trợ giúp, tổng đài chỉ huy CAD và các lực lượng ứng cứu ngoài hiện trường.
+            Hệ sinh thái liên kết khép kín giữa công nhân nhà xưởng, trung tâm điều hành an ninh KCN, các đội phản ứng nhanh và ban quản lý.
           </p>
         </div>
 
-        {/* 3 Role Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+        {/* 4 Role Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
           {roles.map((role) => {
             const Icon = role.icon;
 

@@ -29,10 +29,10 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const hazardOptions = [
-    { id: 'traffic', label: 'Tai nạn giao thông', icon: Car },
-    { id: 'fire', label: 'Hỏa hoạn & Khói', icon: Flame },
-    { id: 'medical', label: 'Cấp cứu y tế', icon: HeartPulse },
-    { id: 'security', label: 'An ninh & Trật tự', icon: ShieldAlert },
+    { id: 'fire', label: 'Hỏa hoạn & Khói (#Fire)', icon: Flame },
+    { id: 'accident', label: 'Tai nạn & Va chạm (#Accident)', icon: Car },
+    { id: 'traffic_jam', label: 'Ùn tắc cổng KCN (#Traffic_Jam)', icon: AlertTriangle },
+    { id: 'medical', label: 'Cấp cứu y tế lao động', icon: HeartPulse },
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -75,11 +75,11 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
                 <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
                   <span>Phát tín hiệu cứu nạn SOS</span>
                   <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 font-bold">
-                    ƯU TIÊN CẤP 1
+                    NỘI KHU KCN
                   </span>
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Hệ thống tiếp nhận cứu hộ khẩn cấp ResQ-AI
+                  Trung tâm tiếp nhận &amp; điều phối cứu hộ khẩn cấp Khu Công nghệ cao
                 </p>
               </div>
             </div>
@@ -88,20 +88,20 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
             <div className="p-3.5 rounded-xl bg-red-50/50 border border-red-100 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-xs text-red-700 font-medium">
                 <PhoneCall className="w-4 h-4 text-red-600 shrink-0" />
-                <span>Nguy hiểm cận kề? Gọi ngay tổng đài:</span>
+                <span>Cần trợ giúp ngay? Hotline nội bộ &amp; cứu nạn:</span>
               </div>
               <div className="flex items-center gap-2">
                 <a
-                  href="tel:113"
+                  href="tel:02837360000"
                   className="px-3 py-1 rounded-md bg-white border border-red-200 text-red-600 hover:bg-red-600 hover:text-white font-mono text-xs font-bold transition-colors shadow-xs"
                 >
-                  113 (Cảnh sát)
+                  028.3736 (An ninh KCN)
                 </a>
                 <a
                   href="tel:114"
                   className="px-3 py-1 rounded-md bg-red-600 text-white font-mono text-xs font-bold hover:bg-red-700 transition-colors shadow-xs"
                 >
-                  114 (Cứu hỏa)
+                  114 (PCCC)
                 </a>
                 <a
                   href="tel:115"
@@ -145,8 +145,8 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
               <div className="flex items-center gap-2.5">
                 <MapPin className="w-4 h-4 text-red-600" />
                 <div className="text-xs">
-                  <span className="text-slate-500 block text-[10px] font-mono uppercase">VỊ TRÍ ĐỊNH VỊ TỰ ĐỘNG</span>
-                  <span className="text-slate-900 font-mono font-bold">21.0285° N, 105.8542° E (±2.4m)</span>
+                  <span className="text-slate-500 block text-[10px] font-mono uppercase">VỊ TRÍ NHÀ XƯỞNG (GNSS)</span>
+                  <span className="text-slate-900 font-mono font-bold">10.8441° N, 106.8089° E (Đường D1, Khu CNC)</span>
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-mono font-bold border border-emerald-200">
@@ -214,9 +214,9 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             <div className="max-w-md mx-auto p-4 rounded-xl bg-slate-50 border border-slate-200 text-left font-mono text-xs space-y-1.5 text-slate-600">
-              <div className="text-emerald-600 font-bold">✔ Đã khóa tọa độ GPS: (21.0285, 105.8542)</div>
-              <div className="text-red-600 font-bold">✔ AI đang bóc tách phân loại rủi ro...</div>
-              <div className="text-slate-700 font-bold">✔ Tìm kiếm đội phản ứng trong bán kính 3.5km...</div>
+              <div className="text-emerald-600 font-bold">✔ Đã khóa tọa độ GPS: (10.8441, 106.8089 - Lô I-3 Đường D1)</div>
+              <div className="text-red-600 font-bold">✔ AI Qwen2.5-VL đang phân tích mối nguy &amp; chấm Cấp 1–3...</div>
+              <div className="text-slate-700 font-bold">✔ Quét đội PCCC/y tế KCN theo thuật toán Nearest-Available...</div>
             </div>
           </div>
         )}
@@ -233,32 +233,32 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose }) => {
                 TÍN HIỆU CỨU NẠN ĐÃ ĐƯỢC TIẾP NHẬN
               </span>
               <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-                Lực lượng cứu hộ đang xuất phát
+                Đội phản ứng KCN đang xuất phát
               </h3>
               <p className="text-sm text-slate-600">
-                Mã sự cố <strong className="text-red-600 font-mono">#VN-8942</strong> được xếp loại <strong className="text-slate-900 font-mono">Mức 4 (Nghiêm trọng)</strong>.
+                Mã sự cố <strong className="text-red-600 font-mono">#INC-8942</strong> được AI xếp loại <strong className="text-slate-900 font-mono">Cấp 3 (Nghiêm trọng)</strong>.
               </p>
             </div>
 
             {/* Units Card */}
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left space-y-3 font-mono">
               <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200">
-                <span className="text-slate-600">ĐỘI ỨNG CỨU TIẾP NHẬN:</span>
-                <span className="text-red-600 font-bold">Dự kiến đến (ETA): 3m 40s</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-red-600" />
-                  <span className="text-slate-900 font-bold">Xe cấp cứu AM-04 (Y tế)</span>
-                </div>
-                <span className="text-slate-500">Cách 2.1 km</span>
+                <span className="text-slate-600">LỰC LƯỢNG NỘI KHU TIẾP NHẬN:</span>
+                <span className="text-red-600 font-bold">Dự kiến đến (ETA): 2m 45s</span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <Flame className="w-4 h-4 text-red-600" />
-                  <span className="text-slate-900 font-bold">Xe cứu nạn FE-09 (PCCC)</span>
+                  <span className="text-slate-900 font-bold">Xe chữa cháy mini FE-01 (Trạm PCCC Khu CNC)</span>
                 </div>
-                <span className="text-slate-500">Cách 1.4 km</span>
+                <span className="text-slate-500">Cách 1.2 km</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-emerald-600" />
+                  <span className="text-slate-900 font-bold">Xe cấp cứu AM-02 (Trạm Y tế Khu CNC)</span>
+                </div>
+                <span className="text-slate-500">Cách 1.8 km</span>
               </div>
             </div>
 

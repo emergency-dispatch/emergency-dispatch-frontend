@@ -17,73 +17,73 @@ export const HowItWorksSection: React.FC = () => {
       step: 1,
       id: 'step-1',
       title: 'Kích hoạt SOS & Chụp ảnh hiện trường',
-      subtitle: 'Bước 1 - Người dân gửi báo cáo',
+      subtitle: 'Bước 1 - Công nhân gửi báo cáo sự cố',
       icon: Camera,
       badgeColor: 'bg-red-600 text-white',
       badgeBorder: 'border-red-500',
       textColor: 'text-red-500',
-      description: 'Người dân phát tín hiệu khẩn cấp chỉ với 1 chạm. Tọa độ GPS chính xác cao, hình ảnh và ghi chú âm thanh được truyền trực tiếp về tổng đài mà không cần cài đặt ứng dụng phức tạp.',
+      description: 'Công nhân/Người lao động phát tín hiệu SOS Cháy nổ (#Fire) hoặc Tai nạn (#Accident) chỉ với 1 chạm, hoặc gửi điểm Ùn tắc (#Traffic_Jam) nội khu. Tọa độ GPS nhà xưởng và ảnh/video hiện trường được truyền trực tiếp về Trung tâm Chỉ huy.',
       bulletPoints: [
-        'Tự động định vị GPS chính xác sai số < 5m',
-        'Truyền tải ảnh và âm thanh hiện trường tức thì',
-        'Chế độ khẩn cấp im lặng khi gặp nguy hiểm',
-        'Không rào cản đăng nhập, tối ưu thời gian'
+        'Nút SOS 1-chạm tự động lấy tọa độ GNSS nhà xưởng',
+        'Chụp ảnh/video hiện trường hoặc gửi báo cáo ùn tắc cổng',
+        'Offline Queue tự động lưu và gửi lại khi có mạng',
+        'Giao diện tối ưu thao tác 1 tay trong tình huống khẩn cấp'
       ],
-      mockMetric: 'Thời gian gửi: < 3.2s'
+      mockMetric: 'Thời gian gửi: < 3.0s'
     },
     {
       step: 2,
       id: 'step-2',
       title: 'AI Phân tích hình ảnh & Đánh giá rủi ro',
-      subtitle: 'Bước 2 - Trợ lý thị giác VLM',
+      subtitle: 'Bước 2 - AI Vision-Language (Qwen2.5-VL)',
       icon: BrainCircuit,
       badgeColor: 'bg-red-600 text-white',
       badgeBorder: 'border-red-500',
       textColor: 'text-red-500',
-      description: 'Mô hình Thị giác - Ngôn ngữ (VLM) tự động quét ảnh hiện trường, nhận diện loại tai nạn (Cháy nổ, Va chạm giao thông, Sập đổ), ước tính nạn nhân và gán cấp độ nghiêm trọng từ 1 đến 5.',
+      description: 'Mô hình Thị giác - Ngôn ngữ (Qwen2.5-VL / Pixtral) tự động quét ảnh/video hiện trường, nhận diện Cháy nổ (#Fire), Tai nạn lao động / va chạm (#Accident), phát hiện Ùn tắc (#Traffic_Jam) và chấm cấp độ nghiêm trọng từ Cấp 1 đến Cấp 3 (ảnh lỗi/nghi vấn xếp Cấp 0).',
       bulletPoints: [
-        'Nhận diện đa phương thức bằng thị giác máy tính',
-        'Tự động lọc tin giả mạo và cuộc gọi rác',
-        'Ước tính số lượng thương vong và mức độ nguy cấp',
-        'Trích xuất đặc trưng rủi ro trong chưa đầy 200ms'
+        'Phân loại đa nhãn thị giác máy tính với Qwen2.5-VL',
+        'Chấm cấp độ nghiêm trọng Levels 1–3 chuẩn xác',
+        'Phát hiện thẻ #Traffic_Jam hỗ trợ điều hướng',
+        'Trường hợp nghi vấn xếp Cấp 0, không tự hủy'
       ],
-      mockMetric: 'Tốc độ suy luận AI: 142ms'
+      mockMetric: 'Tốc độ suy luận AI: ≤ 20s'
     },
     {
       step: 3,
       id: 'step-3',
-      title: 'Điều phối lực lượng gần nhất tự động',
-      subtitle: 'Bước 3 - Thuật toán định tuyến CAD',
+      title: 'Thẩm định Operator & Điều phối xe gần nhất',
+      subtitle: 'Bước 3 - Human-in-the-Loop & Thuật toán',
       icon: Truck,
       badgeColor: 'bg-red-600 text-white',
       badgeBorder: 'border-red-500',
       textColor: 'text-red-500',
-      description: 'Hệ thống CAD tự động tính toán trạm PCCC, Bệnh viện, Công an gần nhất còn trang thiết bị phù hợp và lộ trình giao thông thông thoáng nhất để xuất xe lập tức.',
+      description: 'Điều phối viên thẩm định đối chiếu media với kết quả AI, xác nhận hoặc ghi đè cấp độ. Hệ thống tính toán trạm PCCC, Trạm Y tế, Chốt an ninh KCN gần nhất theo thuật toán Nearest-Available hoặc Load-Aware để xuất xe lập tức.',
       bulletPoints: [
-        'Phối hợp đa lực lượng (Cứu hỏa, Y tế, Cảnh sát)',
-        'Định tuyến thông minh theo tình trạng kẹt xe thời gian thực',
-        'Phát lệnh cảnh báo tự động về thiết bị đội phản ứng',
-        'Khớp nối chuyên biệt trang thiết bị với hiện trường'
+        'Thẩm định Human-in-the-Loop có khóa mềm chống xung đột',
+        'Thuật toán Nearest-Available và Load-Aware né điểm ùn tắc',
+        'Tự động mở rộng bán kính tìm xe (10 → 15 → 22.5 → 30 km)',
+        'Hỗ trợ điều phối đồng thời 2–5 xe cho sự cố Cấp 3'
       ],
       mockMetric: 'Độ trễ điều phối: < 15s'
     },
     {
       step: 4,
       id: 'step-4',
-      title: 'Bản đồ trực tiếp & Đồng bộ thời gian ETA',
-      subtitle: 'Bước 4 - Giám sát di chuyển thời gian thực',
+      title: 'Tác chiến hiện trường & Đóng ca số hóa',
+      subtitle: 'Bước 4 - Giám sát di chuyển & Nghiệm thu',
       icon: Navigation,
       badgeColor: 'bg-red-600 text-white',
       badgeBorder: 'border-red-500',
       textColor: 'text-red-500',
-      description: 'Người dân và tổng đài theo dõi hành trình xe cứu hộ trên bản đồ vệ tinh với thời gian đến dự kiến (ETA) liên tục cập nhật, kèm kênh thoại khẩn cấp và hướng dẫn sơ cứu.',
+      description: 'Đội cứu hộ nhận chuông báo động, di chuyển theo Turn-by-Turn né kẹt xe, truyền GPS liên tục về dashboard và app công nhân. Kết thúc ca bằng báo cáo số kèm ảnh minh chứng hiện trường đã xử lý.',
       bulletPoints: [
-        'Theo dõi GPS thời gian thực độ trễ dưới 1 giây',
-        'Liên tục cập nhật lại ETA theo luồng giao thông',
-        'Kênh liên lạc thoại trực tiếp với đội cứu hộ',
-        'Tự động lập nhật ký hành trình xử lý vụ việc'
+        'Chuông báo ưu tiên cao, 120s xác nhận nhận nhiệm vụ',
+        'Turn-by-Turn hiển thị điểm ùn tắc để chọn lộ trình tối ưu',
+        'Cập nhật trạng thái tuần tự Accepted → EnRoute → OnScene',
+        'Báo cáo số hóa bắt buộc kèm ảnh hiện trường sau xử lý'
       ],
-      mockMetric: 'Đồng bộ dữ liệu: < 50ms'
+      mockMetric: 'Đồng bộ SignalR: < 500ms'
     }
   ];
 

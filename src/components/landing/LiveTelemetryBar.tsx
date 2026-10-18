@@ -40,7 +40,7 @@ export const LiveTelemetryBar: React.FC = () => {
           <span className="hidden sm:inline-block text-slate-300">|</span>
           <span className="hidden sm:inline-flex items-center gap-1 text-slate-500">
             <Server className="w-3.5 h-3.5 text-slate-400" />
-            <span>KHU VỰC: VIETNAM-HN-01</span>
+            <span>KHU VỰC: KHU CÔNG NGHỆ CAO (SHTP)</span>
           </span>
         </div>
 
@@ -63,7 +63,7 @@ export const LiveTelemetryBar: React.FC = () => {
 
           <div className="hidden lg:flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
-            <span>Bảo mật dữ liệu: <strong className="text-slate-900">Chuẩn An ninh Quốc gia</strong></span>
+            <span>Bảo mật &amp; Phân quyền: <strong className="text-slate-900">Chuẩn RBAC Nội Khu</strong></span>
           </div>
         </div>
 

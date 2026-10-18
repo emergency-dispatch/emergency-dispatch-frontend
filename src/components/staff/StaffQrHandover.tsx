@@ -10,19 +10,19 @@ interface StaffQrHandoverProps {
 
 const PRESET_RECEIVERS = [
   {
-    name: 'Bệnh Viện Cấp Cứu 115 TP.HCM',
-    contact: 'BS. Lê Minh Trí (Trưởng Kíp Cấp Cứu Ngoại Viện)',
-    phone: '028 3865 2368',
+    name: 'Trạm Y Tế & Cấp Cứu Khu Công Nghệ Cao (SHTP)',
+    contact: 'BS. Lê Minh Trí (Trưởng Kíp Cấp Cứu Y Tế KCN)',
+    phone: '028 3736 0115',
     type: 'medical',
   },
   {
-    name: 'Công An Phường Bến Nghé (Quận 1)',
-    contact: 'Trung Tá Phan Hoàng Hải (Trưởng Ca Trực Ban)',
-    phone: '028 3829 7890',
+    name: 'Ban An Ninh & Phòng Bảo Vệ KCN',
+    contact: 'Trung Tá Phan Hoàng Hải (Chỉ Huy Trực Ban An Ninh)',
+    phone: '028 3736 0000',
     type: 'police',
   },
   {
-    name: 'Đội Khám Nghiệm & Điều Tra PCCC',
+    name: 'Đội Cảnh Sát PCCC & CNCH TP. Thủ Đức',
     contact: 'Đại Úy Trần Quốc Toàn (Phó Ban Chỉ Huy PCCC)',
     phone: '0903 114 999',
     type: 'investigation',

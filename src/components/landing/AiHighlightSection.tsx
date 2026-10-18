@@ -23,12 +23,12 @@ export const AiHighlightSection: React.FC = () => {
   const [scanActive, setScanActive] = useState<boolean>(true);
 
   const tags = [
-    { label: '#Vehicle_Rollover', confidence: '99.2%', color: 'bg-red-500/20 text-red-400 border-red-500/40' },
-    { label: '#Fire_Hazard', confidence: '96.8%', color: 'bg-orange-500/20 text-orange-400 border-orange-500/40' },
-    { label: '#Extrication_Needed', confidence: '94.5%', color: 'bg-purple-500/20 text-purple-400 border-purple-500/40' },
-    { label: '#Road_Obstruction', confidence: '98.1%', color: 'bg-blue-500/20 text-blue-400 border-blue-500/40' },
-    { label: '#Multi_Casualty_Risk', confidence: '91.7%', color: 'bg-rose-500/20 text-rose-400 border-rose-500/40' },
-    { label: '#VLM_Vision_Analysis', confidence: '99.8%', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40' },
+    { label: '#Fire', confidence: '98.8%', color: 'bg-red-500/20 text-red-400 border-red-500/40' },
+    { label: '#Accident', confidence: '97.4%', color: 'bg-orange-500/20 text-orange-400 border-orange-500/40' },
+    { label: '#Traffic_Jam', confidence: '99.1%', color: 'bg-blue-500/20 text-blue-400 border-blue-500/40' },
+    { label: '#Warehouse_Fire', confidence: '95.6%', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40' },
+    { label: '#Forklift_Collision', confidence: '93.2%', color: 'bg-purple-500/20 text-purple-400 border-purple-500/40' },
+    { label: '#Qwen2.5_VL_Analysis', confidence: '99.5%', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40' },
   ];
 
   return (
@@ -52,7 +52,7 @@ export const AiHighlightSection: React.FC = () => {
           </h2>
 
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed text-balance">
-            Mô hình VLM đa phương thức phân tích ảnh hiện trường từ người dân trong 200ms để phát hiện va chạm, cháy nổ, kẹt người và vật thể nguy hiểm trước khi cuộc gọi kết thúc.
+            Mô hình VLM (Qwen2.5-VL) đa phương thức phân tích ảnh/video hiện trường từ công nhân trong tích tắc để phân loại Cháy nổ (#Fire), Tai nạn lao động (#Accident), phát hiện Ùn tắc (#Traffic_Jam) và chấm cấp độ nghiêm trọng (Cấp 1–3).
           </p>
         </div>
 
@@ -167,30 +167,31 @@ export const AiHighlightSection: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <div className="px-3 py-1 rounded-lg bg-red-600 text-white font-black text-sm font-mono-data shadow-md">
-                    Cấp 4 / 5
+                    Cấp 3 / 3
                   </div>
-                  <span className="text-[10px] font-mono-data text-slate-500 font-bold">MỨC NGUY CƠ CAO</span>
+                  <span className="text-[10px] font-mono-data text-slate-500 font-bold">MỨC NGUY HIỂM CAO NHẤT</span>
                 </div>
               </div>
 
-              {/* 5-Step Severity Bar */}
+              {/* 3-Step Severity Bar */}
               <div className="space-y-1.5 mb-4">
                 <div className="flex justify-between text-[11px] font-mono-data text-slate-500 font-medium">
-                  <span>Cấp 1: Nhẹ</span>
-                  <span>Cấp 3: Vừa</span>
-                  <span className="text-red-600 font-bold">Cấp 4: Khẩn Cấp</span>
+                  <span className="text-emerald-600 font-semibold">Cấp 1: Nhẹ</span>
+                  <span className="text-amber-600 font-semibold">Cấp 2: Vừa</span>
+                  <span className="text-red-600 font-bold">Cấp 3: Khẩn Cấp</span>
                 </div>
-                <div className="grid grid-cols-5 gap-1.5 h-2.5">
+                <div className="grid grid-cols-3 gap-2 h-2.5">
                   <div className="bg-emerald-500 rounded-sm"></div>
                   <div className="bg-amber-500 rounded-sm"></div>
-                  <div className="bg-orange-500 rounded-sm"></div>
                   <div className="bg-red-600 rounded-sm shadow-sm animate-pulse"></div>
-                  <div className="bg-slate-200 rounded-sm"></div>
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-mono-data text-slate-400 pt-0.5">
+                  <span>* Cấp 0: AI nghi vấn / ảnh mờ → Đẩy lên đầu hàng đợi để Operator xác minh</span>
                 </div>
               </div>
 
               <p className="text-sm text-slate-600 leading-relaxed">
-                <strong className="text-slate-900">Kết luận AI:</strong> Va chạm giao thông động năng cao, nguy cơ rò rỉ nhiên liệu và kẹt nạn nhân trong cabin. Hệ thống đề xuất điều động đồng thời 1 xe cứu thương và 1 xe cứu hộ chuyên dụng.
+                <strong className="text-slate-900">Kết luận AI:</strong> Cháy lớn tại kho linh kiện Lô I-3, khói đen dày đặc và nguy cơ cháy lan sang xưởng lân cận. Hệ thống đề xuất điều động đồng thời 2 xe chữa cháy mini và 1 xe cứu thương nội khu theo thuật toán Nearest-Available.
               </p>
             </div>
 
@@ -277,22 +278,22 @@ export const AiHighlightSection: React.FC = () => {
                   <div className="space-y-2.5">
                     <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-mono-data">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span className="text-slate-900 font-bold">1x Xe Cứu Thương Cấp Cứu 115</span>
-                      </div>
-                      <span className="text-emerald-600 font-bold">Dự kiến 3m 40s</span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-mono-data">
-                      <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-red-600"></span>
-                        <span className="text-slate-900 font-bold">1x Xe Cứu Nạn Chữa Cháy 114</span>
+                        <span className="text-slate-900 font-bold">2x Xe Chữa Cháy Mini KCN (FIRE FE-01, FE-02)</span>
                       </div>
                       <span className="text-red-600 font-bold">Dự kiến 2m 15s</span>
                     </div>
                     <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-mono-data">
                       <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span className="text-slate-900 font-bold">1x Xe Cấp Cứu Trạm Y Tế KCN (EMS AM-02)</span>
+                      </div>
+                      <span className="text-emerald-600 font-bold">Dự kiến 3m 40s</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-mono-data">
+                      <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                        <span className="text-slate-900 font-bold">2x Tuần Tra Cảnh Sát Giao Thông 113</span>
+                        <span className="text-slate-900 font-bold">1x Đội Tuần Tra An Ninh Phân Luồng (PATROL PC-03)</span>
                       </div>
                       <span className="text-blue-600 font-bold">Đã có mặt</span>
                     </div>
@@ -302,7 +303,7 @@ export const AiHighlightSection: React.FC = () => {
 
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-mono-data text-slate-500">
                 <span>Tối ưu hóa thuật toán</span>
-                <span className="text-red-600 font-bold">Đồng Bộ CAD Đa Lực Lượng</span>
+                <span className="text-red-600 font-bold">Nearest-Available &amp; Load-Aware</span>
               </div>
             </div>
 
