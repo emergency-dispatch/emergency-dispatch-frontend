@@ -18,6 +18,7 @@ import {
   Activity,
   Users,
   PhoneCall,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types/auth';
@@ -25,9 +26,10 @@ import { UserProfileModal } from '../profile/UserProfileModal';
 
 interface NavbarProps {
   onOpenSos: () => void;
+  onOpenReports?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenSos }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -322,6 +324,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos }) => {
                         <button
                           onClick={() => {
                             setUserDropdownOpen(false);
+                            onOpenReports?.();
+                          }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-red-600 transition-colors text-left"
+                        >
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Lịch sử báo cáo sự cố</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setUserDropdownOpen(false);
                             setProfileModalOpen(true);
                           }}
                           className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-red-600 transition-colors text-left"
@@ -468,6 +481,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos }) => {
                   >
                     <User className="w-4 h-4 text-slate-400" />
                     <span>Hồ sơ cá nhân ({user.fullName})</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onOpenReports?.();
+                    }}
+                    className="w-full py-2.5 rounded-lg bg-white hover:bg-slate-50 text-slate-800 font-semibold text-center border border-slate-200 flex items-center justify-center gap-2 text-sm shadow-xs"
+                  >
+                    <Clock className="w-4 h-4 text-red-600" />
+                    <span>Lịch sử báo cáo sự cố</span>
                   </button>
                   <button
                     onClick={() => {

@@ -9,15 +9,20 @@ import { RoleSolutionsSection } from '../components/landing/RoleSolutionsSection
 import { HotlineBannerSection } from '../components/landing/HotlineBannerSection';
 import { Footer } from '../components/layout/Footer';
 import { SosModal } from '../components/landing/SosModal';
+import { CitizenReportsModal } from '../components/profile/CitizenReportsModal';
 import { BackToTop } from '../components/common/BackToTop';
 
 export const HomePage: React.FC = () => {
   const [sosModalOpen, setSosModalOpen] = useState(false);
+  const [reportsModalOpen, setReportsModalOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-red-600 selection:text-white flex flex-col">
       {/* Sticky Navbar */}
-      <Navbar onOpenSos={() => setSosModalOpen(true)} />
+      <Navbar
+        onOpenSos={() => setSosModalOpen(true)}
+        onOpenReports={() => setReportsModalOpen(true)}
+      />
 
       {/* Main Landing Flow */}
       <main className="flex-grow">
@@ -46,10 +51,17 @@ export const HomePage: React.FC = () => {
       {/* Footer */}
       <Footer onOpenSos={() => setSosModalOpen(true)} />
 
-      {/* Emergency SOS Modal */}
-      <SosModal 
-        isOpen={sosModalOpen} 
-        onClose={() => setSosModalOpen(false)} 
+      {/* Emergency SOS Modal with Mapbox */}
+      <SosModal
+        isOpen={sosModalOpen}
+        onClose={() => setSosModalOpen(false)}
+        onOpenReports={() => setReportsModalOpen(true)}
+      />
+
+      {/* Citizen Report History Modal */}
+      <CitizenReportsModal
+        isOpen={reportsModalOpen}
+        onClose={() => setReportsModalOpen(false)}
       />
 
       {/* Floating Back to Top Button */}

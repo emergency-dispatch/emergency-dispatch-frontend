@@ -97,6 +97,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
   useEffect(() => {
     if (isOpen) {
+      document.body.style.overflow = 'hidden';
       setErrorMsg('');
       setSuccessMsg('');
       if (user) {
@@ -137,7 +138,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         .catch(() => {});
 
       loadIceContacts();
+    } else {
+      document.body.style.overflow = '';
     }
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen, user, refreshProfile]);
 
   if (!isOpen) return null;
