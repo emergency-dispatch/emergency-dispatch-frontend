@@ -155,9 +155,17 @@ export const StaffNavbar: React.FC<StaffNavbarProps> = ({
             title="Tài khoản người dùng"
           >
             <div className="relative shrink-0">
-              <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-xs font-bold text-white shadow-sm font-mono">
-                {initials}
-              </div>
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={displayName}
+                  className="w-8 h-8 rounded-full object-cover shadow-sm border border-slate-200"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-xs font-bold text-white shadow-sm font-mono">
+                  {initials}
+                </div>
+              )}
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
             </div>
             <div className="hidden lg:flex flex-col items-start leading-tight">
@@ -169,10 +177,23 @@ export const StaffNavbar: React.FC<StaffNavbarProps> = ({
 
           {userOpen && (
             <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white border border-slate-200 shadow-xl overflow-hidden z-50 animate-fadeIn">
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-                <p className="text-xs font-bold text-slate-900 truncate">{displayName}</p>
-                <p className="text-[11px] font-semibold text-red-600 truncate mt-0.5">{displayRole}</p>
-                <p className="text-[10px] font-mono text-slate-500 truncate mt-0.5">{displayEmail}</p>
+              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
+                {user?.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={displayName}
+                    className="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-200 shadow-xs"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-xs">
+                    {initials}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-slate-900 truncate">{displayName}</p>
+                  <p className="text-[11px] font-semibold text-red-600 truncate mt-0.5">{displayRole}</p>
+                  <p className="text-[10px] font-mono text-slate-500 truncate mt-0.5">{displayEmail}</p>
+                </div>
               </div>
 
               <div className="p-1.5 space-y-0.5 text-xs">

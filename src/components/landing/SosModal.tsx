@@ -23,6 +23,7 @@ import { incidentService } from '../../services/incidentService';
 import { mediaService } from '../../services/mediaService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import { MapboxLocationPicker } from '../common/MapboxLocationPicker';
+import { mapboxService } from '../../services/mapboxService';
 import type { CreateIncidentDto, IncidentResponseDto } from '../../types/incident';
 
 interface SosModalProps {
@@ -89,27 +90,53 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
         setReporterPhone('');
       }
 
-      // Obtain real geolocation
-      if (navigator.geolocation) {
-        setGpsStatus('locating');
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            setLatitude(pos.coords.latitude);
-            setLongitude(pos.coords.longitude);
+      // 1. Kiểm tra tọa độ đã được lấy sẵn ngay khi vừa mở web
+      let hasPreFetched = false;
+      try {
+        const cached = localStorage.getItem('resq_citizen_coords');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.lat && parsed.lng && Date.now() - (parsed.updatedAt || 0) < 30 * 60 * 1000) {
+            setLatitude(parsed.lat);
+            setLongitude(parsed.lng);
+            if (parsed.address) setLocationAddress(parsed.address);
             setGpsStatus('locked');
-            setLocationAddress(
-              `Toạ độ (${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}) - Khu Công nghệ cao, TP. Thủ Đức`
-            );
+            hasPreFetched = true;
+          }
+        }
+      } catch {
+        // Ignore
+      }
+
+      // 2. Tiếp tục cập nhật/lấy GPS thực tế chính xác cao
+      if (navigator.geolocation) {
+        if (!hasPreFetched) setGpsStatus('locating');
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            setLatitude(lat);
+            setLongitude(lng);
+            setGpsStatus('locked');
+            try {
+              const addr = await mapboxService.reverseGeocode(lng, lat);
+              setLocationAddress(addr);
+              localStorage.setItem('resq_citizen_coords', JSON.stringify({ lat, lng, address: addr, updatedAt: Date.now() }));
+            } catch {
+              setLocationAddress(`Tọa độ (${lat.toFixed(4)}, ${lng.toFixed(4)}) - Khu Công nghệ cao, TP. Thủ Đức`);
+            }
           },
           () => {
-            setGpsStatus('default');
-            setLatitude(DEFAULT_COORDS.lat);
-            setLongitude(DEFAULT_COORDS.lng);
-            setLocationAddress(DEFAULT_COORDS.address);
+            if (!hasPreFetched) {
+              setGpsStatus('default');
+              setLatitude(DEFAULT_COORDS.lat);
+              setLongitude(DEFAULT_COORDS.lng);
+              setLocationAddress(DEFAULT_COORDS.address);
+            }
           },
           { enableHighAccuracy: true, timeout: 6000 }
         );
-      } else {
+      } else if (!hasPreFetched) {
         setGpsStatus('default');
       }
     }

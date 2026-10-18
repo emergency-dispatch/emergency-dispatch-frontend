@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from '../components/layout/Navbar';
 import { HeroSection } from '../components/landing/HeroSection';
 import { LiveTelemetryBar } from '../components/landing/LiveTelemetryBar';
@@ -11,10 +11,44 @@ import { Footer } from '../components/layout/Footer';
 import { SosModal } from '../components/landing/SosModal';
 import { CitizenReportsModal } from '../components/profile/CitizenReportsModal';
 import { BackToTop } from '../components/common/BackToTop';
+import { useAuth } from '../hooks/useAuth';
+import { UserRole } from '../types/auth';
+import { mapboxService } from '../services/mapboxService';
 
 export const HomePage: React.FC = () => {
+  const { user } = useAuth();
   const [sosModalOpen, setSosModalOpen] = useState(false);
   const [reportsModalOpen, setReportsModalOpen] = useState(false);
+
+  // Yêu cầu lấy vị trí ngay lập tức khi mở web nếu người dùng là Citizen (hoặc vãng lai)
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const isCitizen = !user || user.role === UserRole.Citizen;
+    if (isCitizen) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          try {
+            const addr = await mapboxService.reverseGeocode(lng, lat);
+            localStorage.setItem(
+              'resq_citizen_coords',
+              JSON.stringify({ lat, lng, address: addr, updatedAt: Date.now() })
+            );
+          } catch {
+            localStorage.setItem(
+              'resq_citizen_coords',
+              JSON.stringify({ lat, lng, updatedAt: Date.now() })
+            );
+          }
+        },
+        (err) => {
+          console.info('Citizen geolocation prompt notice:', err.message);
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-red-600 selection:text-white flex flex-col">

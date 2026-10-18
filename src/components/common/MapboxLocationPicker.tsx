@@ -37,6 +37,11 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
       scrollZoom: false, // Prevents intercepting page/modal mouse wheel scroll
     });
 
+    // Error handling to prevent unhandled tile load breaks
+    map.on('error', (err) => {
+      console.warn('Mapbox canvas notice:', err?.error?.message || err);
+    });
+
     // Navigation Controls (Zoom in/out)
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
 

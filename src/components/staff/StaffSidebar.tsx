@@ -184,9 +184,17 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
       {!collapsed ? (
         <div className="p-2.5 mx-2 mb-2 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="w-8 h-8 rounded-full bg-red-600 text-white font-bold flex items-center justify-center font-mono text-xs shrink-0 shadow-xs">
-              {initials}
-            </div>
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={displayName}
+                className="w-8 h-8 rounded-full object-cover shrink-0 shadow-xs border border-slate-200"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-red-600 text-white font-bold flex items-center justify-center font-mono text-xs shrink-0 shadow-xs">
+                {initials}
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <div className="font-bold text-slate-900 truncate text-[11px]">{displayName}</div>
               <div className="text-[10px] text-slate-500 truncate">{displayRole}</div>
