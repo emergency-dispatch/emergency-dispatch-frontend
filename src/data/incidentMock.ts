@@ -81,6 +81,8 @@ export const SEVERITY_META: Record<IncidentSeverity, { label: string; badgeClass
 // Tag cũ mà dữ liệu Staff portal vẫn dùng — HazardTagBadge tra ở đây khi tag không thuộc bộ mới.
 export const LEGACY_HAZARD_TAG_META: Record<HazardTagKey, { label: string; color: string; icon: LucideIcon }> = {
   fire: { label: '#Fire', color: '#DC2626', icon: Flame },
+  accident: { label: '#Accident', color: '#F97316', icon: CarFront },
+  traffic_jam: { label: '#Traffic_Jam', color: '#2563EB', icon: TrafficCone },
   oil_spill: { label: '#Oil_Spill', color: '#EAB308', icon: Droplet },
   vehicle_rollover: { label: '#Vehicle_Rollover', color: '#F97316', icon: CarFront },
   injury: { label: '#Injury', color: '#EC4899', icon: HeartPulse },

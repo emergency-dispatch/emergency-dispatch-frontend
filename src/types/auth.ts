@@ -67,12 +67,47 @@ export interface UserResponseDto {
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   emergencyContactRelationship?: string;
+  chronicConditions?: string[];
+  allergies?: string[];
+  currentMedications?: string[];
+  mobilityLimitations?: string[];
+  preferredLanguage?: string;
+  dependentsNote?: string;
+  householdMembersCount?: number;
+  autoSendSmsOnSos?: boolean;
+  smsTemplate?: string;
+  iceContacts?: IceContactDto[];
   isEmailVerified: boolean;
   fcmToken?: string;
   stationId?: string;
   stationName?: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface IceContactDto {
+  id: string;
+  userId: string;
+  name: string;
+  phoneNumber: string;
+  relationship: string;
+  isPrimary: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateIceContactDto {
+  name: string;
+  phoneNumber: string;
+  relationship: string;
+  isPrimary?: boolean;
+}
+
+export interface UpdateIceContactDto {
+  name: string;
+  phoneNumber: string;
+  relationship: string;
+  isPrimary?: boolean;
 }
 
 export interface AuthResponseDto {
@@ -133,6 +168,15 @@ export interface UpdateProfileDto {
   address?: string;
   bloodType?: BloodType;
   medicalNotes?: string;
+  chronicConditions?: string[];
+  allergies?: string[];
+  currentMedications?: string[];
+  mobilityLimitations?: string[];
+  preferredLanguage?: string;
+  dependentsNote?: string;
+  householdMembersCount?: number;
+  autoSendSmsOnSos?: boolean;
+  smsTemplate?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   emergencyContactRelationship?: string;
@@ -141,3 +185,4 @@ export interface UpdateProfileDto {
 export interface UpdateFcmTokenDto {
   fcmToken: string;
 }
+

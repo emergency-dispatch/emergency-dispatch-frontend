@@ -6,6 +6,8 @@ export type { IncidentSeverity };
 
 export type HazardTagKey =
   | 'fire'
+  | 'accident'
+  | 'traffic_jam'
   | 'oil_spill'
   | 'vehicle_rollover'
   | 'injury'
@@ -146,6 +148,27 @@ export interface IncidentResponseDto {
   updatedAt?: string;
   mediaItems: IncidentMediaDto[];
   aiClassification?: AiClassificationResultDto | null;
+}
+
+export interface CreateIncidentDto {
+  title?: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  locationAddress: string;
+  reporterName?: string;
+  reporterPhone?: string;
+  mediaUrls?: string[];
+}
+
+export interface PaginatedResultDto<T> {
+  items: T[];
+  pageIndex: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
 }
 
 export interface VerifyIncidentRequestDto {

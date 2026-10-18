@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -15,36 +15,61 @@ import {
   Eye,
   EyeOff,
   Building2,
+  Camera,
+  Users,
+  Trash2,
+  Plus,
+  Loader2,
+  Radio,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { authService } from '../../services/authService';
+import { userService } from '../../services/userService';
+import { mediaService } from '../../services/mediaService';
 import { getApiErrorMessage } from '../../services/apiClient';
-import { BloodType, Gender, UserRole, UserResponseDto } from '../../types/auth';
+import { BloodType, Gender, UserRole, UserResponseDto, IceContactDto } from '../../types/auth';
 
 interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type TabType = 'general' | 'medical' | 'security';
+type TabType = 'general' | 'medical' | 'ice' | 'security';
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) => {
   const { user, updateProfile, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('general');
 
-  // General & Medical form states
+  // General state
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
   const [citizenIdNumber, setCitizenIdNumber] = useState('');
   const [gender, setGender] = useState<Gender>(Gender.Male);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // Medical state
   const [bloodType, setBloodType] = useState<BloodType>(BloodType.Unknown);
   const [medicalNotes, setMedicalNotes] = useState('');
-  const [emergencyContactName, setEmergencyContactName] = useState('');
-  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
-  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState('');
+  const [chronicConditions, setChronicConditions] = useState('');
+  const [allergies, setAllergies] = useState('');
+  const [currentMedications, setCurrentMedications] = useState('');
+  const [mobilityLimitations, setMobilityLimitations] = useState('');
 
-  // Password change form states
+  // ICE state
+  const [autoSendSmsOnSos, setAutoSendSmsOnSos] = useState<boolean>(true);
+  const [smsTemplate, setSmsTemplate] = useState<string>('');
+  const [iceContacts, setIceContacts] = useState<IceContactDto[]>([]);
+  const [isLoadingIce, setIsLoadingIce] = useState<boolean>(false);
+  const [newContactName, setNewContactName] = useState('');
+  const [newContactPhone, setNewContactPhone] = useState('');
+  const [newContactRel, setNewContactRel] = useState('');
+  const [newContactPrimary, setNewContactPrimary] = useState(false);
+  const [isAddingContact, setIsAddingContact] = useState(false);
+
+  // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -56,31 +81,88 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  const loadIceContacts = async () => {
+    try {
+      setIsLoadingIce(true);
+      const res = await userService.getIceContacts();
+      if (res.success && res.data) {
+        setIceContacts(res.data);
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setIsLoadingIce(false);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       setErrorMsg('');
       setSuccessMsg('');
-      // Populate fields from user
       if (user) {
         setFullName(user.fullName || '');
         setPhoneNumber(user.phoneNumber || '');
         setBloodType(user.bloodType || BloodType.Unknown);
+        setAvatarUrl(user.avatarUrl || '');
 
         const fullUser = user as UserResponseDto;
         setAddress(fullUser.address || '');
         setCitizenIdNumber(fullUser.citizenIdNumber || '');
         setGender(fullUser.gender || Gender.Male);
         setMedicalNotes(fullUser.medicalNotes || '');
-        setEmergencyContactName(fullUser.emergencyContactName || '');
-        setEmergencyContactPhone(fullUser.emergencyContactPhone || '');
-        setEmergencyContactRelationship(fullUser.emergencyContactRelationship || '');
+        setChronicConditions((fullUser.chronicConditions || []).join(', '));
+        setAllergies((fullUser.allergies || []).join(', '));
+        setCurrentMedications((fullUser.currentMedications || []).join(', '));
+        setMobilityLimitations((fullUser.mobilityLimitations || []).join(', '));
+        setAutoSendSmsOnSos(fullUser.autoSendSmsOnSos ?? true);
+        setSmsTemplate(fullUser.smsTemplate || 'CẤP CỨU: Tôi vừa bấm SOS tại tọa độ {lat},{lng}. Cần hỗ trợ khẩn cấp!');
       }
-      // Refresh profile to have latest detailed fields
-      refreshProfile().catch(() => {});
+
+      refreshProfile()
+        .then((updated) => {
+          if (updated) {
+            setAvatarUrl(updated.avatarUrl || '');
+            setAddress(updated.address || '');
+            setCitizenIdNumber(updated.citizenIdNumber || '');
+            setGender(updated.gender || Gender.Male);
+            setMedicalNotes(updated.medicalNotes || '');
+            setChronicConditions((updated.chronicConditions || []).join(', '));
+            setAllergies((updated.allergies || []).join(', '));
+            setCurrentMedications((updated.currentMedications || []).join(', '));
+            setMobilityLimitations((updated.mobilityLimitations || []).join(', '));
+            setAutoSendSmsOnSos(updated.autoSendSmsOnSos ?? true);
+            setSmsTemplate(updated.smsTemplate || 'CẤP CỨU: Tôi vừa bấm SOS tại tọa độ {lat},{lng}. Cần hỗ trợ khẩn cấp!');
+          }
+        })
+        .catch(() => {});
+
+      loadIceContacts();
     }
   }, [isOpen, user, refreshProfile]);
 
   if (!isOpen) return null;
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingAvatar(true);
+      setErrorMsg('');
+      const uploadedUrl = await mediaService.upload(file);
+      setAvatarUrl(uploadedUrl);
+      await updateProfile({
+        fullName: fullName.trim(),
+        avatarUrl: uploadedUrl,
+      });
+      setSuccessMsg('Cập nhật ảnh đại diện thành công!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      setErrorMsg(getApiErrorMessage(err, 'Không thể tải ảnh đại diện lên.'));
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,23 +171,82 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
     setIsLoading(true);
 
     try {
+      const splitClean = (str: string) =>
+        str
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+
       await updateProfile({
         fullName: fullName.trim(),
         phoneNumber: phoneNumber.trim() || undefined,
+        avatarUrl: avatarUrl.trim() || undefined,
         address: address.trim() || undefined,
         citizenIdNumber: citizenIdNumber.trim() || undefined,
         gender,
         bloodType,
         medicalNotes: medicalNotes.trim() || undefined,
-        emergencyContactName: emergencyContactName.trim() || undefined,
-        emergencyContactPhone: emergencyContactPhone.trim() || undefined,
-        emergencyContactRelationship: emergencyContactRelationship.trim() || undefined,
+        chronicConditions: splitClean(chronicConditions),
+        allergies: splitClean(allergies),
+        currentMedications: splitClean(currentMedications),
+        mobilityLimitations: splitClean(mobilityLimitations),
+        autoSendSmsOnSos,
+        smsTemplate: smsTemplate.trim() || undefined,
       });
 
       setSuccessMsg('Cập nhật thông tin hồ sơ thành công!');
       setTimeout(() => setSuccessMsg(''), 3500);
     } catch (err) {
       setErrorMsg(getApiErrorMessage(err, 'Không thể cập nhật hồ sơ. Vui lòng thử lại.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddIceContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newContactName.trim() || !newContactPhone.trim() || !newContactRel.trim()) {
+      setErrorMsg('Vui lòng điền đầy đủ tên, số điện thoại và mối quan hệ của người thân.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setErrorMsg('');
+      const res = await userService.createIceContact({
+        name: newContactName.trim(),
+        phoneNumber: newContactPhone.trim(),
+        relationship: newContactRel.trim(),
+        isPrimary: newContactPrimary,
+      });
+
+      if (res.success && res.data) {
+        setIceContacts((prev) => [...prev, res.data]);
+        setNewContactName('');
+        setNewContactPhone('');
+        setNewContactRel('');
+        setNewContactPrimary(false);
+        setIsAddingContact(false);
+        setSuccessMsg('Thêm người thân khẩn cấp thành công!');
+        setTimeout(() => setSuccessMsg(''), 3000);
+      }
+    } catch (err) {
+      setErrorMsg(getApiErrorMessage(err, 'Không thể thêm người thân khẩn cấp.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteIceContact = async (id: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa người thân này khỏi danh bạ khẩn cấp?')) return;
+    try {
+      setIsLoading(true);
+      await userService.deleteIceContact(id);
+      setIceContacts((prev) => prev.filter((c) => c.id !== id));
+      setSuccessMsg('Xóa người thân khẩn cấp thành công!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      setErrorMsg(getApiErrorMessage(err, 'Không thể xóa người thân.'));
     } finally {
       setIsLoading(false);
     }
@@ -166,12 +307,39 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
-              {user?.fullName?.substring(0, 2).toUpperCase() || 'US'}
+            <div className="relative group">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={fullName}
+                  className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-sm"
+                />
+              ) : (
+                <div className="w-11 h-11 rounded-xl bg-red-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                  {user?.fullName?.substring(0, 2).toUpperCase() || 'CD'}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={isUploadingAvatar}
+                className="absolute -bottom-1 -right-1 p-1 rounded-full bg-slate-800 text-white hover:bg-red-600 transition-colors shadow-xs cursor-pointer"
+                title="Thay đổi ảnh đại diện"
+              >
+                {isUploadingAvatar ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
+              </button>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
             </div>
+
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>{user?.fullName || 'Hồ sơ người dùng'}</span>
+                <span>{user?.fullName || 'Hồ sơ người dân'}</span>
                 <span className="text-[10px] font-mono-data uppercase px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700 font-bold">
                   {user?.role || UserRole.Citizen}
                 </span>
@@ -189,7 +357,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 bg-slate-50 px-6 gap-2 pt-2">
+        <div className="flex border-b border-slate-200 bg-slate-50 px-6 gap-2 pt-2 overflow-x-auto">
           <button
             type="button"
             onClick={() => {
@@ -197,14 +365,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'general'
-                ? 'border-red-600 text-red-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'general' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <User className="w-3.5 h-3.5" />
-            <span>Thông tin chung</span>
+            <span>Thông tin cá nhân</span>
           </button>
 
           <button
@@ -214,14 +380,27 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'medical'
-                ? 'border-red-600 text-red-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'medical' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Heart className="w-3.5 h-3.5" />
-            <span>Y tế &amp; Khẩn cấp</span>
+            <span>Hồ sơ y tế cứu hộ</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('ice');
+              setErrorMsg('');
+              setSuccessMsg('');
+            }}
+            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'ice' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Danh bạ khẩn cấp (ICE)</span>
           </button>
 
           <button
@@ -231,19 +410,17 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'security'
-                ? 'border-red-600 text-red-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'security' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Lock className="w-3.5 h-3.5" />
-            <span>Bảo mật &amp; Đổi mật khẩu</span>
+            <span>Bảo mật</span>
           </button>
         </div>
 
         {/* Alerts */}
-        <div className="px-6 pt-4 shrink-0">
+        <div className="px-6 pt-3 shrink-0">
           {errorMsg && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
@@ -270,9 +447,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     Họ và tên
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <User className="w-4 h-4" />
-                    </div>
+                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                     <input
                       type="text"
                       required
@@ -288,9 +463,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     Email tài khoản (Không thể đổi)
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <Mail className="w-4 h-4" />
-                    </div>
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                     <input
                       type="email"
                       disabled
@@ -305,14 +478,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     Số điện thoại
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <Phone className="w-4 h-4" />
-                    </div>
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                     <input
                       type="tel"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+84 ..."
+                      placeholder="0912345678"
                       className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                     />
                   </div>
@@ -351,13 +522,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     Đơn vị / Trạm trực
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <Building2 className="w-4 h-4" />
-                    </div>
+                    <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                     <input
                       type="text"
                       disabled
-                      value={user?.stationName || 'Chưa phân bổ trạm'}
+                      value={user?.stationName || 'Công dân tự do (Không trực thuộc trạm)'}
                       className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 text-sm font-mono-data cursor-not-allowed"
                     />
                   </div>
@@ -369,9 +538,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                   Địa chỉ thường trú / Cư trú
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                    <MapPin className="w-4 h-4" />
-                  </div>
+                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                   <input
                     type="text"
                     value={address}
@@ -395,11 +562,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
             </form>
           )}
 
-          {/* TAB 2: Medical & Emergency Contact */}
+          {/* TAB 2: Medical Profile */}
           {activeTab === 'medical' && (
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 leading-relaxed font-mono-data">
-                Thông tin nhóm máu và bệnh lý giúp đội ngũ cứu hộ cơ động và y tế chuẩn bị phác đồ sơ cấp cứu tức thời khi bạn gặp sự cố nguy cấp.
+                Hồ sơ y tế giúp lực lượng cứu hộ và bác sĩ cấp cứu 115 nắm bắt tiền sử bệnh lý tức thì khi bạn phát tín hiệu SOS tại hiện trường.
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -422,39 +589,39 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Tên người liên hệ khẩn cấp
+                    Bệnh lý mãn tính (cách nhau bằng dấu phẩy)
                   </label>
                   <input
                     type="text"
-                    value={emergencyContactName}
-                    onChange={(e) => setEmergencyContactName(e.target.value)}
-                    placeholder="Họ tên người thân (vd: Bố/Mẹ/Vợ)"
+                    value={chronicConditions}
+                    onChange={(e) => setChronicConditions(e.target.value)}
+                    placeholder="Huyết áp cao, Tim mạch, Tiểu đường..."
                     className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    SĐT người liên hệ khẩn cấp
+                    Tiền sử dị ứng thuốc / thức ăn
                   </label>
                   <input
-                    type="tel"
-                    value={emergencyContactPhone}
-                    onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                    placeholder="+84 ..."
+                    type="text"
+                    value={allergies}
+                    onChange={(e) => setAllergies(e.target.value)}
+                    placeholder="Dị ứng Penicillin, Aspirin, Hải sản..."
                     className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Mối quan hệ
+                    Thuốc đang điều trị định kỳ
                   </label>
                   <input
                     type="text"
-                    value={emergencyContactRelationship}
-                    onChange={(e) => setEmergencyContactRelationship(e.target.value)}
-                    placeholder="Bố, Mẹ, Vợ/Chồng, Anh/Chị..."
+                    value={currentMedications}
+                    onChange={(e) => setCurrentMedications(e.target.value)}
+                    placeholder="Insulin, Thuốc hạ áp, Kháng đông..."
                     className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
@@ -462,13 +629,26 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                  Ghi chú bệnh nền / Dị ứng thuốc
+                  Hạn chế vận động (nếu có)
+                </label>
+                <input
+                  type="text"
+                  value={mobilityLimitations}
+                  onChange={(e) => setMobilityLimitations(e.target.value)}
+                  placeholder="Khó đi lại, Dùng xe lăn, Tổn thương cột sống..."
+                  className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                  Ghi chú y tế cứu nạn bổ sung
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={medicalNotes}
                   onChange={(e) => setMedicalNotes(e.target.value)}
-                  placeholder="Dị ứng kháng sinh Penicillin, tiền sử tim mạch, huyết áp cao, hen suyễn..."
+                  placeholder="Bất kỳ lưu ý đặc biệt nào khác cho nhân viên cứu nạn..."
                   className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data resize-none"
                 />
               </div>
@@ -486,7 +666,188 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
             </form>
           )}
 
-          {/* TAB 3: Change Password */}
+          {/* TAB 3: ICE Contacts & SOS SMS */}
+          {activeTab === 'ice' && (
+            <div className="space-y-6">
+              {/* SMS SOS Automated Notification Config */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 font-mono-data">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Radio className="w-4 h-4 text-red-600" />
+                    <span className="text-xs font-bold text-slate-800">Tự động gửi SMS toạ độ khi nhấn SOS</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoSendSmsOnSos}
+                      onChange={(e) => setAutoSendSmsOnSos(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                  </label>
+                </div>
+
+                {autoSendSmsOnSos && (
+                  <div className="space-y-1.5 pt-1">
+                    <label className="block text-[11px] uppercase text-slate-500 font-bold">
+                      Mẫu tin nhắn SMS khẩn cấp gửi người thân:
+                    </label>
+                    <input
+                      type="text"
+                      value={smsTemplate}
+                      onChange={(e) => setSmsTemplate(e.target.value)}
+                      placeholder="CẤP CỨU: Tôi vừa bấm SOS tại tọa độ {lat},{lng}. Cần hỗ trợ khẩn cấp!"
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-red-500 font-mono"
+                    />
+                    <p className="text-[10px] text-slate-400">
+                      Toạ độ thực tế sẽ được tự động điền vào tham số {'{lat}'} và {'{lng}'}.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Contacts List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-mono-data uppercase font-bold text-slate-700 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-red-600" />
+                    <span>Danh bạ người thân khẩn cấp (ICE) ({iceContacts.length})</span>
+                  </h3>
+                  {!isAddingContact && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingContact(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-mono-data font-bold cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Thêm người thân</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Add new contact form */}
+                {isAddingContact && (
+                  <form onSubmit={handleAddIceContact} className="p-4 rounded-xl border border-red-200 bg-red-50/40 space-y-3">
+                    <h4 className="text-xs font-bold text-red-700 font-mono-data uppercase">
+                      Thêm người liên hệ khẩn cấp mới
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <input
+                        type="text"
+                        required
+                        value={newContactName}
+                        onChange={(e) => setNewContactName(e.target.value)}
+                        placeholder="Họ tên người thân"
+                        className="px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-red-500 font-mono"
+                      />
+                      <input
+                        type="tel"
+                        required
+                        value={newContactPhone}
+                        onChange={(e) => setNewContactPhone(e.target.value)}
+                        placeholder="Số điện thoại"
+                        className="px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-red-500 font-mono"
+                      />
+                      <input
+                        type="text"
+                        required
+                        value={newContactRel}
+                        onChange={(e) => setNewContactRel(e.target.value)}
+                        placeholder="Mối quan hệ (Bố/Mẹ/Vợ...)"
+                        className="px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-red-500 font-mono"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <label className="flex items-center gap-2 text-xs text-slate-600 font-mono cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newContactPrimary}
+                          onChange={(e) => setNewContactPrimary(e.target.checked)}
+                          className="rounded text-red-600 focus:ring-red-500"
+                        />
+                        <span>Đặt làm người liên hệ ưu tiên hàng đầu</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingContact(false)}
+                          className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800"
+                        >
+                          Hủy
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isLoading}
+                          className="px-4 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold font-mono hover:bg-red-700"
+                        >
+                          Lưu người thân
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+
+                {/* List items */}
+                {isLoadingIce ? (
+                  <div className="py-6 text-center text-xs text-slate-400 font-mono">Đang tải danh bạ ICE...</div>
+                ) : iceContacts.length === 0 ? (
+                  <div className="p-4 rounded-xl border border-dashed border-slate-300 text-center text-xs text-slate-500 font-mono">
+                    Chưa có người thân nào trong danh bạ ICE. Hãy thêm người thân để hệ thống tự động thông báo khi có sự cố.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {iceContacts.map((contact) => (
+                      <div
+                        key={contact.id}
+                        className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between font-mono-data text-xs hover:border-slate-300 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center font-bold">
+                            {contact.name.substring(0, 1)}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900">{contact.name}</span>
+                              <span className="text-[10px] text-slate-500">({contact.relationship})</span>
+                              {contact.isPrimary && (
+                                <span className="px-1.5 py-0.2 rounded bg-red-100 text-red-700 text-[9px] font-bold">
+                                  Chính
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-slate-500 text-[11px]">{contact.phoneNumber}</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteIceContact(contact.id)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                          title="Xóa người thân"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleUpdateProfile}
+                  disabled={isLoading}
+                  className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-sm transition-all disabled:opacity-50 flex items-center gap-2 border border-red-600 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{isLoading ? 'Đang lưu...' : 'Lưu cấu hình SMS SOS'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: Change Password */}
           {activeTab === 'security' && (
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed font-mono-data flex items-start gap-2.5">
@@ -501,9 +862,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                   Mật khẩu hiện tại
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                    <Lock className="w-4 h-4" />
-                  </div>
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                   <input
                     type={showCurrentPassword ? 'text' : 'password'}
                     required
@@ -527,9 +886,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                   Mật khẩu mới (Tối thiểu 6 ký tự)
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                    <Lock className="w-4 h-4" />
-                  </div>
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     required
@@ -554,9 +911,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                   Xác nhận mật khẩu mới
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                    <Lock className="w-4 h-4" />
-                  </div>
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     required

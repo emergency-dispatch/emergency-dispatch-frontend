@@ -3,7 +3,7 @@ import { API_CONFIG } from '../config/api';
 import { createIncidentQueueMock } from '../data/incidentQueueMock';
 import type { ApiResponse } from '../types/auth';
 import { SOFT_LOCK_DURATION_MS } from '../data/incidentMock';
-import type { BlockDuration, IncidentResponseDto, VerifyIncidentRequestDto } from '../types/incident';
+import type { BlockDuration, CreateIncidentDto, IncidentResponseDto, PaginatedResultDto, VerifyIncidentRequestDto } from '../types/incident';
 
 // Mock mode (VITE_USE_MOCK_INCIDENTS=true): giữ hàng đợi trong bộ nhớ để duyệt/từ chối
 // xong thì sự cố biến mất khỏi các lần poll tiếp theo, giống backend thật.
@@ -27,6 +27,29 @@ const takeFromMockQueue = (id: string): IncidentResponseDto => {
 };
 
 export const incidentService = {
+  /**
+   * Phát tín hiệu cứu nạn khẩn cấp SOS / Gửi báo cáo sự cố hiện trường
+   * Hỗ trợ cả công dân đã đăng nhập lẫn khách vãng lai
+   */
+  async createIncident(dto: CreateIncidentDto): Promise<ApiResponse<IncidentResponseDto>> {
+    const response = await apiClient.post<ApiResponse<IncidentResponseDto>>('/Incidents', dto);
+    return response.data;
+  },
+
+  /**
+   * Lấy danh sách sự cố có phân trang và bộ lọc (hỗ trợ Citizen xem lịch sử báo cáo)
+   */
+  async getIncidents(params?: {
+    pageIndex?: number;
+    pageSize?: number;
+    status?: string;
+    severity?: string;
+    searchTerm?: string;
+  }): Promise<ApiResponse<PaginatedResultDto<IncidentResponseDto>>> {
+    const response = await apiClient.get<ApiResponse<PaginatedResultDto<IncidentResponseDto>>>('/Incidents', { params });
+    return response.data;
+  },
+
   /**
    * Hàng đợi sự cố chờ Operator xác minh (Pending + AiProcessed), đã sắp xếp
    * ưu tiên sẵn ở backend (Unclassified/Severity giảm dần, cùng mức thì FIFO).
