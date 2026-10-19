@@ -81,7 +81,7 @@ export const incidentService = {
       const incident = getMockQueue().find((i) => i.id === id) ? takeFromMockQueue(id) : ({ id } as IncidentResponseDto);
       return mockResponse({ ...incident, status: 'Cancelled', operatorNotes: reason });
     }
-    const response = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/cancel`, reason);
+    const response = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/cancel`, { reason });
     return response.data;
   },
 

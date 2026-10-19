@@ -17,6 +17,7 @@ import {
   User,
   Phone,
   Clock,
+  XCircle,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { incidentService } from '../../services/incidentService';
@@ -59,6 +60,8 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
   const [submittingState, setSubmittingState] = useState<'idle' | 'analyzing' | 'dispatched'>('idle');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [createdIncident, setCreatedIncident] = useState<IncidentResponseDto | null>(null);
+  const [isCancelling, setIsCancelling] = useState<boolean>(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
 
   // Lock background scroll when modal is open
   useEffect(() => {
@@ -236,7 +239,23 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
   const handleReset = () => {
     setSubmittingState('idle');
     setCreatedIncident(null);
+    setIsCancelling(false);
+    setShowCancelConfirm(false);
     onClose();
+  };
+
+  const handleCancelSubmittedIncident = async () => {
+    if (!createdIncident?.id) return;
+    try {
+      setIsCancelling(true);
+      await incidentService.cancel(createdIncident.id, 'Người dân bấm nhầm nút SOS trên Web');
+      setCreatedIncident((prev) => (prev ? { ...prev, status: 'Cancelled' } : null));
+      setShowCancelConfirm(false);
+    } catch (err) {
+      setErrorMsg(getApiErrorMessage(err, 'Không thể hủy sự cố lúc này.'));
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   return createPortal(
@@ -567,6 +586,48 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                   </span>
                 </div>
               </div>
+
+              {/* Cancel Alarm Action / Inline Confirmation */}
+              {createdIncident.status === 'Cancelled' ? (
+                <div className="p-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 text-xs font-mono font-bold flex items-center justify-center gap-2">
+                  <XCircle className="w-4 h-4 text-slate-500" />
+                  <span>Sự cố này đã được hủy bỏ thành công</span>
+                </div>
+              ) : showCancelConfirm ? (
+                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-center space-y-2.5 animate-fadeIn">
+                  <div className="flex items-center justify-center gap-2 text-red-700 font-bold text-xs">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+                    <span>Bạn có chắc chắn muốn hủy yêu cầu cứu hộ này (do bấm nhầm)?</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelConfirm(false)}
+                      className="px-4 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Không, giữ lại
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelSubmittedIncident}
+                      disabled={isCancelling}
+                      className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                    >
+                      {isCancelling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                      <span>Xác nhận hủy yêu cầu</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="w-full py-2.5 rounded-xl border border-red-200 bg-red-50/70 hover:bg-red-100 text-red-600 font-bold text-xs uppercase tracking-wider font-mono transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <XCircle className="w-4 h-4 text-red-600" />
+                  <span>Hủy yêu cầu cứu hộ (Bấm nhầm)</span>
+                </button>
+              )}
 
               {user && (
                 <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-mono text-left">
