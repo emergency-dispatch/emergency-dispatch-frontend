@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StationMapPicker } from '../../dashboard/stations/StationMapPicker';
+import { StationMapPicker } from './StationMapPicker';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../common/ui';
 import { inputClass } from '../common/styles';
 import { useServiceQuery } from '../common/hooks';
