@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../services/apiClient';
 
 /**
@@ -83,4 +84,21 @@ export function useUnsavedChangesGuard(dirty: boolean, message = 'Bạn có thay
       document.removeEventListener('click', onClick, true);
     };
   }, [dirty, message]);
+}
+
+/**
+ * Bộ lọc ban đầu đọc từ query string (link từ Tổng quan, VD /admin/vehicles?status=maintenance).
+ * Chỉ đọc lúc vào trang; giá trị không hợp lệ thì bỏ qua.
+ */
+export function useInitialQueryParams() {
+  const [params] = useSearchParams();
+  const [snapshot] = useState(() => new URLSearchParams(params));
+  return {
+    text: (key: string) => snapshot.get(key)?.trim() ?? '',
+    oneOf: <T extends string>(key: string, allowed: readonly T[]): T | '' => {
+      const value = snapshot.get(key);
+      return value && (allowed as readonly string[]).includes(value) ? (value as T) : '';
+    },
+    flag: (key: string) => snapshot.get(key) === 'true',
+  };
 }

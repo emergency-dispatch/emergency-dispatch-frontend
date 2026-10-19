@@ -3,6 +3,7 @@ import type { PaginatedResultDto } from '../../types/incident';
 import type { DispatchVehicleType } from '../../types/vehicle';
 import {
   isVehicleBusy,
+  ON_MISSION_VEHICLE_STATUSES,
   type AdminVehicle,
   type AdminVehicleListItem,
   type AdminVehicleStatus,
@@ -12,11 +13,17 @@ import { adminStore } from './adminStore';
 import { auditTrailService } from './auditTrailService';
 import { clone, mockApiError, mockDelay, normalizeText, paginate, type PageParams } from './adminMock';
 
+export type VehicleStatusFilter = AdminVehicleStatus | 'on_mission';
+
+const matchesStatus = (status: AdminVehicleStatus, filter?: VehicleStatusFilter) =>
+  !filter || (filter === 'on_mission' ? ON_MISSION_VEHICLE_STATUSES.includes(status) : status === filter);
+
 export interface VehicleListParams extends PageParams {
   search?: string;
   stationId?: string;
   type?: DispatchVehicleType;
-  status?: AdminVehicleStatus;
+  /** Một trạng thái, hoặc 'on_mission' = nhóm đang làm nhiệm vụ (chờ xác nhận → tại hiện trường). */
+  status?: VehicleStatusFilter;
   /** Mặc định ẩn xe đã xóa mềm. */
   includeDeleted?: boolean;
 }
@@ -83,7 +90,7 @@ export const vehicleAdminService = {
       .filter((v) => params.includeDeleted || !v.isDeleted)
       .filter((v) => !params.stationId || v.stationId === params.stationId)
       .filter((v) => !params.type || v.type === params.type)
-      .filter((v) => !params.status || v.status === params.status)
+      .filter((v) => matchesStatus(v.status, params.status))
       .map(toListItem)
       .filter((v) => !q || normalizeText(`${v.plate} ${v.crewMemberName ?? ''}`).includes(q));
     return clone(paginate(items, params));
@@ -94,7 +101,7 @@ export const vehicleAdminService = {
     await mockDelay();
     const data = { ...input, plate: normalizePlate(input.plate) };
     validate(data, null);
-    const vehicle: AdminVehicle = { ...data, id: `veh-${Date.now()}`, status: 'available', isDeleted: false };
+    const vehicle: AdminVehicle = { ...data, id: `veh-${Date.now()}`, status: 'available', maintenanceSince: null, isDeleted: false };
     adminStore.vehicles.push(vehicle);
     return clone(vehicle);
   },
@@ -154,6 +161,7 @@ export const vehicleAdminService = {
 
     const from = vehicle.status;
     vehicle.status = status;
+    vehicle.maintenanceSince = status === 'maintenance' ? new Date().toISOString() : null;
     auditTrailService.record({
       action: 'vehicle_status_changed',
       targetType: 'vehicle',

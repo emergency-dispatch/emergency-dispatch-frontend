@@ -6,7 +6,7 @@ import { LockAccountDialog } from '../../components/admin/accounts/LockAccountDi
 import { ACCOUNT_STATUS_META, ACCOUNT_STATUS_ORDER, INTERNAL_ROLES, ROLE_META } from '../../components/admin/accounts/accountMeta';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass } from '../../components/admin/common/styles';
-import { useDebouncedValue, useServiceQuery } from '../../components/admin/common/hooks';
+import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { accountAdminService } from '../../services/admin/accountAdminService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { AccountStatus, InternalAccountListItem, InternalRole } from '../../types/internalAccount';
@@ -14,9 +14,10 @@ import type { AccountStatus, InternalAccountListItem, InternalRole } from '../..
 const PAGE_SIZE = 10;
 
 const AccountsPage: React.FC = () => {
-  const [search, setSearch] = useState('');
-  const [role, setRole] = useState<InternalRole | ''>('');
-  const [status, setStatus] = useState<AccountStatus | ''>('');
+  const initial = useInitialQueryParams();
+  const [search, setSearch] = useState(() => initial.text('search'));
+  const [role, setRole] = useState<InternalRole | ''>(() => initial.oneOf('role', INTERNAL_ROLES));
+  const [status, setStatus] = useState<AccountStatus | ''>(() => initial.oneOf('status', ACCOUNT_STATUS_ORDER));
   const [pageIndex, setPageIndex] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
 

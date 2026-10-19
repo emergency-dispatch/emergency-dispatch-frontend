@@ -22,6 +22,7 @@ const AdminPlaceholderPage = lazy(() => import('./pages/admin/AdminPlaceholderPa
 const AdminStationsPage = lazy(() => import('./pages/admin/StationsPage'));
 const AdminVehiclesPage = lazy(() => import('./pages/admin/VehiclesPage'));
 const AdminAccountsPage = lazy(() => import('./pages/admin/AccountsPage'));
+const AdminOverviewPage = lazy(() => import('./pages/admin/OverviewPage'));
 const AdminEscalationSettingsPage = lazy(() => import('./pages/admin/EscalationSettingsPage'));
 const AdminDispatchSettingsPage = lazy(() => import('./pages/admin/DispatchSettingsPage'));
 
@@ -81,7 +82,7 @@ const App: React.FC = () => {
             }
           >
             <Route index element={<Navigate to="overview" replace />} />
-            <Route path="overview" element={<AdminPlaceholderPage />} />
+            <Route path="overview" element={<AdminOverviewPage />} />
             <Route path="stations" element={<AdminStationsPage />} />
             <Route path="vehicles" element={<AdminVehiclesPage />} />
             <Route path="shifts" element={<AdminPlaceholderPage />} />

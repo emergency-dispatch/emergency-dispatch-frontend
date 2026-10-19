@@ -121,6 +121,7 @@ export const stationAdminService = {
     station.isDeleted = true;
     vehicles.forEach((v) => {
       v.status = 'out_of_service';
+      v.maintenanceSince = null;
     });
 
     auditTrailService.record({

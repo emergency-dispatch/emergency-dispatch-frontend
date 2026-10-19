@@ -5,15 +5,16 @@ import { StationFormDrawer } from '../../components/admin/stations/StationFormDr
 import { StationsTable } from '../../components/admin/stations/StationsTable';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass } from '../../components/admin/common/styles';
-import { useDebouncedValue, useServiceQuery } from '../../components/admin/common/hooks';
+import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { stationAdminService } from '../../services/admin/stationAdminService';
 import type { AdminStationListItem } from '../../types/adminFleet';
 
 const PAGE_SIZE = 10;
 
 const StationsPage: React.FC = () => {
-  const [search, setSearch] = useState('');
-  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const initial = useInitialQueryParams();
+  const [search, setSearch] = useState(() => initial.text('search'));
+  const [includeDeleted, setIncludeDeleted] = useState(() => initial.flag('includeDeleted'));
   const [pageIndex, setPageIndex] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
 

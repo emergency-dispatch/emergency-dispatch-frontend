@@ -1,4 +1,4 @@
-import { buildStationSeed, buildVehicleSeed } from '../../data/admin/fleetAdminSeed';
+import { ADMIN_ONLY_VEHICLES, buildStationSeed, buildVehicleSeed } from '../../data/admin/fleetAdminSeed';
 import { internalAccountSeed } from '../../data/admin/internalAccountSeed';
 import { DEFAULT_DISPATCH_SETTINGS, DEFAULT_ESCALATION_SETTINGS } from '../../data/admin/settingsDefaults';
 import type { AdminStation, AdminVehicle } from '../../types/adminFleet';
@@ -17,7 +17,7 @@ export const adminStore: {
   settings: { escalation: SettingsRecord<EscalationSettings>; dispatch: SettingsRecord<DispatchSettings> };
 } = {
   stations: buildStationSeed(),
-  vehicles: buildVehicleSeed(),
+  vehicles: [...buildVehicleSeed(), ...structuredClone(ADMIN_ONLY_VEHICLES)],
   accounts: structuredClone(internalAccountSeed),
   auditTrail: [],
   settings: {

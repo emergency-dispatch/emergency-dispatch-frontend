@@ -15,6 +15,9 @@ export const BUSY_VEHICLE_STATUSES: AdminVehicleStatus[] = [
 
 export const isVehicleBusy = (status: AdminVehicleStatus) => BUSY_VEHICLE_STATUSES.includes(status);
 
+/** Đang làm nhiệm vụ (chưa tính hồi sức) — gộp thành một nhóm ở Tổng quan và bộ lọc Đội xe. */
+export const ON_MISSION_VEHICLE_STATUSES: AdminVehicleStatus[] = ['awaiting_ack', 'accepted', 'en_route', 'on_scene'];
+
 /** Mirror dự kiến của StationDto (backend chưa có). */
 export interface AdminStation {
   id: string;
@@ -47,6 +50,8 @@ export interface AdminVehicle {
   status: AdminVehicleStatus;
   /** Nhân sự phụ trách xe (1 RescueStaff, mỗi người chỉ gán cho 1 xe). */
   crewMemberId: string | null;
+  /** Thời điểm Admin đặt Bảo trì; null khi xe không ở trạng thái Bảo trì. */
+  maintenanceSince: string | null;
   isDeleted: boolean;
 }
 

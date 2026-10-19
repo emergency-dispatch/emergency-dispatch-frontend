@@ -37,6 +37,17 @@ export function buildVehicleSeed(): AdminVehicle[] {
     stationId: v.stationId,
     status: v.status,
     crewMemberId: staffIdByName.get(v.driver) ?? null,
+    maintenanceSince: null,
     isDeleted: false,
   }));
 }
+
+const daysAgo = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString();
+
+// Xe chỉ có ở Admin (Live Map không hiển thị xe Bảo trì): demo "bảo trì quá lâu" và "chưa gán nhân sự".
+export const ADMIN_ONLY_VEHICLES: AdminVehicle[] = [
+  {
+    id: 'veh-11', plate: '51D-345.69', type: 'rescue', stationId: 'st-3', status: 'maintenance',
+    crewMemberId: null, maintenanceSince: daysAgo(5), isDeleted: false,
+  },
+];

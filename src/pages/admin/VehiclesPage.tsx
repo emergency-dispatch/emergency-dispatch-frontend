@@ -4,7 +4,7 @@ import { VehicleFormDrawer } from '../../components/admin/vehicles/VehicleFormDr
 import { VehiclesTable } from '../../components/admin/vehicles/VehiclesTable';
 import { ConfirmModal, Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass } from '../../components/admin/common/styles';
-import { useDebouncedValue, useServiceQuery } from '../../components/admin/common/hooks';
+import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import {
   ADMIN_VEHICLE_STATUS_META,
   ADMIN_VEHICLE_STATUS_ORDER,
@@ -12,19 +12,21 @@ import {
   VEHICLE_TYPE_META,
 } from '../../components/admin/fleetMeta';
 import { stationAdminService } from '../../services/admin/stationAdminService';
-import { vehicleAdminService } from '../../services/admin/vehicleAdminService';
+import { vehicleAdminService, type VehicleStatusFilter } from '../../services/admin/vehicleAdminService';
 import { getApiErrorMessage } from '../../services/apiClient';
-import type { AdminVehicleListItem, AdminVehicleStatus } from '../../types/adminFleet';
+import type { AdminVehicleListItem } from '../../types/adminFleet';
 import type { DispatchVehicleType } from '../../types/vehicle';
 
 const PAGE_SIZE = 10;
+const STATUS_FILTERS: VehicleStatusFilter[] = ['on_mission', ...ADMIN_VEHICLE_STATUS_ORDER];
 
 const VehiclesPage: React.FC = () => {
-  const [search, setSearch] = useState('');
-  const [stationId, setStationId] = useState('');
-  const [type, setType] = useState<DispatchVehicleType | ''>('');
-  const [status, setStatus] = useState<AdminVehicleStatus | ''>('');
-  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const initial = useInitialQueryParams();
+  const [search, setSearch] = useState(() => initial.text('search'));
+  const [stationId, setStationId] = useState(() => initial.text('stationId'));
+  const [type, setType] = useState<DispatchVehicleType | ''>(() => initial.oneOf('type', ADMIN_VEHICLE_TYPES));
+  const [status, setStatus] = useState<VehicleStatusFilter | ''>(() => initial.oneOf('status', STATUS_FILTERS));
+  const [includeDeleted, setIncludeDeleted] = useState(() => initial.flag('includeDeleted'));
   const [pageIndex, setPageIndex] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
 
@@ -131,11 +133,12 @@ const VehiclesPage: React.FC = () => {
           </select>
           <select
             value={status}
-            onChange={(e) => withPageReset(setStatus)(e.target.value as AdminVehicleStatus | '')}
+            onChange={(e) => withPageReset(setStatus)(e.target.value as VehicleStatusFilter | '')}
             aria-label="Lọc theo trạng thái"
             className={`${inputClass} lg:w-44`}
           >
             <option value="">Tất cả trạng thái</option>
+            <option value="on_mission">Đang làm nhiệm vụ (tất cả)</option>
             {ADMIN_VEHICLE_STATUS_ORDER.map((s) => (
               <option key={s} value={s}>
                 {ADMIN_VEHICLE_STATUS_META[s].label}
