@@ -101,9 +101,39 @@ export const vehicleAdminService = {
   async update(id: string, input: VehicleInput): Promise<AdminVehicle> {
     await mockDelay();
     const vehicle = findActive(id);
+    if (vehicle.status === 'out_of_service') {
+      throw mockApiError(409, 'Xe đang ngừng hoạt động — hãy chuyển sang trạm mới trước khi sửa thông tin khác.');
+    }
     const data = { ...input, plate: normalizePlate(input.plate) };
     validate(data, vehicle);
     Object.assign(vehicle, data);
+    return clone(vehicle);
+  },
+
+  /**
+   * Đưa xe Ngừng hoạt động (trạm cũ bị xóa) hoạt động trở lại: chuyển sang trạm đang hoạt động
+   * và tự đặt Sẵn sàng. Chỉ đổi trạm, các trường khác giữ nguyên.
+   */
+  // TODO(backend): PATCH /api/Vehicles/{id}/station
+  async reassignStation(id: string, stationId: string): Promise<AdminVehicle> {
+    await mockDelay();
+    const vehicle = findActive(id);
+    if (vehicle.status !== 'out_of_service') {
+      throw mockApiError(409, 'Chỉ xe đang ngừng hoạt động mới dùng chức năng chuyển trạm này.');
+    }
+    const station = adminStore.stations.find((s) => s.id === stationId && !s.isDeleted);
+    if (!station) throw mockApiError(400, 'Trạm mới không tồn tại hoặc đã bị xóa.');
+
+    const oldStationName = adminStore.stations.find((s) => s.id === vehicle.stationId)?.name ?? vehicle.stationId;
+    vehicle.stationId = station.id;
+    vehicle.status = 'available';
+    auditTrailService.record({
+      action: 'vehicle_status_changed',
+      targetType: 'vehicle',
+      targetId: vehicle.id,
+      targetLabel: vehicle.plate,
+      detail: `Chuyển trạm "${oldStationName}" (đã xóa) → "${station.name}". Ngừng hoạt động → Sẵn sàng.`,
+    });
     return clone(vehicle);
   },
 

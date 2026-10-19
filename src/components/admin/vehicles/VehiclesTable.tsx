@@ -21,7 +21,8 @@ function lockReason(vehicle: AdminVehicleListItem, action: 'xóa' | 'đặt bả
     if (action === 'sửa') return null;
     return `Xe đang làm nhiệm vụ (${ADMIN_VEHICLE_STATUS_META[vehicle.status].label}) — không thể ${action}.`;
   }
-  if (vehicle.status === 'out_of_service' && action !== 'xóa') {
+  // Xe ngừng hoạt động vẫn mở form được để chuyển sang trạm mới.
+  if (vehicle.status === 'out_of_service' && action === 'đặt bảo trì') {
     return `Xe ngừng hoạt động do trạm trực thuộc đã bị xóa — không thể ${action}.`;
   }
   return null;

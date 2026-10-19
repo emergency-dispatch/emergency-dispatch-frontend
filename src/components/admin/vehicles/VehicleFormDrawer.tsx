@@ -27,18 +27,21 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
   );
   const vehicles = useServiceQuery(() => vehicleAdminService.list(ALL), 'vehicles');
 
+  // Xe Ngừng hoạt động (trạm cũ bị xóa): chỉ được chọn trạm mới, các trường khác khóa.
+  const outOfService = initialVehicle?.status === 'out_of_service';
+
   const [form, setForm] = useState<VehicleInput>({
     plate: initialVehicle?.plate ?? '',
     type: initialVehicle?.type ?? 'fire_truck',
-    stationId: initialVehicle?.stationId ?? '',
+    stationId: outOfService ? '' : (initialVehicle?.stationId ?? ''),
     crewMemberId: initialVehicle?.crewMemberId ?? null,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const busy = !!initialVehicle && isVehicleBusy(initialVehicle.status);
-  // Thêm xe mới: mặc định chọn trạm đầu tiên khi danh sách trạm về.
-  const stationId = form.stationId || stations.data?.items[0]?.id || '';
+  // Thêm xe mới: mặc định chọn trạm đầu tiên khi danh sách trạm về. Xe ngừng hoạt động phải tự chọn.
+  const stationId = form.stationId || (outOfService ? '' : stations.data?.items[0]?.id || '');
 
   // RescueStaff đã gán cho xe khác → không chọn được (mỗi nhân sự chỉ gán cho 1 xe).
   const vehicleByCrew = new Map(
@@ -58,9 +61,11 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
     setError(null);
     const input = { ...form, stationId };
     try {
-      const saved = initialVehicle
-        ? await vehicleAdminService.update(initialVehicle.id, input)
-        : await vehicleAdminService.create(input);
+      const saved = !initialVehicle
+        ? await vehicleAdminService.create(input)
+        : outOfService
+          ? await vehicleAdminService.reassignStation(initialVehicle.id, stationId)
+          : await vehicleAdminService.update(initialVehicle.id, input);
       onSaved(saved);
     } catch (err) {
       setError(getApiErrorMessage(err));
@@ -77,11 +82,18 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
     >
       <Notice notice={error ? { kind: 'error', message: error } : null} />
 
+      {outOfService && (
+        <p className="px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
+          Xe đang ngừng hoạt động vì trạm cũ đã bị xóa. Chọn trạm mới để đưa xe hoạt động trở lại.
+        </p>
+      )}
+
       <FormField label="Biển số" required>
         <input
           value={form.plate}
           onChange={(e) => set('plate', e.target.value)}
           placeholder="VD: 51D-123.45"
+          disabled={outOfService}
           required
           className={`${inputClass} font-mono-data uppercase`}
         />
@@ -98,7 +110,8 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
                 key={type}
                 type="button"
                 onClick={() => set('type', type)}
-                className={`flex flex-col items-center gap-1.5 py-3 rounded-lg border text-xs font-bold transition-colors ${
+                disabled={outOfService}
+                className={`flex flex-col items-center gap-1.5 py-3 rounded-lg border text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   active ? 'bg-red-50 border-red-500 text-red-700' : 'border-slate-300 text-slate-500 hover:text-slate-900'
                 }`}
               >
@@ -121,6 +134,7 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
           disabled={busy || (stations.loading && !stations.data)}
           className={inputClass}
         >
+          {outOfService && <option value="">— Chọn trạm mới —</option>}
           {(stations.data?.items ?? []).map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -134,7 +148,7 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
         <select
           value={form.crewMemberId ?? ''}
           onChange={(e) => set('crewMemberId', e.target.value || null)}
-          disabled={staff.loading && !staff.data}
+          disabled={outOfService || (staff.loading && !staff.data)}
           className={inputClass}
         >
           <option value="">— Chưa gán —</option>
