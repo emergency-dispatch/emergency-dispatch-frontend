@@ -9,9 +9,6 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
-  // /dashboard chỉ còn cho Operator — back-office đã chuyển sang layout riêng /admin.
-  const visibleNavGroups = dashboardNavGroups.filter((group) => group.id !== 'backoffice');
-
   return (
     <aside
       className={`flex flex-col h-full shrink-0 bg-white border-r border-slate-200 transition-all duration-300 ${
@@ -32,7 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
 
       {/* Nav groups */}
       <nav className="flex-1 overflow-y-auto py-4 space-y-6">
-        {visibleNavGroups.map((group) => (
+        {dashboardNavGroups.map((group) => (
           <div key={group.id} className="px-3">
             {!collapsed && (
               <div className="px-2.5 mb-2 text-[10px] font-mono-data uppercase tracking-widest text-slate-400 font-bold">

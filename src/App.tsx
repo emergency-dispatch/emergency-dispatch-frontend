@@ -19,6 +19,8 @@ import { AdminLayout } from './components/admin/AdminLayout';
 
 // Các trang /admin tách bundle riêng — Suspense nằm trong AdminLayout.
 const AdminPlaceholderPage = lazy(() => import('./pages/admin/AdminPlaceholderPage'));
+const AdminStationsPage = lazy(() => import('./pages/admin/StationsPage'));
+const AdminVehiclesPage = lazy(() => import('./pages/admin/VehiclesPage'));
 
 const App: React.FC = () => {
   return (
@@ -77,8 +79,8 @@ const App: React.FC = () => {
           >
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<AdminPlaceholderPage />} />
-            <Route path="stations" element={<AdminPlaceholderPage />} />
-            <Route path="vehicles" element={<AdminPlaceholderPage />} />
+            <Route path="stations" element={<AdminStationsPage />} />
+            <Route path="vehicles" element={<AdminVehiclesPage />} />
             <Route path="shifts" element={<AdminPlaceholderPage />} />
             <Route path="accounts" element={<AdminPlaceholderPage />} />
             <Route path="citizens" element={<AdminPlaceholderPage />} />

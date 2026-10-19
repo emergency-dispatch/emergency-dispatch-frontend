@@ -1,6 +1,7 @@
-import { Building2, ListChecks, Map, Settings2, Truck, Users } from 'lucide-react';
+import { ListChecks, Map } from 'lucide-react';
 import type { DashboardNavGroup } from '../types/dashboard';
 
+// Sidebar của Operator (/dashboard). Back-office đã chuyển sang layout riêng /admin (components/admin/adminNav.ts).
 export const dashboardNavGroups: DashboardNavGroup[] = [
   {
     id: 'command-center',
@@ -8,16 +9,6 @@ export const dashboardNavGroups: DashboardNavGroup[] = [
     items: [
       { label: 'Live Map', path: '/dashboard/command-center/live-map', icon: Map },
       { label: 'Incident Queue', path: '/dashboard/command-center/incidents', icon: ListChecks },
-    ],
-  },
-  {
-    id: 'backoffice',
-    label: 'Back-office',
-    items: [
-      { label: 'Stations', path: '/dashboard/backoffice/stations', icon: Building2 },
-      { label: 'Vehicles & Equipment', path: '/dashboard/backoffice/vehicles', icon: Truck },
-      { label: 'Accounts & Roles', path: '/dashboard/backoffice/accounts', icon: Users },
-      { label: 'Escalation Config', path: '/dashboard/backoffice/escalation', icon: Settings2 },
     ],
   },
 ];

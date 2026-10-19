@@ -14,8 +14,9 @@ export const UnauthorizedPage: React.FC = () => {
       case UserRole.RescueStaff:
         return { label: 'Cổng tác chiến Cứu hộ (/staff)', path: '/staff' };
       case UserRole.Operator:
-      case UserRole.Admin:
         return { label: 'Trung tâm chỉ huy (/dashboard)', path: '/dashboard' };
+      case UserRole.Admin:
+        return { label: 'Trang quản trị (/admin)', path: '/admin/overview' };
       case UserRole.Citizen:
       default:
         return { label: 'Trang chủ Báo sự cố', path: '/' };
