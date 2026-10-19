@@ -21,6 +21,7 @@ import { AdminLayout } from './components/admin/AdminLayout';
 const AdminPlaceholderPage = lazy(() => import('./pages/admin/AdminPlaceholderPage'));
 const AdminStationsPage = lazy(() => import('./pages/admin/StationsPage'));
 const AdminVehiclesPage = lazy(() => import('./pages/admin/VehiclesPage'));
+const AdminAccountsPage = lazy(() => import('./pages/admin/AccountsPage'));
 
 const App: React.FC = () => {
   return (
@@ -82,7 +83,7 @@ const App: React.FC = () => {
             <Route path="stations" element={<AdminStationsPage />} />
             <Route path="vehicles" element={<AdminVehiclesPage />} />
             <Route path="shifts" element={<AdminPlaceholderPage />} />
-            <Route path="accounts" element={<AdminPlaceholderPage />} />
+            <Route path="accounts" element={<AdminAccountsPage />} />
             <Route path="citizens" element={<AdminPlaceholderPage />} />
             <Route path="blocked-numbers" element={<AdminPlaceholderPage />} />
             <Route path="settings/escalation" element={<AdminPlaceholderPage />} />

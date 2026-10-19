@@ -154,11 +154,12 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
           <option value="">— Chưa gán —</option>
           {(staff.data?.items ?? []).map((s) => {
             const plate = vehicleByCrew.get(s.id);
+            const locked = s.lock.kind === 'admin';
             return (
-              <option key={s.id} value={s.id} disabled={!!plate}>
+              <option key={s.id} value={s.id} disabled={!!plate || locked}>
                 {s.fullName}
                 {plate ? ` (đang gán xe ${plate})` : ''}
-                {s.isLocked ? ' — đang bị khóa' : ''}
+                {locked ? ' — đang bị khóa' : ''}
               </option>
             );
           })}

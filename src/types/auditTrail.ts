@@ -2,9 +2,11 @@
 export type AuditAction =
   | 'station_deleted'
   | 'vehicle_status_changed'
-  | 'vehicle_deleted';
+  | 'vehicle_deleted'
+  | 'account_locked'
+  | 'account_unlocked';
 
-export type AuditTargetType = 'station' | 'vehicle';
+export type AuditTargetType = 'station' | 'vehicle' | 'account';
 
 /** Mirror dự kiến của IncidentAuditTrail / AuditLogDto (backend chưa có). */
 export interface AuditTrailEntry {

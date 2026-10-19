@@ -63,6 +63,8 @@ function validate(input: VehicleInput, current: AdminVehicle | null) {
   if (input.crewMemberId) {
     const crew = adminStore.accounts.find((a) => a.id === input.crewMemberId);
     if (!crew || crew.role !== UserRole.RescueStaff) throw mockApiError(400, 'Nhân sự phải là tài khoản RescueStaff.');
+    // Khóa tài khoản gỡ khỏi xe → không gán lại tài khoản đang bị Admin khóa.
+    if (crew.lock.kind === 'admin') throw mockApiError(409, `${crew.fullName} đang bị khóa, không thể gán cho xe.`);
     const otherVehicle = adminStore.vehicles.find(
       (v) => !v.isDeleted && v.id !== current?.id && v.crewMemberId === input.crewMemberId
     );

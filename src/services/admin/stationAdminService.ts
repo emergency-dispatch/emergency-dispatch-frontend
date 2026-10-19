@@ -50,6 +50,8 @@ function validate(input: StationInput, currentId: string | null) {
   if (input.headOperatorId) {
     const head = adminStore.accounts.find((a) => a.id === input.headOperatorId);
     if (!head || head.role !== UserRole.Operator) throw mockApiError(400, 'Trưởng trạm phải là tài khoản Operator.');
+    // Khóa tài khoản gỡ khỏi vị trí trưởng trạm → không gán lại tài khoản đang bị Admin khóa.
+    if (head.lock.kind === 'admin') throw mockApiError(409, `${head.fullName} đang bị khóa, không thể làm trưởng trạm.`);
     const otherStation = adminStore.stations.find(
       (s) => !s.isDeleted && s.id !== currentId && s.headOperatorId === input.headOperatorId
     );

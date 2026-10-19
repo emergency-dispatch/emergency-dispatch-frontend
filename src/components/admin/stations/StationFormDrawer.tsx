@@ -138,11 +138,12 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
           <option value="">— Chưa gán —</option>
           {(operators.data?.items ?? []).map((op) => {
             const otherStation = headOfOtherStation.get(op.id);
+            const locked = op.lock.kind === 'admin';
             return (
-              <option key={op.id} value={op.id} disabled={!!otherStation}>
+              <option key={op.id} value={op.id} disabled={!!otherStation || locked}>
                 {op.fullName}
                 {otherStation ? ` (trưởng ${otherStation})` : ''}
-                {op.isLocked ? ' — đang bị khóa' : ''}
+                {locked ? ' — đang bị khóa' : ''}
               </option>
             );
           })}
