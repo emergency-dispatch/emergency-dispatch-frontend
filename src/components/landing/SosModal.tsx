@@ -344,11 +344,8 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 <div className="flex items-center gap-2.5 min-w-0">
                   <MapPin className="w-4 h-4 text-red-600 shrink-0" />
                   <div className="text-xs min-w-0">
-                    <span className="text-slate-500 block text-[10px] font-mono uppercase">VỊ TRÍ HIỆN TRƯỜNG (GNSS)</span>
-                    <span className="text-slate-900 font-mono font-bold truncate block">
-                      {latitude.toFixed(4)}° N, {longitude.toFixed(4)}° E
-                    </span>
-                    <span className="text-[11px] text-slate-500 truncate block">{locationAddress}</span>
+                    <span className="text-slate-500 block text-[10px] font-mono uppercase font-semibold">VỊ TRÍ HIỆN TRƯỜNG</span>
+                    <span className="text-slate-900 font-medium text-xs truncate block">{locationAddress}</span>
                   </div>
                 </div>
                 <span
@@ -360,7 +357,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                       : 'bg-slate-100 text-slate-600 border-slate-200'
                   }`}
                 >
-                  {gpsStatus === 'locked' ? 'ĐÃ KHÓA TỌA ĐỘ' : gpsStatus === 'locating' ? 'ĐANG ĐỊNH VỊ...' : 'TỌA ĐỘ MẶC ĐỊNH'}
+                  {gpsStatus === 'locked' ? 'ĐÃ ĐỊNH VỊ' : gpsStatus === 'locating' ? 'ĐANG ĐỊNH VỊ...' : 'VỊ TRÍ MẶC ĐỊNH'}
                 </span>
               </div>
 
@@ -512,7 +509,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
               <div className="max-w-md mx-auto p-4 rounded-xl bg-slate-50 border border-slate-200 text-left font-mono text-xs space-y-2 text-slate-600">
                 <div className="text-emerald-600 font-bold flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>Đã khóa tọa độ GPS: ({latitude.toFixed(4)}, {longitude.toFixed(4)})</span>
+                  <span>Đã xác định vị trí hiện trường</span>
                 </div>
                 <div className="text-red-600 font-bold flex items-center gap-2">
                   <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
