@@ -22,6 +22,8 @@ const AdminPlaceholderPage = lazy(() => import('./pages/admin/AdminPlaceholderPa
 const AdminStationsPage = lazy(() => import('./pages/admin/StationsPage'));
 const AdminVehiclesPage = lazy(() => import('./pages/admin/VehiclesPage'));
 const AdminAccountsPage = lazy(() => import('./pages/admin/AccountsPage'));
+const AdminEscalationSettingsPage = lazy(() => import('./pages/admin/EscalationSettingsPage'));
+const AdminDispatchSettingsPage = lazy(() => import('./pages/admin/DispatchSettingsPage'));
 
 const App: React.FC = () => {
   return (
@@ -86,8 +88,8 @@ const App: React.FC = () => {
             <Route path="accounts" element={<AdminAccountsPage />} />
             <Route path="citizens" element={<AdminPlaceholderPage />} />
             <Route path="blocked-numbers" element={<AdminPlaceholderPage />} />
-            <Route path="settings/escalation" element={<AdminPlaceholderPage />} />
-            <Route path="settings/dispatch" element={<AdminPlaceholderPage />} />
+            <Route path="settings/escalation" element={<AdminEscalationSettingsPage />} />
+            <Route path="settings/dispatch" element={<AdminDispatchSettingsPage />} />
             <Route path="audit-trail" element={<AdminPlaceholderPage />} />
             <Route path="*" element={<Navigate to="overview" replace />} />
           </Route>
