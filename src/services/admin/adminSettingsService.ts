@@ -1,4 +1,5 @@
 import { DEFAULT_DISPATCH_SETTINGS, DEFAULT_ESCALATION_SETTINGS } from '../../data/admin/settingsDefaults';
+import type { AuditChange } from '../../types/auditTrail';
 import { adminStore } from './adminStore';
 import { auditTrailService } from './auditTrailService';
 import { clone, getMockActor, mockApiError, mockDelay } from './adminMock';
@@ -117,14 +118,13 @@ const DISPATCH_FIELDS: { label: string; format: (s: DispatchSettings) => string 
   { label: 'Thời gian hồi sức', format: (s) => `${s.recoveryMinutes} phút` },
 ];
 
-function diff<T>(fields: { label: string; format: (s: T) => string }[], before: T, after: T): string[] {
+function diff<T>(fields: { label: string; format: (s: T) => string }[], before: T, after: T): AuditChange[] {
   return fields
-    .map((f) => ({ label: f.label, from: f.format(before), to: f.format(after) }))
-    .filter((c) => c.from !== c.to)
-    .map((c) => `${c.label}: ${c.from} → ${c.to}`);
+    .map((f) => ({ field: f.label, from: f.format(before), to: f.format(after) }))
+    .filter((c) => c.from !== c.to);
 }
 
-function save<T>(record: SettingsRecord<T>, values: T, changes: string[], targetId: string, targetLabel: string) {
+function save<T>(record: SettingsRecord<T>, values: T, changes: AuditChange[], targetId: string, targetLabel: string) {
   if (changes.length === 0) return clone(record);
   const actor = getMockActor();
   record.values = clone(values);
@@ -135,7 +135,8 @@ function save<T>(record: SettingsRecord<T>, values: T, changes: string[], target
     targetType: 'settings',
     targetId,
     targetLabel,
-    detail: `${changes.join('; ')}.`,
+    detail: `Thay đổi ${changes.length} tham số: ${changes.map((c) => c.field.toLowerCase()).join(', ')}.`,
+    changes,
   });
   return clone(record);
 }

@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Truck,
   UserX,
+  UserRound,
   Users,
   Wrench,
   type LucideIcon,
@@ -87,7 +88,7 @@ const OverviewPage: React.FC = () => {
             </div>
           </section>
 
-          <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <StatCard to="/admin/stations" label="Trạm đang hoạt động" value={data.activeStationCount} icon={Building2} />
             <StatCard
               to={`/admin/accounts?role=${UserRole.Operator}`}
@@ -101,6 +102,7 @@ const OverviewPage: React.FC = () => {
               value={data.accountCounts[UserRole.RescueStaff]}
               icon={Users}
             />
+            <StatCard to="/admin/citizens" label="Tài khoản Citizen" value={data.citizenCount} icon={UserRound} />
           </section>
 
           <ActionItems

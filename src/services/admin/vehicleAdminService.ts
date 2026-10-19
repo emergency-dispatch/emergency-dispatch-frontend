@@ -137,11 +137,15 @@ export const vehicleAdminService = {
     vehicle.stationId = station.id;
     vehicle.status = 'available';
     auditTrailService.record({
-      action: 'vehicle_status_changed',
+      action: 'vehicle_station_changed',
       targetType: 'vehicle',
       targetId: vehicle.id,
       targetLabel: vehicle.plate,
-      detail: `Chuyển trạm "${oldStationName}" (đã xóa) → "${station.name}". Ngừng hoạt động → Sẵn sàng.`,
+      detail: `Chuyển xe Ngừng hoạt động sang trạm "${station.name}", xe về Sẵn sàng.`,
+      changes: [
+        { field: 'Trạm trực thuộc', from: `${oldStationName} (đã xóa)`, to: station.name },
+        { field: 'Trạng thái', from: 'Ngừng hoạt động', to: 'Sẵn sàng' },
+      ],
     });
     return clone(vehicle);
   },
@@ -167,7 +171,8 @@ export const vehicleAdminService = {
       targetType: 'vehicle',
       targetId: vehicle.id,
       targetLabel: vehicle.plate,
-      detail: `${STATUS_LABEL[from]} → ${STATUS_LABEL[status]}.`,
+      detail: `Đặt ${STATUS_LABEL[status]}.`,
+      changes: [{ field: 'Trạng thái', from: STATUS_LABEL[from], to: STATUS_LABEL[status] }],
     });
     return clone(vehicle);
   },

@@ -1,4 +1,6 @@
 import { ADMIN_ONLY_VEHICLES, buildStationSeed, buildVehicleSeed } from '../../data/admin/fleetAdminSeed';
+import { blockedNumberSeed, citizenSeed, type BlockedNumberRecord, type CitizenRecord } from '../../data/admin/citizenSeed';
+import { auditTrailSeed } from '../../data/admin/auditTrailSeed';
 import { internalAccountSeed } from '../../data/admin/internalAccountSeed';
 import { DEFAULT_DISPATCH_SETTINGS, DEFAULT_ESCALATION_SETTINGS } from '../../data/admin/settingsDefaults';
 import type { AdminStation, AdminVehicle } from '../../types/adminFleet';
@@ -13,13 +15,17 @@ export const adminStore: {
   stations: AdminStation[];
   vehicles: AdminVehicle[];
   accounts: InternalAccount[];
+  citizens: CitizenRecord[];
+  blockedNumbers: BlockedNumberRecord[];
   auditTrail: AuditTrailEntry[];
   settings: { escalation: SettingsRecord<EscalationSettings>; dispatch: SettingsRecord<DispatchSettings> };
 } = {
   stations: buildStationSeed(),
   vehicles: [...buildVehicleSeed(), ...structuredClone(ADMIN_ONLY_VEHICLES)],
   accounts: structuredClone(internalAccountSeed),
-  auditTrail: [],
+  citizens: structuredClone(citizenSeed),
+  blockedNumbers: structuredClone(blockedNumberSeed),
+  auditTrail: structuredClone(auditTrailSeed),
   settings: {
     escalation: { values: structuredClone(DEFAULT_ESCALATION_SETTINGS), updatedAt: null, updatedByName: null },
     dispatch: { values: structuredClone(DEFAULT_DISPATCH_SETTINGS), updatedAt: null, updatedByName: null },

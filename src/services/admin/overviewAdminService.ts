@@ -16,6 +16,7 @@ export interface AdminOverview {
   vehicleCounts: Record<OverviewVehicleGroup, number>;
   activeStationCount: number;
   accountCounts: Record<InternalRole, number>;
+  citizenCount: number;
   actionItems: {
     stationsWithoutAvailableVehicle: { id: string; name: string; vehicleCount: number }[];
     stationsWithoutHead: { id: string; name: string }[];
@@ -51,6 +52,7 @@ export const overviewAdminService = {
         [UserRole.Operator]: adminStore.accounts.filter((a) => a.role === UserRole.Operator).length,
         [UserRole.RescueStaff]: adminStore.accounts.filter((a) => a.role === UserRole.RescueStaff).length,
       },
+      citizenCount: adminStore.citizens.length,
       actionItems: {
         stationsWithoutAvailableVehicle: stations
           .map((s) => ({ station: s, list: vehicles.filter((v) => v.stationId === s.id) }))

@@ -118,6 +118,8 @@ export const stationAdminService = {
       );
     }
 
+    // Xe còn lại chỉ có thể Sẵn sàng hoặc Bảo trì (xe đang làm nhiệm vụ đã bị chặn ở trên).
+    const previousStatus = new Map(vehicles.map((v) => [v.id, v.status === 'maintenance' ? 'Bảo trì' : 'Sẵn sàng']));
     station.isDeleted = true;
     vehicles.forEach((v) => {
       v.status = 'out_of_service';
@@ -141,6 +143,7 @@ export const stationAdminService = {
         targetId: v.id,
         targetLabel: v.plate,
         detail: `Chuyển sang Ngừng hoạt động do trạm "${station.name}" bị xóa.`,
+        changes: [{ field: 'Trạng thái', from: previousStatus.get(v.id) ?? '—', to: 'Ngừng hoạt động' }],
       })
     );
 

@@ -152,6 +152,7 @@ export const accountAdminService = {
     const account = findAccount(id);
     const trimmed = requireReason(reason, 'khóa');
     if (effectiveLock(account).kind === 'admin') throw mockApiError(409, 'Tài khoản đã bị khóa.');
+    const lockLabel = account.lock.kind === 'failed_login' ? 'Khóa tạm (sai mật khẩu)' : 'Hoạt động';
 
     const vehicle = vehicleOf(account.id);
     if (vehicle && isVehicleBusy(vehicle.status)) {
@@ -175,7 +176,9 @@ export const accountAdminService = {
       targetType: 'account',
       targetId: account.id,
       targetLabel: `${account.fullName} (${ROLE_LABEL[account.role]})`,
-      detail: [`Lý do: ${trimmed}.`, ...consequences].join(' '),
+      detail: ['Khóa tài khoản.', ...consequences].join(' '),
+      changes: [{ field: 'Trạng thái', from: lockLabel, to: 'Bị Admin khóa' }],
+      reason: trimmed,
     });
     return clone(account);
   },
@@ -191,9 +194,10 @@ export const accountAdminService = {
     const lock = effectiveLock(account);
     if (lock.kind === 'none') throw mockApiError(409, 'Tài khoản không bị khóa.');
 
+    const unlockReason = lock.kind === 'admin' ? requireReason(reason, 'mở khóa') : null;
     const detail =
       lock.kind === 'admin'
-        ? `Mở khóa tài khoản bị Admin khóa. Lý do: ${requireReason(reason, 'mở khóa')}.`
+        ? 'Mở khóa tài khoản bị Admin khóa.'
         : 'Mở khóa nhanh tài khoản bị khóa tạm do sai mật khẩu 5 lần.';
 
     account.lock = { kind: 'none' };
@@ -203,6 +207,10 @@ export const accountAdminService = {
       targetId: account.id,
       targetLabel: `${account.fullName} (${ROLE_LABEL[account.role]})`,
       detail,
+      changes: [
+        { field: 'Trạng thái', from: lock.kind === 'admin' ? 'Bị Admin khóa' : 'Khóa tạm (sai mật khẩu)', to: 'Hoạt động' },
+      ],
+      reason: unlockReason,
     });
     return clone(account);
   },
