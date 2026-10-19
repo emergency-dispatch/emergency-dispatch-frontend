@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
@@ -14,11 +14,11 @@ import { UnauthorizedPage } from './pages/auth/UnauthorizedPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 import { LiveMapPage } from './pages/dashboard/command-center/LiveMapPage';
 import { IncidentQueuePage } from './pages/dashboard/command-center/IncidentQueuePage';
-import { StationsPage } from './pages/dashboard/backoffice/StationsPage';
-import { VehiclesPage } from './pages/dashboard/backoffice/VehiclesPage';
-import { AccountsPage } from './pages/dashboard/backoffice/AccountsPage';
-import { EscalationConfigPage } from './pages/dashboard/backoffice/EscalationConfigPage';
 import { StaffPage } from './pages/staff/StaffPage';
+import { AdminLayout } from './components/admin/AdminLayout';
+
+// Các trang /admin tách bundle riêng — Suspense nằm trong AdminLayout.
+const AdminPlaceholderPage = lazy(() => import('./pages/admin/AdminPlaceholderPage'));
 
 const App: React.FC = () => {
   return (
@@ -45,12 +45,15 @@ const App: React.FC = () => {
             }
           />
 
-          {/* Operator Command Center (Protected: Operator, Admin) & Backoffice (Protected: Admin only) */}
+          {/* Operator Command Center (Protected: Operator only — Admin được chuyển về /admin) */}
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <RoleRoute allowedRoles={[UserRole.Operator, UserRole.Admin]}>
+                <RoleRoute
+                  allowedRoles={[UserRole.Operator]}
+                  redirectByRole={{ [UserRole.Admin]: '/admin/overview' }}
+                >
                   <DashboardLayout />
                 </RoleRoute>
               </ProtectedRoute>
@@ -59,13 +62,31 @@ const App: React.FC = () => {
             <Route index element={<Navigate to="command-center/live-map" replace />} />
             <Route path="command-center/live-map" element={<LiveMapPage />} />
             <Route path="command-center/incidents" element={<IncidentQueuePage />} />
+          </Route>
 
-            <Route element={<RoleRoute allowedRoles={[UserRole.Admin]} />}>
-              <Route path="backoffice/stations" element={<StationsPage />} />
-              <Route path="backoffice/vehicles" element={<VehiclesPage />} />
-              <Route path="backoffice/accounts" element={<AccountsPage />} />
-              <Route path="backoffice/escalation" element={<EscalationConfigPage />} />
-            </Route>
+          {/* Admin Portal (Protected: Admin only) */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <RoleRoute allowedRoles={[UserRole.Admin]}>
+                  <AdminLayout />
+                </RoleRoute>
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="overview" replace />} />
+            <Route path="overview" element={<AdminPlaceholderPage />} />
+            <Route path="stations" element={<AdminPlaceholderPage />} />
+            <Route path="vehicles" element={<AdminPlaceholderPage />} />
+            <Route path="shifts" element={<AdminPlaceholderPage />} />
+            <Route path="accounts" element={<AdminPlaceholderPage />} />
+            <Route path="citizens" element={<AdminPlaceholderPage />} />
+            <Route path="blocked-numbers" element={<AdminPlaceholderPage />} />
+            <Route path="settings/escalation" element={<AdminPlaceholderPage />} />
+            <Route path="settings/dispatch" element={<AdminPlaceholderPage />} />
+            <Route path="audit-trail" element={<AdminPlaceholderPage />} />
+            <Route path="*" element={<Navigate to="overview" replace />} />
           </Route>
 
           {/* Fallback */}

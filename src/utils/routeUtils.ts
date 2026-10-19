@@ -8,8 +8,9 @@ export const getDefaultRouteForRole = (role?: UserRole): string => {
     case UserRole.RescueStaff:
       return '/staff';
     case UserRole.Operator:
+      return '/dashboard/command-center/live-map';
     case UserRole.Admin:
-      return '/dashboard';
+      return '/admin/overview';
     case UserRole.Citizen:
     default:
       return '/';
@@ -37,9 +38,14 @@ export const isRouteAllowedForRole = (pathname?: string, role?: UserRole): boole
     return false;
   }
 
-  // Command center / backoffice dashboard: Operator and Admin only
+  // Command Center: Operator only (Admin có layout riêng /admin)
   if (pathname.startsWith('/dashboard')) {
-    return role === UserRole.Admin || role === UserRole.Operator;
+    return role === UserRole.Operator;
+  }
+
+  // Admin portal: Admin only
+  if (pathname.startsWith('/admin')) {
+    return role === UserRole.Admin;
   }
 
   // Rescue staff field operations portal: RescueStaff and Admin only

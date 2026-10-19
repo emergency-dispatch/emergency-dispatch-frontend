@@ -5,10 +5,12 @@ import { UserRole } from '../types/auth';
 
 interface RoleRouteProps {
   allowedRoles: UserRole[];
+  /** Role không được phép nhưng có trang riêng → chuyển hướng thay vì báo /unauthorized. */
+  redirectByRole?: Partial<Record<UserRole, string>>;
   children?: React.ReactNode;
 }
 
-export const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles, children }) => {
+export const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles, redirectByRole, children }) => {
   const { user, isAuthenticated, isLoading, isLoggingOut } = useAuth();
   const location = useLocation();
 
@@ -28,6 +30,8 @@ export const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles, children }) 
   }
 
   if (!allowedRoles.includes(user.role)) {
+    const redirectTo = redirectByRole?.[user.role];
+    if (redirectTo) return <Navigate to={redirectTo} replace />;
     return <Navigate to="/unauthorized" state={{ from: location }} replace />;
   }
 
