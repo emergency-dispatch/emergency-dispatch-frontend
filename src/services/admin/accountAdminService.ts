@@ -11,6 +11,7 @@ import type {
 } from '../../types/internalAccount';
 import { adminStore } from './adminStore';
 import { auditTrailService } from './auditTrailService';
+import { currentShiftBusyVehicle } from './shiftService';
 import { clone, getMockActor, mockApiError, mockDelay, normalizeText, paginate, type PageParams } from './adminMock';
 
 export interface AccountListParams extends PageParams {
@@ -53,6 +54,7 @@ function toListItem(account: InternalAccount): InternalAccountListItem {
     ...account,
     headOfStation: station ? { id: station.id, name: station.name } : null,
     assignedVehicle: vehicle ? { id: vehicle.id, plate: vehicle.plate, busy: isVehicleBusy(vehicle.status) } : null,
+    currentShiftBusyVehiclePlate: currentShiftBusyVehicle(account.id)?.plate ?? null,
   };
 }
 
@@ -90,7 +92,7 @@ function validate(input: InternalAccountInput, current: InternalAccount | null) 
     }
     const vehicle = vehicleOf(current.id);
     if (vehicle) {
-      throw mockApiError(409, `${current.fullName} đang được gán cho xe ${vehicle.plate}. Gỡ khỏi xe trước khi đổi vai trò.`);
+      throw mockApiError(409, `${current.fullName} đang phụ trách xe ${vehicle.plate}. Gỡ khỏi vị trí người phụ trách xe trước khi đổi vai trò.`);
     }
   }
 }
@@ -154,6 +156,10 @@ export const accountAdminService = {
     if (effectiveLock(account).kind === 'admin') throw mockApiError(409, 'Tài khoản đã bị khóa.');
     const lockLabel = account.lock.kind === 'failed_login' ? 'Khóa tạm (sai mật khẩu)' : 'Hoạt động';
 
+    const shiftVehicle = currentShiftBusyVehicle(account.id);
+    if (shiftVehicle) {
+      throw mockApiError(409, `${account.fullName} đang trong kíp ca hiện tại của xe ${shiftVehicle.plate} (đang làm nhiệm vụ), chưa thể khóa tài khoản.`);
+    }
     const vehicle = vehicleOf(account.id);
     if (vehicle && isVehicleBusy(vehicle.status)) {
       throw mockApiError(409, `Xe ${vehicle.plate} của ${account.fullName} đang làm nhiệm vụ, chưa thể khóa tài khoản.`);
@@ -167,7 +173,7 @@ export const accountAdminService = {
     }
     if (vehicle) {
       vehicle.crewMemberId = null;
-      consequences.push(`Gỡ khỏi xe ${vehicle.plate}.`);
+      consequences.push(`Gỡ khỏi vị trí người phụ trách xe ${vehicle.plate}.`);
     }
 
     account.lock = { kind: 'admin', reason: trimmed, lockedAt: new Date().toISOString(), lockedByName: getMockActor().name };

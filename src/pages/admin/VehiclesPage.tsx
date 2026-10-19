@@ -99,7 +99,7 @@ const VehiclesPage: React.FC = () => {
           <input
             value={search}
             onChange={(e) => withPageReset(setSearch)(e.target.value)}
-            placeholder="Tìm biển số, nhân sự..."
+            placeholder="Tìm biển số, người phụ trách..."
             className={`${inputClass} pl-9`}
           />
         </div>

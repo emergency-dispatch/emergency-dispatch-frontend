@@ -43,7 +43,7 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
   // Thêm xe mới: mặc định chọn trạm đầu tiên khi danh sách trạm về. Xe ngừng hoạt động phải tự chọn.
   const stationId = form.stationId || (outOfService ? '' : stations.data?.items[0]?.id || '');
 
-  // RescueStaff đã gán cho xe khác → không chọn được (mỗi nhân sự chỉ gán cho 1 xe).
+  // RescueStaff đã gán cho xe khác → không chọn được (mỗi người chỉ phụ trách tối đa 1 xe).
   const vehicleByCrew = new Map(
     (vehicles.data?.items ?? [])
       .filter((v) => v.crewMemberId && v.id !== initialVehicle?.id)
@@ -144,7 +144,7 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
         {stations.error && <p className="text-[11px] text-red-600">{stations.error}</p>}
       </FormField>
 
-      <FormField label="Nhân sự phụ trách" hint="Chọn 1 RescueStaff. Mỗi nhân sự chỉ được gán cho 1 xe.">
+      <FormField label="Người phụ trách" hint="Chọn 1 RescueStaff. Mỗi người chỉ phụ trách tối đa 1 xe. Kíp trực từng ca xếp ở màn Lịch ca trực.">
         <select
           value={form.crewMemberId ?? ''}
           onChange={(e) => set('crewMemberId', e.target.value || null)}
@@ -158,7 +158,7 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
             return (
               <option key={s.id} value={s.id} disabled={!!plate || locked}>
                 {s.fullName}
-                {plate ? ` (đang gán xe ${plate})` : ''}
+                {plate ? ` (đang phụ trách xe ${plate})` : ''}
                 {locked ? ' — đang bị khóa' : ''}
               </option>
             );

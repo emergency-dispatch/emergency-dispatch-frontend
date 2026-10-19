@@ -4,6 +4,7 @@ import { ConfirmModal, Notice } from '../common/ui';
 import { inputClass } from '../common/styles';
 import { LOCK_REASON_MIN_LENGTH, accountAdminService } from '../../../services/admin/accountAdminService';
 import { getApiErrorMessage } from '../../../services/apiClient';
+import { UserRole } from '../../../types/auth';
 import type { InternalAccountListItem } from '../../../types/internalAccount';
 
 interface LockAccountDialogProps {
@@ -23,10 +24,13 @@ export const LockAccountDialog: React.FC<LockAccountDialogProps> = ({ account, m
   const reasonLength = reason.trim().length;
   const vehicle = account.assignedVehicle;
   // RescueStaff có xe đang làm nhiệm vụ / hồi sức → không cho khóa.
-  const blockedReason =
-    isLock && vehicle?.busy
-      ? `Xe ${vehicle.plate} của ${account.fullName} đang làm nhiệm vụ. Chờ xe hoàn thành nhiệm vụ rồi mới khóa tài khoản.`
-      : null;
+  const blockedReason = !isLock
+    ? null
+    : account.currentShiftBusyVehiclePlate
+      ? `${account.fullName} đang trong kíp ca hiện tại của xe ${account.currentShiftBusyVehiclePlate} (đang làm nhiệm vụ). Chờ xe hoàn thành nhiệm vụ rồi mới khóa tài khoản.`
+      : vehicle?.busy
+        ? `Xe ${vehicle.plate} của ${account.fullName} đang làm nhiệm vụ. Chờ xe hoàn thành nhiệm vụ rồi mới khóa tài khoản.`
+        : null;
 
   const handleConfirm = async () => {
     setSubmitting(true);
@@ -68,13 +72,18 @@ export const LockAccountDialog: React.FC<LockAccountDialogProps> = ({ account, m
                 )}
                 {vehicle && (
                   <p>
-                    Đang được gán cho xe <span className="font-bold font-mono-data">{vehicle.plate}</span>. Khóa tài khoản sẽ
+                    Đang phụ trách xe <span className="font-bold font-mono-data">{vehicle.plate}</span>. Khóa tài khoản sẽ
                     gỡ khỏi xe.
                   </p>
                 )}
                 <p className="text-amber-700">Mở khóa sau này không tự gán lại các vị trí trên.</p>
               </div>
             </div>
+          )}
+          {isLock && account.role === UserRole.RescueStaff && (
+            <p className="text-xs text-slate-500">
+              Các ca trực đã xếp của người này không tự gỡ; màn Lịch ca trực sẽ đánh dấu cảnh báo để xếp người khác.
+            </p>
           )}
           {!isLock && account.lock.kind === 'admin' && (
             <p className="text-xs">

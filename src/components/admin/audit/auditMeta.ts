@@ -1,6 +1,7 @@
 import {
   Ban,
   Building2,
+  CalendarClock,
   ClipboardList,
   Settings2,
   Siren,
@@ -10,13 +11,14 @@ import {
 import { UserRole } from '../../../types/auth';
 import type { AuditAction, AuditActionGroup, AuditActorRole, AuditTrailEntry } from '../../../types/auditTrail';
 
-export const AUDIT_GROUPS: AuditActionGroup[] = ['incident', 'dispatch', 'account', 'fleet', 'blocked_number', 'settings'];
+export const AUDIT_GROUPS: AuditActionGroup[] = ['incident', 'dispatch', 'account', 'fleet', 'shift', 'blocked_number', 'settings'];
 
 export const AUDIT_GROUP_META: Record<AuditActionGroup, { label: string; icon: LucideIcon; badgeClass: string }> = {
   incident: { label: 'Sự cố', icon: Siren, badgeClass: 'bg-red-50 text-red-700 border-red-200' },
   dispatch: { label: 'Điều phối', icon: ClipboardList, badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
   account: { label: 'Tài khoản', icon: UserCog, badgeClass: 'bg-violet-50 text-violet-700 border-violet-200' },
   fleet: { label: 'Đội xe & trạm', icon: Building2, badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  shift: { label: 'Ca trực', icon: CalendarClock, badgeClass: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
   blocked_number: { label: 'Số bị chặn', icon: Ban, badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' },
   settings: { label: 'Cấu hình', icon: Settings2, badgeClass: 'bg-slate-100 text-slate-700 border-slate-200' },
 };
@@ -39,6 +41,9 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   vehicle_status_changed: 'Đổi trạng thái xe',
   vehicle_station_changed: 'Chuyển trạm xe',
   vehicle_deleted: 'Xóa xe',
+  shift_assigned: 'Xếp người vào ca',
+  shift_unassigned: 'Bỏ người khỏi ca',
+  shift_week_copied: 'Sao chép lịch tuần',
   settings_changed: 'Thay đổi cấu hình',
 };
 
@@ -78,6 +83,11 @@ export function auditTargetLink(entry: AuditTrailEntry): string | null {
       return `/admin/citizens?search=${q(stripSuffix(entry.targetLabel))}`;
     case 'blocked_number':
       return `/admin/blocked-numbers?search=${q(entry.targetLabel.slice(-3))}&status=all`;
+    case 'shift': {
+      // targetId = "<stationId>|<YYYY-MM-DD>" (trạm + ngày của ca / tuần đích).
+      const [station, date] = entry.targetId.split('|');
+      return `/admin/shifts?station=${q(station)}&date=${q(date ?? '')}`;
+    }
     case 'settings':
       return entry.targetId === 'dispatch' ? '/admin/settings/dispatch' : '/admin/settings/escalation';
     case 'incident':

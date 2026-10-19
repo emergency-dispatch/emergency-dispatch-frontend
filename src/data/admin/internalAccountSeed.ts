@@ -24,4 +24,17 @@ export const internalAccountSeed: InternalAccount[] = [
   { id: 'rs-10', fullName: 'Đinh Văn Long', email: 'long.dinh@resq-ai.vn', phoneNumber: '0912345610', role: UserRole.RescueStaff, lock: { kind: 'none' } },
   { id: 'rs-11', fullName: 'Mai Văn Minh', email: 'minh.mai@resq-ai.vn', phoneNumber: '0912345611', role: UserRole.RescueStaff, lock: { kind: 'none' } },
   { id: 'rs-12', fullName: 'Tạ Thị Ngọc', email: 'ngoc.ta@resq-ai.vn', phoneNumber: '0912345612', role: UserRole.RescueStaff, lock: { kind: 'admin', reason: 'Tạm đình chỉ chờ xác minh vi phạm quy trình an toàn', lockedAt: minutesFromNow(-60 * 26), lockedByName: 'Quản trị viên' } },
+  // rs-13 … rs-24: thành viên kíp trực (không phụ trách xe). Một số trùng tên đồng đội trong mock Staff.
+  { id: 'rs-13', fullName: 'Lê Hoàng Long', email: 'long.le@resq-ai.vn', phoneNumber: '0912345613', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-14', fullName: 'Vũ Đức Nam', email: 'nam.vu@resq-ai.vn', phoneNumber: '0912345614', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-15', fullName: 'Nguyễn Văn Minh', email: 'minh.nguyen@resq-ai.vn', phoneNumber: '0912345615', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-16', fullName: 'Phạm Tuấn Kiệt', email: 'kiet.pham@resq-ai.vn', phoneNumber: '0912345616', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-17', fullName: 'Đặng Quốc Huy', email: 'huy.dang@resq-ai.vn', phoneNumber: '0912345617', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-18', fullName: 'Trương Thị Oanh', email: 'oanh.truong@resq-ai.vn', phoneNumber: '0912345618', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-19', fullName: 'Hồ Văn Phát', email: 'phat.ho@resq-ai.vn', phoneNumber: '0912345619', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-20', fullName: 'Lâm Thị Quyên', email: 'quyen.lam@resq-ai.vn', phoneNumber: '0912345620', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-21', fullName: 'Đoàn Văn Sơn', email: 'son.doan@resq-ai.vn', phoneNumber: '0912345621', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-22', fullName: 'Quách Thị Trinh', email: 'trinh.quach@resq-ai.vn', phoneNumber: '0912345622', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-23', fullName: 'Mai Xuân Vinh', email: 'vinh.mai@resq-ai.vn', phoneNumber: '0912345623', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-24', fullName: 'Âu Thị Yến', email: 'yen.au@resq-ai.vn', phoneNumber: '0912345624', role: UserRole.RescueStaff, lock: { kind: 'none' } },
 ];

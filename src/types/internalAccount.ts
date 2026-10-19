@@ -31,6 +31,8 @@ export interface InternalAccountListItem extends InternalAccount {
   headOfStation: { id: string; name: string } | null;
   /** RescueStaff: xe đang được gán (chỉ xe chưa xóa). busy = đang làm nhiệm vụ / hồi sức. */
   assignedVehicle: { id: string; plate: string; busy: boolean } | null;
+  /** RescueStaff: biển số xe đang làm nhiệm vụ / hồi sức mà người này đang trong kíp ca hiện tại. */
+  currentShiftBusyVehiclePlate: string | null;
 }
 
 export interface InternalAccountInput {

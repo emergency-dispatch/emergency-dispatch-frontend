@@ -11,7 +11,7 @@ export const ROLE_META: Record<InternalRole, { label: string; description: strin
   },
   [UserRole.RescueStaff]: {
     label: 'Đội cứu hộ',
-    description: 'Nhận nhiệm vụ trên Staff App. Có thể được gán làm nhân sự phụ trách xe.',
+    description: 'Nhận nhiệm vụ trên Staff App. Có thể làm người phụ trách xe và được xếp vào kíp ca trực.',
     badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   },
 };

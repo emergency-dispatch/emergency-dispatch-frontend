@@ -1,7 +1,9 @@
 import { UserRole } from '../../types/auth';
 import { ON_MISSION_VEHICLE_STATUSES } from '../../types/adminFleet';
 import type { InternalRole } from '../../types/internalAccount';
+import type { DutyShiftType } from '../../types/shift';
 import { adminStore } from './adminStore';
+import { stationsMissingShiftsToday, upcomingShiftsWithLockedStaff, type LockedStaffShift } from './shiftService';
 import { clone, mockDelay } from './adminMock';
 
 /** Xe ở trạng thái Bảo trì lâu hơn ngưỡng này thì đưa vào khối "Cần xử lý". */
@@ -24,6 +26,8 @@ export interface AdminOverview {
     longMaintenanceVehicles: { id: string; plate: string; stationName: string; maintenanceSince: string; days: number }[];
     vehiclesWithoutCrew: { id: string; plate: string; stationName: string }[];
     outOfServiceVehicles: { id: string; plate: string; formerStationName: string }[];
+    stationsMissingShiftsToday: { id: string; name: string; missing: DutyShiftType[] }[];
+    upcomingShiftsWithLockedStaff: LockedStaffShift[];
   };
 }
 
@@ -83,6 +87,9 @@ export const overviewAdminService = {
         outOfServiceVehicles: vehicles
           .filter((v) => v.status === 'out_of_service')
           .map((v) => ({ id: v.id, plate: v.plate, formerStationName: stationName(v.stationId) })),
+
+        stationsMissingShiftsToday: stationsMissingShiftsToday(now),
+        upcomingShiftsWithLockedStaff: upcomingShiftsWithLockedStaff(now),
       },
     };
     return clone(overview);

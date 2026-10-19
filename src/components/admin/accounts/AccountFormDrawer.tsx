@@ -27,7 +27,7 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
   const roleLockedReason = initialAccount?.headOfStation
     ? `Đang là trưởng trạm "${initialAccount.headOfStation.name}". Gỡ khỏi vị trí trưởng trạm (màn Trạm cứu hộ) trước khi đổi vai trò.`
     : initialAccount?.assignedVehicle
-      ? `Đang được gán cho xe ${initialAccount.assignedVehicle.plate}. Gỡ khỏi xe (màn Đội xe) trước khi đổi vai trò.`
+      ? `Đang phụ trách xe ${initialAccount.assignedVehicle.plate}. Gỡ khỏi vị trí người phụ trách xe (màn Đội xe) trước khi đổi vai trò.`
       : null;
 
   const set = <K extends keyof InternalAccountInput>(key: K, value: InternalAccountInput[K]) =>

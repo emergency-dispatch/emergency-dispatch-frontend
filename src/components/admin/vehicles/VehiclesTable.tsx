@@ -48,7 +48,7 @@ export const VehiclesTable: React.FC<VehiclesTableProps> = ({
             <th className={thClass}>Biển số</th>
             <th className={thClass}>Chủng loại</th>
             <th className={thClass}>Trạm trực thuộc</th>
-            <th className={thClass}>Nhân sự</th>
+            <th className={thClass}>Người phụ trách</th>
             <th className={thClass}>Trạng thái</th>
             <th className={`${thClass} text-right`}>Hành động</th>
           </tr>
@@ -94,7 +94,7 @@ export const VehiclesTable: React.FC<VehiclesTableProps> = ({
                 <td className="px-4 py-3 whitespace-nowrap">
                   {vehicle.crewMemberName ?? (
                     <span className="px-2 py-0.5 rounded-md border border-amber-200 bg-amber-50 text-amber-700 text-[10px] font-bold font-mono-data">
-                      Chưa gán nhân sự
+                      Chưa có người phụ trách
                     </span>
                   )}
                 </td>

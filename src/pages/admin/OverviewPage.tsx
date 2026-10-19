@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   Building2,
+  CalendarX,
   CircleCheck,
   KeyRound,
   RefreshCw,
@@ -28,6 +29,7 @@ import { getApiErrorMessage } from '../../services/apiClient';
 import { useNow } from '../../hooks/useNow';
 import { formatCountdown } from '../../utils/incidentFormat';
 import { UserRole } from '../../types/auth';
+import { SHIFT_DEFINITIONS } from '../../types/shift';
 
 const VEHICLE_GROUPS: { key: OverviewVehicleGroup; label: string; color: string }[] = [
   { key: 'available', label: 'Sẵn sàng', color: ADMIN_VEHICLE_STATUS_META.available.color },
@@ -215,10 +217,34 @@ const ActionItems: React.FC<{
       )),
     },
     {
-      title: 'Xe chưa gán nhân sự',
+      title: 'Xe chưa có người phụ trách',
       icon: UserX,
       rows: items.vehiclesWithoutCrew.map((v) => (
         <ActionRow key={v.id} to={vehicleLink(v.plate)} primary={v.plate} mono secondary={v.stationName} />
+      )),
+    },
+    {
+      title: 'Trạm chưa có ca trực hôm nay',
+      icon: CalendarX,
+      rows: items.stationsMissingShiftsToday.map((s) => (
+        <ActionRow
+          key={s.id}
+          to={`/admin/shifts?station=${encodeURIComponent(s.id)}`}
+          primary={s.name}
+          secondary={`Chưa có người trực: ${s.missing.map((t) => SHIFT_DEFINITIONS[t].label).join(', ')}`}
+        />
+      )),
+    },
+    {
+      title: 'Ca sắp tới có người bị khóa',
+      icon: UserX,
+      rows: items.upcomingShiftsWithLockedStaff.map((s) => (
+        <ActionRow
+          key={s.assignmentId}
+          to={`/admin/shifts?station=${encodeURIComponent(s.stationId)}&date=${s.date}`}
+          primary={s.staffName}
+          secondary={`${s.stationName} · ${s.rowLabel} · ${SHIFT_DEFINITIONS[s.shiftType].label} ${formatDate(`${s.date}T12:00:00`)}`}
+        />
       )),
     },
     {

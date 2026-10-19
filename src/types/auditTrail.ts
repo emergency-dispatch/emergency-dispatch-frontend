@@ -24,10 +24,14 @@ export type AuditAction =
   | 'vehicle_status_changed'
   | 'vehicle_station_changed'
   | 'vehicle_deleted'
+  // Ca trực
+  | 'shift_assigned'
+  | 'shift_unassigned'
+  | 'shift_week_copied'
   // Cấu hình
   | 'settings_changed';
 
-export type AuditActionGroup = 'incident' | 'dispatch' | 'account' | 'fleet' | 'blocked_number' | 'settings';
+export type AuditActionGroup = 'incident' | 'dispatch' | 'account' | 'fleet' | 'shift' | 'blocked_number' | 'settings';
 
 /** Nhóm của từng loại hành động — dùng chung cho bộ lọc (service) và hiển thị (UI). */
 export const AUDIT_ACTION_GROUP: Record<AuditAction, AuditActionGroup> = {
@@ -48,6 +52,9 @@ export const AUDIT_ACTION_GROUP: Record<AuditAction, AuditActionGroup> = {
   vehicle_status_changed: 'fleet',
   vehicle_station_changed: 'fleet',
   vehicle_deleted: 'fleet',
+  shift_assigned: 'shift',
+  shift_unassigned: 'shift',
+  shift_week_copied: 'shift',
   settings_changed: 'settings',
 };
 
@@ -58,6 +65,7 @@ export type AuditTargetType =
   | 'account'
   | 'citizen'
   | 'blocked_number'
+  | 'shift'
   | 'settings';
 
 /** Vai trò người thao tác; 'System' = tác vụ nền (VD Escalation Daemon). */

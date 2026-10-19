@@ -69,14 +69,14 @@ function validate(input: VehicleInput, current: AdminVehicle | null) {
 
   if (input.crewMemberId) {
     const crew = adminStore.accounts.find((a) => a.id === input.crewMemberId);
-    if (!crew || crew.role !== UserRole.RescueStaff) throw mockApiError(400, 'Nhân sự phải là tài khoản RescueStaff.');
+    if (!crew || crew.role !== UserRole.RescueStaff) throw mockApiError(400, 'Người phụ trách phải là tài khoản RescueStaff.');
     // Khóa tài khoản gỡ khỏi xe → không gán lại tài khoản đang bị Admin khóa.
-    if (crew.lock.kind === 'admin') throw mockApiError(409, `${crew.fullName} đang bị khóa, không thể gán cho xe.`);
+    if (crew.lock.kind === 'admin') throw mockApiError(409, `${crew.fullName} đang bị khóa, không thể làm người phụ trách xe.`);
     const otherVehicle = adminStore.vehicles.find(
       (v) => !v.isDeleted && v.id !== current?.id && v.crewMemberId === input.crewMemberId
     );
     if (otherVehicle) {
-      throw mockApiError(409, `${crew.fullName} đã được gán cho xe ${otherVehicle.plate}. Mỗi nhân sự chỉ gán cho 1 xe.`);
+      throw mockApiError(409, `${crew.fullName} đang phụ trách xe ${otherVehicle.plate}. Mỗi người chỉ phụ trách tối đa 1 xe.`);
     }
   }
 }
