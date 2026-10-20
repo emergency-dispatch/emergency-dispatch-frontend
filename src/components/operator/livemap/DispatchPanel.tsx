@@ -13,14 +13,17 @@ import {
   X,
 } from 'lucide-react';
 import { SeverityBadge } from '../incidents/SeverityBadge';
+import { VehicleTeamTag } from '../teams/VehicleTeamTag';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { DISPATCH_ALGORITHM_META, MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
 import { VEHICLE_STATUS_META, VEHICLE_TYPE_META, stations } from '../../../data/liveMapMock';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useNow } from '../../../hooks/useNow';
+import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { suggestVehicles } from '../../../utils/dispatch';
 import { formatCountdown } from '../../../utils/incidentFormat';
 import type { Incident } from '../../../types/incident';
+import type { StationTeam } from '../../../types/stationTeam';
 import type { DispatchAlgorithm, Vehicle } from '../../../types/vehicle';
 
 const DRAG_MIME = 'application/x-resq-vehicle-id';
@@ -30,6 +33,8 @@ interface DispatchIncidentCardProps {
   incident: Incident;
   vehicles: Vehicle[];
   vehiclesById: Map<string, Vehicle>;
+  /** Tổ phụ trách theo xe (màn Trạm & Tổ). */
+  teamByVehicle: Map<string, StationTeam>;
   algorithm: DispatchAlgorithm;
   isSelected: boolean;
   isEscalated: boolean;
@@ -47,6 +52,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
   incident,
   vehicles,
   vehiclesById,
+  teamByVehicle,
   algorithm,
   isSelected,
   isEscalated,
@@ -220,6 +226,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                       {!hasReported && vehicle.etaMinutes !== null && vehicle.status !== 'awaiting_ack' &&
                         ` · ETA ${vehicle.etaMinutes} phút`}
                     </p>
+                    <VehicleTeamTag team={teamByVehicle.get(vehicle.id)} />
                   </div>
                   {canRecall && (
                     <button
@@ -311,6 +318,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                           <p className="text-[10px] text-slate-400 truncate">
                             {stationsById.get(vehicle.stationId)?.name ?? vehicle.area}
                           </p>
+                          <VehicleTeamTag team={teamByVehicle.get(vehicle.id)} />
                         </div>
                         <button
                           onClick={() => onAssign(vehicle.id)}
@@ -364,6 +372,7 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
   );
   const availableVehicles = useMemo(() => vehicles.filter((v) => v.status === 'available'), [vehicles]);
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
+  const teamByVehicle = useTeamByVehicle();
 
   // Mở chế độ điều phối mà chưa chọn sự cố → tự chọn sự cố ưu tiên nhất còn thiếu xe để gợi ý hiện ngay.
   // Nếu Operator chủ động bỏ chọn thì không tự chọn lại.
@@ -449,6 +458,7 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
               incident={incident}
               vehicles={vehicles}
               vehiclesById={vehiclesById}
+              teamByVehicle={teamByVehicle}
               algorithm={algorithm}
               isSelected={incident.id === selectedIncidentId}
               isEscalated={escalatedIncidentIds.has(incident.id)}
@@ -496,6 +506,7 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
                     <p className="text-[10px] text-slate-500 truncate">
                       {typeMeta.label} · {stationsById.get(vehicle.stationId)?.name ?? vehicle.area}
                     </p>
+                    <VehicleTeamTag team={teamByVehicle.get(vehicle.id)} />
                   </div>
                 </div>
               );

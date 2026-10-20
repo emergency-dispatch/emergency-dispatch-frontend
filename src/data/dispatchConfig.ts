@@ -18,6 +18,10 @@ export const SEARCH_RADII_KM = [10, 15, 22.5, 30];
 // Cấp 3 được điều đồng thời tối đa 5 xe; Cấp 1–2 điều 1 xe.
 export const MAX_VEHICLES_BY_LEVEL: Record<SeverityLevel, number> = { 1: 1, 2: 1, 3: 5 };
 
+// Tổ làm việc của trạm: dưới MIN người thì cảnh báo "thiếu người" khi giao xe; không vượt quá MAX người.
+export const MIN_TEAM_SIZE = 2;
+export const MAX_TEAM_SIZE = 6;
+
 // Khớp loại xe theo nhánh sự cố. Xe cứu hộ hỗ trợ cả hai nhánh (banh cắt, cứu người mắc kẹt).
 export const MATCHING_VEHICLE_TYPES: Record<IncidentCategory, DispatchVehicleType[]> = {
   fire: ['fire_truck', 'rescue'],

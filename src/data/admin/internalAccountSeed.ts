@@ -37,4 +37,9 @@ export const internalAccountSeed: InternalAccount[] = [
   { id: 'rs-22', fullName: 'Quách Thị Trinh', email: 'trinh.quach@resq-ai.vn', phoneNumber: '0912345622', role: UserRole.RescueStaff, lock: { kind: 'none' } },
   { id: 'rs-23', fullName: 'Mai Xuân Vinh', email: 'vinh.mai@resq-ai.vn', phoneNumber: '0912345623', role: UserRole.RescueStaff, lock: { kind: 'none' } },
   { id: 'rs-24', fullName: 'Âu Thị Yến', email: 'yen.au@resq-ai.vn', phoneNumber: '0912345624', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  // rs-25 … rs-28: nhân sự mới, chưa thuộc trạm nào — Trưởng trạm thêm vào trạm ở màn "Trạm & Tổ" của Operator.
+  { id: 'rs-25', fullName: 'Cao Văn Thắng', email: 'thang.cao@resq-ai.vn', phoneNumber: '0912345625', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-26', fullName: 'Lý Thị Hồng', email: 'hong.ly@resq-ai.vn', phoneNumber: '0912345626', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-27', fullName: 'Phan Đức Toàn', email: 'toan.phan@resq-ai.vn', phoneNumber: '0912345627', role: UserRole.RescueStaff, lock: { kind: 'none' } },
+  { id: 'rs-28', fullName: 'Nguyễn Thị Uyên', email: 'uyen.nguyen@resq-ai.vn', phoneNumber: '0912345628', role: UserRole.RescueStaff, lock: { kind: 'none' } },
 ];
