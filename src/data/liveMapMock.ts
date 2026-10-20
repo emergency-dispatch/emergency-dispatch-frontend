@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 import { Ambulance, ShieldCheck, Truck } from 'lucide-react';
-import { FireTruckIcon, type FireTruckIconProps } from '../components/dashboard/livemap/FireTruckIcon';
+import { FireTruckIcon, type FireTruckIconProps } from '../components/common/FireTruckIcon';
 import type { DispatchVehicleType, Station, Vehicle, VehicleStatus, VehicleType } from '../types/vehicle';
 
 export const VEHICLE_STATUS_META: Record<VehicleStatus, { label: string; color: string }> = {

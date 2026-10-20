@@ -21,7 +21,7 @@ import {
 } from '../../data/staffMock';
 import type { StaffMission, MissionStatus, DigitalClosureReport, StaffProfile } from '../../types/staff';
 import { SEVERITY_META } from '../../data/incidentMock';
-import { HazardTagBadge } from '../../components/dashboard/incidents/HazardTagBadge';
+import { HazardTagBadge } from '../../components/common/HazardTagBadge';
 import { MapPin, Phone, User, ShieldAlert, Clock } from 'lucide-react';
 import { staffAudioService } from '../../services/staffAudioService';
 import { useAuth } from '../../hooks/useAuth';

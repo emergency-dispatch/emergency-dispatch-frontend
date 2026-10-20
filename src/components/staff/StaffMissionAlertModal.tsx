@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import type { StaffMission } from '../../types/staff';
 import { SEVERITY_META } from '../../data/incidentMock';
-import { HazardTagBadge } from '../dashboard/incidents/HazardTagBadge';
+import { HazardTagBadge } from '../common/HazardTagBadge';
 import { staffAudioService } from '../../services/staffAudioService';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_REALISTIC_STYLE } from '../../services/mapboxService';
 

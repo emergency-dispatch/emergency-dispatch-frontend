@@ -70,7 +70,7 @@ const DispatchContext = createContext<DispatchContextValue | null>(null);
 /**
  * Owns incident-queue data (real API: GET/PUT /api/Incidents/*) and the
  * vehicle-position simulation (mock — no backend Vehicle/Dispatch API yet).
- * Mounted once in DashboardLayout so both keep running across page navigation,
+ * Mounted once in OperatorLayout so both keep running across page navigation,
  * and so Incident Queue approvals are immediately visible in Live Map's dispatch panel.
  */
 export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

@@ -11,9 +11,9 @@ import { RegisterPage } from './pages/auth/RegisterPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { UnauthorizedPage } from './pages/auth/UnauthorizedPage';
 
-import { DashboardLayout } from './components/dashboard/DashboardLayout';
-import { LiveMapPage } from './pages/dashboard/command-center/LiveMapPage';
-import { IncidentQueuePage } from './pages/dashboard/command-center/IncidentQueuePage';
+import { OperatorLayout } from './components/operator/OperatorLayout';
+import { LiveMapPage } from './pages/operator/LiveMapPage';
+import { IncidentQueuePage } from './pages/operator/IncidentQueuePage';
 import { StaffPage } from './pages/staff/StaffPage';
 import { AdminLayout } from './components/admin/AdminLayout';
 
@@ -63,7 +63,7 @@ const App: React.FC = () => {
                   allowedRoles={[UserRole.Operator]}
                   redirectByRole={{ [UserRole.Admin]: '/admin/overview' }}
                 >
-                  <DashboardLayout />
+                  <OperatorLayout />
                 </RoleRoute>
               </ProtectedRoute>
             }
