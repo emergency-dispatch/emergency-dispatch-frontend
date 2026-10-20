@@ -1,6 +1,6 @@
 import React from 'react';
-import { HAZARD_TAG_META, LEGACY_HAZARD_TAG_META, UNKNOWN_HAZARD_TAG_META } from '../../../data/incidentMock';
-import { normalizeHazardTag, type HazardTag, type HazardTagKey } from '../../../types/incident';
+import { HAZARD_TAG_META, LEGACY_HAZARD_TAG_META, UNKNOWN_HAZARD_TAG_META } from '../../data/incidentMock';
+import { normalizeHazardTag, type HazardTag, type HazardTagKey } from '../../types/incident';
 
 interface HazardTagBadgeProps {
   tag?: string;

@@ -5,7 +5,7 @@ import { EscalationAlert } from './EscalationAlert';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
-export const DashboardLayout: React.FC = () => {
+export const OperatorLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
 
   return (

@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { IncidentDetailDrawer } from '../../../components/dashboard/incidents/IncidentDetailDrawer';
-import { IncidentQueueList } from '../../../components/dashboard/incidents/IncidentQueueList';
-import { useDispatchStore } from '../../../context/DispatchContext';
-import type { BlockDuration, SeverityLevel } from '../../../types/incident';
+import { IncidentDetailDrawer } from '../../components/operator/incidents/IncidentDetailDrawer';
+import { IncidentQueueList } from '../../components/operator/incidents/IncidentQueueList';
+import { useDispatchStore } from '../../context/DispatchContext';
+import type { BlockDuration, SeverityLevel } from '../../types/incident';
 
 export const IncidentQueuePage: React.FC = () => {
   const {

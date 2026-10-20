@@ -17,7 +17,7 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { HazardTagBadge } from './HazardTagBadge';
+import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { SeverityBadge } from './SeverityBadge';
 import {

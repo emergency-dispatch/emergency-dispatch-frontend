@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Route } from 'lucide-react';
-import { DispatchPanel } from '../../../components/dashboard/livemap/DispatchPanel';
-import { LiveMapView } from '../../../components/dashboard/livemap/LiveMapView';
-import { VehiclePanel } from '../../../components/dashboard/livemap/VehiclePanel';
-import { useDispatchStore } from '../../../context/DispatchContext';
-import { trafficJamMock } from '../../../data/incidentQueueMock';
-import type { VehicleFilters } from '../../../types/vehicle';
+import { DispatchPanel } from '../../components/operator/livemap/DispatchPanel';
+import { LiveMapView } from '../../components/operator/livemap/LiveMapView';
+import { VehiclePanel } from '../../components/operator/livemap/VehiclePanel';
+import { useDispatchStore } from '../../context/DispatchContext';
+import { trafficJamMock } from '../../data/incidentQueueMock';
+import type { VehicleFilters } from '../../types/vehicle';
 
 const DEFAULT_FILTERS: VehicleFilters = { type: 'all', status: 'all', area: 'all' };
 

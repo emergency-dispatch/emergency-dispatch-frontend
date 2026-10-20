@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertTriangle, Lock, Siren } from 'lucide-react';
-import { HazardTagBadge } from './HazardTagBadge';
+import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { IncidentThumbnail } from './IncidentThumbnail';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { SeverityBadge } from './SeverityBadge';
