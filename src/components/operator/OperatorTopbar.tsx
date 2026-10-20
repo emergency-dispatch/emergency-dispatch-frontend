@@ -5,7 +5,7 @@ import { useDispatchStore } from '../../context/DispatchContext';
 import { useAuth } from '../../hooks/useAuth';
 import { UserProfileModal } from '../profile/UserProfileModal';
 
-export const Topbar: React.FC = () => {
+export const OperatorTopbar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 

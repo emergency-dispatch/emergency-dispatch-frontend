@@ -3,12 +3,12 @@ import { NavLink } from 'react-router-dom';
 import { ChevronsLeft, ChevronsRight, ShieldAlert } from 'lucide-react';
 import { dashboardNavGroups } from '../../data/dashboardMock';
 
-interface SidebarProps {
+interface OperatorSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
+export const OperatorSidebar: React.FC<OperatorSidebarProps> = ({ collapsed, onToggle }) => {
   return (
     <aside
       className={`flex flex-col h-full shrink-0 bg-white border-r border-slate-200 transition-all duration-300 ${
