@@ -16,6 +16,7 @@ interface HeroRadarMapProps {
 export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({ etaTime, formatEta }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const emsEtaElRef = useRef<HTMLSpanElement | null>(null);
   const [radarLayer, setRadarLayer] = useState<'satellite' | 'dark'>('satellite');
 
   const handleSetRadarLayer = (nextMode: 'satellite' | 'dark') => {
@@ -138,10 +139,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({ etaTime, formatEta }
           </svg>
         </div>
         <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(16, 185, 129, 0.5); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 10px; color: #6EE7B7; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">
-          EMS AM-02 <span style="color: #FFFFFF;">(${formatEta(etaTime)})</span>
+          EMS AM-02 <span class="ems-eta-span" style="color: #FFFFFF;">(${formatEta(etaTime)})</span>
         </div>
       </div>
     `;
+    emsEtaElRef.current = emsEl.querySelector('.ems-eta-span');
     new mapboxgl.Marker({ element: emsEl }).setLngLat(EMS_COORDS).addTo(map);
 
     // 3. Fire Engine Marker
@@ -194,10 +196,18 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({ etaTime, formatEta }
       clearTimeout(t1);
       clearTimeout(t2);
       if (ro) ro.disconnect();
+      emsEtaElRef.current = null;
       map.remove();
       mapRef.current = null;
     };
   }, []);
+
+  // Dynamically update ETA countdown text without resetting or re-rendering Mapbox
+  useEffect(() => {
+    if (emsEtaElRef.current) {
+      emsEtaElRef.current.textContent = `(${formatEta(etaTime)})`;
+    }
+  }, [etaTime, formatEta]);
 
   return (
     <div className="relative flex-1 min-h-[160px] rounded-xl bg-slate-950 border border-slate-800 overflow-hidden">

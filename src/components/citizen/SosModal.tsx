@@ -665,3 +665,5 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     document.body
   );
 };
+
+export default SosModal;
