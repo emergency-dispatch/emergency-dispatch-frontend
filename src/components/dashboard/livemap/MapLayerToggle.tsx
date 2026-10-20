@@ -1,12 +1,26 @@
 import React from 'react';
 import { Layers } from 'lucide-react';
+import type { Style } from 'mapbox-gl';
+import { createRasterStyle } from '../../../services/mapboxService';
 
 export type MapTileMode = 'light' | 'dark' | 'satellite';
 
-export const TILE_URLS: Record<MapTileMode, string> = {
-  light: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-  dark: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+const ESRI_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors';
+
+// Esri Canvas chỉ có tile tới zoom 16 — mapbox-gl tự phóng to tile ở zoom cao hơn.
+export const TILE_STYLES: Record<MapTileMode, Style> = {
+  light: createRasterStyle(
+    ['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'],
+    { attribution: ESRI_ATTRIBUTION, maxzoom: 16 }
+  ),
+  dark: createRasterStyle(
+    ['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'],
+    { attribution: ESRI_ATTRIBUTION, maxzoom: 16 }
+  ),
+  satellite: createRasterStyle(
+    ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+    { attribution: ESRI_ATTRIBUTION, maxzoom: 19 }
+  ),
 };
 
 const MODE_ORDER: MapTileMode[] = ['light', 'dark', 'satellite'];

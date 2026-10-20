@@ -63,6 +63,17 @@ export const MAPBOX_ESRI_SATELLITE_STYLE: Style = {
   ],
 };
 
+/** Style raster 1 lớp từ một nguồn tile XYZ (dùng cho các lớp nền Sáng / Tối / Vệ tinh của Live Map). */
+export function createRasterStyle(tiles: string[], options: { attribution?: string; maxzoom?: number } = {}): Style {
+  return {
+    version: 8,
+    sources: {
+      base: { type: 'raster', tiles, tileSize: 256, attribution: options.attribution, maxzoom: options.maxzoom ?? 19 },
+    },
+    layers: [{ id: 'base-layer', type: 'raster', source: 'base' }],
+  };
+}
+
 // Dùng giao diện vệ tinh thực tế cho cả 2 màn hình
 export const MAPBOX_DARK_STYLE = MAPBOX_REALISTIC_STYLE;
 export const MAPBOX_LIGHT_STYLE = MAPBOX_REALISTIC_STYLE;
