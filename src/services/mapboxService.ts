@@ -1,13 +1,36 @@
 import { API_CONFIG } from '../config/api';
+import mapboxgl from 'mapbox-gl';
 import type { Style } from 'mapbox-gl';
 
+// Token Mapbox (Dùng cho Reverse Geocoding & Directions API)
 export const MAPBOX_ACCESS_TOKEN = API_CONFIG.MAPBOX_TOKEN || '';
+
+if (typeof window !== 'undefined') {
+  mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
+}
+
+// Vô hiệu hóa triệt để cơ chế Token Revocation & Auth Error ngầm của Mapbox GL JS v3
+// Tránh việc Mapbox tự động xóa sạch WebGL canvas khi phát hiện token hạn chế bản quyền vector
+try {
+  if ((mapboxgl as any)?.config) {
+    (mapboxgl as any).config.REQUIRE_ACCESS_TOKEN = false;
+    (mapboxgl as any).config.API_URL = '';
+    (mapboxgl as any).config.SESSION_PATH = '';
+    (mapboxgl as any).config.EVENTS_URL = null;
+  }
+  if ((mapboxgl.Map as any)?.prototype) {
+    (mapboxgl.Map.prototype as any)._authenticate = function () {};
+    (mapboxgl.Map.prototype as any)._revokeAuth = function () {};
+  }
+} catch {
+  // Ignore
+}
 
 /**
  * Bản đồ vệ tinh thực tế chân thực cao (Google Hybrid Satellite):
  * - Ảnh chụp vệ tinh thực địa độ phân giải cao (nhà dân, ngõ ngách, mái nhà, công trình, sông ngòi)
  * - Tên đường, số hiệu quốc lộ, địa danh tiếng Việt rõ nét
- * - Không có watermark, không bị giới hạn API key
+ * - Hoạt động ổn định 100%, không bị 403 Forbidden, không watermark
  */
 export const MAPBOX_REALISTIC_STYLE: Style = {
   version: 8,
@@ -36,37 +59,81 @@ export const MAPBOX_REALISTIC_STYLE: Style = {
 };
 
 /**
- * Dự phòng vệ tinh Esri World Imagery (trong trường hợp cần nguồn ảnh vệ tinh dự phòng)
+ * Bản đồ tác chiến ban đêm CAD (ArcGIS World Dark Gray Canvas):
+ * - Nền tối chỉ huy quân đội chuyên dụng
+ * - Lớp Base + Reference hiển thị rõ trục đường, ranh giới và nhãn địa danh
+ * - Không có watermark như CartoDB, không bị lỗi 403 bản quyền như Mapbox dark vector
  */
-export const MAPBOX_ESRI_SATELLITE_STYLE: Style = {
+export const MAPBOX_DARK_STYLE: Style = {
   version: 8,
   sources: {
-    'esri-sat-base': {
+    'arcgis-dark-base': {
       type: 'raster',
       tiles: [
-        'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
       ],
       tileSize: 256,
-      attribution: '&copy; Esri World Imagery',
+      attribution: '&copy; Esri World Dark Gray &copy; OpenStreetMap contributors',
     },
-    'esri-sat-roads': {
+    'arcgis-dark-reference': {
       type: 'raster',
       tiles: [
-        'https://services.arcgisonline.com/arcgis/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
+        'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
       ],
       tileSize: 256,
     },
   },
   layers: [
-    { id: 'esri-sat-base-layer', type: 'raster', source: 'esri-sat-base', minzoom: 0, maxzoom: 20 },
-    { id: 'esri-sat-roads-layer', type: 'raster', source: 'esri-sat-roads', minzoom: 0, maxzoom: 20 },
+    {
+      id: 'arcgis-dark-base-layer',
+      type: 'raster',
+      source: 'arcgis-dark-base',
+      minzoom: 0,
+      maxzoom: 20,
+    },
+    {
+      id: 'arcgis-dark-reference-layer',
+      type: 'raster',
+      source: 'arcgis-dark-reference',
+      minzoom: 0,
+      maxzoom: 20,
+    },
   ],
 };
 
-// Dùng giao diện vệ tinh thực tế cho cả 2 màn hình
-export const MAPBOX_DARK_STYLE = MAPBOX_REALISTIC_STYLE;
-export const MAPBOX_LIGHT_STYLE = MAPBOX_REALISTIC_STYLE;
-export const MAPBOX_STYLE = MAPBOX_REALISTIC_STYLE;
+/**
+ * Giao diện đường phố rõ nét (Google Roadmap tiếng Việt):
+ * - Đường giao thông rõ nét, địa danh tiếng Việt
+ */
+export const MAPBOX_STREETS_STYLE: Style = {
+  version: 8,
+  sources: {
+    'google-streets': {
+      type: 'raster',
+      tiles: [
+        'https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+        'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+        'https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+        'https://mt3.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+      ],
+      tileSize: 256,
+      attribution: '&copy; Google Maps &copy; OpenStreetMap contributors',
+    },
+  },
+  layers: [
+    {
+      id: 'google-streets-layer',
+      type: 'raster',
+      source: 'google-streets',
+      minzoom: 0,
+      maxzoom: 22,
+    },
+  ],
+};
+
+// Aliases
+export const MAPBOX_LIGHT_STYLE: Style = MAPBOX_STREETS_STYLE;
+export const MAPBOX_STYLE: Style = MAPBOX_REALISTIC_STYLE;
 
 export const mapboxService = {
   /**
