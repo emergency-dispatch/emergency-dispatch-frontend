@@ -15,7 +15,7 @@ import {
 } from './mapIcons';
 import { MapMarker } from './MapMarker';
 import { MapLegend } from './MapLegend';
-import { MapLayerToggle, TILE_STYLES, type MapTileMode } from './MapLayerToggle';
+import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } from './MapLayerToggle';
 
 // Bán kính gom cụm (px trên màn hình) — các xe nằm gần nhau hơn mức này ở zoom hiện tại sẽ gộp lại.
 const CLUSTER_RADIUS_PX = 36;
@@ -243,7 +243,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
     mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
     const instance = new mapboxgl.Map({
       container,
-      style: TILE_STYLES[appliedTileModeRef.current],
+      style: createBaseMapStyle(appliedTileModeRef.current),
       center: [MAP_CENTER[1], MAP_CENTER[0]],
       zoom: 14,
       maxZoom: MAX_ZOOM,
@@ -264,11 +264,11 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
     };
   }, []);
 
-  // Marker là phần tử DOM nên vẫn giữ nguyên khi đổi style nền.
   useEffect(() => {
     if (!map || appliedTileModeRef.current === tileMode) return;
     appliedTileModeRef.current = tileMode;
-    map.setStyle(TILE_STYLES[tileMode]);
+    if (map.isStyleLoaded()) applyTileMode(map, tileMode);
+    else map.once('style.load', () => applyTileMode(map, appliedTileModeRef.current));
   }, [map, tileMode]);
 
   const handleOpenDirections = () => {

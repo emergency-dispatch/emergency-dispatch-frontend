@@ -1,29 +1,66 @@
 import React from 'react';
 import { Layers } from 'lucide-react';
-import type { Style } from 'mapbox-gl';
-import { createRasterStyle } from '../../../services/mapboxService';
+import type mapboxgl from 'mapbox-gl';
+import type { RasterLayerSpecification, StyleSpecification } from 'mapbox-gl';
 
 export type MapTileMode = 'light' | 'dark' | 'satellite';
 
-const ESRI_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors';
+// Cùng nguồn tile Google với bản đồ SOS / landing (services/mapboxService.ts) để ảnh nền đồng bộ.
+// lyrs=m: bản đồ đường · lyrs=y: vệ tinh kèm tên đường.
+const googleTiles = (layer: 'm' | 'y') =>
+  [0, 1, 2, 3].map((n) => `https://mt${n}.google.com/vt/lyrs=${layer}&hl=vi&x={x}&y={y}&z={z}`);
 
-// Esri Canvas chỉ có tile tới zoom 16 — mapbox-gl tự phóng to tile ở zoom cao hơn.
-export const TILE_STYLES: Record<MapTileMode, Style> = {
-  light: createRasterStyle(
-    ['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'],
-    { attribution: ESRI_ATTRIBUTION, maxzoom: 16 }
-  ),
-  dark: createRasterStyle(
-    ['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'],
-    { attribution: ESRI_ATTRIBUTION, maxzoom: 16 }
-  ),
-  satellite: createRasterStyle(
-    ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-    { attribution: ESRI_ATTRIBUTION, maxzoom: 19 }
-  ),
-};
+const googleSource = (layer: 'm' | 'y') => ({
+  type: 'raster' as const,
+  tiles: googleTiles(layer),
+  tileSize: 256,
+  maxzoom: 20,
+  attribution: '&copy; Google',
+});
 
 const MODE_ORDER: MapTileMode[] = ['light', 'dark', 'satellite'];
+
+const BASE_LAYERS: Record<MapTileMode, { source: 'google-road' | 'google-satellite'; paint?: RasterLayerSpecification['paint'] }> = {
+  light: { source: 'google-road' },
+  // Google không có tile tối miễn phí → đảo độ sáng + bỏ màu bản đồ đường để ra nền tối cho phòng điều phối.
+  dark: {
+    source: 'google-road',
+    paint: {
+      'raster-brightness-min': 0.92,
+      'raster-brightness-max': 0.08,
+      'raster-saturation': -0.85,
+      'raster-contrast': 0.1,
+    },
+  },
+  satellite: { source: 'google-satellite' },
+};
+
+export const baseLayerId = (mode: MapTileMode) => `base-${mode}`;
+
+/**
+ * Một style chứa sẵn cả 3 lớp nền; đổi lớp chỉ bật/tắt visibility (applyTileMode)
+ * thay vì setStyle() — tránh tải lại style và lỗi diff khi các style trùng id source.
+ */
+export const createBaseMapStyle = (initialMode: MapTileMode): StyleSpecification => ({
+  version: 8,
+  sources: {
+    'google-road': googleSource('m'),
+    'google-satellite': googleSource('y'),
+  },
+  layers: MODE_ORDER.map((mode) => ({
+    id: baseLayerId(mode),
+    type: 'raster' as const,
+    source: BASE_LAYERS[mode].source,
+    // Style spec bắt buộc paint là object — `paint: undefined` làm cả style bị từ chối (bản đồ trắng).
+    paint: BASE_LAYERS[mode].paint ?? {},
+    layout: { visibility: mode === initialMode ? ('visible' as const) : ('none' as const) },
+  })),
+});
+
+export function applyTileMode(map: mapboxgl.Map, mode: MapTileMode) {
+  MODE_ORDER.forEach((m) => map.setLayoutProperty(baseLayerId(m), 'visibility', m === mode ? 'visible' : 'none'));
+}
+
 const MODE_LABELS: Record<MapTileMode, string> = {
   light: 'Sáng',
   dark: 'Tối',
