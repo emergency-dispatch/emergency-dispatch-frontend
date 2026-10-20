@@ -1,8 +1,12 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Flame, Truck, ShieldCheck, Compass, Radio } from 'lucide-react';
-import { MAPBOX_ACCESS_TOKEN, MAPBOX_DARK_STYLE } from '../../services/mapboxService';
+import { Flame, Truck, ShieldCheck, Compass, Radio, Layers } from 'lucide-react';
+import {
+  MAPBOX_ACCESS_TOKEN,
+  MAPBOX_DARK_STYLE,
+  MAPBOX_REALISTIC_STYLE,
+} from '../../services/mapboxService';
 
 interface HeroRadarMapProps {
   etaTime: number;
@@ -12,6 +16,15 @@ interface HeroRadarMapProps {
 export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({ etaTime, formatEta }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const [radarLayer, setRadarLayer] = useState<'satellite' | 'dark'>('satellite');
+
+  const handleSetRadarLayer = (nextMode: 'satellite' | 'dark') => {
+    if (nextMode === radarLayer) return;
+    setRadarLayer(nextMode);
+    if (mapRef.current) {
+      mapRef.current.setStyle(nextMode === 'satellite' ? MAPBOX_REALISTIC_STYLE : MAPBOX_DARK_STYLE);
+    }
+  };
 
   // Tactical Coordinates in SHTP - TP. Thủ Đức
   const INCIDENT_COORDS: [number, number] = [106.8035, 10.8405];
@@ -28,7 +41,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({ etaTime, formatEta }
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: MAPBOX_DARK_STYLE,
+      style: MAPBOX_REALISTIC_STYLE,
       center: INCIDENT_COORDS,
       zoom: 14.5,
       attributionControl: false,
@@ -40,46 +53,58 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({ etaTime, formatEta }
       console.warn('Hero radar mapbox notice:', e?.error?.message || e);
     });
 
+    const addTacticalRoutes = () => {
+      try {
+        if (!map.getSource('tactical-routes')) {
+          map.addSource('tactical-routes', {
+            type: 'geojson',
+            data: {
+              type: 'FeatureCollection',
+              features: [
+                {
+                  type: 'Feature',
+                  properties: { color: '#3B82F6' },
+                  geometry: {
+                    type: 'LineString',
+                    coordinates: [EMS_COORDS, [106.798, 10.8375], INCIDENT_COORDS],
+                  },
+                },
+                {
+                  type: 'Feature',
+                  properties: { color: '#DC2626' },
+                  geometry: {
+                    type: 'LineString',
+                    coordinates: [FIRE_COORDS, [106.81, 10.8365], INCIDENT_COORDS],
+                  },
+                },
+              ],
+            },
+          });
+
+          map.addLayer({
+            id: 'tactical-routes-line',
+            type: 'line',
+            source: 'tactical-routes',
+            paint: {
+              'line-color': ['get', 'color'],
+              'line-width': 3,
+              'line-dasharray': [2, 2],
+              'line-opacity': 0.85,
+            },
+          });
+        }
+      } catch (err) {
+        console.warn('Tactical routes notice:', err);
+      }
+    };
+
     map.on('load', () => {
       map.resize();
+      addTacticalRoutes();
+    });
 
-      // Add tactical route lines from rescue units to incident
-      map.addSource('tactical-routes', {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              properties: { color: '#3B82F6' },
-              geometry: {
-                type: 'LineString',
-                coordinates: [EMS_COORDS, [106.7980, 10.8375], INCIDENT_COORDS],
-              },
-            },
-            {
-              type: 'Feature',
-              properties: { color: '#DC2626' },
-              geometry: {
-                type: 'LineString',
-                coordinates: [FIRE_COORDS, [106.8100, 10.8365], INCIDENT_COORDS],
-              },
-            },
-          ],
-        },
-      });
-
-      map.addLayer({
-        id: 'tactical-routes-line',
-        type: 'line',
-        source: 'tactical-routes',
-        paint: {
-          'line-color': ['get', 'color'],
-          'line-width': 3,
-          'line-dasharray': [2, 2],
-          'line-opacity': 0.85,
-        },
-      });
+    map.on('style.load', () => {
+      addTacticalRoutes();
     });
 
     // 1. Incident Marker
@@ -211,6 +236,37 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({ etaTime, formatEta }
             <span>Thẻ: <strong className="text-red-600">#Fire</strong></span>
             <span className="text-red-600 font-bold">98.4% tin cậy</span>
           </div>
+        </div>
+      </div>
+
+      {/* Floating Map Style Switcher Segmented Pills */}
+      <div className="absolute top-2.5 right-2.5 z-30 pointer-events-auto">
+        <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-1 rounded-xl shadow-xl">
+          <button
+            type="button"
+            onClick={() => handleSetRadarLayer('satellite')}
+            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              radarLayer === 'satellite'
+                ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+            }`}
+            title="Chế độ ảnh vệ tinh thực tế"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>VỆ TINH</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSetRadarLayer('dark')}
+            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              radarLayer === 'dark'
+                ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+            }`}
+            title="Chế độ CAD tác chiến ban đêm"
+          >
+            <span>CAD TỐI</span>
+          </button>
         </div>
       </div>
 

@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import {
   AlertTriangle,
   Siren,
@@ -18,6 +20,7 @@ import type { StaffMission } from '../../types/staff';
 import { SEVERITY_META } from '../../data/incidentMock';
 import { HazardTagBadge } from '../dashboard/incidents/HazardTagBadge';
 import { staffAudioService } from '../../services/staffAudioService';
+import { MAPBOX_ACCESS_TOKEN, MAPBOX_REALISTIC_STYLE } from '../../services/mapboxService';
 
 interface StaffMissionAlertModalProps {
   mission: StaffMission;
@@ -36,6 +39,9 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
 }) => {
   const [timeLeft, setTimeLeft] = useState<number>(COUNTDOWN_SECONDS);
   const [isMuted, setIsMuted] = useState<boolean>(staffAudioService.getIsMuted());
+
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -63,6 +69,117 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
       staffAudioService.stopEmergencySiren();
     };
   }, [isOpen, mission.id]);
+
+  // Khởi tạo Mapbox Tactical Mini Preview
+  useEffect(() => {
+    if (!isOpen || !mapContainerRef.current) return;
+
+    if (MAPBOX_ACCESS_TOKEN) {
+      mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
+    }
+
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: MAPBOX_REALISTIC_STYLE,
+      center: [mission.incidentLng, mission.incidentLat],
+      zoom: 14.8,
+      pitch: 35,
+      attributionControl: false,
+      scrollZoom: false,
+    });
+
+    map.on('error', (e) => {
+      console.warn('Staff Alert Mapbox notice:', e?.error?.message || e);
+    });
+
+    const addAlertRoute = () => {
+      try {
+        if (!map.getSource('alert-route') && mission.vehicleLng && mission.vehicleLat) {
+          map.addSource('alert-route', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: [
+                  [mission.vehicleLng, mission.vehicleLat],
+                  [mission.incidentLng, mission.incidentLat],
+                ],
+              },
+            },
+          });
+
+          map.addLayer({
+            id: 'alert-route-line',
+            type: 'line',
+            source: 'alert-route',
+            paint: {
+              'line-color': '#DC2626',
+              'line-width': 3,
+              'line-dasharray': [2, 2],
+            },
+          });
+        }
+      } catch (err) {
+        console.warn('Alert route notice:', err);
+      }
+    };
+
+    map.on('load', () => {
+      map.resize();
+      addAlertRoute();
+    });
+
+    map.on('style.load', () => {
+      addAlertRoute();
+    });
+
+    // Marker mục tiêu sự cố với hiệu ứng radar ping
+    const incidentEl = document.createElement('div');
+    incidentEl.className = 'cursor-pointer select-none';
+    incidentEl.innerHTML = `
+      <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <div style="position: absolute; width: 44px; height: 44px; border-radius: 9999px; background: rgba(220, 38, 38, 0.45); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+        <div style="width: 32px; height: 32px; border-radius: 9999px; background: #DC2626; border: 2.5px solid #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 14px rgba(220, 38, 38, 0.8); color: white;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+          </svg>
+        </div>
+      </div>
+    `;
+    new mapboxgl.Marker({ element: incidentEl })
+      .setLngLat([mission.incidentLng, mission.incidentLat])
+      .addTo(map);
+
+    // Marker kíp xe xuất phát
+    if (mission.vehicleLng && mission.vehicleLat) {
+      const vehEl = document.createElement('div');
+      vehEl.className = 'cursor-pointer select-none';
+      vehEl.innerHTML = `
+        <div style="width: 28px; height: 28px; border-radius: 9999px; background: #0F172A; border: 2px solid #22C55E; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(0,0,0,0.5);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
+            <polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>
+          </svg>
+        </div>
+      `;
+      new mapboxgl.Marker({ element: vehEl })
+        .setLngLat([mission.vehicleLng, mission.vehicleLat])
+        .addTo(map);
+    }
+
+    const t1 = setTimeout(() => map.resize(), 150);
+    const t2 = setTimeout(() => map.resize(), 450);
+
+    mapRef.current = map;
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [isOpen, mission.incidentLng, mission.incidentLat, mission.vehicleLng, mission.vehicleLat]);
 
   if (!isOpen) return null;
 
@@ -158,6 +275,20 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
             </div>
           </div>
 
+          {/* Mapbox Tactical Radar Mini Preview */}
+          <div className="relative w-full h-[160px] sm:h-[180px] rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-950">
+            <div ref={mapContainerRef} className="w-full h-full" />
+            
+            <div className="absolute top-2.5 left-2.5 z-10 px-2 py-1 rounded-md bg-slate-900/85 backdrop-blur-xs border border-slate-800 text-[10px] font-mono text-slate-300 flex items-center gap-1.5 shadow-md">
+              <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
+              <span>RADAR KHẨN CẤP HIỆN TRƯỜNG</span>
+            </div>
+
+            <div className="absolute bottom-2.5 right-2.5 z-10 px-2 py-0.5 rounded bg-black/75 backdrop-blur-xs text-[10px] font-mono text-white/90">
+              {mission.incidentLat.toFixed(4)}° N, {mission.incidentLng.toFixed(4)}° E
+            </div>
+          </div>
+
           {/* Location & Navigation Estimate */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
@@ -202,7 +333,7 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center gap-3">
           <button
             onClick={handleDecline}
-            className="w-full sm:w-1/3 py-3 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-sm"
+            className="w-full sm:w-1/3 py-3 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
           >
             <XCircle className="w-4 h-4 text-slate-500" />
             Từ Chối / Báo Kẹt
@@ -210,7 +341,7 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
 
           <button
             onClick={handleAccept}
-            className="w-full sm:w-2/3 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm sm:text-base font-bold shadow-md shadow-red-600/20 border border-red-600 flex items-center justify-center gap-2 transition-all active:scale-95"
+            className="w-full sm:w-2/3 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm sm:text-base font-bold shadow-md shadow-red-600/20 border border-red-600 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
           >
             <CheckCircle2 className="w-5 h-5 text-white animate-pulse" />
             Tiếp Nhận Nhiệm Vụ Ngay

@@ -161,6 +161,17 @@ export const StaffPage: React.FC = () => {
     }
   };
 
+  const handleSelectStep = (index: number) => {
+    if (!activeMission.routeSteps || index < 0 || index >= activeMission.routeSteps.length) return;
+    const stepCoords = activeMission.routeSteps[index];
+    setActiveMission((prev) => ({
+      ...prev,
+      currentStepIndex: index,
+      vehicleLat: stepCoords.lat,
+      vehicleLng: stepCoords.lng,
+    }));
+  };
+
   // Submit Closure Report
   const handleSubmitReport = (report: DigitalClosureReport) => {
     const updatedMission: StaffMission = {
@@ -343,6 +354,7 @@ export const StaffPage: React.FC = () => {
                 <StaffNavigationMap
                   mission={activeMission}
                   currentStepIndex={activeMission.currentStepIndex}
+                  onSelectStep={handleSelectStep}
                 />
               </div>
             </div>
