@@ -20,6 +20,9 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
   const [isLocating, setIsLocating] = useState(false);
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
 
@@ -68,9 +71,9 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
       setIsReverseGeocoding(true);
       try {
         const address = await mapboxService.reverseGeocode(lng, lat);
-        onChange(lat, lng, address);
+        onChangeRef.current(lat, lng, address);
       } catch {
-        onChange(lat, lng);
+        onChangeRef.current(lat, lng);
       } finally {
         setIsReverseGeocoding(false);
       }
@@ -145,7 +148,7 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
         setIsReverseGeocoding(true);
         try {
           const address = await mapboxService.reverseGeocode(lng, lat);
-          onChange(lat, lng, address);
+          onChangeRef.current(lat, lng, address);
         } finally {
           setIsReverseGeocoding(false);
           setIsLocating(false);
