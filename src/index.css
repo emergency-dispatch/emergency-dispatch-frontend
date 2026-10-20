@@ -154,6 +154,40 @@ body {
   color: #475569 !important;
 }
 
+/* Mapbox light CAD theme overrides (Operator Live Map — .cad-map) */
+.cad-map {
+  background: #F1F5F9;
+  font-family: 'Be Vietnam Pro', 'Inter', system-ui, sans-serif;
+}
+
+.cad-map .mapboxgl-popup-content {
+  background: #FFFFFF;
+  color: #0F172A;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.12);
+  padding: 12px 26px 12px 14px;
+  font-family: inherit;
+}
+
+.cad-map .mapboxgl-popup-close-button {
+  color: #94A3B8;
+  font-size: 16px;
+  padding: 2px 7px;
+  border-radius: 0 0.75rem 0 0.5rem;
+}
+
+.cad-map .mapboxgl-popup-close-button:hover {
+  background: #F1F5F9;
+  color: #475569;
+}
+
+.cad-map .mapboxgl-ctrl-attrib {
+  background: rgba(255, 255, 255, 0.75);
+  color: #64748B;
+  font-size: 10px;
+}
+
 /* HUD Decors (Simplified/Hidden for clean minimal look) */
 .hud-corner-tl,
 .hud-corner-tr,
