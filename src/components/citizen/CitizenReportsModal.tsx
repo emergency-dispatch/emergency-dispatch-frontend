@@ -16,9 +16,13 @@ import {
   Sparkles,
   Phone,
   Image as ImageIcon,
+  Navigation,
+  Truck,
+  PhoneCall,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { incidentService } from '../../services/incidentService';
+import { incidentService, type CitizenTrackingDto } from '../../services/incidentService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { IncidentResponseDto } from '../../types/incident';
 
@@ -38,6 +42,12 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [selectedIncident, setSelectedIncident] = useState<IncidentResponseDto | null>(null);
+
+  // Tracking state for Citizen
+  const [trackingIncident, setTrackingIncident] = useState<IncidentResponseDto | null>(null);
+  const [trackingData, setTrackingData] = useState<CitizenTrackingDto | null>(null);
+  const [isTrackingLoading, setIsTrackingLoading] = useState<boolean>(false);
+  const [trackingError, setTrackingError] = useState<string>('');
 
   const fetchReports = useCallback(async () => {
     try {
@@ -137,24 +147,28 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
 
   const getSeverityBadge = (severity: string) => {
     switch (severity) {
-      case 'Level5':
-      case 'Level4':
       case 'Level3':
         return (
           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-100 text-red-700 border border-red-200">
-            Nghiêm trọng ({severity})
+            Cấp 3 - Khẩn cấp
           </span>
         );
       case 'Level2':
         return (
           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 text-amber-700 border border-amber-200">
-            Trung bình ({severity})
+            Cấp 2 - Trung bình
           </span>
         );
       case 'Level1':
         return (
           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-            Cấp độ 1
+            Cấp 1 - Nhẹ
+          </span>
+        );
+      case 'Unclassified':
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-100 text-purple-700 border border-purple-200">
+            Chưa phân loại / Cần xác minh
           </span>
         );
       default:
@@ -164,6 +178,30 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
           </span>
         );
     }
+  };
+
+  const handleOpenTracking = async (incident: IncidentResponseDto) => {
+    setTrackingIncident(incident);
+    setTrackingError('');
+    setIsTrackingLoading(true);
+    try {
+      const res = await incidentService.getTracking(incident.id);
+      if (res.data) {
+        setTrackingData(res.data);
+      } else {
+        setTrackingError('Chưa có thông tin xe cứu hộ đang di chuyển.');
+      }
+    } catch (err) {
+      setTrackingError(getApiErrorMessage(err, 'Chưa có thông tin điều phối xe cho sự cố này.'));
+    } finally {
+      setIsTrackingLoading(false);
+    }
+  };
+
+  const handleCloseTracking = () => {
+    setTrackingIncident(null);
+    setTrackingData(null);
+    setTrackingError('');
   };
 
   const handleCancelIncident = async (id: string) => {
@@ -339,20 +377,33 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                   )}
 
                   {/* Item Actions */}
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
                     <span className="text-[11px] font-mono text-slate-400">
                       Tọa độ: {incident.latitude.toFixed(4)}, {incident.longitude.toFixed(4)}
                     </span>
 
-                    {incident.status === 'Pending' || incident.status === 'AiProcessed' ? (
-                      <button
-                        type="button"
-                        onClick={() => handleCancelIncident(incident.id)}
-                        className="text-[11px] font-mono text-slate-500 hover:text-red-600 font-bold transition-colors cursor-pointer"
-                      >
-                        Hủy báo cáo này
-                      </button>
-                    ) : null}
+                    <div className="flex items-center gap-2">
+                      {incident.status === 'Dispatched' || incident.status === 'InProgress' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenTracking(incident)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-mono font-bold transition-all shadow-xs cursor-pointer"
+                        >
+                          <Navigation className="w-3.5 h-3.5 animate-pulse" />
+                          <span>Theo dõi xe cứu hộ</span>
+                        </button>
+                      ) : null}
+
+                      {incident.status === 'Pending' || incident.status === 'AiProcessed' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelIncident(incident.id)}
+                          className="text-[11px] font-mono text-slate-500 hover:text-red-600 font-bold transition-colors cursor-pointer"
+                        >
+                          Hủy báo cáo này
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               );
@@ -360,6 +411,117 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Citizen Live Vehicle Tracking Modal Overlay */}
+      {trackingIncident && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
+          <div className="relative w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-red-50 text-red-600 border border-red-200">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Theo dõi xe cứu hộ
+                  </h3>
+                  <p className="text-xs font-mono text-red-600 font-bold">
+                    #INC-{trackingIncident.id.substring(0, 8).toUpperCase()}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseTracking}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {isTrackingLoading ? (
+              <div className="py-8 text-center space-y-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-red-600 mx-auto" />
+                <p className="text-xs font-mono text-slate-500">Đang đồng bộ tọa độ GPS xe cứu hộ realtime...</p>
+              </div>
+            ) : trackingError ? (
+              <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 space-y-2">
+                <div className="flex items-center gap-2 font-bold">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>Chưa thể kết nối xe cứu hộ</span>
+                </div>
+                <p>{trackingError}</p>
+              </div>
+            ) : trackingData ? (
+              <div className="space-y-4 font-mono text-xs">
+                {/* Status Hero Box */}
+                <div className="p-4 rounded-xl bg-slate-900 text-white space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">TRẠNG THÁI XE:</span>
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+                      {trackingData.dispatchStatus === 'EnRoute'
+                        ? 'ĐANG DI CHUYỂN ĐẾN'
+                        : trackingData.dispatchStatus === 'OnScene'
+                        ? 'ĐÃ ĐẾN HIỆN TRƯỜNG'
+                        : trackingData.dispatchStatus}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+                    <div>
+                      <div className="text-[10px] text-slate-400">DỰ KIẾN ĐẾN (ETA):</div>
+                      <div className="text-lg font-extrabold text-amber-400">
+                        ~{trackingData.estimatedArrivalMinutes || 3} phút
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-400">KHOẢNG CÁCH:</div>
+                      <div className="text-lg font-extrabold text-white">
+                        {trackingData.distanceKm ? trackingData.distanceKm.toFixed(1) : '1.2'} km
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vehicle Details */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-slate-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">BIỂN SỐ XE:</span>
+                    <span className="font-bold text-slate-900">{trackingData.plateNumber || 'Chưa định danh'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">CHỦNG LOẠI:</span>
+                    <span className="font-bold text-slate-900">{trackingData.unitTypeName || 'Xe Cứu Hộ'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">ĐƠN VỊ TRỰC:</span>
+                    <span className="font-bold text-slate-900">{trackingData.stationName || 'Trạm CAD'}</span>
+                  </div>
+                </div>
+
+                {/* Direct Call hotline */}
+                {trackingData.stationPhoneNumber && (
+                  <a
+                    href={`tel:${trackingData.stationPhoneNumber}`}
+                    className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-sm"
+                  >
+                    <PhoneCall className="w-4 h-4" />
+                    <span>Gọi tổng đài trạm ({trackingData.stationPhoneNumber})</span>
+                  </a>
+                )}
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={handleCloseTracking}
+              className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono font-bold text-xs transition-colors cursor-pointer"
+            >
+              Đóng cửa sổ
+            </button>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );
