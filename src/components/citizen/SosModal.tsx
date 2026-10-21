@@ -224,6 +224,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
             stored.unshift(response.data.id);
             localStorage.setItem('resq_my_reported_incident_ids', JSON.stringify(stored));
           }
+          window.dispatchEvent(new CustomEvent('resq_incident_updated', { detail: response.data }));
         } catch {
           // Ignore
         }
@@ -249,7 +250,9 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     try {
       setIsCancelling(true);
       await incidentService.cancel(createdIncident.id, 'Người dân bấm nhầm nút SOS trên Web');
-      setCreatedIncident((prev) => (prev ? { ...prev, status: 'Cancelled' } : null));
+      const updated = { ...createdIncident, status: 'Cancelled' as const };
+      setCreatedIncident(updated);
+      window.dispatchEvent(new CustomEvent('resq_incident_updated', { detail: updated }));
       setShowCancelConfirm(false);
     } catch (err) {
       setErrorMsg(getApiErrorMessage(err, 'Không thể hủy sự cố lúc này.'));

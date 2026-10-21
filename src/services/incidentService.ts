@@ -19,6 +19,38 @@ export interface LockResultDto {
   lockExpiresAt: string;
 }
 
+export interface RoutePoint {
+  latitude: number;
+  longitude: number;
+}
+
+export interface CitizenTrackingDto {
+  incidentId: string;
+  incidentTitle: string;
+  incidentAddress: string;
+  incidentLat: number;
+  incidentLng: number;
+  incidentStatus: string;
+  incidentSeverity: string;
+  rescueUnitId?: string;
+  plateNumber?: string;
+  unitTypeName?: string;
+  stationName?: string;
+  stationPhoneNumber?: string;
+  vehicleLat?: number;
+  vehicleLng?: number;
+  lastLocationUpdateAt?: string;
+  routeTrajectory: RoutePoint[];
+  distanceKm: number;
+  estimatedArrivalMinutes: number;
+  dispatchStatus: 'PendingDispatch' | 'Dispatched' | 'Accepted' | 'EnRoute' | 'OnScene' | 'Completed' | 'Cancelled';
+  dispatchedAt?: string;
+  acceptedAt?: string;
+  arrivedAt?: string;
+  completedAt?: string;
+  notes?: string;
+}
+
 const takeFromMockQueue = (id: string): IncidentResponseDto => {
   const queue = getMockQueue();
   const incident = queue.find((i) => i.id === id)!;
@@ -82,6 +114,15 @@ export const incidentService = {
       return mockResponse({ ...incident, status: 'Cancelled', operatorNotes: reason });
     }
     const response = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/cancel`, { reason });
+    return response.data;
+  },
+
+  /**
+   * GET /api/dispatch/tracking/incident/{incidentId}
+   * Công dân theo dõi trực tiếp vị trí xe cứu hộ, lộ trình và thời gian dự kiến (ETA)
+   */
+  async getTracking(incidentId: string): Promise<ApiResponse<CitizenTrackingDto>> {
+    const response = await apiClient.get<ApiResponse<CitizenTrackingDto>>(`/dispatch/tracking/incident/${incidentId}`);
     return response.data;
   },
 

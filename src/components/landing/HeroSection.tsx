@@ -15,9 +15,10 @@ import { HeroRadarMap } from './HeroRadarMap';
 
 interface HeroSectionProps {
   onOpenSos: () => void;
+  onOpenReports?: () => void;
 }
 
-export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos }) => {
+export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenReports }) => {
   const [etaTime, setEtaTime] = useState(135); // seconds
 
   // ETA countdown simulator
@@ -72,7 +73,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos }) => {
             </div>
 
             {/* Interactive Real Mapbox CAD Tactical Radar Screen */}
-            <HeroRadarMap etaTime={etaTime} formatEta={formatEta} />
+            <HeroRadarMap
+              etaTime={etaTime}
+              formatEta={formatEta}
+              onOpenReports={onOpenReports}
+            />
 
             {/* Bottom Telemetry Strip */}
             <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-[11px] font-mono-data text-slate-600 shrink-0">
