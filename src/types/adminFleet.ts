@@ -1,6 +1,6 @@
 /**
- * Trạm trong store mock — chỉ còn màn Tài khoản (trưởng trạm) và Trạm & Tổ của Operator dùng.
- * Trang Trạm cứu hộ / Đội xe đã dùng API thật (types/station.ts, types/rescueUnit.ts).
+ * Trạm mock của Operator (data/stationSeed.ts) — chỉ màn Trạm & Tổ dùng.
+ * Admin đã dùng API thật (types/station.ts, types/rescueUnit.ts).
  */
 export interface AdminStation {
   id: string;

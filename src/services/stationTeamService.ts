@@ -1,5 +1,5 @@
-import { buildStationSeed } from '../data/admin/fleetAdminSeed';
-import { internalAccountSeed } from '../data/admin/internalAccountSeed';
+import { buildStationSeed } from '../data/stationSeed';
+import { internalAccountSeed } from '../data/staffAccountSeed';
 import { MAX_TEAM_SIZE } from '../data/dispatchConfig';
 import { vehicleSeeds } from '../data/liveMapMock';
 import { DEMO_STATION_ID, STATION_STAFF_SEED, STATION_TEAM_SEED } from '../data/stationTeamSeed';

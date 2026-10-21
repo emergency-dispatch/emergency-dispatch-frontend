@@ -2,7 +2,7 @@ import { blockExpiry, type BlockedNumberRecord } from '../../data/admin/citizenS
 import type { BlockDuration, PaginatedResultDto } from '../../types/incident';
 import type { BlockedNumberListItem, BlockedNumberStatus } from '../../types/adminCitizen';
 import { maskPhone } from '../../utils/incidentFormat';
-import { LOCK_REASON_MIN_LENGTH } from './accountAdminService';
+import { REASON_MIN_LENGTH } from './validation';
 import { adminStore } from './adminStore';
 import { auditTrailService } from './auditTrailService';
 import { clone, getMockActor, mockApiError, mockDelay, normalizeText, paginate, type PageParams } from './adminMock';
@@ -55,8 +55,8 @@ function findRecord(id: string): BlockedNumberRecord {
 
 function requireReason(reason: string, action: string): string {
   const trimmed = reason.trim();
-  if (trimmed.length < LOCK_REASON_MIN_LENGTH) {
-    throw mockApiError(400, `Lý do ${action} phải có ít nhất ${LOCK_REASON_MIN_LENGTH} ký tự.`);
+  if (trimmed.length < REASON_MIN_LENGTH) {
+    throw mockApiError(400, `Lý do ${action} phải có ít nhất ${REASON_MIN_LENGTH} ký tự.`);
   }
   return trimmed;
 }

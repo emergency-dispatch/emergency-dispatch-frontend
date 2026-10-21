@@ -1,8 +1,8 @@
-import { stations } from '../liveMapMock';
-import type { AdminStation } from '../../types/adminFleet';
+import { stations } from './liveMapMock';
+import type { AdminStation } from '../types/adminFleet';
 
-// Trạm mock (id 'st-1'…) khớp Live Map — chỉ còn màn Tài khoản (trưởng trạm) và Trạm & Tổ của Operator dùng.
-// Trang Trạm cứu hộ / Đội xe của Admin đã dùng API thật.
+// Mock trạm của Operator (id 'st-1'…, khớp Live Map) — chỉ màn Trạm & Tổ dùng.
+// Admin đã dùng API thật. TODO(backend): bỏ khi Operator chuyển sang /api/stations.
 
 const STATION_EXTRAS: Record<
   string,

@@ -1,5 +1,5 @@
-import { UserRole } from '../../types/auth';
-import type { InternalAccount } from '../../types/internalAccount';
+import { UserRole } from '../types/auth';
+import type { InternalAccount } from '../types/internalAccount';
 
 const minutesFromNow = (m: number) => new Date(Date.now() + m * 60 * 1000).toISOString();
 

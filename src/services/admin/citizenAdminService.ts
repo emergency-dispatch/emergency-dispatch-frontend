@@ -2,7 +2,7 @@ import type { CitizenRecord } from '../../data/admin/citizenSeed';
 import type { PaginatedResultDto } from '../../types/incident';
 import type { CitizenListItem, CitizenStatus } from '../../types/adminCitizen';
 import { maskPhone } from '../../utils/incidentFormat';
-import { LOCK_REASON_MIN_LENGTH } from './accountAdminService';
+import { REASON_MIN_LENGTH } from './validation';
 import { adminStore } from './adminStore';
 import { auditTrailService } from './auditTrailService';
 import { isPhoneBlocked } from './blockedNumberService';
@@ -30,8 +30,8 @@ function findCitizen(id: string): CitizenRecord {
 
 function requireReason(reason: string, action: string): string {
   const trimmed = reason.trim();
-  if (trimmed.length < LOCK_REASON_MIN_LENGTH) {
-    throw mockApiError(400, `Lý do ${action} phải có ít nhất ${LOCK_REASON_MIN_LENGTH} ký tự.`);
+  if (trimmed.length < REASON_MIN_LENGTH) {
+    throw mockApiError(400, `Lý do ${action} phải có ít nhất ${REASON_MIN_LENGTH} ký tự.`);
   }
   return trimmed;
 }

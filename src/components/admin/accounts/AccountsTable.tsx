@@ -1,35 +1,22 @@
 import React from 'react';
-import { Building2, Lock, LockOpen, Pencil, Timer } from 'lucide-react';
+import { Building2, Lock, LockOpen, Pencil, Trash2 } from 'lucide-react';
 import { iconButtonClass, thClass } from '../common/styles';
-import { ACCOUNT_STATUS_META, ROLE_META, displayStatus } from './accountMeta';
-import { useNow } from '../../../hooks/useNow';
-import { formatCountdown, maskPhone } from '../../../utils/incidentFormat';
-import type { InternalAccountListItem } from '../../../types/internalAccount';
+import { ACCOUNT_STATUS_META, ROLE_META } from './accountMeta';
+import { maskPhone } from '../../../utils/incidentFormat';
+import { UserRole, UserStatus, type UserResponseDto } from '../../../types/auth';
 
 interface AccountsTableProps {
-  accounts: InternalAccountListItem[];
+  accounts: UserResponseDto[];
   loading: boolean;
-  pendingId: string | null;
-  onEdit: (account: InternalAccountListItem) => void;
-  onLock: (account: InternalAccountListItem) => void;
-  onUnlock: (account: InternalAccountListItem) => void;
-  onQuickUnlock: (account: InternalAccountListItem) => void;
+  onEdit: (account: UserResponseDto) => void;
+  onLock: (account: UserResponseDto) => void;
+  onUnlock: (account: UserResponseDto) => void;
+  onDelete: (account: UserResponseDto) => void;
 }
 
-const formatDateTime = (iso: string) =>
-  new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+const formatDate = (iso: string) => new Date(iso).toLocaleDateString('vi-VN');
 
-export const AccountsTable: React.FC<AccountsTableProps> = ({
-  accounts,
-  loading,
-  pendingId,
-  onEdit,
-  onLock,
-  onUnlock,
-  onQuickUnlock,
-}) => {
-  const now = useNow(1000);
-
+export const AccountsTable: React.FC<AccountsTableProps> = ({ accounts, loading, onEdit, onLock, onUnlock, onDelete }) => {
   return (
     <div
       className={`rounded-xl border border-slate-200 overflow-x-auto bg-white shadow-xs transition-opacity ${
@@ -43,7 +30,7 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
             <th className={thClass}>Email</th>
             <th className={thClass}>SĐT</th>
             <th className={thClass}>Vai trò</th>
-            <th className={thClass}>Trạm / xe liên quan</th>
+            <th className={thClass}>Trạm công tác</th>
             <th className={thClass}>Trạng thái</th>
             <th className={`${thClass} text-right`}>Hành động</th>
           </tr>
@@ -57,29 +44,44 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
             </tr>
           )}
           {accounts.map((account) => {
-            const status = displayStatus(account, now);
-            const statusMeta = ACCOUNT_STATUS_META[status];
-            const role = ROLE_META[account.role];
-            const pending = pendingId === account.id;
+            const statusMeta = ACCOUNT_STATUS_META[account.status];
+            const role = ROLE_META[account.role as UserRole.Operator | UserRole.RescueStaff];
+            const suspended = account.status === UserStatus.Suspended;
+            const inactive = account.status === UserStatus.Inactive;
 
             return (
               <tr key={account.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">{account.fullName}</td>
-                <td className="px-4 py-3 text-slate-600">{account.email}</td>
-                <td className="px-4 py-3 font-mono-data text-slate-600 whitespace-nowrap">{maskPhone(account.phoneNumber)}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold font-mono-data whitespace-nowrap ${role.badgeClass}`}>
-                    {role.label}
-                  </span>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <div className="font-semibold text-slate-900">{account.fullName}</div>
+                  <div className="text-[11px] text-slate-400 font-mono-data">Tạo {formatDate(account.createdAt)}</div>
                 </td>
-                <td className="px-4 py-3 text-xs text-slate-600">
-                  {account.headOfStation && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      Trưởng trạm {account.headOfStation.name}
+                <td className="px-4 py-3 text-slate-600">
+                  {account.email}
+                  {!account.isEmailVerified && (
+                    <span className="ml-1.5 text-[10px] font-bold text-amber-600 whitespace-nowrap">· chưa xác thực</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 font-mono-data text-slate-600 whitespace-nowrap">
+                  {account.phoneNumber ? maskPhone(account.phoneNumber) : '—'}
+                </td>
+                <td className="px-4 py-3">
+                  {role && (
+                    <span
+                      className={`px-2 py-0.5 rounded-md border text-[10px] font-bold font-mono-data whitespace-nowrap ${role.badgeClass}`}
+                    >
+                      {role.label}
                     </span>
                   )}
-                  {!account.headOfStation && <span className="text-slate-400">—</span>}
+                </td>
+                <td className="px-4 py-3 text-xs text-slate-600">
+                  {account.stationName ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      {account.stationName}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span
@@ -87,18 +89,6 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
                   >
                     {statusMeta.label}
                   </span>
-                  {status === 'failed_login' && account.lock.kind === 'failed_login' && (
-                    <div className="mt-1 flex items-center gap-1 text-[11px] font-mono-data text-amber-700">
-                      <Timer className="w-3 h-3" />
-                      Còn {formatCountdown(new Date(account.lock.until).getTime() - now)}
-                    </div>
-                  )}
-                  {status === 'admin' && account.lock.kind === 'admin' && (
-                    <div className="mt-1 text-[11px] text-slate-500 max-w-[220px]" title={account.lock.reason}>
-                      <span className="line-clamp-1">{account.lock.reason}</span>
-                      <span className="font-mono-data text-slate-400">{formatDateTime(account.lock.lockedAt)}</span>
-                    </div>
-                  )}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1.5">
@@ -110,22 +100,12 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
-                    {status === 'failed_login' && (
-                      <button
-                        onClick={() => onQuickUnlock(account)}
-                        disabled={pending}
-                        className="px-2.5 py-1 rounded-md border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-[11px] font-bold whitespace-nowrap disabled:opacity-50"
-                        title="Mở khóa tài khoản bị khóa tạm do sai mật khẩu 5 lần (không cần lý do)"
-                      >
-                        {pending ? 'Đang mở...' : 'Mở khóa nhanh'}
-                      </button>
-                    )}
-                    {status === 'admin' ? (
+                    {suspended || inactive ? (
                       <button
                         onClick={() => onUnlock(account)}
                         className={iconButtonClass}
-                        aria-label="Mở khóa tài khoản"
-                        title="Mở khóa tài khoản"
+                        aria-label={suspended ? 'Mở khóa tài khoản' : 'Kích hoạt tài khoản'}
+                        title={suspended ? 'Mở khóa tài khoản' : 'Kích hoạt tài khoản'}
                       >
                         <LockOpen className="w-3.5 h-3.5" />
                       </button>
@@ -139,6 +119,14 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
                         <Lock className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    <button
+                      onClick={() => onDelete(account)}
+                      className={iconButtonClass}
+                      aria-label="Xóa tài khoản"
+                      title="Xóa tài khoản"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </td>
               </tr>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ConfirmModal, Notice } from './ui';
 import { inputClass } from './styles';
-import { LOCK_REASON_MIN_LENGTH } from '../../../services/admin/accountAdminService';
+import { REASON_MIN_LENGTH } from '../../../services/admin/validation';
 import { getApiErrorMessage } from '../../../services/apiClient';
 
 interface ReasonModalProps {
@@ -49,7 +49,7 @@ export const ReasonModal: React.FC<ReasonModalProps> = ({
     <ConfirmModal
       title={title}
       confirmLabel={confirmLabel}
-      confirmDisabled={!extraValid || reasonLength < LOCK_REASON_MIN_LENGTH}
+      confirmDisabled={!extraValid || reasonLength < REASON_MIN_LENGTH}
       submitting={submitting}
       onCancel={onCancel}
       onConfirm={handleConfirm}
@@ -68,10 +68,10 @@ export const ReasonModal: React.FC<ReasonModalProps> = ({
         />
         <p
           className={`text-[11px] font-mono-data ${
-            reasonLength >= LOCK_REASON_MIN_LENGTH ? 'text-slate-400' : 'text-amber-600'
+            reasonLength >= REASON_MIN_LENGTH ? 'text-slate-400' : 'text-amber-600'
           }`}
         >
-          {reasonLength}/{LOCK_REASON_MIN_LENGTH} ký tự tối thiểu · được ghi vào Audit Trail
+          {reasonLength}/{REASON_MIN_LENGTH} ký tự tối thiểu · được ghi vào Audit Trail
         </p>
       </div>
     </ConfirmModal>

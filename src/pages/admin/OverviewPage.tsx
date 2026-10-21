@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   Building2,
   CircleCheck,
-  KeyRound,
   RefreshCw,
   Truck,
   UserRound,
@@ -12,20 +11,16 @@ import {
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
-import { Notice, type NoticeState } from '../../components/admin/common/ui';
+import { Notice } from '../../components/admin/common/ui';
 import { useServiceQuery } from '../../components/admin/common/hooks';
 import { ROLE_META } from '../../components/admin/accounts/accountMeta';
 import { RESCUE_UNIT_STATUS_META } from '../../components/admin/fleetMeta';
-import { accountAdminService } from '../../services/admin/accountAdminService';
 import {
   LONG_MAINTENANCE_DAYS,
   overviewAdminService,
   type AdminOverview,
   type OverviewVehicleGroup,
 } from '../../services/admin/overviewAdminService';
-import { getApiErrorMessage } from '../../services/apiClient';
-import { useNow } from '../../hooks/useNow';
-import { formatCountdown } from '../../utils/incidentFormat';
 import { UserRole } from '../../types/auth';
 
 const VEHICLE_GROUPS: { key: OverviewVehicleGroup; label: string; color: string }[] = [
@@ -37,14 +32,12 @@ const VEHICLE_GROUPS: { key: OverviewVehicleGroup; label: string; color: string 
 
 const vehicleLink = (plate: string) => `/admin/vehicles?search=${encodeURIComponent(plate)}`;
 const stationLink = (name: string) => `/admin/stations?search=${encodeURIComponent(name)}`;
-const accountLink = (email: string) => `/admin/accounts?search=${encodeURIComponent(email)}`;
 
 const formatTime = (iso: string) => new Date(iso).toLocaleTimeString('vi-VN', { hour12: false });
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('vi-VN');
 
 const OverviewPage: React.FC = () => {
   const query = useServiceQuery(() => overviewAdminService.getOverview(), 'overview');
-  const [notice, setNotice] = useState<NoticeState>(null);
   const data = query.data;
 
   return (
@@ -63,7 +56,6 @@ const OverviewPage: React.FC = () => {
         </button>
       </div>
 
-      <Notice notice={notice} onClose={() => setNotice(null)} />
       {query.error && <Notice notice={{ kind: 'error', message: query.error }} />}
 
       {data && (
@@ -103,14 +95,7 @@ const OverviewPage: React.FC = () => {
             <StatCard to="/admin/citizens" label="Tài khoản Citizen" value={data.citizenCount} icon={UserRound} />
           </section>
 
-          <ActionItems
-            items={data.actionItems}
-            onUnlocked={(name) => {
-              setNotice({ kind: 'success', message: `Đã mở khóa tài khoản ${name}.` });
-              query.reload();
-            }}
-            onError={(message) => setNotice({ kind: 'error', message })}
-          />
+          <ActionItems items={data.actionItems} />
         </div>
       )}
     </div>
@@ -140,56 +125,13 @@ const StatCard: React.FC<{ to: string; label: string; value: number; dotColor?: 
   </Link>
 );
 
-const ActionItems: React.FC<{
-  items: AdminOverview['actionItems'];
-  onUnlocked: (name: string) => void;
-  onError: (message: string) => void;
-}> = ({ items, onUnlocked, onError }) => {
-  const now = useNow(1000);
-  const [unlockingId, setUnlockingId] = useState<string | null>(null);
-
-  const handleQuickUnlock = async (id: string, name: string) => {
-    setUnlockingId(id);
-    try {
-      await accountAdminService.unlock(id);
-      onUnlocked(name);
-    } catch (err) {
-      onError(getApiErrorMessage(err));
-    } finally {
-      setUnlockingId(null);
-    }
-  };
-
-  // Khóa tạm hết hạn ngay trên màn hình thì ẩn khỏi danh sách.
-  const failedLogin = items.failedLoginAccounts.filter((a) => new Date(a.lockedUntil).getTime() > now);
-
+const ActionItems: React.FC<{ items: AdminOverview['actionItems'] }> = ({ items }) => {
   const groups: { title: string; icon: LucideIcon; rows: React.ReactNode[] }[] = [
     {
       title: 'Trạm không còn xe Sẵn sàng',
       icon: Building2,
       rows: items.stationsWithoutAvailableVehicle.map((s) => (
         <ActionRow key={s.id} to={stationLink(s.name)} primary={s.name} secondary={s.vehicleCount === 0 ? 'Trạm chưa có xe nào' : `${s.vehicleCount} xe, không xe nào Sẵn sàng`} />
-      )),
-    },
-    {
-      title: 'Tài khoản khóa tạm do sai mật khẩu',
-      icon: KeyRound,
-      rows: failedLogin.map((a) => (
-        <ActionRow
-          key={a.id}
-          to={accountLink(a.email)}
-          primary={a.fullName}
-          secondary={`${ROLE_META[a.role].label} · còn ${formatCountdown(new Date(a.lockedUntil).getTime() - now)}`}
-          action={
-            <button
-              onClick={() => handleQuickUnlock(a.id, a.fullName)}
-              disabled={unlockingId === a.id}
-              className="px-2.5 py-1 rounded-md border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-[11px] font-bold whitespace-nowrap disabled:opacity-50"
-            >
-              {unlockingId === a.id ? 'Đang mở...' : 'Mở khóa nhanh'}
-            </button>
-          }
-        />
       )),
     },
     {

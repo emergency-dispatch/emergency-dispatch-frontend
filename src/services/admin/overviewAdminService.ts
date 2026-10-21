@@ -1,8 +1,7 @@
 import { UserRole } from '../../types/auth';
 import { ON_MISSION_UNIT_STATUSES } from '../../types/rescueUnit';
 import type { InternalRole } from '../../types/internalAccount';
-import { adminStore } from './adminStore';
-import { mockDelay } from './adminMock';
+import { accountAdminService } from './accountAdminService';
 import { stationAdminService } from './stationAdminService';
 import { vehicleAdminService } from './vehicleAdminService';
 
@@ -21,22 +20,20 @@ export interface AdminOverview {
   citizenCount: number;
   actionItems: {
     stationsWithoutAvailableVehicle: { id: string; name: string; vehicleCount: number }[];
-    failedLoginAccounts: { id: string; fullName: string; email: string; role: InternalRole; lockedUntil: string }[];
     /** Backend chưa lưu thời điểm bắt đầu bảo trì → ước lượng bằng lần cập nhật cuối của xe. */
     longMaintenanceVehicles: { id: string; plate: string; stationName: string; maintenanceSince: string; days: number }[];
   };
 }
 
 export const overviewAdminService = {
-  /**
-   * Ảnh chụp trạng thái hiện tại. Trạm & xe đọc từ API thật; tài khoản & Citizen vẫn là mock.
-   * TODO(backend): tài khoản / Citizen chuyển sang /api/users khi nối màn Tài khoản.
-   */
+  /** Ảnh chụp trạng thái hiện tại (trạm, xe, số tài khoản) — không có số liệu lịch sử. */
   async getOverview(): Promise<AdminOverview> {
-    const [stationPage, units] = await Promise.all([
+    const [stationPage, units, operators, rescueStaff, citizens] = await Promise.all([
       stationAdminService.list({ pageIndex: 1, pageSize: 1000 }),
       vehicleAdminService.listAll(),
-      mockDelay(),
+      accountAdminService.countByRole(UserRole.Operator),
+      accountAdminService.countByRole(UserRole.RescueStaff),
+      accountAdminService.countByRole(UserRole.Citizen),
     ]);
     const now = Date.now();
     const stations = stationPage.items;
@@ -52,21 +49,14 @@ export const overviewAdminService = {
       },
       activeStationCount: stations.filter((s) => s.isActive).length,
       accountCounts: {
-        [UserRole.Operator]: adminStore.accounts.filter((a) => a.role === UserRole.Operator).length,
-        [UserRole.RescueStaff]: adminStore.accounts.filter((a) => a.role === UserRole.RescueStaff).length,
+        [UserRole.Operator]: operators,
+        [UserRole.RescueStaff]: rescueStaff,
       },
-      citizenCount: adminStore.citizens.length,
+      citizenCount: citizens,
       actionItems: {
         stationsWithoutAvailableVehicle: stations
           .filter((s) => s.isActive && s.activeUnitsCount === 0)
           .map((s) => ({ id: s.id, name: s.name, vehicleCount: s.totalUnitsCount })),
-
-        // Khóa tạm đã hết hạn thì không tính.
-        failedLoginAccounts: adminStore.accounts.flatMap((a) =>
-          a.lock.kind === 'failed_login' && new Date(a.lock.until).getTime() > now
-            ? [{ id: a.id, fullName: a.fullName, email: a.email, role: a.role, lockedUntil: a.lock.until }]
-            : []
-        ),
 
         longMaintenanceVehicles: units.flatMap((u) => {
           const since = u.updatedAt ?? u.createdAt;
