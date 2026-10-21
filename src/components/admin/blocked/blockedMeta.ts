@@ -1,5 +1,5 @@
 import type { BlockDuration } from '../../../types/incident';
-import type { BlockedNumberStatus } from '../../../types/adminCitizen';
+import type { BlockedNumberStatus } from '../../../types/blockedNumber';
 
 export const BLOCK_DURATIONS: BlockDuration[] = ['7d', '30d', '1y', 'permanent'];
 

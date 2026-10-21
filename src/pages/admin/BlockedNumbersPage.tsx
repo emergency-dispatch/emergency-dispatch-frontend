@@ -13,7 +13,7 @@ import { Notice, Pagination, type NoticeState } from '../../components/admin/com
 import { inputClass, labelClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { blockedNumberService, extendedExpiry, isLaterExpiry } from '../../services/admin/blockedNumberService';
-import type { BlockedNumberListItem, BlockedNumberStatus } from '../../types/adminCitizen';
+import type { BlockedNumberListItem, BlockedNumberStatus } from '../../types/blockedNumber';
 import type { BlockDuration } from '../../types/incident';
 
 const PAGE_SIZE = 10;
