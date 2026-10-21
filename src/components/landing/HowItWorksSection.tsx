@@ -22,7 +22,7 @@ export const HowItWorksSection: React.FC = () => {
       badgeColor: 'bg-red-600 text-white',
       badgeBorder: 'border-red-500',
       textColor: 'text-red-500',
-      description: 'Công nhân/Người lao động phát tín hiệu SOS Cháy nổ (#Fire) hoặc Tai nạn (#Accident) chỉ với 1 chạm, hoặc gửi điểm Ùn tắc (#Traffic_Jam) nội khu. Tọa độ GPS nhà xưởng và ảnh/video hiện trường được truyền trực tiếp về Trung tâm Chỉ huy.',
+      description: 'Công nhân/Người lao động phát tín hiệu SOS Cháy nổ hoặc Tai nạn chỉ với 1 chạm, hoặc gửi điểm Ùn tắc nội khu. Tọa độ GPS nhà xưởng và ảnh/video hiện trường được truyền trực tiếp về Trung tâm Chỉ huy.',
       bulletPoints: [
         'Nút SOS 1-chạm tự động lấy tọa độ GNSS nhà xưởng',
         'Chụp ảnh/video hiện trường hoặc gửi báo cáo ùn tắc cổng',
@@ -35,16 +35,16 @@ export const HowItWorksSection: React.FC = () => {
       step: 2,
       id: 'step-2',
       title: 'AI Phân tích hình ảnh & Đánh giá rủi ro',
-      subtitle: 'Bước 2 - AI Vision-Language (Qwen2.5-VL)',
+      subtitle: 'Bước 2 - AI Vision Phân Tích Hiện Trường',
       icon: BrainCircuit,
       badgeColor: 'bg-red-600 text-white',
       badgeBorder: 'border-red-500',
       textColor: 'text-red-500',
-      description: 'Mô hình Thị giác - Ngôn ngữ (Qwen2.5-VL / Pixtral) tự động quét ảnh/video hiện trường, nhận diện Cháy nổ (#Fire), Tai nạn lao động / va chạm (#Accident), phát hiện Ùn tắc (#Traffic_Jam) và chấm cấp độ nghiêm trọng từ Cấp 1 đến Cấp 3 (ảnh lỗi/nghi vấn xếp Cấp 0).',
+      description: 'Hệ thống AI tự động quét ảnh/video hiện trường, nhận diện Cháy nổ, Tai nạn lao động / va chạm, phát hiện Ùn tắc và chấm cấp độ nghiêm trọng từ Cấp 1 đến Cấp 3.',
       bulletPoints: [
-        'Phân loại đa nhãn thị giác máy tính với Qwen2.5-VL',
-        'Chấm cấp độ nghiêm trọng Levels 1–3 chuẩn xác',
-        'Phát hiện thẻ #Traffic_Jam hỗ trợ điều hướng',
+        'Phân loại đa nhãn thị giác máy tính chuẩn xác',
+        'Chấm cấp độ nghiêm trọng Levels 1–3 tự động',
+        'Cảnh báo điểm ùn tắc hỗ trợ dẫn đường cứu hộ',
         'Trường hợp nghi vấn xếp Cấp 0, không tự hủy'
       ],
       mockMetric: 'Tốc độ suy luận AI: ≤ 20s'

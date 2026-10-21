@@ -487,7 +487,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
                       : 'bg-red-600 animate-pulse'
                   }`}
                 />
-                <span className="truncate">SỰ CỐ CỦA BẠN #{reportedIncident.id.slice(0, 6).toUpperCase()}</span>
+                <span className="truncate">SỰ CỐ: INC-{reportedIncident.id.slice(0, 6).toUpperCase()}</span>
               </span>
               <span
                 className={`px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold font-mono-data shrink-0 ${

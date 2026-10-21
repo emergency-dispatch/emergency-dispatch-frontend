@@ -329,7 +329,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-xs font-extrabold text-red-600">
-                          #INC-{incident.id.substring(0, 8).toUpperCase()}
+                          INC-{incident.id.substring(0, 8).toUpperCase()}
                         </span>
                         {getStatusBadge(incident.status)}
                         {getSeverityBadge(incident.severity)}

@@ -130,11 +130,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-900">AI Phân loại Cấp 1–3</span>
-                <span className="text-[9px] font-mono-data px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 font-bold">VLM Qwen2.5</span>
+                <span className="text-xs font-bold text-slate-900">AI Phân loại sự cố</span>
+                <span className="text-[9px] font-mono-data px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 font-bold">Tự động</span>
               </div>
               <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
-                Tự động gắn thẻ #Fire, #Accident, #Traffic_Jam &amp; đề xuất xe gần nhất
+                Tự động nhận diện hỏa hoạn, tai nạn, ùn tắc &amp; đề xuất lực lượng cứu hộ gần nhất
               </p>
             </div>
           </div>

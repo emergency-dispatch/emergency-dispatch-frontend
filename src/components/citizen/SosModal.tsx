@@ -39,6 +39,27 @@ const DEFAULT_COORDS = {
   address: 'Đường D1, Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh',
 };
 
+const formatIncidentStatus = (status: string) => {
+  switch (status) {
+    case 'Pending':
+    case 'AiProcessed':
+      return 'Chờ tiếp nhận';
+    case 'Verified':
+      return 'Đã duyệt';
+    case 'Dispatched':
+      return 'Đang điều phối xe';
+    case 'InProgress':
+      return 'Đang ứng cứu';
+    case 'Completed':
+    case 'Resolved':
+      return 'Đã xử lý xong';
+    case 'Cancelled':
+      return 'Đã hủy';
+    default:
+      return status;
+  }
+};
+
 export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenReports }) => {
   const { user } = useAuth();
 
@@ -149,10 +170,10 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
   if (!isOpen) return null;
 
   const hazardOptions = [
-    { id: 'fire', label: 'Hỏa hoạn & Khói (#Fire)', icon: Flame, defaultTitle: 'Hỏa hoạn & Khói khẩn cấp' },
-    { id: 'accident', label: 'Tai nạn & Va chạm (#Accident)', icon: Car, defaultTitle: 'Tai nạn & Va chạm giao thông' },
+    { id: 'fire', label: 'Hỏa hoạn & Khói', icon: Flame, defaultTitle: 'Hỏa hoạn & Khói khẩn cấp' },
+    { id: 'accident', label: 'Tai nạn & Va chạm', icon: Car, defaultTitle: 'Tai nạn & Va chạm giao thông' },
     { id: 'medical', label: 'Cấp cứu y tế lao động', icon: HeartPulse, defaultTitle: 'Cấp cứu y tế lao động khẩn cấp' },
-    { id: 'traffic_jam', label: 'Ùn tắc cổng KCN (#Traffic_Jam)', icon: AlertTriangle, defaultTitle: 'Ùn tắc giao thông cục bộ' },
+    { id: 'traffic_jam', label: 'Ùn tắc cổng KCN', icon: AlertTriangle, defaultTitle: 'Ùn tắc giao thông cục bộ' },
   ];
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -528,7 +549,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
 
               <div className="space-y-2">
                 <h3 className="text-2xl font-extrabold text-slate-900">
-                  Đang gửi tín hiệu SOS &amp; Kích hoạt AI CAD...
+                  Đang gửi tín hiệu cứu nạn SOS...
                 </h3>
                 <p className="text-sm text-slate-600">
                   Hệ thống đang truyền toạ độ hiện trường về máy chủ trung tâm và kích hoạt chuông báo động cứu hộ.
@@ -542,11 +563,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 </div>
                 <div className="text-red-600 font-bold flex items-center gap-2">
                   <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
-                  <span>Mô hình Vision-Language Qwen2.5-VL đang xếp loại mức độ nghiêm trọng...</span>
-                </div>
-                <div className="text-slate-700 font-bold flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
-                  <span>Đẩy sự cố vào hàng đợi xác minh khẩn cấp của Điều phối viên...</span>
+                  <span>Đang kết nối với trung tâm điều phối cứu hộ...</span>
                 </div>
               </div>
             </div>
@@ -564,14 +581,17 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                   TÍN HIỆU CỨU NẠN ĐÃ ĐƯỢC TIẾP NHẬN THÀNH CÔNG
                 </span>
                 <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-                  Trung tâm CAD đang điều phối lực lượng
+                  Trung tâm đang điều phối lực lượng
                 </h3>
                 <p className="text-sm text-slate-600">
                   Mã sự cố:{' '}
                   <strong className="text-red-600 font-mono text-base">
-                    #INC-{createdIncident.id.substring(0, 8).toUpperCase()}
+                    INC-{createdIncident.id.substring(0, 8).toUpperCase()}
                   </strong>{' '}
-                  — Trạng thái: <strong className="text-slate-900 font-mono">{createdIncident.status}</strong>
+                  — Trạng thái:{' '}
+                  <strong className="text-slate-900 font-mono">
+                    {formatIncidentStatus(createdIncident.status)}
+                  </strong>
                 </p>
               </div>
 
@@ -580,14 +600,6 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                   <span className="text-slate-500">HIỆN TRƯỜNG:</span>
                   <span className="text-slate-900 font-bold">{createdIncident.locationAddress}</span>
-                </div>
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                  <span className="text-slate-500">MỨC ĐỘ NGUY CẤP:</span>
-                  <span className="text-red-600 font-bold">
-                    {createdIncident.severity === 'Unclassified'
-                      ? 'Đang chờ thẩm định AI/Operator'
-                      : createdIncident.severity}
-                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500">THỜI GIAN TIẾP NHẬN:</span>
@@ -637,12 +649,6 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                   <XCircle className="w-4 h-4 text-red-600" />
                   <span>Hủy yêu cầu cứu hộ (Bấm nhầm)</span>
                 </button>
-              )}
-
-              {user && (
-                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-mono text-left">
-                  ℹ️ <strong>Thông báo khẩn cấp:</strong> Nếu bạn đã kích hoạt tùy chọn SMS trong danh bạ ICE, hệ thống đã tự động gửi tin nhắn toạ độ tới người thân của bạn.
-                </div>
               )}
 
               <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">

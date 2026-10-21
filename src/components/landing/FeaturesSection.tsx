@@ -18,9 +18,9 @@ export const FeaturesSection: React.FC = () => {
   const features = [
     {
       icon: BrainCircuit,
-      title: 'AI VLM Phân Loại Mối Nguy',
-      description: 'Mô hình Vision-Language (Qwen2.5-VL / Pixtral) phân tích ảnh/video hiện trường trong tích tắc, tự động phân loại Cháy nổ (#Fire) và Tai nạn lao động / va chạm (#Accident).',
-      badge: 'Qwen2.5-VL Engine',
+      title: 'AI Phân Loại Mối Nguy',
+      description: 'Hệ thống AI phân tích ảnh/video hiện trường trong tích tắc, tự động phân loại Cháy nổ và Tai nạn lao động / va chạm.',
+      badge: 'AI Vision Engine',
       color: 'from-red-600 to-rose-600',
       border: 'hover:border-red-500/60',
       glow: 'hover:shadow-glow-red'
@@ -28,7 +28,7 @@ export const FeaturesSection: React.FC = () => {
     {
       icon: Navigation,
       title: 'Định Tuyến Né Điểm Ùn Tắc Nội Khu',
-      description: 'Tích hợp cảnh báo điểm ùn tắc (#Traffic_Jam) tại cổng kiểm soát an ninh và trục đường chính giờ đổi ca để dẫn đường tối ưu cho đội cứu hộ.',
+      description: 'Tích hợp cảnh báo điểm ùn tắc giao thông tại cổng kiểm soát an ninh và trục đường chính giờ đổi ca để dẫn đường tối ưu cho đội cứu hộ.',
       badge: 'Traffic-Aware Routing',
       color: 'from-blue-600 to-cyan-600',
       border: 'hover:border-blue-500/60',

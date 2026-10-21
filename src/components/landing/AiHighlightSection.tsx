@@ -23,12 +23,12 @@ export const AiHighlightSection: React.FC = () => {
   const [scanActive, setScanActive] = useState<boolean>(true);
 
   const tags = [
-    { label: '#Fire', confidence: '98.8%', color: 'bg-red-500/20 text-red-400 border-red-500/40' },
-    { label: '#Accident', confidence: '97.4%', color: 'bg-orange-500/20 text-orange-400 border-orange-500/40' },
-    { label: '#Traffic_Jam', confidence: '99.1%', color: 'bg-blue-500/20 text-blue-400 border-blue-500/40' },
-    { label: '#Warehouse_Fire', confidence: '95.6%', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40' },
-    { label: '#Forklift_Collision', confidence: '93.2%', color: 'bg-purple-500/20 text-purple-400 border-purple-500/40' },
-    { label: '#Qwen2.5_VL_Analysis', confidence: '99.5%', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40' },
+    { label: 'Hỏa hoạn (Fire)', confidence: '98.8%', color: 'bg-red-500/20 text-red-400 border-red-500/40' },
+    { label: 'Tai nạn (Accident)', confidence: '97.4%', color: 'bg-orange-500/20 text-orange-400 border-orange-500/40' },
+    { label: 'Ùn tắc (Traffic Jam)', confidence: '99.1%', color: 'bg-blue-500/20 text-blue-400 border-blue-500/40' },
+    { label: 'Cháy kho xưởng', confidence: '95.6%', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40' },
+    { label: 'Va chạm xe cơ giới', confidence: '93.2%', color: 'bg-purple-500/20 text-purple-400 border-purple-500/40' },
+    { label: 'Phân tích thị giác AI', confidence: '99.5%', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40' },
   ];
 
   return (
@@ -40,7 +40,7 @@ export const AiHighlightSection: React.FC = () => {
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50 border border-red-100 shadow-xs whitespace-nowrap">
             <BrainCircuit className="w-4 h-4 text-red-600 shrink-0" />
             <span className="text-xs font-mono-data uppercase tracking-widest text-red-600 font-bold">
-              CÔNG NGHỆ THỊ GIÁC AI VLM
+              CÔNG NGHỆ THỊ GIÁC AI
             </span>
           </div>
 
@@ -52,7 +52,7 @@ export const AiHighlightSection: React.FC = () => {
           </h2>
 
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed text-balance">
-            Mô hình VLM (Qwen2.5-VL) đa phương thức phân tích ảnh/video hiện trường từ công nhân trong tích tắc để phân loại Cháy nổ (#Fire), Tai nạn lao động (#Accident), phát hiện Ùn tắc (#Traffic_Jam) và chấm cấp độ nghiêm trọng (Cấp 1–3).
+            Mô hình AI đa phương thức phân tích ảnh/video hiện trường từ công nhân trong tích tắc để phân loại Cháy nổ, Tai nạn lao động, phát hiện Ùn tắc và chấm cấp độ nghiêm trọng (Cấp 1–3).
           </p>
         </div>
 
