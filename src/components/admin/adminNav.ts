@@ -1,7 +1,6 @@
 import {
   Ban,
   Building2,
-  CalendarClock,
   LayoutDashboard,
   ScrollText,
   SlidersHorizontal,
@@ -25,7 +24,6 @@ export const adminNavGroups: DashboardNavGroup[] = [
     items: [
       { label: 'Trạm cứu hộ', path: '/admin/stations', icon: Building2 },
       { label: 'Đội xe', path: '/admin/vehicles', icon: Truck },
-      { label: 'Lịch ca trực', path: '/admin/shifts', icon: CalendarClock },
     ],
   },
   {

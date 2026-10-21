@@ -1,8 +1,8 @@
-import { blockExpiry, type BlockedNumberRecord } from '../../data/admin/citizenSeed';
+import { blockExpiry, type BlockedNumberRecord } from '../../data/admin/blockedNumberSeed';
 import type { BlockDuration, PaginatedResultDto } from '../../types/incident';
-import type { BlockedNumberListItem, BlockedNumberStatus } from '../../types/adminCitizen';
+import type { BlockedNumberListItem, BlockedNumberStatus } from '../../types/blockedNumber';
 import { maskPhone } from '../../utils/incidentFormat';
-import { LOCK_REASON_MIN_LENGTH } from './accountAdminService';
+import { REASON_MIN_LENGTH } from './validation';
 import { adminStore } from './adminStore';
 import { auditTrailService } from './auditTrailService';
 import { clone, getMockActor, mockApiError, mockDelay, normalizeText, paginate, type PageParams } from './adminMock';
@@ -25,11 +25,6 @@ export function blockStatus(record: BlockedNumberRecord, now = Date.now()): Bloc
   if (record.removedAt) return 'removed';
   if (record.expiresAt && new Date(record.expiresAt).getTime() <= now) return 'expired';
   return 'active';
-}
-
-/** SĐT đang bị chặn còn hiệu lực — dùng chung với màn Tài khoản Citizen. */
-export function isPhoneBlocked(phoneNumber: string, now = Date.now()): boolean {
-  return adminStore.blockedNumbers.some((b) => b.phoneNumber === phoneNumber && blockStatus(b, now) === 'active');
 }
 
 /** Hạn mới khi gia hạn từ thời điểm `now`; null = vĩnh viễn. Hàm thuần để UI xem trước trước khi lưu. */
@@ -55,8 +50,8 @@ function findRecord(id: string): BlockedNumberRecord {
 
 function requireReason(reason: string, action: string): string {
   const trimmed = reason.trim();
-  if (trimmed.length < LOCK_REASON_MIN_LENGTH) {
-    throw mockApiError(400, `Lý do ${action} phải có ít nhất ${LOCK_REASON_MIN_LENGTH} ký tự.`);
+  if (trimmed.length < REASON_MIN_LENGTH) {
+    throw mockApiError(400, `Lý do ${action} phải có ít nhất ${REASON_MIN_LENGTH} ký tự.`);
   }
   return trimmed;
 }

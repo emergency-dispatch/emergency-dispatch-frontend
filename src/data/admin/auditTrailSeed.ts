@@ -2,7 +2,7 @@ import { UserRole } from '../../types/auth';
 import type { AuditAction, AuditActorRole, AuditChange, AuditTargetType, AuditTrailEntry } from '../../types/auditTrail';
 
 // Nhật ký mẫu của Command Center trong 7 ngày gần nhất (Admin chưa có API đọc).
-// Tên Operator/đội cứu hộ khớp internalAccountSeed; xe khớp liveMapMock; số bị chặn khớp citizenSeed.
+// Tên Operator/đội cứu hộ khớp staffAccountSeed; xe khớp liveMapMock; số bị chặn khớp blockedNumberSeed.
 // SĐT chỉ ghi dạng đã che.
 
 const MIN = 60 * 1000;

@@ -1,8 +1,18 @@
-import type { CrewRole } from './shift';
-
-// Tổ làm việc CỐ ĐỊNH của trạm (không phụ thuộc ca — khác kíp trực ShiftAssignment của Admin).
+// Tổ làm việc CỐ ĐỊNH của trạm (không phụ thuộc ca trực).
 // Trưởng trạm (Operator có headOperatorId) quản lý nhân sự và tổ của trạm mình.
 // Mỗi RescueStaff thuộc tối đa 1 trạm và 1 tổ; mỗi xe có tối đa 1 tổ phụ trách.
+
+export type CrewRole = 'commander' | 'driver' | 'firefighter' | 'rescuer' | 'medic';
+
+export const CREW_ROLES: CrewRole[] = ['commander', 'driver', 'firefighter', 'rescuer', 'medic'];
+
+export const CREW_ROLE_LABEL: Record<CrewRole, string> = {
+  commander: 'Chỉ huy kíp',
+  driver: 'Lái xe',
+  firefighter: 'Chiến sĩ cứu hỏa',
+  rescuer: 'Chiến sĩ cứu hộ',
+  medic: 'Y sĩ cấp cứu',
+};
 
 export interface TeamMember {
   staffId: string;

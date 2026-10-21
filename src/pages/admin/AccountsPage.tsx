@@ -2,22 +2,28 @@ import React, { useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { AccountFormDrawer } from '../../components/admin/accounts/AccountFormDrawer';
 import { AccountsTable } from '../../components/admin/accounts/AccountsTable';
-import { LockAccountDialog } from '../../components/admin/accounts/LockAccountDialog';
-import { ACCOUNT_STATUS_META, ACCOUNT_STATUS_ORDER, INTERNAL_ROLES, ROLE_META } from '../../components/admin/accounts/accountMeta';
+import { AccountActionDialog } from '../../components/admin/accounts/AccountActionDialog';
+import { ACCOUNT_STATUSES, ACCOUNT_STATUS_META, INTERNAL_ROLES, ROLE_META } from '../../components/admin/accounts/accountMeta';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { accountAdminService } from '../../services/admin/accountAdminService';
-import { getApiErrorMessage } from '../../services/apiClient';
-import type { AccountStatus, InternalAccountListItem, InternalRole } from '../../types/internalAccount';
+import type { UserResponseDto, UserStatus } from '../../types/auth';
+import type { InternalRole } from '../../types/internalAccount';
 
 const PAGE_SIZE = 10;
+
+const DONE_MESSAGE = {
+  lock: (name: string) => `Đã khóa tài khoản ${name}.`,
+  unlock: (name: string) => `Đã mở khóa tài khoản ${name}.`,
+  delete: (name: string) => `Đã xóa tài khoản ${name}.`,
+};
 
 const AccountsPage: React.FC = () => {
   const initial = useInitialQueryParams();
   const [search, setSearch] = useState(() => initial.text('search'));
   const [role, setRole] = useState<InternalRole | ''>(() => initial.oneOf('role', INTERNAL_ROLES));
-  const [status, setStatus] = useState<AccountStatus | ''>(() => initial.oneOf('status', ACCOUNT_STATUS_ORDER));
+  const [status, setStatus] = useState<UserStatus | ''>(() => initial.oneOf('status', ACCOUNT_STATUSES));
   const [pageIndex, setPageIndex] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
 
@@ -30,9 +36,11 @@ const AccountsPage: React.FC = () => {
   };
   const query = useServiceQuery(() => accountAdminService.listAccounts(params), JSON.stringify(params));
 
-  const [formAccount, setFormAccount] = useState<InternalAccountListItem | 'new' | null>(null);
-  const [lockTarget, setLockTarget] = useState<{ account: InternalAccountListItem; mode: 'lock' | 'unlock' } | null>(null);
-  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [formAccount, setFormAccount] = useState<UserResponseDto | 'new' | null>(null);
+  const [actionTarget, setActionTarget] = useState<{
+    account: UserResponseDto;
+    mode: 'lock' | 'unlock' | 'delete';
+  } | null>(null);
   const [notice, setNotice] = useState<NoticeState>(null);
 
   const withPageReset =
@@ -42,19 +50,6 @@ const AccountsPage: React.FC = () => {
       setPageIndex(1);
     };
 
-  const handleQuickUnlock = async (account: InternalAccountListItem) => {
-    setPendingId(account.id);
-    try {
-      await accountAdminService.unlock(account.id);
-      setNotice({ kind: 'success', message: `Đã mở khóa tài khoản ${account.fullName}.` });
-    } catch (err) {
-      setNotice({ kind: 'error', message: getApiErrorMessage(err) });
-    } finally {
-      setPendingId(null);
-      query.reload();
-    }
-  };
-
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <div className="flex flex-col lg:flex-row lg:items-center gap-3">
@@ -63,7 +58,7 @@ const AccountsPage: React.FC = () => {
           <input
             value={search}
             onChange={(e) => withPageReset(setSearch)(e.target.value)}
-            placeholder="Tìm theo tên, email..."
+            placeholder="Tìm theo tên, email, SĐT..."
             className={`${inputClass} pl-9`}
           />
         </div>
@@ -83,12 +78,12 @@ const AccountsPage: React.FC = () => {
           </select>
           <select
             value={status}
-            onChange={(e) => withPageReset(setStatus)(e.target.value as AccountStatus | '')}
+            onChange={(e) => withPageReset(setStatus)(e.target.value as UserStatus | '')}
             aria-label="Lọc theo trạng thái"
-            className={`${inputClass} lg:w-52`}
+            className={`${inputClass} lg:w-44`}
           >
             <option value="">Tất cả trạng thái</option>
-            {ACCOUNT_STATUS_ORDER.map((s) => (
+            {ACCOUNT_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {ACCOUNT_STATUS_META[s].label}
               </option>
@@ -110,11 +105,10 @@ const AccountsPage: React.FC = () => {
       <AccountsTable
         accounts={query.data?.items ?? []}
         loading={query.loading}
-        pendingId={pendingId}
         onEdit={setFormAccount}
-        onLock={(account) => setLockTarget({ account, mode: 'lock' })}
-        onUnlock={(account) => setLockTarget({ account, mode: 'unlock' })}
-        onQuickUnlock={handleQuickUnlock}
+        onLock={(account) => setActionTarget({ account, mode: 'lock' })}
+        onUnlock={(account) => setActionTarget({ account, mode: 'unlock' })}
+        onDelete={(account) => setActionTarget({ account, mode: 'delete' })}
       />
 
       {query.data && (
@@ -133,10 +127,9 @@ const AccountsPage: React.FC = () => {
           onSaved={(saved) => {
             setNotice({
               kind: 'success',
-              // TODO(backend): email đặt mật khẩu do backend gửi khi tạo tài khoản — ở mock chỉ hiện thông báo.
               message:
                 formAccount === 'new'
-                  ? `Đã tạo tài khoản ${saved.fullName}. Đã gửi email đặt mật khẩu tới ${saved.email}.`
+                  ? `Đã tạo tài khoản ${saved.fullName}. Gửi email và mật khẩu ban đầu cho nhân sự để đăng nhập.`
                   : `Đã cập nhật tài khoản ${saved.fullName}.`,
             });
             setFormAccount(null);
@@ -145,25 +138,14 @@ const AccountsPage: React.FC = () => {
         />
       )}
 
-      {lockTarget && (
-        <LockAccountDialog
-          account={lockTarget.account}
-          mode={lockTarget.mode}
-          onCancel={() => setLockTarget(null)}
+      {actionTarget && (
+        <AccountActionDialog
+          account={actionTarget.account}
+          mode={actionTarget.mode}
+          onCancel={() => setActionTarget(null)}
           onDone={() => {
-            const { account, mode } = lockTarget;
-            const extras =
-              mode === 'lock'
-                ? [
-                    account.headOfStation && `Đã gỡ khỏi vị trí trưởng trạm "${account.headOfStation.name}".`,
-                    account.assignedVehicle && `Đã gỡ khỏi xe ${account.assignedVehicle.plate}.`,
-                  ].filter(Boolean)
-                : [];
-            setNotice({
-              kind: 'success',
-              message: [`Đã ${mode === 'lock' ? 'khóa' : 'mở khóa'} tài khoản ${account.fullName}.`, ...extras].join(' '),
-            });
-            setLockTarget(null);
+            setNotice({ kind: 'success', message: DONE_MESSAGE[actionTarget.mode](actionTarget.account.fullName) });
+            setActionTarget(null);
             query.reload();
           }}
         />

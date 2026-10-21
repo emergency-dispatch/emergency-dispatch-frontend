@@ -5,28 +5,26 @@ import { VehiclesTable } from '../../components/admin/vehicles/VehiclesTable';
 import { ConfirmModal, Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
-import {
-  ADMIN_VEHICLE_STATUS_META,
-  ADMIN_VEHICLE_STATUS_ORDER,
-  ADMIN_VEHICLE_TYPES,
-  VEHICLE_TYPE_META,
-} from '../../components/admin/fleetMeta';
+import { RESCUE_UNIT_STATUS_META, RESCUE_UNIT_TYPE_META } from '../../components/admin/fleetMeta';
 import { stationAdminService } from '../../services/admin/stationAdminService';
 import { vehicleAdminService, type VehicleStatusFilter } from '../../services/admin/vehicleAdminService';
 import { getApiErrorMessage } from '../../services/apiClient';
-import type { AdminVehicleListItem } from '../../types/adminFleet';
-import type { DispatchVehicleType } from '../../types/vehicle';
+import {
+  RESCUE_UNIT_STATUSES,
+  RESCUE_UNIT_TYPES,
+  type RescueUnitResponseDto,
+  type RescueUnitType,
+} from '../../types/rescueUnit';
 
 const PAGE_SIZE = 10;
-const STATUS_FILTERS: VehicleStatusFilter[] = ['on_mission', ...ADMIN_VEHICLE_STATUS_ORDER];
+const STATUS_FILTERS: VehicleStatusFilter[] = ['on_mission', ...RESCUE_UNIT_STATUSES];
 
 const VehiclesPage: React.FC = () => {
   const initial = useInitialQueryParams();
   const [search, setSearch] = useState(() => initial.text('search'));
   const [stationId, setStationId] = useState(() => initial.text('stationId'));
-  const [type, setType] = useState<DispatchVehicleType | ''>(() => initial.oneOf('type', ADMIN_VEHICLE_TYPES));
+  const [type, setType] = useState<RescueUnitType | ''>(() => initial.oneOf('type', RESCUE_UNIT_TYPES));
   const [status, setStatus] = useState<VehicleStatusFilter | ''>(() => initial.oneOf('status', STATUS_FILTERS));
-  const [includeDeleted, setIncludeDeleted] = useState(() => initial.flag('includeDeleted'));
   const [pageIndex, setPageIndex] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
 
@@ -35,19 +33,14 @@ const VehiclesPage: React.FC = () => {
     stationId: stationId || undefined,
     type: type || undefined,
     status: status || undefined,
-    includeDeleted,
     pageIndex,
     pageSize: PAGE_SIZE,
   };
   const query = useServiceQuery(() => vehicleAdminService.list(params), JSON.stringify(params));
-  // Bộ lọc trạm gồm cả trạm đã xóa (để lọc xe Ngừng hoạt động theo trạm cũ).
-  const stations = useServiceQuery(
-    () => stationAdminService.list({ includeDeleted: true, pageIndex: 1, pageSize: 500 }),
-    'stations'
-  );
+  const stations = useServiceQuery(() => stationAdminService.list({ pageIndex: 1, pageSize: 500 }), 'vehicle-stations');
 
-  const [formVehicle, setFormVehicle] = useState<AdminVehicleListItem | 'new' | null>(null);
-  const [deletingVehicle, setDeletingVehicle] = useState<AdminVehicleListItem | null>(null);
+  const [formVehicle, setFormVehicle] = useState<RescueUnitResponseDto | 'new' | null>(null);
+  const [deletingVehicle, setDeletingVehicle] = useState<RescueUnitResponseDto | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<NoticeState>(null);
@@ -59,20 +52,20 @@ const VehiclesPage: React.FC = () => {
       setPageIndex(1);
     };
 
-  const handleToggleMaintenance = async (vehicle: AdminVehicleListItem) => {
-    const next = vehicle.status === 'maintenance' ? 'available' : 'maintenance';
+  const handleToggleMaintenance = async (vehicle: RescueUnitResponseDto) => {
+    const next = vehicle.status === 'Maintenance' ? 'Available' : 'Maintenance';
     setPendingId(vehicle.id);
     try {
       await vehicleAdminService.setStatus(vehicle.id, next);
       setNotice({
         kind: 'success',
-        message: `Xe ${vehicle.plate} chuyển sang ${ADMIN_VEHICLE_STATUS_META[next].label}.`,
+        message: `Xe ${vehicle.plateNumber} chuyển sang ${RESCUE_UNIT_STATUS_META[next].label}.`,
       });
-      query.reload();
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     } finally {
       setPendingId(null);
+      query.reload();
     }
   };
 
@@ -80,14 +73,14 @@ const VehiclesPage: React.FC = () => {
     if (!deletingVehicle) return;
     setDeleting(true);
     try {
-      await vehicleAdminService.softDelete(deletingVehicle.id);
-      setNotice({ kind: 'success', message: `Đã xóa xe ${deletingVehicle.plate}.` });
-      query.reload();
+      await vehicleAdminService.remove(deletingVehicle.id);
+      setNotice({ kind: 'success', message: `Đã xóa xe ${deletingVehicle.plateNumber}.` });
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     } finally {
       setDeleting(false);
       setDeletingVehicle(null);
+      query.reload();
     }
   };
 
@@ -99,7 +92,7 @@ const VehiclesPage: React.FC = () => {
           <input
             value={search}
             onChange={(e) => withPageReset(setSearch)(e.target.value)}
-            placeholder="Tìm biển số, người phụ trách..."
+            placeholder="Tìm biển số, tên trạm..."
             className={`${inputClass} pl-9`}
           />
         </div>
@@ -114,20 +107,19 @@ const VehiclesPage: React.FC = () => {
             {(stations.data?.items ?? []).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
-                {s.isDeleted ? ' (đã xóa)' : ''}
               </option>
             ))}
           </select>
           <select
             value={type}
-            onChange={(e) => withPageReset(setType)(e.target.value as DispatchVehicleType | '')}
+            onChange={(e) => withPageReset(setType)(e.target.value as RescueUnitType | '')}
             aria-label="Lọc theo chủng loại"
             className={`${inputClass} lg:w-40`}
           >
             <option value="">Tất cả loại xe</option>
-            {ADMIN_VEHICLE_TYPES.map((t) => (
+            {RESCUE_UNIT_TYPES.map((t) => (
               <option key={t} value={t}>
-                {VEHICLE_TYPE_META[t].label}
+                {RESCUE_UNIT_TYPE_META[t].label}
               </option>
             ))}
           </select>
@@ -139,22 +131,13 @@ const VehiclesPage: React.FC = () => {
           >
             <option value="">Tất cả trạng thái</option>
             <option value="on_mission">Đang làm nhiệm vụ (tất cả)</option>
-            {ADMIN_VEHICLE_STATUS_ORDER.map((s) => (
+            {RESCUE_UNIT_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {ADMIN_VEHICLE_STATUS_META[s].label}
+                {RESCUE_UNIT_STATUS_META[s].label}
               </option>
             ))}
           </select>
         </div>
-        <label className="flex items-center gap-2 text-xs text-slate-600 select-none whitespace-nowrap">
-          <input
-            type="checkbox"
-            checked={includeDeleted}
-            onChange={(e) => withPageReset(setIncludeDeleted)(e.target.checked)}
-            className="accent-red-600"
-          />
-          Hiện xe đã xóa
-        </label>
         <button
           onClick={() => setFormVehicle('new')}
           className="lg:ml-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-sm shadow-red-500/25 whitespace-nowrap"
@@ -192,7 +175,8 @@ const VehiclesPage: React.FC = () => {
           onSaved={(saved) => {
             setNotice({
               kind: 'success',
-              message: formVehicle === 'new' ? `Đã thêm xe ${saved.plate}.` : `Đã cập nhật xe ${saved.plate}.`,
+              message:
+                formVehicle === 'new' ? `Đã thêm xe ${saved.plateNumber}.` : `Đã cập nhật xe ${saved.plateNumber}.`,
             });
             setFormVehicle(null);
             query.reload();
@@ -209,8 +193,9 @@ const VehiclesPage: React.FC = () => {
           onConfirm={handleDelete}
         >
           <p>
-            Xóa mềm xe <span className="font-semibold font-mono-data text-slate-900">{deletingVehicle.plate}</span> (
-            {deletingVehicle.stationName}). Xe sẽ bị ẩn khỏi danh sách và không còn được điều phối.
+            Xóa mềm xe <span className="font-semibold font-mono-data text-slate-900">{deletingVehicle.plateNumber}</span>
+            {deletingVehicle.stationName && ` (${deletingVehicle.stationName})`}. Xe sẽ bị ẩn khỏi danh sách và không còn
+            được điều phối.
           </p>
         </ConfirmModal>
       )}

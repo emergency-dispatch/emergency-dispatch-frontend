@@ -26,7 +26,6 @@ const AdminOverviewPage = lazy(() => import('./pages/admin/OverviewPage'));
 const AdminCitizensPage = lazy(() => import('./pages/admin/CitizensPage'));
 const AdminBlockedNumbersPage = lazy(() => import('./pages/admin/BlockedNumbersPage'));
 const AdminAuditTrailPage = lazy(() => import('./pages/admin/AuditTrailPage'));
-const AdminShiftsPage = lazy(() => import('./pages/admin/ShiftsPage'));
 const AdminEscalationSettingsPage = lazy(() => import('./pages/admin/EscalationSettingsPage'));
 const AdminDispatchSettingsPage = lazy(() => import('./pages/admin/DispatchSettingsPage'));
 
@@ -90,7 +89,6 @@ const App: React.FC = () => {
             <Route path="overview" element={<AdminOverviewPage />} />
             <Route path="stations" element={<AdminStationsPage />} />
             <Route path="vehicles" element={<AdminVehiclesPage />} />
-            <Route path="shifts" element={<AdminShiftsPage />} />
             <Route path="accounts" element={<AdminAccountsPage />} />
             <Route path="citizens" element={<AdminCitizensPage />} />
             <Route path="blocked-numbers" element={<AdminBlockedNumbersPage />} />

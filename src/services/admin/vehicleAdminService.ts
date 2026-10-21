@@ -1,197 +1,92 @@
-import { UserRole } from '../../types/auth';
+import { apiClient, unwrapApi } from '../apiClient';
+import type { ApiResponse } from '../../types/auth';
 import type { PaginatedResultDto } from '../../types/incident';
-import type { DispatchVehicleType } from '../../types/vehicle';
 import {
-  isVehicleBusy,
-  ON_MISSION_VEHICLE_STATUSES,
-  type AdminVehicle,
-  type AdminVehicleListItem,
-  type AdminVehicleStatus,
-  type VehicleInput,
-} from '../../types/adminFleet';
-import { adminStore } from './adminStore';
-import { auditTrailService } from './auditTrailService';
-import { clone, mockApiError, mockDelay, normalizeText, paginate, type PageParams } from './adminMock';
+  ADMIN_SETTABLE_UNIT_STATUSES,
+  ON_MISSION_UNIT_STATUSES,
+  type CreateRescueUnitDto,
+  type RescueUnitResponseDto,
+  type RescueUnitStatus,
+  type RescueUnitType,
+} from '../../types/rescueUnit';
+import { normalizeText, paginate, type PageParams } from './listUtils';
 
-export type VehicleStatusFilter = AdminVehicleStatus | 'on_mission';
-
-const matchesStatus = (status: AdminVehicleStatus, filter?: VehicleStatusFilter) =>
-  !filter || (filter === 'on_mission' ? ON_MISSION_VEHICLE_STATUSES.includes(status) : status === filter);
+/** Một trạng thái, hoặc 'on_mission' = Đã điều động + Tại hiện trường. */
+export type VehicleStatusFilter = RescueUnitStatus | 'on_mission';
 
 export interface VehicleListParams extends PageParams {
   search?: string;
   stationId?: string;
-  type?: DispatchVehicleType;
-  /** Một trạng thái, hoặc 'on_mission' = nhóm đang làm nhiệm vụ (chờ xác nhận → tại hiện trường). */
+  type?: RescueUnitType;
   status?: VehicleStatusFilter;
-  /** Mặc định ẩn xe đã xóa mềm. */
-  includeDeleted?: boolean;
 }
 
-/** Trạng thái Admin được chủ động đặt (các trạng thái khác do hệ thống tự đổi). */
-export type AdminSettableVehicleStatus = Extract<AdminVehicleStatus, 'available' | 'maintenance'>;
-
-const STATUS_LABEL: Record<AdminSettableVehicleStatus, string> = {
-  available: 'Sẵn sàng',
-  maintenance: 'Bảo trì',
-};
-
-const normalizePlate = (plate: string) => plate.trim().toUpperCase().replace(/\s+/g, '');
-
-function toListItem(vehicle: AdminVehicle): AdminVehicleListItem {
-  return {
-    ...vehicle,
-    stationName: adminStore.stations.find((s) => s.id === vehicle.stationId)?.name ?? '—',
-    crewMemberName: adminStore.accounts.find((a) => a.id === vehicle.crewMemberId)?.fullName ?? null,
-  };
+export interface VehicleEditInput {
+  plateNumber: string;
+  unitType: RescueUnitType;
+  stationId: string;
 }
 
-function findActive(id: string): AdminVehicle {
-  const vehicle = adminStore.vehicles.find((v) => v.id === id && !v.isDeleted);
-  if (!vehicle) throw mockApiError(404, 'Không tìm thấy xe hoặc xe đã bị xóa.');
-  return vehicle;
-}
+const matchesStatus = (status: RescueUnitStatus, filter?: VehicleStatusFilter) =>
+  !filter || (filter === 'on_mission' ? ON_MISSION_UNIT_STATUSES.includes(status) : status === filter);
 
-function validate(input: VehicleInput, current: AdminVehicle | null) {
-  if (!input.plate) throw mockApiError(400, 'Biển số không được để trống.');
-
-  const duplicatePlate = adminStore.vehicles.some(
-    (v) => !v.isDeleted && v.id !== current?.id && normalizePlate(v.plate) === input.plate
-  );
-  if (duplicatePlate) throw mockApiError(409, `Biển số ${input.plate} đã tồn tại.`);
-
-  const station = adminStore.stations.find((s) => s.id === input.stationId && !s.isDeleted);
-  if (!station) throw mockApiError(400, 'Trạm trực thuộc không tồn tại hoặc đã bị xóa.');
-
-  if (current && current.stationId !== input.stationId && isVehicleBusy(current.status)) {
-    throw mockApiError(409, 'Xe đang làm nhiệm vụ, không thể đổi trạm trực thuộc.');
-  }
-
-  if (input.crewMemberId) {
-    const crew = adminStore.accounts.find((a) => a.id === input.crewMemberId);
-    if (!crew || crew.role !== UserRole.RescueStaff) throw mockApiError(400, 'Người phụ trách phải là tài khoản RescueStaff.');
-    // Khóa tài khoản gỡ khỏi xe → không gán lại tài khoản đang bị Admin khóa.
-    if (crew.lock.kind === 'admin') throw mockApiError(409, `${crew.fullName} đang bị khóa, không thể làm người phụ trách xe.`);
-    const otherVehicle = adminStore.vehicles.find(
-      (v) => !v.isDeleted && v.id !== current?.id && v.crewMemberId === input.crewMemberId
-    );
-    if (otherVehicle) {
-      throw mockApiError(409, `${crew.fullName} đang phụ trách xe ${otherVehicle.plate}. Mỗi người chỉ phụ trách tối đa 1 xe.`);
-    }
-  }
-}
+/** Xe chỉ được đổi trạm / đặt bảo trì khi đang ở trạm (Sẵn sàng hoặc Bảo trì). */
+export const isUnitAtStation = (status: RescueUnitStatus) => ADMIN_SETTABLE_UNIT_STATUSES.includes(status);
 
 export const vehicleAdminService = {
-  // TODO(backend): GET /api/Vehicles?search=&stationId=&type=&status=&includeDeleted=&pageIndex=&pageSize=
-  async list(params: VehicleListParams = {}): Promise<PaginatedResultDto<AdminVehicleListItem>> {
-    await mockDelay();
+  /** Toàn bộ xe chưa xóa (backend không phân trang). */
+  async listAll(): Promise<RescueUnitResponseDto[]> {
+    return unwrapApi(apiClient.get<ApiResponse<RescueUnitResponseDto[]>>('/rescue-units'));
+  },
+
+  /** Lọc và phân trang phía client. */
+  async list(params: VehicleListParams = {}): Promise<PaginatedResultDto<RescueUnitResponseDto>> {
+    const units = await vehicleAdminService.listAll();
     const q = normalizeText(params.search ?? '');
-    const items = adminStore.vehicles
-      .filter((v) => params.includeDeleted || !v.isDeleted)
-      .filter((v) => !params.stationId || v.stationId === params.stationId)
-      .filter((v) => !params.type || v.type === params.type)
-      .filter((v) => matchesStatus(v.status, params.status))
-      .map(toListItem)
-      .filter((v) => !q || normalizeText(`${v.plate} ${v.crewMemberName ?? ''}`).includes(q));
-    return clone(paginate(items, params));
+    const items = units
+      .filter((u) => !params.stationId || u.stationId === params.stationId)
+      .filter((u) => !params.type || u.unitType === params.type)
+      .filter((u) => matchesStatus(u.status, params.status))
+      .filter((u) => !q || normalizeText(`${u.plateNumber} ${u.stationName}`).includes(q))
+      .sort((a, b) => a.stationName.localeCompare(b.stationName, 'vi') || a.plateNumber.localeCompare(b.plateNumber));
+    return paginate(items, params);
   },
 
-  // TODO(backend): POST /api/Vehicles
-  async create(input: VehicleInput): Promise<AdminVehicle> {
-    await mockDelay();
-    const data = { ...input, plate: normalizePlate(input.plate) };
-    validate(data, null);
-    const vehicle: AdminVehicle = { ...data, id: `veh-${Date.now()}`, status: 'available', maintenanceSince: null, isDeleted: false };
-    adminStore.vehicles.push(vehicle);
-    return clone(vehicle);
+  async getById(id: string): Promise<RescueUnitResponseDto> {
+    return unwrapApi(apiClient.get<ApiResponse<RescueUnitResponseDto>>(`/rescue-units/${id}`));
   },
 
-  // TODO(backend): PUT /api/Vehicles/{id}
-  async update(id: string, input: VehicleInput): Promise<AdminVehicle> {
-    await mockDelay();
-    const vehicle = findActive(id);
-    if (vehicle.status === 'out_of_service') {
-      throw mockApiError(409, 'Xe đang ngừng hoạt động — hãy chuyển sang trạm mới trước khi sửa thông tin khác.');
-    }
-    const data = { ...input, plate: normalizePlate(input.plate) };
-    validate(data, vehicle);
-    Object.assign(vehicle, data);
-    return clone(vehicle);
+  /** Xe mới luôn ở trạng thái Sẵn sàng, đặt tại tọa độ của trạm. */
+  async create(input: CreateRescueUnitDto): Promise<RescueUnitResponseDto> {
+    return unwrapApi(apiClient.post<ApiResponse<RescueUnitResponseDto>>('/rescue-units', input));
   },
 
   /**
-   * Đưa xe Ngừng hoạt động (trạm cũ bị xóa) hoạt động trở lại: chuyển sang trạm đang hoạt động
-   * và tự đặt Sẵn sàng. Chỉ đổi trạm, các trường khác giữ nguyên.
+   * PUT /api/rescue-units/{id} bắt buộc gửi cả trạng thái và không tự chặn đổi trạm khi xe đang làm nhiệm vụ.
+   * Đọc lại trạng thái mới nhất ngay trước khi lưu để không ghi đè trạng thái do luồng điều phối vừa đặt.
    */
-  // TODO(backend): PATCH /api/Vehicles/{id}/station
-  async reassignStation(id: string, stationId: string): Promise<AdminVehicle> {
-    await mockDelay();
-    const vehicle = findActive(id);
-    if (vehicle.status !== 'out_of_service') {
-      throw mockApiError(409, 'Chỉ xe đang ngừng hoạt động mới dùng chức năng chuyển trạm này.');
+  async update(id: string, input: VehicleEditInput): Promise<RescueUnitResponseDto> {
+    const current = await vehicleAdminService.getById(id);
+    if (current.stationId !== input.stationId && !isUnitAtStation(current.status)) {
+      throw new Error(`Xe ${current.plateNumber} đang làm nhiệm vụ, không thể đổi trạm trực thuộc.`);
     }
-    const station = adminStore.stations.find((s) => s.id === stationId && !s.isDeleted);
-    if (!station) throw mockApiError(400, 'Trạm mới không tồn tại hoặc đã bị xóa.');
-
-    const oldStationName = adminStore.stations.find((s) => s.id === vehicle.stationId)?.name ?? vehicle.stationId;
-    vehicle.stationId = station.id;
-    vehicle.status = 'available';
-    auditTrailService.record({
-      action: 'vehicle_station_changed',
-      targetType: 'vehicle',
-      targetId: vehicle.id,
-      targetLabel: vehicle.plate,
-      detail: `Chuyển xe Ngừng hoạt động sang trạm "${station.name}", xe về Sẵn sàng.`,
-      changes: [
-        { field: 'Trạm trực thuộc', from: `${oldStationName} (đã xóa)`, to: station.name },
-        { field: 'Trạng thái', from: 'Ngừng hoạt động', to: 'Sẵn sàng' },
-      ],
-    });
-    return clone(vehicle);
+    return unwrapApi(
+      apiClient.put<ApiResponse<RescueUnitResponseDto>>(`/rescue-units/${id}`, { ...input, status: current.status })
+    );
   },
 
-  /** Admin chỉ đổi được Sẵn sàng ↔ Bảo trì. Xe đang làm nhiệm vụ / hồi sức / ngừng hoạt động → 409. */
-  // TODO(backend): PATCH /api/Vehicles/{id}/status
-  async setStatus(id: string, status: AdminSettableVehicleStatus): Promise<AdminVehicle> {
-    await mockDelay();
-    const vehicle = findActive(id);
-    if (isVehicleBusy(vehicle.status)) {
-      throw mockApiError(409, 'Xe đang làm nhiệm vụ, không thể đổi trạng thái.');
+  /** Admin chỉ đổi Sẵn sàng ↔ Bảo trì; backend không tự chặn nên kiểm tra trạng thái hiện tại trước. */
+  async setStatus(id: string, status: RescueUnitStatus): Promise<RescueUnitResponseDto> {
+    if (!ADMIN_SETTABLE_UNIT_STATUSES.includes(status)) throw new Error('Admin chỉ đặt được Sẵn sàng hoặc Bảo trì.');
+    const current = await vehicleAdminService.getById(id);
+    if (!isUnitAtStation(current.status)) {
+      throw new Error(`Xe ${current.plateNumber} đang làm nhiệm vụ, không thể đổi trạng thái.`);
     }
-    if (vehicle.status !== 'available' && vehicle.status !== 'maintenance') {
-      throw mockApiError(409, 'Xe đang ngừng hoạt động, Admin không đổi được trạng thái.');
-    }
-    if (vehicle.status === status) return clone(vehicle);
-
-    const from = vehicle.status;
-    vehicle.status = status;
-    vehicle.maintenanceSince = status === 'maintenance' ? new Date().toISOString() : null;
-    auditTrailService.record({
-      action: 'vehicle_status_changed',
-      targetType: 'vehicle',
-      targetId: vehicle.id,
-      targetLabel: vehicle.plate,
-      detail: `Đặt ${STATUS_LABEL[status]}.`,
-      changes: [{ field: 'Trạng thái', from: STATUS_LABEL[from], to: STATUS_LABEL[status] }],
-    });
-    return clone(vehicle);
+    return unwrapApi(apiClient.put<ApiResponse<RescueUnitResponseDto>>(`/rescue-units/${id}/status`, { status }));
   },
 
-  /** Xóa mềm xe (IsDeleted). Xe đang làm nhiệm vụ / hồi sức → 409. */
-  // TODO(backend): DELETE /api/Vehicles/{id}
-  async softDelete(id: string): Promise<void> {
-    await mockDelay();
-    const vehicle = findActive(id);
-    if (isVehicleBusy(vehicle.status)) {
-      throw mockApiError(409, 'Xe đang làm nhiệm vụ, không thể xóa.');
-    }
-    vehicle.isDeleted = true;
-    auditTrailService.record({
-      action: 'vehicle_deleted',
-      targetType: 'vehicle',
-      targetId: vehicle.id,
-      targetLabel: vehicle.plate,
-      detail: 'Xóa mềm xe.',
-    });
+  /** Xóa mềm. Backend chặn (400) khi xe Đã điều động / Tại hiện trường. */
+  async remove(id: string): Promise<void> {
+    await unwrapApi(apiClient.delete<ApiResponse<null>>(`/rescue-units/${id}`));
   },
 };

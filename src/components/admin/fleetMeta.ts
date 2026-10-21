@@ -1,28 +1,25 @@
-import { DISPATCH_VEHICLE_TYPES, MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../data/liveMapMock';
-import type { AdminVehicleStatus } from '../../types/adminFleet';
+import type { ComponentType } from 'react';
+import { Ambulance, Construction, Ship, ShieldCheck, Truck } from 'lucide-react';
+import { FireTruckIcon, type FireTruckIconProps } from '../common/FireTruckIcon';
+import { MAP_CENTER, VEHICLE_STATUS_META } from '../../data/liveMapMock';
+import type { RescueUnitStatus, RescueUnitType } from '../../types/rescueUnit';
 
-// Nhãn/icon/màu dùng chung với Live Map (chỉ là meta hiển thị, không phải dữ liệu mock).
-export { MAP_CENTER, VEHICLE_TYPE_META };
+// Nhãn/icon/màu hiển thị cho Đội xe theo enum backend (không phải dữ liệu mock).
+export { MAP_CENTER };
 
-/** Admin chỉ quản lý 3 chủng loại xe: cứu hỏa / cứu thương / cứu hộ. */
-export const ADMIN_VEHICLE_TYPES = DISPATCH_VEHICLE_TYPES;
-
-export const ADMIN_VEHICLE_STATUS_META: Record<AdminVehicleStatus, { label: string; color: string }> = {
-  ...VEHICLE_STATUS_META,
-  maintenance: { label: 'Bảo trì', color: '#D97706' },
-  out_of_service: { label: 'Ngừng hoạt động', color: '#94A3B8' },
+export const RESCUE_UNIT_TYPE_META: Record<RescueUnitType, { label: string; icon: ComponentType<FireTruckIconProps> }> = {
+  FireTruck: { label: 'Xe chữa cháy', icon: FireTruckIcon },
+  LadderTruck: { label: 'Xe thang', icon: Construction },
+  Ambulance: { label: 'Xe cứu thương', icon: Ambulance },
+  HeavyRescueVehicle: { label: 'Xe cứu hộ', icon: Truck },
+  RescueBoat: { label: 'Cano cứu nạn', icon: Ship },
+  PolicePatrol: { label: 'Xe tuần tra', icon: ShieldCheck },
 };
 
-export const ADMIN_VEHICLE_STATUS_ORDER: AdminVehicleStatus[] = [
-  'available',
-  'awaiting_ack',
-  'accepted',
-  'en_route',
-  'on_scene',
-  'recovering',
-  'maintenance',
-  'out_of_service',
-];
-
-// Phân khu của Khu Công nghệ cao (trùng với `area` của trạm/xe trên Live Map).
-export const STATION_AREAS = ['Phân khu 1', 'Phân khu 2', 'Phân khu 3', 'Phân khu 4'];
+export const RESCUE_UNIT_STATUS_META: Record<RescueUnitStatus, { label: string; color: string }> = {
+  Available: { label: 'Sẵn sàng', color: VEHICLE_STATUS_META.available.color },
+  Dispatched: { label: 'Đã điều động', color: VEHICLE_STATUS_META.en_route.color },
+  OnScene: { label: 'Tại hiện trường', color: VEHICLE_STATUS_META.on_scene.color },
+  Returning: { label: 'Đang quay về', color: VEHICLE_STATUS_META.recovering.color },
+  Maintenance: { label: 'Bảo trì', color: '#D97706' },
+};

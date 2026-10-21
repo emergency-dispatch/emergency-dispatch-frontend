@@ -1,41 +1,20 @@
-import { ADMIN_ONLY_VEHICLES, buildStationSeed, buildVehicleSeed } from '../../data/admin/fleetAdminSeed';
-import { blockedNumberSeed, citizenSeed, type BlockedNumberRecord, type CitizenRecord } from '../../data/admin/citizenSeed';
+import { blockedNumberSeed, type BlockedNumberRecord } from '../../data/admin/blockedNumberSeed';
 import { auditTrailSeed } from '../../data/admin/auditTrailSeed';
-import { internalAccountSeed } from '../../data/admin/internalAccountSeed';
-import { buildLeaveSupplement, buildShiftSeed } from '../../data/admin/shiftSeed';
-import { DEFAULT_DISPATCH_SETTINGS, DEFAULT_ESCALATION_SETTINGS } from '../../data/admin/settingsDefaults';
-import type { AdminStation, AdminVehicle } from '../../types/adminFleet';
+import { DEFAULT_DISPATCH_SETTINGS } from '../../data/admin/settingsDefaults';
 import type { AuditTrailEntry } from '../../types/auditTrail';
-import type { InternalAccount } from '../../types/internalAccount';
-import type { ShiftAssignment } from '../../types/shift';
-import type { ShiftLeaveRequest } from '../../types/staff';
-import type { DispatchSettings, EscalationSettings, SettingsRecord } from './adminSettingsService';
+import type { DispatchSettings, SettingsRecord } from './adminSettingsService';
 
-// Kho dữ liệu mock trong bộ nhớ, dùng chung giữa các service Admin (xóa trạm phải đổi trạng thái xe,
-// gán trưởng trạm phải đọc tài khoản…). Mất khi tải lại trang — giống "một phiên làm việc".
+// Kho dữ liệu mock trong bộ nhớ cho các màn Admin chưa có API (Số bị chặn, Audit Trail, Tham số điều phối).
+// Mất khi tải lại trang — giống "một phiên làm việc".
 // Chỉ các file trong services/admin/ được import file này.
 export const adminStore: {
-  stations: AdminStation[];
-  vehicles: AdminVehicle[];
-  accounts: InternalAccount[];
-  citizens: CitizenRecord[];
   blockedNumbers: BlockedNumberRecord[];
   auditTrail: AuditTrailEntry[];
-  shifts: ShiftAssignment[];
-  /** Nghỉ phép bổ sung cho demo; nghỉ phép thật đọc từ mock Staff (shiftService). */
-  leaveSupplement: ShiftLeaveRequest[];
-  settings: { escalation: SettingsRecord<EscalationSettings>; dispatch: SettingsRecord<DispatchSettings> };
+  settings: { dispatch: SettingsRecord<DispatchSettings> };
 } = {
-  stations: buildStationSeed(),
-  vehicles: [...buildVehicleSeed(), ...structuredClone(ADMIN_ONLY_VEHICLES)],
-  accounts: structuredClone(internalAccountSeed),
-  citizens: structuredClone(citizenSeed),
   blockedNumbers: structuredClone(blockedNumberSeed),
   auditTrail: structuredClone(auditTrailSeed),
-  shifts: buildShiftSeed(),
-  leaveSupplement: buildLeaveSupplement(),
   settings: {
-    escalation: { values: structuredClone(DEFAULT_ESCALATION_SETTINGS), updatedAt: null, updatedByName: null },
     dispatch: { values: structuredClone(DEFAULT_DISPATCH_SETTINGS), updatedAt: null, updatedByName: null },
   },
 };

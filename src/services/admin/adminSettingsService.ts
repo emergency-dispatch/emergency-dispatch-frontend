@@ -1,20 +1,9 @@
-import { DEFAULT_DISPATCH_SETTINGS, DEFAULT_ESCALATION_SETTINGS } from '../../data/admin/settingsDefaults';
+import { DEFAULT_DISPATCH_SETTINGS } from '../../data/admin/settingsDefaults';
+import { MAX_SEARCH_RADIUS_KM } from '../../data/dispatchConfig';
 import type { AuditChange } from '../../types/auditTrail';
 import { adminStore } from './adminStore';
 import { auditTrailService } from './auditTrailService';
 import { clone, getMockActor, mockApiError, mockDelay } from './adminMock';
-
-/** Cấu hình Escalation Daemon (FR-SYS-02) — chỉ áp dụng cho sự cố Cấp 3. */
-export interface EscalationSettings {
-  dayThresholdMinutes: number;
-  nightThresholdMinutes: number;
-  /** "HH:mm". Khung có thể qua nửa đêm (VD 22:00 → 06:00). */
-  nightStart: string;
-  nightEnd: string;
-  /** Sự cố leo thang: bán kính tìm xe × hệ số này, không vượt maxRadiusKm. */
-  radiusMultiplier: number;
-  maxRadiusKm: number;
-}
 
 /** Tham số gợi ý điều phối (FR-OP-04) — chỉnh cho thí nghiệm RQ2 mà không cần sửa code. */
 export interface DispatchSettings {
@@ -34,36 +23,10 @@ export interface SettingsRecord<T> {
 export type SettingsErrors<T> = Partial<Record<keyof T, string>>;
 
 export const WEIGHT_SUM_TOLERANCE = 0.001;
-const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const isPositive = (n: number) => Number.isFinite(n) && n > 0;
-const isHalfStep = (n: number) => Number.isInteger(n * 2);
 
 // Dùng chung cho UI (báo lỗi theo trường) và service (ném 400) để hai bên luôn khớp nhau.
-
-export function validateEscalationSettings(
-  s: EscalationSettings,
-  dispatchStepsKm: number[]
-): SettingsErrors<EscalationSettings> {
-  const errors: SettingsErrors<EscalationSettings> = {};
-  const threshold = (n: number) =>
-    !isPositive(n) ? 'Phải lớn hơn 0.' : !isHalfStep(n) ? 'Chỉ nhận bước 0.5 phút (VD 2, 2.5, 3).' : undefined;
-
-  errors.dayThresholdMinutes = threshold(s.dayThresholdMinutes);
-  errors.nightThresholdMinutes = threshold(s.nightThresholdMinutes);
-  if (!TIME_PATTERN.test(s.nightStart)) errors.nightStart = 'Giờ không hợp lệ.';
-  if (!TIME_PATTERN.test(s.nightEnd)) errors.nightEnd = 'Giờ không hợp lệ.';
-  else if (s.nightStart === s.nightEnd) errors.nightEnd = 'Giờ kết thúc phải khác giờ bắt đầu.';
-  if (!isPositive(s.radiusMultiplier)) errors.radiusMultiplier = 'Phải lớn hơn 0.';
-
-  const lastStep = dispatchStepsKm[dispatchStepsKm.length - 1] ?? 0;
-  if (!isPositive(s.maxRadiusKm)) errors.maxRadiusKm = 'Phải lớn hơn 0.';
-  else if (s.maxRadiusKm < lastStep) {
-    errors.maxRadiusKm = `Không được nhỏ hơn nấc bán kính cuối của Tham số điều phối (${lastStep} km).`;
-  }
-
-  return stripEmpty(errors);
-}
 
 export function validateDispatchSettings(s: DispatchSettings, maxRadiusKm: number): SettingsErrors<DispatchSettings> {
   const errors: SettingsErrors<DispatchSettings> = {};
@@ -80,7 +43,7 @@ export function validateDispatchSettings(s: DispatchSettings, maxRadiusKm: numbe
   else if (s.radiusStepsKm.some((r, i) => i > 0 && r <= s.radiusStepsKm[i - 1])) {
     errors.radiusStepsKm = 'Các nấc bán kính phải tăng dần.';
   } else if (s.radiusStepsKm[s.radiusStepsKm.length - 1] > maxRadiusKm) {
-    errors.radiusStepsKm = `Nấc cuối không được vượt bán kính tối đa của Cấu hình leo thang (${maxRadiusKm} km).`;
+    errors.radiusStepsKm = `Nấc cuối không được vượt bán kính tìm xe tối đa (${maxRadiusKm} km).`;
   }
 
   if (!isPositive(s.crewAckTimeoutSeconds)) errors.crewAckTimeoutSeconds = 'Phải lớn hơn 0.';
@@ -100,15 +63,6 @@ function throwIfInvalid<T>(errors: SettingsErrors<T>) {
 }
 
 // Nhãn và định dạng cho Audit Trail (giá trị cũ → mới của từng trường thay đổi).
-const ESCALATION_FIELDS: { label: string; format: (s: EscalationSettings) => string }[] = [
-  { label: 'Ngưỡng chờ ban ngày', format: (s) => `${s.dayThresholdMinutes} phút` },
-  { label: 'Ngưỡng chờ ban đêm', format: (s) => `${s.nightThresholdMinutes} phút` },
-  { label: 'Bắt đầu khung đêm', format: (s) => s.nightStart },
-  { label: 'Kết thúc khung đêm', format: (s) => s.nightEnd },
-  { label: 'Hệ số mở rộng bán kính', format: (s) => `×${s.radiusMultiplier}` },
-  { label: 'Bán kính tối đa', format: (s) => `${s.maxRadiusKm} km` },
-];
-
 const DISPATCH_FIELDS: { label: string; format: (s: DispatchSettings) => string }[] = [
   { label: 'Trọng số khoảng cách', format: (s) => String(s.weights.distance) },
   { label: 'Trọng số tải trạm', format: (s) => String(s.weights.stationLoad) },
@@ -142,20 +96,6 @@ function save<T>(record: SettingsRecord<T>, values: T, changes: AuditChange[], t
 }
 
 export const adminSettingsService = {
-  // TODO(backend): GET /api/Settings/escalation
-  async getEscalationSettings(): Promise<SettingsRecord<EscalationSettings>> {
-    await mockDelay();
-    return clone(adminStore.settings.escalation);
-  },
-
-  // TODO(backend): PUT /api/Settings/escalation
-  async updateEscalationSettings(values: EscalationSettings): Promise<SettingsRecord<EscalationSettings>> {
-    await mockDelay();
-    throwIfInvalid(validateEscalationSettings(values, adminStore.settings.dispatch.values.radiusStepsKm));
-    const record = adminStore.settings.escalation;
-    return save(record, values, diff(ESCALATION_FIELDS, record.values, values), 'escalation', 'Cấu hình leo thang');
-  },
-
   // TODO(backend): GET /api/Settings/dispatch
   async getDispatchSettings(): Promise<SettingsRecord<DispatchSettings>> {
     await mockDelay();
@@ -165,15 +105,15 @@ export const adminSettingsService = {
   // TODO(backend): PUT /api/Settings/dispatch
   async updateDispatchSettings(values: DispatchSettings): Promise<SettingsRecord<DispatchSettings>> {
     await mockDelay();
-    throwIfInvalid(validateDispatchSettings(values, adminStore.settings.escalation.values.maxRadiusKm));
+    throwIfInvalid(validateDispatchSettings(values, MAX_SEARCH_RADIUS_KM));
     const record = adminStore.settings.dispatch;
     return save(record, values, diff(DISPATCH_FIELDS, record.values, values), 'dispatch', 'Tham số điều phối');
   },
 
   /** Giá trị mặc định cho nút "Khôi phục mặc định" (điền vào form, Admin vẫn phải bấm Lưu). */
   // TODO(backend): GET /api/Settings/defaults
-  async getDefaults(): Promise<{ escalation: EscalationSettings; dispatch: DispatchSettings }> {
+  async getDefaults(): Promise<{ dispatch: DispatchSettings }> {
     await mockDelay();
-    return clone({ escalation: DEFAULT_ESCALATION_SETTINGS, dispatch: DEFAULT_DISPATCH_SETTINGS });
+    return clone({ dispatch: DEFAULT_DISPATCH_SETTINGS });
   },
 };

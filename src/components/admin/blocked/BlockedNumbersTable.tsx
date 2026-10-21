@@ -3,7 +3,7 @@ import { CalendarPlus, ShieldOff } from 'lucide-react';
 import { LockableButton } from '../common/ui';
 import { iconButtonClass, thClass } from '../common/styles';
 import { BLOCK_DURATION_LABEL, BLOCK_STATUS_META, formatExpiry } from './blockedMeta';
-import type { BlockedNumberListItem } from '../../../types/adminCitizen';
+import type { BlockedNumberListItem } from '../../../types/blockedNumber';
 
 interface BlockedNumbersTableProps {
   items: BlockedNumberListItem[];

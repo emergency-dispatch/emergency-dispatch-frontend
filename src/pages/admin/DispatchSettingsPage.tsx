@@ -19,6 +19,7 @@ import {
   type SettingsRecord,
 } from '../../services/admin/adminSettingsService';
 import { getApiErrorMessage } from '../../services/apiClient';
+import { MAX_SEARCH_RADIUS_KM } from '../../data/dispatchConfig';
 
 const WEIGHT_FIELDS: { key: 'distance' | 'stationLoad' | 'activeMissions'; label: string }[] = [
   { key: 'distance', label: 'Khoảng cách' },
@@ -27,13 +28,7 @@ const WEIGHT_FIELDS: { key: 'distance' | 'stationLoad' | 'activeMissions'; label
 ];
 
 const DispatchSettingsPage: React.FC = () => {
-  const query = useServiceQuery(async () => {
-    const [dispatch, escalation] = await Promise.all([
-      adminSettingsService.getDispatchSettings(),
-      adminSettingsService.getEscalationSettings(),
-    ]);
-    return { dispatch, escalation };
-  }, 'dispatch-settings');
+  const query = useServiceQuery(async () => ({ dispatch: await adminSettingsService.getDispatchSettings() }), 'dispatch-settings');
   // Thông báo "đã lưu" giữ ở cấp trang vì form được dựng lại sau khi lưu.
   const [flash, setFlash] = useState<NoticeState>(null);
 
@@ -44,7 +39,7 @@ const DispatchSettingsPage: React.FC = () => {
     <DispatchForm
       key={query.data.dispatch.updatedAt ?? 'default'}
       record={query.data.dispatch}
-      maxRadiusKm={query.data.escalation.values.maxRadiusKm}
+      maxRadiusKm={MAX_SEARCH_RADIUS_KM}
       initialNotice={flash}
       onSaved={(message) => {
         setFlash({ kind: 'success', message });
@@ -170,8 +165,8 @@ const DispatchForm: React.FC<{
         <div>
           <h3 className="text-sm font-bold text-slate-900">Các nấc mở rộng bán kính tìm xe</h3>
           <p className="text-[11px] text-slate-500 mt-0.5">
-            Không có xe phù hợp ở nấc hiện tại thì tìm ở nấc tiếp theo. Nấc cuối tối đa {maxRadiusKm} km (bán kính tối đa
-            của Cấu hình leo thang).
+            Không có xe phù hợp ở nấc hiện tại thì tìm ở nấc tiếp theo. Nấc cuối tối đa {maxRadiusKm} km (bán kính tìm
+            xe tối đa của hệ thống).
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
