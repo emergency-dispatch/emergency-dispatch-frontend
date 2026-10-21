@@ -1,12 +1,19 @@
-import type { SeverityLevel } from './incident';
-
 export type BackendDispatchStatus =
   | 'Dispatched'
   | 'Accepted'
   | 'EnRoute'
   | 'OnScene'
   | 'Completed'
-  | 'Cancelled';
+  | 'Cancelled'
+  | 'Rejected';
+
+export type RejectionReason =
+  | 'VehicleBreakdown'
+  | 'AlreadyOnMission'
+  | 'TooFar'
+  | 'MedicalLeave'
+  | 'NoResponse'
+  | 'Other';
 
 export interface RescueUnitInAssignment {
   id: string;
@@ -35,8 +42,14 @@ export interface DispatchAssignmentResponseDto {
   acceptedAt?: string | null;
   arrivedAt?: string | null;
   completedAt?: string | null;
+  enRouteAt?: string | null;
   status: BackendDispatchStatus;
   notes?: string | null;
+  distanceKm?: number | null;
+  estimatedArrivalMinutes?: number | null;
+  rejectionReason?: RejectionReason | null;
+  rejectionNotes?: string | null;
+  rejectedAt?: string | null;
   responseDurationMinutes?: number | null;
   onSceneDurationMinutes?: number | null;
 }
@@ -52,20 +65,37 @@ export interface ResolveDispatchDto {
   handoverNotes?: string;
 }
 
+export type BackendDispatchAlgorithm = 'NearestAvailable' | 'LoadAware';
+
 export interface AssignDispatchDto {
   incidentId: string;
-  rescueUnitId: string;
+  rescueUnitId?: string;
+  rescueUnitIds?: string[];
+  algorithm?: BackendDispatchAlgorithm;
+  allowExtraUnits?: boolean;
   notes?: string;
 }
 
 export interface RecommendedUnitResponseDto {
-  unitId: string;
+  rescueUnitId: string;
   plateNumber: string;
   unitType: string;
-  distanceKm: number;
-  estimatedArrivalMinutes: number;
+  status: string;
+  stationId: string;
   stationName: string;
-  score?: number;
+  currentLat: number;
+  currentLng: number;
+  distanceKm: number;
+  estimatedEtaMinutes: number;
+  activeTasksCount: number;
+  stationLoad: number;
+  stationActiveMissions: number;
+  cost: number;
+  score: number;
+  searchRadiusKm: number;
+  radiusExpanded: boolean;
+  algorithmUsed: BackendDispatchAlgorithm;
+  recommendationReason: string;
 }
 
 export interface TeamMemberSummaryDto {

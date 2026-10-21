@@ -5,13 +5,12 @@ import { DispatchPanel } from '../../components/operator/livemap/DispatchPanel';
 import { LiveMapView } from '../../components/operator/livemap/LiveMapView';
 import { VehiclePanel } from '../../components/operator/livemap/VehiclePanel';
 import { useDispatchStore } from '../../context/DispatchContext';
-import { trafficJamMock } from '../../data/incidentQueueMock';
 import type { VehicleFilters } from '../../types/vehicle';
 
-const DEFAULT_FILTERS: VehicleFilters = { type: 'all', status: 'all', area: 'all' };
+const DEFAULT_FILTERS: VehicleFilters = { type: 'all', status: 'all', stationId: 'all' };
 
 export const LiveMapPage: React.FC = () => {
-  const { vehicles, incidents } = useDispatchStore();
+  const { vehicles, incidents, stations, trafficJams } = useDispatchStore();
   const [filters, setFilters] = useState<VehicleFilters>(DEFAULT_FILTERS);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
@@ -24,7 +23,7 @@ export const LiveMapPage: React.FC = () => {
     return vehicles.filter((v) => {
       if (filters.type !== 'all' && v.type !== filters.type) return false;
       if (filters.status !== 'all' && v.status !== filters.status) return false;
-      if (filters.area !== 'all' && v.area !== filters.area) return false;
+      if (filters.stationId !== 'all' && v.stationId !== filters.stationId) return false;
       return true;
     });
   }, [vehicles, filters]);
@@ -66,8 +65,8 @@ export const LiveMapPage: React.FC = () => {
           dispatchIncidents={dispatchIncidents}
           selectedIncidentId={selectedIncidentId}
           onSelectIncident={handleSelectIncident}
-          // TODO(backend): lấy điểm ùn tắc từ API khi có — tạm dùng dữ liệu mock.
-          trafficJams={trafficJamMock}
+          stations={stations}
+          trafficJams={trafficJams}
           vehiclesById={vehiclesById}
           incidentsById={incidentsById}
         />
@@ -112,6 +111,7 @@ export const LiveMapPage: React.FC = () => {
           ) : (
             <VehiclePanel
               vehicles={filteredVehicles}
+              stations={stations}
               filters={filters}
               onFiltersChange={setFilters}
               selectedVehicleId={selectedVehicleId}

@@ -1,16 +1,18 @@
-import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Building2, MapPin, Phone, Plus, ShieldCheck } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Building2, Loader2, MapPin, Phone, Plus, ShieldCheck } from 'lucide-react';
 import { ConfirmModal, Notice, type NoticeState } from '../../components/admin/common/ui';
 import { AddStaffModal } from '../../components/operator/teams/AddStaffModal';
 import { StationStaffList } from '../../components/operator/teams/StationStaffList';
 import { TeamCard } from '../../components/operator/teams/TeamCard';
 import { TeamFormDrawer } from '../../components/operator/teams/TeamFormDrawer';
 import { useDispatchStore } from '../../context/DispatchContext';
-import { VEHICLE_STATUS_META } from '../../data/liveMapMock';
+import { VEHICLE_STATUS_META } from '../../data/liveMapMeta';
 import { useAuth } from '../../hooks/useAuth';
 import { useStationTeams } from '../../hooks/useStationTeams';
 import { getApiErrorMessage } from '../../services/apiClient';
+import { liveMapService } from '../../services/liveMapService';
 import { stationTeamService } from '../../services/stationTeamService';
+import type { StationResponseDto } from '../../types/station';
 import type { StationStaff, StationTeam } from '../../types/stationTeam';
 
 type TeamDrawerState = { mode: 'create' } | { mode: 'edit'; team: StationTeam } | null;
@@ -18,12 +20,43 @@ type TeamDrawerState = { mode: 'create' } | { mode: 'edit'; team: StationTeam } 
 /**
  * Trạm & Tổ: Trưởng trạm thêm/gỡ nhân sự của trạm mình và chia họ vào các tổ làm việc cố định.
  * Tổ gắn với xe nào sẽ hiện kèm xe đó trong Dispatch Panel khi giao xe.
+ * Trạm phụ trách = trạm Admin gán cho tài khoản Operator (User.StationId).
  */
 export const StationTeamsPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const { vehicles } = useDispatchStore();
   const { staff, teams } = useStationTeams();
-  const { station, isDemo } = useMemo(() => stationTeamService.resolveMyStation(user), [user]);
+  const [station, setStation] = useState<StationResponseDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const myStationId = user?.stationId ?? null;
+
+  // Lấy lại hồ sơ để nhận trạm Admin vừa gán (thông tin lưu lúc đăng nhập có thể đã cũ).
+  useEffect(() => {
+    refreshProfile();
+  }, []);
+
+  useEffect(() => {
+    if (!myStationId) {
+      setStation(null);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    Promise.all([
+      liveMapService.getStation(myStationId),
+      stationTeamService.loadStaff(),
+      stationTeamService.reloadStationTeams(myStationId),
+    ])
+      .then(([dto]) => !cancelled && setStation(dto))
+      .catch((err) => !cancelled && setLoadError(getApiErrorMessage(err, 'Không tải được thông tin trạm.')))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [myStationId]);
 
   const [notice, setNotice] = useState<NoticeState>(null);
   const [addingStaff, setAddingStaff] = useState(false);
@@ -67,6 +100,24 @@ export const StationTeamsPage: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center gap-2 p-6 text-sm text-slate-500">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Đang tải thông tin trạm…
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="h-full flex items-center justify-center gap-2 p-6 text-sm text-red-600">
+        <AlertTriangle className="w-4 h-4" />
+        {loadError}
+      </div>
+    );
+  }
+
   if (!station) {
     return (
       <div className="h-full flex items-center justify-center p-6 text-sm text-slate-500">
@@ -90,12 +141,12 @@ export const StationTeamsPage: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5" />
-              {station.address || station.area}
+              {station.address}
             </span>
-            {station.hotline && (
+            {station.phoneNumber && (
               <span className="flex items-center gap-1 font-mono-data">
                 <Phone className="w-3.5 h-3.5" />
-                {station.hotline}
+                {station.phoneNumber}
               </span>
             )}
           </p>
@@ -114,13 +165,6 @@ export const StationTeamsPage: React.FC = () => {
         </dl>
       </header>
 
-      {isDemo && (
-        <div className="shrink-0 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-          Tài khoản của bạn chưa được gắn làm Trưởng trạm — đang hiển thị trạm demo. Khi có API, màn hình chỉ hiện trạm
-          Admin đã gán cho bạn.
-        </div>
-      )}
       <Notice notice={notice} onClose={() => setNotice(null)} />
 
       <div className="flex-1 min-h-0 grid gap-4 lg:grid-cols-[minmax(320px,2fr)_3fr]">
@@ -222,7 +266,7 @@ export const StationTeamsPage: React.FC = () => {
           onCancel={() => setDeletingTeam(null)}
           onConfirm={async () => {
             const target = deletingTeam;
-            if (await run(() => stationTeamService.deleteTeam(target.id), `Đã xóa ${target.name}.`)) {
+            if (await run(() => stationTeamService.deleteTeam(station.id, target.id), `Đã xóa ${target.name}.`)) {
               setDeletingTeam(null);
             }
           }}

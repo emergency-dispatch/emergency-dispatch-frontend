@@ -3,7 +3,7 @@ import { Crown, Lock } from 'lucide-react';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../../admin/common/ui';
 import { inputClass } from '../../admin/common/styles';
 import { MAX_TEAM_SIZE, MIN_TEAM_SIZE } from '../../../data/dispatchConfig';
-import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMock';
+import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { stationTeamService } from '../../../services/stationTeamService';
 import {

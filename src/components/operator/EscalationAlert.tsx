@@ -4,14 +4,14 @@ import { ChevronDown, Siren } from 'lucide-react';
 import { INCIDENT_CATEGORY_META } from '../../data/incidentMock';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useNow } from '../../hooks/useNow';
-import { isNightShift } from '../../utils/escalation';
+import { escalationThresholdMinutes, isNightShift } from '../../utils/escalation';
 
 /**
- * Báo động leo thang toàn dashboard (FR-SYS-02): viền đỏ + banner khi có sự cố Cấp 3
- * chưa có đội nhận quá 5 phút (2.5 phút ban đêm). Tự biến mất khi có đơn vị nhận.
+ * Báo động leo thang toàn dashboard (FR-SYS-02): viền đỏ + banner khi backend đánh dấu sự cố
+ * Escalated (Cấp 3 chưa có đội nhận quá ngưỡng cấu hình). Tự biến mất khi có đơn vị nhận.
  */
 export const EscalationAlert: React.FC = () => {
-  const { incidents, escalatedIncidentIds, incidentDrawerOpen } = useDispatchStore();
+  const { incidents, escalatedIncidentIds, incidentDrawerOpen, escalationSettings } = useDispatchStore();
   const navigate = useNavigate();
   const now = useNow(15000);
   // Thu gọn theo "bộ sự cố" hiện tại — có sự cố mới leo thang thì banner tự mở lại.
@@ -32,7 +32,8 @@ export const EscalationAlert: React.FC = () => {
   const positionStyle = (halfWidth: string): React.CSSProperties =>
     incidentDrawerOpen ? { left: `max(1rem, calc((100vw - 64rem) / 2 - ${halfWidth}))` } : {};
   const centeredClass = incidentDrawerOpen ? '' : 'left-1/2 -translate-x-1/2';
-  const thresholdLabel = isNightShift(now) ? '2.5 phút (ca đêm)' : '5 phút';
+  const thresholdMinutes = escalationThresholdMinutes(now, escalationSettings);
+  const thresholdLabel = `${thresholdMinutes.toLocaleString('vi-VN')} phút${isNightShift(now, escalationSettings) ? ' (ca đêm)' : ''}`;
 
   const openIncident = (id: string, status: string) => {
     if (status === 'pending') navigate('/dashboard/command-center/incidents');
@@ -65,7 +66,7 @@ export const EscalationAlert: React.FC = () => {
                 {escalated.length} sự cố Cấp 3 chưa có đơn vị nhận quá {thresholdLabel}
               </p>
               <p className="text-[11px] text-red-100 mt-0.5">
-                Đã tự động báo Trưởng trạm &amp; Admin · bán kính tìm xe đã được nhân đôi (tối đa 30 km)
+                Đã tự động báo Trưởng trạm &amp; Admin · bán kính tìm xe đã nhân {escalationSettings.radiusMultiplier.toLocaleString('vi-VN')} lần (tối đa {escalationSettings.maxRadiusKm} km)
               </p>
             </div>
             <button

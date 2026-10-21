@@ -1,19 +1,13 @@
 import { apiClient } from './apiClient';
-import { API_CONFIG } from '../config/api';
 import type { ApiResponse } from '../types/auth';
 import type {
+  BackendDispatchAlgorithm,
   DispatchAssignmentResponseDto,
   UpdateAssignmentStatusDto,
   ResolveDispatchDto,
   AssignDispatchDto,
   RecommendedUnitResponseDto,
 } from '../types/dispatch';
-
-// Mock mode for local concurrency simulation when backend is in mock mode
-const MOCK_CONFLICT_VEHICLE_IDS = new Set(['veh-10']);
-
-const respond = <T>(data: T, success = true, message = 'OK'): Promise<ApiResponse<T>> =>
-  new Promise((resolve) => setTimeout(() => resolve({ success, message, data }), 300));
 
 export const dispatchService = {
   /**
@@ -78,68 +72,26 @@ export const dispatchService = {
   },
 
   /**
-   * Phát lệnh điều phối xe cứu hộ tới hiện trường sự cố (POST /api/dispatch/assign)
+   * Phát lệnh điều phối xe cứu hộ tới hiện trường sự cố (POST /api/dispatch/assign).
+   * Backend trả danh sách lượt phân công; xe vừa bị Operator khác giao → HTTP 409.
    */
-  async assignUnit(dto: AssignDispatchDto): Promise<ApiResponse<DispatchAssignmentResponseDto>> {
-    const response = await apiClient.post<ApiResponse<DispatchAssignmentResponseDto>>(
-      '/dispatch/assign',
-      dto
-    );
+  async assignUnit(dto: AssignDispatchDto): Promise<ApiResponse<DispatchAssignmentResponseDto[]>> {
+    const response = await apiClient.post<ApiResponse<DispatchAssignmentResponseDto[]>>('/dispatch/assign', dto);
     return response.data;
   },
 
   /**
-   * Lấy gợi ý xe tối ưu bằng thuật toán AI / Recommender (GET /api/dispatch/recommend)
+   * Gợi ý xe theo Nearest-Available / Load-Aware (GET /api/dispatch/recommend).
+   * Không truyền maxDistanceKm → backend tự mở rộng bán kính 10 → 15 → 22.5 → 30 km
+   * (sự cố Escalated được nhân bán kính theo cấu hình leo thang).
    */
   async getRecommendations(
     incidentId: string,
-    algorithm = 0,
-    unitType?: string,
-    maxDistanceKm = 15.0
+    algorithm: BackendDispatchAlgorithm = 'NearestAvailable'
   ): Promise<ApiResponse<RecommendedUnitResponseDto[]>> {
-    const params = new URLSearchParams({
-      incidentId,
-      algorithm: algorithm.toString(),
-      maxDistanceKm: maxDistanceKm.toString(),
+    const response = await apiClient.get<ApiResponse<RecommendedUnitResponseDto[]>>('/dispatch/recommend', {
+      params: { incidentId, algorithm },
     });
-    if (unitType) params.append('unitType', unitType);
-
-    const response = await apiClient.get<ApiResponse<RecommendedUnitResponseDto[]>>(
-      `/dispatch/recommend?${params.toString()}`
-    );
     return response.data;
-  },
-
-  /**
-   * Backward-compatible helper for DispatchContext: local/mock or backend assignment
-   */
-  async assignVehicle(incidentId: string, vehicleId: string): Promise<ApiResponse<{ conflict: boolean } | null>> {
-    if (API_CONFIG.USE_MOCK_INCIDENTS && MOCK_CONFLICT_VEHICLE_IDS.has(vehicleId)) {
-      MOCK_CONFLICT_VEHICLE_IDS.delete(vehicleId);
-      return respond({ conflict: true }, false, 'Xe vừa được điều phối viên khác giao cho sự cố khác.');
-    }
-
-    try {
-      // Try backend assignment first if not using mock
-      if (!API_CONFIG.USE_MOCK_INCIDENTS) {
-        const res = await this.assignUnit({ incidentId, rescueUnitId: vehicleId });
-        return {
-          success: res.success,
-          message: res.message,
-          data: { conflict: false },
-        };
-      }
-    } catch {
-      // Fallback to local respond if mock or demo
-    }
-
-    return respond({ conflict: false }, true, `Đã giao xe ${vehicleId} cho sự cố ${incidentId}.`);
-  },
-
-  /**
-   * Backward-compatible helper for DispatchContext: release vehicle
-   */
-  async releaseVehicle(vehicleId: string): Promise<ApiResponse<null>> {
-    return respond(null, true, `Đã nhả xe ${vehicleId}.`);
   },
 };

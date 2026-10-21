@@ -3,7 +3,7 @@ import { AlertTriangle, Building2, Crown, Pencil, Trash2 } from 'lucide-react';
 import { LockableButton, VehicleStatusBadge } from '../../admin/common/ui';
 import { iconButtonClass } from '../../admin/common/styles';
 import { MIN_TEAM_SIZE } from '../../../data/dispatchConfig';
-import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMock';
+import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { CREW_ROLE_LABEL, type StationStaff, type StationTeam } from '../../../types/stationTeam';
 import type { Vehicle } from '../../../types/vehicle';
 

@@ -1,492 +1,548 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_CREW_RESPONSE, MOCK_CREW_RESPONSES, MOCK_ON_SCENE_DURATION_MS, vehicleSeeds } from '../data/liveMapMock';
-import { CREW_ACK_TIMEOUT_MS, MAX_VEHICLES_BY_LEVEL, VEHICLE_RECOVERY_MS } from '../data/dispatchConfig';
+import { CREW_ACK_TIMEOUT_MS, MAX_VEHICLES_BY_LEVEL } from '../data/dispatchConfig';
 import { incidentService } from '../services/incidentService';
 import { dispatchService } from '../services/dispatchService';
+import {
+  DEFAULT_ESCALATION_SETTINGS,
+  liveMapService,
+  mapTrafficHotspot,
+  type EscalationSettingsDto,
+  type TrafficHotspotResponseDto,
+} from '../services/liveMapService';
+import { stationTeamService } from '../services/stationTeamService';
+import { HubEvents, incidentHubService, trackingHubService } from '../services/realtime/incidentHubService';
 import { getApiErrorMessage } from '../services/apiClient';
 import { useAuth } from '../hooks/useAuth';
-import { useNow } from '../hooks/useNow';
-import { mapIncidentResponseToIncident, severityToBackend } from '../types/incident';
-import { estimateEtaMinutes, haversineKm } from '../utils/dispatch';
-import { isIncidentEscalated } from '../utils/escalation';
-import type { Vehicle } from '../types/vehicle';
-import type { BlockDuration, CrewResponseNotice, Incident, IncidentLock, SeverityLevel } from '../types/incident';
+import {
+  mapIncidentResponseToIncident,
+  severityToBackend,
+  toOperatorStatus,
+  type BlockDuration,
+  type CrewResponseNotice,
+  type Incident,
+  type IncidentResponseDto,
+  type SeverityLevel,
+  type TrafficJamReport,
+} from '../types/incident';
+import type { BackendDispatchStatus, DispatchAssignmentResponseDto, RejectionReason } from '../types/dispatch';
+import type { RescueUnitResponseDto } from '../types/rescueUnit';
+import type { DispatchAlgorithm, DispatchVehicleType, Station, Vehicle, VehicleStatus } from '../types/vehicle';
 
-const VEHICLE_TICK_MS = 2500;
-const VEHICLE_STEP_FRACTION = 0.08;
-const ARRIVAL_THRESHOLD = 0.0006;
-const QUEUE_POLL_MS = 20000;
-const CREW_TICK_MS = 1000;
-const ACCEPTED_TO_EN_ROUTE_MS = 3000;
-const ESCALATION_CHECK_MS = 5000;
-
-// Giai đoạn nhiệm vụ của từng xe đã giao (mô phỏng phản hồi Staff App).
-interface CrewAssignment {
-  incidentId: string;
-  phase: 'awaiting' | 'accepted' | 'en_route' | 'on_scene' | 'recovering';
-  ackDeadline: number;
-  respondAt: number;
-  nextAt: number;
-}
+// Poll dự phòng: SignalR đẩy sự cố / lượt phân công, nhưng trạng thái xe (VD hết hồi sức → Sẵn sàng)
+// và khóa mềm của Operator khác không có sự kiện riêng.
+const POLL_MS = 20000;
 const HIGHLIGHT_DURATION_MS = 2200;
+
+const ACTIVE_ASSIGNMENT_STATUSES: BackendDispatchStatus[] = ['Dispatched', 'Accepted', 'EnRoute', 'OnScene'];
+const ASSIGNMENT_TO_VEHICLE_STATUS: Partial<Record<BackendDispatchStatus, VehicleStatus>> = {
+  Dispatched: 'awaiting_ack',
+  Accepted: 'accepted',
+  EnRoute: 'en_route',
+  OnScene: 'on_scene',
+};
+// Chuỗi enum backend; CoolDown / OutOfService chưa có trong RescueUnitStatus của Admin nên khóa theo string.
+const UNIT_STATUS_TO_VEHICLE_STATUS: Record<string, VehicleStatus> = {
+  Available: 'available',
+  Dispatched: 'en_route',
+  OnScene: 'on_scene',
+  Returning: 'recovering',
+  CoolDown: 'recovering',
+  Maintenance: 'unavailable',
+  OutOfService: 'unavailable',
+};
+// Bối cảnh KCN/Khu CNC: Operator không điều xe tuần tra (PolicePatrol bị ẩn khỏi Live Map).
+const UNIT_TYPE_TO_VEHICLE_TYPE: Record<string, DispatchVehicleType | undefined> = {
+  Ambulance: 'ambulance',
+  FireTruck: 'fire_truck',
+  LadderTruck: 'fire_truck',
+  HeavyRescueVehicle: 'rescue',
+  RescueBoat: 'rescue',
+};
+const BACKEND_ALGORITHM = { nearest: 'NearestAvailable', load_aware: 'LoadAware' } as const;
+
+const REJECTION_REASON_LABEL: Record<RejectionReason, string> = {
+  VehicleBreakdown: 'Xe/phương tiện hỏng hóc',
+  AlreadyOnMission: 'Đang bận nhiệm vụ khác',
+  TooFar: 'Quá xa vùng tiếp cận',
+  MedicalLeave: 'Lý do sức khỏe',
+  NoResponse: 'Quá thời gian không phản hồi',
+  Other: 'Lý do khác',
+};
+
+interface LivePosition {
+  lat: number;
+  lng: number;
+  heading: number | null;
+  at: string;
+}
+
+interface UnitLocationMessage {
+  rescueUnitId: string;
+  latitude: number;
+  longitude: number;
+  headingDegrees?: number | null;
+  timestampUtc: string;
+}
+
+interface EscalationAlertMessage {
+  incidentId: string;
+}
+
+type ActionResult = { ok: boolean; message?: string };
+
 function sortByPriority(incidents: Incident[]): Incident[] {
   return [...incidents].sort((a, b) => {
+    if (a.escalated !== b.escalated) return Number(b.escalated) - Number(a.escalated);
     if (b.severity !== a.severity) return b.severity - a.severity;
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   });
 }
 
-const isLockActive = (lock: IncidentLock | null) => !!lock && new Date(lock.expiresAt).getTime() > Date.now();
+const isActiveAssignment = (a: DispatchAssignmentResponseDto) => ACTIVE_ASSIGNMENT_STATUSES.includes(a.status);
+
+const upsert = <T extends { id: string }>(map: Map<string, T>, items: T[]) => {
+  const next = new Map(map);
+  items.forEach((item) => next.set(item.id, item));
+  return next;
+};
 
 interface DispatchContextValue {
   currentOperatorId: string;
   vehicles: Vehicle[];
+  stations: Station[];
+  trafficJams: TrafficJamReport[];
+  escalationSettings: EscalationSettingsDto;
   incidents: Incident[];
   highlightIncidentIds: Set<string>;
   incidentsLoading: boolean;
   incidentsError: string | null;
-  /** Sự cố Cấp 3 quá ngưỡng chưa có đội nhận (Escalated). */
+  /** Sự cố backend đã leo thang (status Escalated). */
   escalatedIncidentIds: Set<string>;
   /** Drawer chi tiết sự cố đang mở — banner leo thang tự thu gọn để không che Drawer. */
   incidentDrawerOpen: boolean;
   setIncidentDrawerOpen: (open: boolean) => void;
-  approveIncident: (
-    id: string,
-    confirmedSeverity: SeverityLevel,
-    operatorNotes?: string
-  ) => Promise<boolean>;
-  rejectIncident: (id: string, reason: string, blockDuration?: BlockDuration | null) => Promise<boolean>;
-  lockIncident: (id: string) => Promise<{ ok: boolean; message?: string }>;
+  approveIncident: (id: string, confirmedSeverity: SeverityLevel, operatorNotes?: string) => Promise<ActionResult>;
+  rejectIncident: (id: string, reason: string, blockDuration?: BlockDuration | null) => Promise<ActionResult>;
+  lockIncident: (id: string) => Promise<ActionResult>;
   releaseIncident: (id: string) => void;
-  revealReporterPhone: (id: string) => Promise<boolean>;
+  /** Số điện thoại đầy đủ (backend ghi vết), null nếu thất bại. */
+  revealReporterPhone: (id: string) => Promise<string | null>;
   /** Giao 1 xe cho sự cố (1-click hoặc kéo-thả). Cấp 3 gọi nhiều lần, tối đa 5 xe. */
-  assignVehicle: (vehicleId: string, incidentId: string) => Promise<{ ok: boolean; message?: string }>;
-  cancelAssignment: (vehicleId: string) => void;
+  assignVehicle: (vehicleId: string, incidentId: string, algorithm?: DispatchAlgorithm) => Promise<ActionResult>;
+  cancelAssignment: (vehicleId: string) => Promise<ActionResult>;
   dismissResponseNotice: (incidentId: string, noticeId: string) => void;
 }
 
 const DispatchContext = createContext<DispatchContextValue | null>(null);
 
 /**
- * Owns incident-queue data (real API: GET/PUT /api/Incidents/*) and the
- * vehicle-position simulation (mock — no backend Vehicle/Dispatch API yet).
- * Mounted once in OperatorLayout so both keep running across page navigation,
- * and so Incident Queue approvals are immediately visible in Live Map's dispatch panel.
+ * Dữ liệu Command Center từ backend: hàng đợi + sự cố đang điều phối (/api/Incidents),
+ * xe (/api/rescue-units), lượt phân công (/api/dispatch), trạm, điểm ùn tắc; cập nhật realtime qua
+ * SignalR (/hubs/incidents, /hubs/tracking) kèm poll dự phòng.
+ * Mounted once in OperatorLayout so data stays live across page navigation.
  */
 export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const operator = { id: user?.id ?? 'local-operator', name: user?.fullName ?? 'Bạn' };
-  const [vehicles, setVehicles] = useState<Vehicle[]>(vehicleSeeds);
-  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const operator = { id: user?.id ?? '', name: user?.fullName ?? 'Bạn' };
+
+  const [incidentDtos, setIncidentDtos] = useState<Map<string, IncidentResponseDto>>(new Map());
+  const [assignments, setAssignments] = useState<Map<string, DispatchAssignmentResponseDto>>(new Map());
+  const [units, setUnits] = useState<RescueUnitResponseDto[]>([]);
+  const [positions, setPositions] = useState<Map<string, LivePosition>>(new Map());
+  const [stations, setStations] = useState<Station[]>([]);
+  const [trafficJams, setTrafficJams] = useState<TrafficJamReport[]>([]);
+  const [escalationSettings, setEscalationSettings] = useState<EscalationSettingsDto>(DEFAULT_ESCALATION_SETTINGS);
+  const [dismissedNoticeIds, setDismissedNoticeIds] = useState<Set<string>>(new Set());
   const [highlightIncidentIds, setHighlightIncidentIds] = useState<Set<string>>(new Set());
   const [incidentsLoading, setIncidentsLoading] = useState(true);
   const [incidentsError, setIncidentsError] = useState<string | null>(null);
-  const targetsRef = useRef(new Map(vehicleSeeds.filter((v) => v.target).map((v) => [v.id, v.target!])));
-  const crewRef = useRef(new Map<string, CrewAssignment>());
   const [incidentDrawerOpen, setIncidentDrawerOpen] = useState(false);
-  const vehiclesRef = useRef(vehicles);
-  useEffect(() => {
-    vehiclesRef.current = vehicles;
-  }, [vehicles]);
+  const knownIncidentIdsRef = useRef<Set<string> | null>(null);
 
-  // Mô phỏng phản hồi đội cứu hộ: 120s Chấp nhận/Từ chối → Accepted → EnRoute → OnScene
-  // → nộp báo cáo → hồi sức 5 phút → Available. TODO(backend): thay bằng sự kiện SignalR từ Staff App.
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const vehicleUpdates = new Map<string, Partial<Vehicle>>();
-      const releases: Array<{ vehicleId: string; incidentId: string; notice: CrewResponseNotice }> = [];
-      const reports: Array<{ vehicleId: string; incidentId: string }> = [];
-
-      crewRef.current.forEach((a, vehicleId) => {
-        const response = MOCK_CREW_RESPONSES[vehicleId] ?? DEFAULT_CREW_RESPONSE;
-        const plate = vehiclesRef.current.find((v) => v.id === vehicleId)?.plate ?? vehicleId;
-        const makeNotice = (kind: CrewResponseNotice['kind'], reason: string): CrewResponseNotice => ({
-          id: `${vehicleId}-${now}`,
-          vehicleId,
-          plate,
-          kind,
-          reason,
-          at: new Date(now).toISOString(),
-        });
-
-        if (a.phase === 'awaiting') {
-          if (response.kind === 'reject' && now >= a.respondAt) {
-            releases.push({ vehicleId, incidentId: a.incidentId, notice: makeNotice('rejected', response.reason) });
-            crewRef.current.delete(vehicleId);
-          } else if (response.kind === 'accept' && now >= a.respondAt) {
-            a.phase = 'accepted';
-            a.nextAt = now + ACCEPTED_TO_EN_ROUTE_MS;
-            vehicleUpdates.set(vehicleId, { status: 'accepted', ackDeadline: null });
-          } else if (now >= a.ackDeadline) {
-            releases.push({
-              vehicleId,
-              incidentId: a.incidentId,
-              notice: makeNotice('timeout', 'Quá 120 giây không phản hồi'),
-            });
-            crewRef.current.delete(vehicleId);
-          }
-        } else if (a.phase === 'accepted' && now >= a.nextAt) {
-          a.phase = 'en_route';
-          vehicleUpdates.set(vehicleId, { status: 'en_route' });
-        } else if (a.phase === 'en_route') {
-          if (vehiclesRef.current.find((v) => v.id === vehicleId)?.status === 'on_scene') {
-            a.phase = 'on_scene';
-            a.nextAt = now + MOCK_ON_SCENE_DURATION_MS;
-          }
-        } else if (a.phase === 'on_scene' && now >= a.nextAt) {
-          a.phase = 'recovering';
-          a.nextAt = now + VEHICLE_RECOVERY_MS;
-          reports.push({ vehicleId, incidentId: a.incidentId });
-          vehicleUpdates.set(vehicleId, {
-            status: 'recovering',
-            incidentId: null,
-            etaMinutes: null,
-            recoveryUntil: new Date(a.nextAt).toISOString(),
-          });
-        } else if (a.phase === 'recovering' && now >= a.nextAt) {
-          crewRef.current.delete(vehicleId);
-          vehicleUpdates.set(vehicleId, { status: 'available', recoveryUntil: null });
-        }
+  const highlight = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    setHighlightIncidentIds((h) => new Set([...h, ...ids]));
+    setTimeout(() => {
+      setHighlightIncidentIds((h) => {
+        const next = new Set(h);
+        ids.forEach((id) => next.delete(id));
+        return next;
       });
-
-      if (vehicleUpdates.size === 0 && releases.length === 0) return;
-
-      releases.forEach((r) => targetsRef.current.delete(r.vehicleId));
-      const releasedIds = new Set(releases.map((r) => r.vehicleId));
-      const stamp = new Date(now).toISOString();
-      setVehicles((prev) =>
-        prev.map((v) => {
-          if (releasedIds.has(v.id)) {
-            return { ...v, status: 'available', incidentId: null, etaMinutes: null, ackDeadline: null, lastUpdated: stamp };
-          }
-          const update = vehicleUpdates.get(v.id);
-          return update ? { ...v, ...update, lastUpdated: stamp } : v;
-        })
-      );
-
-      if (releases.length === 0 && reports.length === 0) return;
-      setIncidents((prev) =>
-        prev.map((i) => {
-          const released = releases.filter((r) => r.incidentId === i.id);
-          const reported = reports.filter((r) => r.incidentId === i.id).map((r) => r.vehicleId);
-          if (released.length === 0 && reported.length === 0) return i;
-
-          const releasedVehicleIds = new Set(released.map((r) => r.vehicleId));
-          const assignedVehicleIds = i.assignedVehicleIds.filter((id) => !releasedVehicleIds.has(id));
-          const reportedVehicleIds = [...i.reportedVehicleIds, ...reported];
-          // Ca nhiều xe chỉ đóng khi tất cả xe đã giao đều nộp báo cáo.
-          const allReported =
-            assignedVehicleIds.length > 0 && assignedVehicleIds.every((id) => reportedVehicleIds.includes(id));
-
-          return {
-            ...i,
-            assignedVehicleIds,
-            reportedVehicleIds,
-            responseNotices: [...i.responseNotices, ...released.map((r) => r.notice)],
-            ...(allReported && i.status === 'approved' ? { status: 'completed' as const, completedAt: stamp } : {}),
-          };
-        })
-      );
-    }, CREW_TICK_MS);
-
-    return () => clearInterval(interval);
+    }, HIGHLIGHT_DURATION_MS);
   }, []);
 
-  // Vehicle movement simulation — unchanged, still mock (no Vehicle entity on the backend yet).
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setVehicles((prev) =>
-        prev.map((v) => {
-          const target = targetsRef.current.get(v.id);
-          if (v.status !== 'en_route' || !target) return v;
-
-          const dLat = target.lat - v.lat;
-          const dLng = target.lng - v.lng;
-          const dist = Math.hypot(dLat, dLng);
-
-          if (dist < ARRIVAL_THRESHOLD) {
-            targetsRef.current.delete(v.id);
-            return { ...v, status: 'on_scene', etaMinutes: null, lastUpdated: new Date().toISOString() };
-          }
-
-          const heading = (Math.atan2(dLng, dLat) * 180) / Math.PI;
-          return {
-            ...v,
-            lat: v.lat + dLat * VEHICLE_STEP_FRACTION,
-            lng: v.lng + dLng * VEHICLE_STEP_FRACTION,
-            heading,
-            etaMinutes: v.etaMinutes && v.etaMinutes > 1 ? v.etaMinutes - 1 : v.etaMinutes,
-            lastUpdated: new Date().toISOString(),
-          };
-        })
-      );
-    }, VEHICLE_TICK_MS);
-
-    return () => clearInterval(interval);
+  /** Ghi đè / thêm sự cố từ API hoặc SignalR; sự cố đã hủy bị gỡ khỏi bảng. */
+  const upsertIncidents = useCallback((dtos: IncidentResponseDto[]) => {
+    setIncidentDtos((prev) => {
+      const next = new Map(prev);
+      dtos.forEach((dto) => (toOperatorStatus(dto) === null ? next.delete(dto.id) : next.set(dto.id, dto)));
+      return next;
+    });
   }, []);
 
-  // Incident queue: fetch real data + poll (no SignalR/realtime push on the backend yet).
-  const refreshQueue = useCallback(async (isInitial: boolean) => {
+  const refreshUnits = useCallback(async () => {
     try {
-      const res = await incidentService.getQueue();
-      if (!res.success) {
-        setIncidentsError(res.message || 'Không thể tải hàng đợi sự cố.');
-        return;
-      }
+      setUnits(await liveMapService.getRescueUnits());
+    } catch (err) {
+      console.warn('Không tải được danh sách xe:', err);
+    }
+  }, []);
 
-      const fetched = res.data.map(mapIncidentResponseToIncident);
-      const freshIds = new Set(fetched.map((i) => i.id));
+  const refreshBoard = useCallback(async () => {
+    try {
+      const [queueRes, board] = await Promise.all([incidentService.getQueue(), incidentService.getDispatchBoard()]);
+      if (!queueRes.success) throw new Error(queueRes.message || 'Không thể tải hàng đợi sự cố.');
 
-      setIncidents((prev) => {
-        // Backend chưa trả trạng thái khóa → giữ khóa cục bộ còn hiệu lực qua các lần poll.
-        const prevById = new Map(prev.map((i) => [i.id, i]));
-        const fresh = fetched.map((i) => {
-          const localLock = prevById.get(i.id)?.lock ?? null;
-          return i.lock || !isLockActive(localLock) ? i : { ...i, lock: localLock };
-        });
+      const assignmentLists = await Promise.all(
+        board.map((dto) => dispatchService.getAssignmentsByIncident(dto.id).then((res) => (res.success ? res.data : [])))
+      );
 
-        if (!isInitial) {
-          const seenIds = new Set(prev.map((i) => i.id));
-          const newlyArrivedIds = fresh.filter((i) => !seenIds.has(i.id)).map((i) => i.id);
-          if (newlyArrivedIds.length > 0) {
-            setHighlightIncidentIds((h) => new Set([...h, ...newlyArrivedIds]));
-            setTimeout(() => {
-              setHighlightIncidentIds((h) => {
-                const next = new Set(h);
-                newlyArrivedIds.forEach((id) => next.delete(id));
-                return next;
-              });
-            }, HIGHLIGHT_DURATION_MS);
-          }
-        }
-
-        // Locally-approved incidents already dropped off the backend queue (status
-        // moved to Verified) but Live Map's dispatch panel still needs them visible.
-        const keepLocal = prev.filter((i) => i.status !== 'pending' && !freshIds.has(i.id));
-        return sortByPriority([...keepLocal, ...fresh]);
+      const fresh = [...queueRes.data, ...board];
+      const freshIds = new Set(fresh.map((dto) => dto.id));
+      setIncidentDtos((prev) => {
+        // Sự cố vừa hoàn tất (nhận qua SignalR) không còn trong các danh sách đang mở —
+        // giữ lại tới khi tải lại trang để Operator thấy kết quả.
+        const keptCompleted = [...prev.values()].filter((dto) => dto.status === 'Completed' && !freshIds.has(dto.id));
+        return new Map([...keptCompleted, ...fresh].map((dto) => [dto.id, dto]));
       });
+      setAssignments((prev) => {
+        const kept = [...prev.values()].filter((a) => !freshIds.has(a.incidentId));
+        return new Map([...kept, ...assignmentLists.flat()].map((a) => [a.id, a]));
+      });
+
+      // Sự cố mới xuất hiện giữa hai lần poll (khi SignalR rớt) → nháy sáng.
+      if (knownIncidentIdsRef.current) {
+        const known = knownIncidentIdsRef.current;
+        highlight(queueRes.data.filter((dto) => !known.has(dto.id)).map((dto) => dto.id));
+      }
+      knownIncidentIdsRef.current = new Set([...(knownIncidentIdsRef.current ?? []), ...freshIds]);
       setIncidentsError(null);
     } catch (err) {
       setIncidentsError(getApiErrorMessage(err, 'Không thể tải hàng đợi sự cố.'));
     } finally {
-      if (isInitial) setIncidentsLoading(false);
+      setIncidentsLoading(false);
     }
+  }, [highlight]);
+
+  const refreshAll = useCallback(() => {
+    refreshBoard();
+    refreshUnits();
+  }, [refreshBoard, refreshUnits]);
+
+  // Dữ liệu ít thay đổi: trạm, tổ của các trạm, điểm ùn tắc, ngưỡng leo thang.
+  useEffect(() => {
+    liveMapService
+      .getStations()
+      .then((list) => {
+        setStations(list);
+        return stationTeamService.loadTeams(list.map((s) => s.id));
+      })
+      .catch((err) => console.warn('Không tải được trạm / tổ:', err));
+    liveMapService
+      .getActiveTrafficJams()
+      .then(setTrafficJams)
+      .catch((err) => console.warn('Không tải được điểm ùn tắc:', err));
+    liveMapService
+      .getEscalationSettings()
+      .then(setEscalationSettings)
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    refreshQueue(true);
-    const interval = setInterval(() => refreshQueue(false), QUEUE_POLL_MS);
+    refreshAll();
+    const interval = setInterval(refreshAll, POLL_MS);
     return () => clearInterval(interval);
-  }, [refreshQueue]);
+  }, [refreshAll]);
 
-  const approveIncident = async (
-    id: string,
-    confirmedSeverity: SeverityLevel,
-    operatorNotes?: string
-  ): Promise<boolean> => {
+  // Realtime
+  useEffect(() => {
+    const unsubscribers = [
+      incidentHubService.on<IncidentResponseDto>(HubEvents.ReceiveNewIncident, (dto) => {
+        upsertIncidents([dto]);
+        knownIncidentIdsRef.current?.add(dto.id);
+        highlight([dto.id]);
+      }),
+      incidentHubService.on<IncidentResponseDto>(HubEvents.ReceiveIncidentUpdate, (dto) => upsertIncidents([dto])),
+      incidentHubService.on<EscalationAlertMessage>(HubEvents.ReceiveEscalationAlert, (alert) => {
+        incidentService
+          .getById(alert.incidentId)
+          .then((res) => res.success && upsertIncidents([res.data]))
+          .catch(() => undefined);
+      }),
+      incidentHubService.on<DispatchAssignmentResponseDto>(HubEvents.ReceiveJobAssigned, (a) =>
+        setAssignments((prev) => upsert(prev, [a]))
+      ),
+      incidentHubService.on<DispatchAssignmentResponseDto>(HubEvents.ReceiveAssignmentStatus, (a) => {
+        setAssignments((prev) => upsert(prev, [a]));
+        // Xe đổi trạng thái theo lượt phân công (hoàn tất → hồi sức, hủy → sẵn sàng).
+        if (!isActiveAssignment(a)) refreshUnits();
+      }),
+      incidentHubService.on<TrafficHotspotResponseDto>(HubEvents.ReceiveTrafficHotspot, (dto) =>
+        setTrafficJams((prev) => {
+          const rest = prev.filter((j) => j.id !== dto.id);
+          return dto.isActive ? [...rest, mapTrafficHotspot(dto)] : rest;
+        })
+      ),
+      trackingHubService.on<UnitLocationMessage>(HubEvents.ReceiveRescueUnitLocation, (msg) =>
+        setPositions((prev) =>
+          new Map(prev).set(msg.rescueUnitId, {
+            lat: msg.latitude,
+            lng: msg.longitude,
+            heading: msg.headingDegrees ?? null,
+            at: msg.timestampUtc,
+          })
+        )
+      ),
+      incidentHubService.onReconnected(refreshAll),
+    ];
+    incidentHubService.start();
+    trackingHubService.start();
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      incidentHubService.stop();
+      trackingHubService.stop();
+    };
+  }, [upsertIncidents, highlight, refreshUnits, refreshAll]);
+
+  // ---------------------------------------------------------------------------
+  // Derived view models
+  // ---------------------------------------------------------------------------
+
+  const activeAssignmentByUnit = useMemo(() => {
+    const map = new Map<string, DispatchAssignmentResponseDto>();
+    assignments.forEach((a) => {
+      if (!isActiveAssignment(a)) return;
+      const current = map.get(a.rescueUnitId);
+      if (!current || current.dispatchedAt < a.dispatchedAt) map.set(a.rescueUnitId, a);
+    });
+    return map;
+  }, [assignments]);
+
+  const vehicles = useMemo<Vehicle[]>(() => {
+    const now = Date.now();
+    return units.flatMap((unit) => {
+      const type = UNIT_TYPE_TO_VEHICLE_TYPE[unit.unitType];
+      if (!type) return [];
+      const assignment = activeAssignmentByUnit.get(unit.id);
+      const live = positions.get(unit.id);
+      const status =
+        (assignment && ASSIGNMENT_TO_VEHICLE_STATUS[assignment.status]) ??
+        UNIT_STATUS_TO_VEHICLE_STATUS[unit.status] ??
+        'unavailable';
+      const elapsedMinutes = assignment ? (now - new Date(assignment.dispatchedAt).getTime()) / 60000 : 0;
+      const etaMinutes =
+        assignment?.estimatedArrivalMinutes != null && status !== 'on_scene'
+          ? Math.max(1, Math.round(assignment.estimatedArrivalMinutes - elapsedMinutes))
+          : null;
+
+      return [
+        {
+          id: unit.id,
+          plate: unit.plateNumber,
+          type,
+          status,
+          stationId: unit.stationId,
+          stationName: unit.stationName,
+          lat: live?.lat ?? unit.currentLat,
+          lng: live?.lng ?? unit.currentLng,
+          heading: live?.heading ?? 0,
+          etaMinutes,
+          incidentId: assignment?.incidentId ?? null,
+          lastUpdated: live?.at ?? unit.lastLocationUpdateAt ?? unit.updatedAt ?? unit.createdAt,
+          ackDeadline:
+            assignment?.status === 'Dispatched'
+              ? new Date(new Date(assignment.dispatchedAt).getTime() + CREW_ACK_TIMEOUT_MS).toISOString()
+              : null,
+          assignmentId: assignment?.id ?? null,
+        },
+      ];
+    });
+  }, [units, activeAssignmentByUnit, positions]);
+
+  const incidents = useMemo<Incident[]>(() => {
+    const byIncident = new Map<string, DispatchAssignmentResponseDto[]>();
+    assignments.forEach((a) => byIncident.set(a.incidentId, [...(byIncident.get(a.incidentId) ?? []), a]));
+
+    const list = [...incidentDtos.values()].map((dto): Incident => {
+      const incident = mapIncidentResponseToIncident(dto);
+      const own = byIncident.get(dto.id) ?? [];
+      const notices: CrewResponseNotice[] = own
+        .filter((a) => a.status === 'Rejected' && !dismissedNoticeIds.has(a.id))
+        .map((a) => ({
+          id: a.id,
+          vehicleId: a.rescueUnitId,
+          plate: a.rescueUnit?.plateNumber ?? '—',
+          kind: a.rejectionReason === 'NoResponse' ? 'timeout' : 'rejected',
+          reason: [a.rejectionReason ? REJECTION_REASON_LABEL[a.rejectionReason] : null, a.rejectionNotes]
+            .filter(Boolean)
+            .join(' — '),
+          at: a.rejectedAt ?? a.dispatchedAt,
+        }));
+
+      return {
+        ...incident,
+        assignedVehicleIds: own
+          .filter((a) => isActiveAssignment(a) || a.status === 'Completed')
+          .map((a) => a.rescueUnitId),
+        reportedVehicleIds: own.filter((a) => a.status === 'Completed').map((a) => a.rescueUnitId),
+        responseNotices: notices,
+        completedAt: dto.status === 'Completed' ? dto.updatedAt : undefined,
+      };
+    });
+    return sortByPriority(list);
+  }, [incidentDtos, assignments, dismissedNoticeIds]);
+
+  const escalatedIncidentIds = useMemo(
+    () => new Set(incidents.filter((i) => i.escalated).map((i) => i.id)),
+    [incidents]
+  );
+
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+
+  const approveIncident = async (id: string, confirmedSeverity: SeverityLevel, operatorNotes?: string) => {
     try {
       const res = await incidentService.verify(id, {
         confirmedSeverity: severityToBackend(confirmedSeverity),
         operatorNotes,
       });
-      if (!res.success) {
-        setIncidentsError(res.message || 'Xác minh sự cố thất bại.');
-        return false;
-      }
-      setIncidents((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, status: 'approved', severity: confirmedSeverity } : i))
-      );
-      setIncidentsError(null);
+      if (!res.success) return { ok: false, message: res.message || 'Xác minh sự cố thất bại.' };
       // Không tự gán xe: sự cố đã duyệt chờ Operator chọn xe từ gợi ý điều phối trên Live Map.
-      return true;
+      upsertIncidents([res.data]);
+      return { ok: true };
     } catch (err) {
-      setIncidentsError(getApiErrorMessage(err, 'Xác minh sự cố thất bại.'));
-      return false;
+      return { ok: false, message: getApiErrorMessage(err, 'Xác minh sự cố thất bại.') };
     }
   };
 
-  const rejectIncident = async (
-    id: string,
-    reason: string,
-    blockDuration: BlockDuration | null = null
-  ): Promise<boolean> => {
+  const rejectIncident = async (id: string, reason: string, blockDuration: BlockDuration | null = null) => {
     try {
       const res = await incidentService.cancel(id, reason);
-      if (!res.success) {
-        setIncidentsError(res.message || 'Hủy sự cố thất bại.');
-        return false;
-      }
-      if (blockDuration) {
-        const blockRes = await incidentService.blockReporterPhone(id, blockDuration);
-        if (!blockRes.success) {
-          setIncidentsError(blockRes.message || 'Đã hủy ca nhưng chặn số điện thoại thất bại.');
-        }
-      }
-      // Sự cố đã điều xe (hủy từ Dispatch Panel) → trả các xe về Available.
-      incidents.find((i) => i.id === id)?.assignedVehicleIds.forEach(releaseVehicleLocally);
-      setIncidents((prev) => prev.filter((i) => i.id !== id));
-      setIncidentsError(null);
-      return true;
+      if (!res.success) return { ok: false, message: res.message || 'Hủy sự cố thất bại.' };
+      setIncidentDtos((prev) => {
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
+      // Backend trả các xe đang giao về Sẵn sàng.
+      refreshUnits();
     } catch (err) {
-      setIncidentsError(getApiErrorMessage(err, 'Hủy sự cố thất bại.'));
-      return false;
+      return { ok: false, message: getApiErrorMessage(err, 'Hủy sự cố thất bại.') };
     }
-  };
 
-  const setIncidentLock = (id: string, lock: IncidentLock | null) => {
-    setIncidents((prev) => prev.map((i) => (i.id === id ? { ...i, lock } : i)));
-  };
-
-  const lockIncident = async (id: string): Promise<{ ok: boolean; message?: string }> => {
+    if (!blockDuration) return { ok: true };
     try {
-      const res = await incidentService.lock(id, operator);
-      if (!res.success || !res.data) {
-        return { ok: false, message: res.message || 'Ca đang được điều phối viên khác xử lý.' };
+      const blockRes = await incidentService.blockReporterPhone(id, blockDuration, reason);
+      if (!blockRes.success) {
+        setIncidentsError(`Đã hủy ca nhưng chặn số điện thoại thất bại: ${blockRes.message}`);
       }
+    } catch (err) {
+      setIncidentsError(`Đã hủy ca nhưng chặn số điện thoại thất bại: ${getApiErrorMessage(err)}`);
+    }
+    return { ok: true };
+  };
+
+  const setIncidentLock = (
+    id: string,
+    lock: Pick<IncidentResponseDto, 'lockedByOperatorId' | 'lockedByOperatorName' | 'lockExpiresAt'>
+  ) => {
+    setIncidentDtos((prev) => {
+      const dto = prev.get(id);
+      return dto ? new Map(prev).set(id, { ...dto, ...lock }) : prev;
+    });
+  };
+
+  const lockIncident = async (id: string): Promise<ActionResult> => {
+    try {
+      const res = await incidentService.lock(id);
+      if (!res.success) return { ok: false, message: res.message || 'Ca đang được điều phối viên khác xử lý.' };
       setIncidentLock(id, {
-        operatorId: res.data.lockedByOperatorId,
-        operatorName: res.data.lockedByOperatorName,
-        expiresAt: res.data.lockExpiresAt,
+        lockedByOperatorId: res.data.lockedByOperatorId,
+        lockedByOperatorName: res.data.lockedByOperatorName,
+        lockExpiresAt: res.data.lockExpiresAt,
       });
       return { ok: true };
     } catch (err) {
+      // 409: người khác đang giữ — tải lại để hiện đúng tên người giữ khóa.
+      refreshBoard();
       return { ok: false, message: getApiErrorMessage(err, 'Không thể nhận ca xử lý.') };
     }
   };
 
   const releaseIncident = (id: string) => {
-    const incident = incidents.find((i) => i.id === id);
-    if (!incident?.lock || incident.lock.operatorId !== operator.id) return;
-    setIncidentLock(id, null);
+    const dto = incidentDtos.get(id);
+    if (!dto?.lockedByOperatorId || dto.lockedByOperatorId !== operator.id) return;
+    setIncidentLock(id, { lockedByOperatorId: undefined, lockedByOperatorName: undefined, lockExpiresAt: undefined });
     incidentService.unlock(id).catch(() => undefined);
   };
 
-  const revealReporterPhone = async (id: string): Promise<boolean> => {
+  const revealReporterPhone = async (id: string): Promise<string | null> => {
     try {
-      const res = await incidentService.logPhoneReveal(id);
-      return res.success;
+      const res = await incidentService.revealPhone(id);
+      return res.success ? (res.data.phoneNumber ?? null) : null;
     } catch {
-      return false;
+      return null;
     }
   };
 
-  const assignVehicle = async (vehicleId: string, incidentId: string): Promise<{ ok: boolean; message?: string }> => {
+  const assignVehicle = async (
+    vehicleId: string,
+    incidentId: string,
+    algorithm: DispatchAlgorithm = 'nearest'
+  ): Promise<ActionResult> => {
     const incident = incidents.find((i) => i.id === incidentId);
     const vehicle = vehicles.find((v) => v.id === vehicleId);
     if (!incident || !vehicle) return { ok: false, message: 'Không tìm thấy sự cố hoặc xe.' };
     if (vehicle.status !== 'available') return { ok: false, message: `Xe ${vehicle.plate} không còn sẵn sàng.` };
 
     const maxVehicles = MAX_VEHICLES_BY_LEVEL[incident.severity];
-    if (incident.assignedVehicleIds.length >= maxVehicles) {
+    const activeCount = incident.assignedVehicleIds.length - incident.reportedVehicleIds.length;
+    if (activeCount >= maxVehicles) {
       return {
         ok: false,
         message:
-          maxVehicles === 1
-            ? 'Sự cố Cấp 1–2 chỉ được giao 1 xe.'
-            : `Sự cố Cấp 3 được giao tối đa ${maxVehicles} xe.`,
+          maxVehicles === 1 ? 'Sự cố Cấp 1–2 chỉ được giao 1 xe.' : `Sự cố Cấp 3 được giao tối đa ${maxVehicles} xe.`,
       };
     }
 
     try {
-      const res = await dispatchService.assignVehicle(incidentId, vehicleId);
-      if (!res.success) {
-        // HTTP 409: xe vừa bị người khác giao trước → đánh dấu bận để không gợi ý lại.
-        if (res.data?.conflict) {
-          setVehicles((prev) =>
-            prev.map((v) =>
-              v.id === vehicleId ? { ...v, status: 'en_route', etaMinutes: null, lastUpdated: new Date().toISOString() } : v
-            )
-          );
-        }
-        return { ok: false, message: `${res.message || 'Giao xe thất bại.'} (${vehicle.plate})` };
-      }
+      const res = await dispatchService.assignUnit({
+        incidentId,
+        rescueUnitId: vehicleId,
+        algorithm: BACKEND_ALGORITHM[algorithm],
+      });
+      if (!res.success) return { ok: false, message: `${res.message || 'Giao xe thất bại.'} (${vehicle.plate})` };
+      setAssignments((prev) => upsert(prev, res.data));
+      return { ok: true };
     } catch (err) {
-      return { ok: false, message: getApiErrorMessage(err, 'Giao xe thất bại.') };
+      // HTTP 409: xe vừa bị Operator khác giao trước → tải lại trạng thái xe để không gợi ý lại.
+      refreshUnits();
+      return { ok: false, message: `${getApiErrorMessage(err, 'Giao xe thất bại.')} (${vehicle.plate})` };
     }
-
-    const etaMinutes = estimateEtaMinutes(haversineKm(incident, vehicle));
-    targetsRef.current.set(vehicleId, { lat: incident.lat, lng: incident.lng });
-
-    // Xe chưa lăn bánh: chờ đội cứu hộ xác nhận trong 120s.
-    const now = Date.now();
-    const response = MOCK_CREW_RESPONSES[vehicleId] ?? DEFAULT_CREW_RESPONSE;
-    crewRef.current.set(vehicleId, {
-      incidentId,
-      phase: 'awaiting',
-      ackDeadline: now + CREW_ACK_TIMEOUT_MS,
-      respondAt: response.kind === 'ignore' ? Infinity : now + response.afterMs,
-      nextAt: 0,
-    });
-
-    setVehicles((prev) =>
-      prev.map((v) =>
-        v.id === vehicleId
-          ? {
-              ...v,
-              status: 'awaiting_ack',
-              incidentId,
-              etaMinutes,
-              ackDeadline: new Date(now + CREW_ACK_TIMEOUT_MS).toISOString(),
-              lastUpdated: new Date(now).toISOString(),
-            }
-          : v
-      )
-    );
-    setIncidents((prev) =>
-      prev.map((i) =>
-        i.id === incidentId && !i.assignedVehicleIds.includes(vehicleId)
-          ? { ...i, assignedVehicleIds: [...i.assignedVehicleIds, vehicleId] }
-          : i
-      )
-    );
-    return { ok: true };
   };
 
-  function releaseVehicleLocally(vehicleId: string) {
-    targetsRef.current.delete(vehicleId);
-    crewRef.current.delete(vehicleId);
-    setVehicles((prev) =>
-      prev.map((v) =>
-        v.id === vehicleId
-          ? {
-              ...v,
-              status: 'available',
-              incidentId: null,
-              etaMinutes: null,
-              ackDeadline: null,
-              lastUpdated: new Date().toISOString(),
-            }
-          : v
-      )
-    );
-  }
-
-  const dismissResponseNotice = (incidentId: string, noticeId: string) => {
-    setIncidents((prev) =>
-      prev.map((i) =>
-        i.id === incidentId ? { ...i, responseNotices: i.responseNotices.filter((n) => n.id !== noticeId) } : i
-      )
-    );
+  // Hủy lệnh điều phối của một xe — không tự gán xe thay thế, Operator chọn lại từ gợi ý.
+  const cancelAssignment = async (vehicleId: string): Promise<ActionResult> => {
+    const vehicle = vehicles.find((v) => v.id === vehicleId);
+    if (!vehicle?.assignmentId) return { ok: false, message: 'Xe không có lượt điều phối đang chạy.' };
+    try {
+      const res = await dispatchService.updateAssignmentStatus(vehicle.assignmentId, {
+        status: 'Cancelled',
+        notes: 'Điều phối viên hủy giao xe.',
+      });
+      if (!res.success) return { ok: false, message: res.message || 'Hủy giao xe thất bại.' };
+      setAssignments((prev) => upsert(prev, [res.data]));
+      refreshUnits();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: getApiErrorMessage(err, 'Hủy giao xe thất bại.') };
+    }
   };
 
-  const escalationNow = useNow(ESCALATION_CHECK_MS);
-  const escalatedIncidentIds = useMemo(() => {
-    const byId = new Map(vehicles.map((v) => [v.id, v]));
-    return new Set(incidents.filter((i) => isIncidentEscalated(i, byId, escalationNow)).map((i) => i.id));
-  }, [incidents, vehicles, escalationNow]);
-
-  // Nhả xe khỏi sự cố — không tự gán xe thay thế, Operator chọn lại từ gợi ý.
-  const cancelAssignment = (vehicleId: string) => {
-    releaseVehicleLocally(vehicleId);
-    setIncidents((prev) =>
-      prev.map((i) =>
-        i.assignedVehicleIds.includes(vehicleId)
-          ? { ...i, assignedVehicleIds: i.assignedVehicleIds.filter((id) => id !== vehicleId) }
-          : i
-      )
-    );
-    dispatchService.releaseVehicle(vehicleId).catch(() => undefined);
+  const dismissResponseNotice = (_incidentId: string, noticeId: string) => {
+    setDismissedNoticeIds((prev) => new Set(prev).add(noticeId));
   };
 
   return (
@@ -494,6 +550,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       value={{
         currentOperatorId: operator.id,
         vehicles,
+        stations,
+        trafficJams,
+        escalationSettings,
         incidents,
         highlightIncidentIds,
         incidentsLoading,

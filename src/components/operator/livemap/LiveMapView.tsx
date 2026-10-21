@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { Clock, ExternalLink, LocateFixed, User } from 'lucide-react';
-import { MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META, stations } from '../../../data/liveMapMock';
+import { Building2, Clock, ExternalLink, LocateFixed } from 'lucide-react';
+import { MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import { MAPBOX_ACCESS_TOKEN } from '../../../services/mapboxService';
-import type { Vehicle } from '../../../types/vehicle';
+import type { Station, Vehicle } from '../../../types/vehicle';
 import type { Incident, TrafficJamReport } from '../../../types/incident';
 import {
   clusterMarkerHtml,
@@ -90,8 +90,8 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle }> = ({ vehicle }) => {
         <span>{typeMeta.label}</span>
       </div>
       <div className="flex items-center gap-1.5 text-xs text-slate-600">
-        <User className="w-3.5 h-3.5 shrink-0" />
-        <span>{vehicle.driver}</span>
+        <Building2 className="w-3.5 h-3.5 shrink-0" />
+        <span>{vehicle.stationName}</span>
       </div>
       {vehicle.etaMinutes !== null && (
         <div className="flex items-center gap-1.5 text-xs text-red-600 font-semibold">
@@ -211,6 +211,7 @@ interface LiveMapViewProps {
   dispatchIncidents?: Incident[];
   selectedIncidentId?: string | null;
   onSelectIncident?: (id: string) => void;
+  stations?: Station[];
   trafficJams?: TrafficJamReport[];
   vehiclesById?: Map<string, Vehicle>;
   incidentsById?: Map<string, Incident>;
@@ -223,6 +224,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   dispatchIncidents = [],
   selectedIncidentId = null,
   onSelectIncident,
+  stations = [],
   trafficJams = [],
   vehiclesById,
   incidentsById,
@@ -304,7 +306,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
               popupOffset={10}
             >
               <div className="text-xs font-semibold text-slate-900">{station.name}</div>
-              <div className="text-[11px] text-slate-500">{station.area}</div>
+              <div className="text-[11px] text-slate-500">{station.address}</div>
             </MapMarker>
           ))}
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { HAZARD_TAG_META, INCIDENT_CATEGORY_META, SEVERITY_LEVEL_COLOR } from '../../../data/incidentMock';
-import { VEHICLE_STATUS_META } from '../../../data/liveMapMock';
+import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 
 const SEVERITY_LEGEND = [
   { level: 1, label: 'Cấp 1' },

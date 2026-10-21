@@ -4,6 +4,9 @@ import { IncidentQueueList } from '../../components/operator/incidents/IncidentQ
 import { useDispatchStore } from '../../context/DispatchContext';
 import type { BlockDuration, SeverityLevel } from '../../types/incident';
 
+// Backend giữ khóa mềm 2 phút; gia hạn mỗi 60 giây khi Operator vẫn đang mở ca.
+const LOCK_RENEW_MS = 60 * 1000;
+
 export const IncidentQueuePage: React.FC = () => {
   const {
     currentOperatorId,
@@ -32,6 +35,13 @@ export const IncidentQueuePage: React.FC = () => {
     setIncidentDrawerOpen(isDrawerOpen);
     return () => setIncidentDrawerOpen(false);
   }, [isDrawerOpen]);
+
+  const holdsLock = selectedIncident?.lock?.operatorId === currentOperatorId;
+  useEffect(() => {
+    if (!selectedId || !holdsLock) return;
+    const interval = setInterval(() => lockIncident(selectedId), LOCK_RENEW_MS);
+    return () => clearInterval(interval);
+  }, [selectedId, holdsLock]);
 
   // Mở ca = nhận khóa mềm 2 phút. Ca đang bị người khác giữ vẫn mở được ở chế độ chỉ xem.
   const acquireLock = async (id: string) => {
@@ -62,24 +72,24 @@ export const IncidentQueuePage: React.FC = () => {
   const handleApprove = async (id: string, confirmedSeverity: SeverityLevel, overrideReason?: string) => {
     setSubmittingId(id);
     setActionError(null);
-    const ok = await approveIncident(id, confirmedSeverity, overrideReason);
+    const result = await approveIncident(id, confirmedSeverity, overrideReason);
     setSubmittingId(null);
-    if (ok) {
+    if (result.ok) {
       setSelectedId(null);
     } else {
-      setActionError('Duyệt sự cố thất bại. Vui lòng thử lại.');
+      setActionError(result.message ?? 'Duyệt sự cố thất bại. Vui lòng thử lại.');
     }
   };
 
   const handleReject = async (id: string, reason: string, blockDuration: BlockDuration | null) => {
     setSubmittingId(id);
     setActionError(null);
-    const ok = await rejectIncident(id, reason, blockDuration);
+    const result = await rejectIncident(id, reason, blockDuration);
     setSubmittingId(null);
-    if (ok) {
+    if (result.ok) {
       setSelectedId(null);
     } else {
-      setActionError('Hủy ca thất bại. Vui lòng thử lại.');
+      setActionError(result.message ?? 'Hủy ca thất bại. Vui lòng thử lại.');
     }
   };
 

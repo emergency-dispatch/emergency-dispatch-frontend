@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { Building2 } from 'lucide-react';
-import { DISPATCH_VEHICLE_TYPES, VEHICLE_STATUS_META, VEHICLE_TYPE_META, stations } from '../../../data/liveMapMock';
-import type { Vehicle, VehicleFilters } from '../../../types/vehicle';
+import { DISPATCH_VEHICLE_TYPES, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
+import type { Station, Vehicle, VehicleFilters } from '../../../types/vehicle';
 
 type PanelTab = 'vehicles' | 'stations';
 
-const AREAS = Array.from(new Set(stations.map((s) => s.area)));
-
 interface VehiclePanelProps {
   vehicles: Vehicle[];
+  stations: Station[];
   filters: VehicleFilters;
   onFiltersChange: (filters: VehicleFilters) => void;
   selectedVehicleId: string | null;
@@ -17,6 +16,7 @@ interface VehiclePanelProps {
 
 export const VehiclePanel: React.FC<VehiclePanelProps> = ({
   vehicles,
+  stations,
   filters,
   onFiltersChange,
   selectedVehicleId,
@@ -79,14 +79,14 @@ export const VehiclePanel: React.FC<VehiclePanelProps> = ({
               ))}
             </select>
             <select
-              value={filters.area}
-              onChange={(e) => onFiltersChange({ ...filters, area: e.target.value })}
+              value={filters.stationId}
+              onChange={(e) => onFiltersChange({ ...filters, stationId: e.target.value })}
               className="w-full text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:border-red-500"
             >
-              <option value="all">Tất cả khu vực</option>
-              {AREAS.map((area) => (
-                <option key={area} value={area}>
-                  {area}
+              <option value="all">Tất cả trạm</option>
+              {stations.map((station) => (
+                <option key={station.id} value={station.id}>
+                  {station.name}
                 </option>
               ))}
             </select>
@@ -126,10 +126,12 @@ export const VehiclePanel: React.FC<VehiclePanelProps> = ({
                     <TypeIcon className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">{typeMeta.label}</span>
                     <span className="text-slate-300 shrink-0">•</span>
-                    <span className="truncate">{vehicle.area}</span>
+                    <span className="truncate">{vehicle.stationName}</span>
                   </div>
                   <div className="flex items-center justify-between mt-1 gap-2">
-                    <span className="text-[11px] text-slate-400 truncate">{vehicle.driver}</span>
+                    <span className="text-[11px] text-slate-400 truncate">
+                      Cập nhật {new Date(vehicle.lastUpdated).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                     {vehicle.etaMinutes !== null && (
                       <span className="text-[11px] font-mono-data text-red-600 font-semibold shrink-0">
                         ETA {vehicle.etaMinutes}m
@@ -149,7 +151,7 @@ export const VehiclePanel: React.FC<VehiclePanelProps> = ({
                 <Building2 className="w-4 h-4 text-red-600 shrink-0" />
                 <span className="text-sm font-semibold text-slate-900">{station.name}</span>
               </div>
-              <div className="text-xs text-slate-500 mt-1">{station.area}</div>
+              <div className="text-xs text-slate-500 mt-1">{station.address}</div>
               <div className="text-[11px] font-mono-data text-slate-400 mt-1">
                 {station.vehicleIds.length} phương tiện
               </div>

@@ -15,22 +15,3 @@ export interface CreateInternalAccountDto {
 
 /** Các trường Admin sửa được qua PUT /api/users/{id} (email không đổi được). */
 export type InternalAccountInput = Pick<CreateInternalAccountDto, 'fullName' | 'phoneNumber' | 'role' | 'stationId'>;
-
-// ---------------------------------------------------------------------------
-// Chỉ còn mock Trạm & Tổ của Operator dùng (data/staffAccountSeed.ts).
-// TODO(backend): bỏ khi màn Trạm & Tổ chuyển sang /api/users/station/{id}.
-// ---------------------------------------------------------------------------
-
-export type AccountLock =
-  | { kind: 'none' }
-  | { kind: 'failed_login'; until: string }
-  | { kind: 'admin'; reason: string; lockedAt: string; lockedByName: string };
-
-export interface InternalAccount {
-  id: string;
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  role: InternalRole;
-  lock: AccountLock;
-}

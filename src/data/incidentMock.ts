@@ -52,9 +52,6 @@ export const SEVERITY_LEVEL_COLOR: Record<SeverityLevel, string> = {
 // Dưới ngưỡng này (%), sự cố được gắn cảnh báo "Độ tin cậy thấp" để Operator xem kỹ media.
 export const LOW_CONFIDENCE_THRESHOLD = 50;
 
-// Khóa mềm khi Operator mở ca (FR-OP-02).
-export const SOFT_LOCK_DURATION_MS = 2 * 60 * 1000;
-
 // Ghi đè cấp độ AI bắt buộc lý do tối thiểu (FR-OP-03, lưu IncidentAuditTrail).
 export const OVERRIDE_REASON_MIN_LENGTH = 5;
 

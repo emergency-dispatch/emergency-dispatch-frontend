@@ -16,22 +16,75 @@ import { SeverityBadge } from '../incidents/SeverityBadge';
 import { VehicleTeamTag } from '../teams/VehicleTeamTag';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { DISPATCH_ALGORITHM_META, MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
-import { VEHICLE_STATUS_META, VEHICLE_TYPE_META, stations } from '../../../data/liveMapMock';
+import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useNow } from '../../../hooks/useNow';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
-import { suggestVehicles } from '../../../utils/dispatch';
+import { getApiErrorMessage } from '../../../services/apiClient';
+import { dispatchService } from '../../../services/dispatchService';
 import { formatCountdown } from '../../../utils/incidentFormat';
 import type { Incident } from '../../../types/incident';
 import type { StationTeam } from '../../../types/stationTeam';
-import type { DispatchAlgorithm, Vehicle } from '../../../types/vehicle';
+import type { DispatchAlgorithm, DispatchSuggestion, Vehicle } from '../../../types/vehicle';
 
 const DRAG_MIME = 'application/x-resq-vehicle-id';
-const stationsById = new Map(stations.map((s) => [s.id, s]));
+const BACKEND_ALGORITHM = { nearest: 'NearestAvailable', load_aware: 'LoadAware' } as const;
+
+/**
+ * Gợi ý xe từ backend (khớp loại xe theo nhánh sự cố, bán kính tự mở rộng, Nearest / Load-Aware).
+ * Tải lại khi đổi thuật toán hoặc số xe đã giao thay đổi.
+ */
+function useRecommendations(incidentId: string, enabled: boolean, algorithm: DispatchAlgorithm, refreshKey: string) {
+  const [state, setState] = useState<{ suggestion: DispatchSuggestion | null; loading: boolean; error: string | null }>({
+    suggestion: null,
+    loading: false,
+    error: null,
+  });
+
+  useEffect(() => {
+    if (!enabled) {
+      setState({ suggestion: null, loading: false, error: null });
+      return;
+    }
+    let cancelled = false;
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+    dispatchService
+      .getRecommendations(incidentId, BACKEND_ALGORITHM[algorithm])
+      .then((res) => {
+        if (cancelled) return;
+        if (!res.success) throw new Error(res.message);
+        const first = res.data[0];
+        setState({
+          loading: false,
+          error: null,
+          suggestion: {
+            radiusKm: first?.searchRadiusKm ?? 0,
+            expanded: first?.radiusExpanded ?? false,
+            candidates: res.data.map((u) => ({
+              vehicleId: u.rescueUnitId,
+              km: u.distanceKm,
+              etaMinutes: Math.max(1, Math.round(u.estimatedEtaMinutes)),
+              cost: u.cost,
+              stationLoad: u.stationLoad,
+            })),
+          },
+        });
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setState({ suggestion: null, loading: false, error: getApiErrorMessage(err, 'Không tải được gợi ý xe.') });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [incidentId, enabled, algorithm, refreshKey]);
+
+  return state;
+}
 
 interface DispatchIncidentCardProps {
   incident: Incident;
-  vehicles: Vehicle[];
   vehiclesById: Map<string, Vehicle>;
   /** Tổ phụ trách theo xe (màn Trạm & Tổ). */
   teamByVehicle: Map<string, StationTeam>;
@@ -44,13 +97,13 @@ interface DispatchIncidentCardProps {
   onSelect: () => void;
   onAssign: (vehicleId: string) => void;
   onCancelVehicle: (vehicleId: string) => void;
+  cancellingVehicleId: string | null;
   onCancelIncident: () => void;
   onDismissNotice: (noticeId: string) => void;
 }
 
 const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
   incident,
-  vehicles,
   vehiclesById,
   teamByVehicle,
   algorithm,
@@ -62,6 +115,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
   onSelect,
   onAssign,
   onCancelVehicle,
+  cancellingVehicleId,
   onCancelIncident,
   onDismissNotice,
 }) => {
@@ -72,14 +126,19 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
   const CategoryIcon = category.icon;
   const maxVehicles = MAX_VEHICLES_BY_LEVEL[incident.severity];
   const assigned = incident.assignedVehicleIds.map((id) => vehiclesById.get(id)).filter((v): v is Vehicle => !!v);
-  const isFull = assigned.length >= maxVehicles;
+  const activeCount = assigned.filter((v) => !incident.reportedVehicleIds.includes(v.id)).length;
+  const isFull = activeCount >= maxVehicles;
   const isCompleted = incident.status === 'completed';
   const waitMinutes = Math.max(0, Math.round((now - new Date(incident.createdAt).getTime()) / 60000));
 
-  const suggestion = useMemo(
-    () => (isSelected && !isFull && !isCompleted ? suggestVehicles(incident, vehicles, algorithm, isEscalated) : null),
-    [isSelected, isFull, isCompleted, incident, vehicles, algorithm, isEscalated]
+  const { suggestion, loading: suggestionLoading, error: suggestionError } = useRecommendations(
+    incident.id,
+    isSelected && !isFull && !isCompleted,
+    algorithm,
+    `${incident.assignedVehicleIds.join(',')}|${isEscalated}`
   );
+  // Gợi ý chỉ còn xe đang Sẵn sàng (trạng thái xe có thể đổi sau khi backend trả gợi ý).
+  const candidates = (suggestion?.candidates ?? []).filter((c) => vehiclesById.get(c.vehicleId)?.status === 'available');
 
   const handleDragOver = (e: React.DragEvent) => {
     if (isFull || isCompleted || !e.dataTransfer.types.includes(DRAG_MIME)) return;
@@ -185,7 +244,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
           <>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono-data uppercase tracking-wider text-slate-500 font-bold">
-                Xe đã giao ({assigned.length}/{maxVehicles})
+                Xe đã giao ({activeCount}/{maxVehicles})
               </span>
               <button
                 onClick={() => setConfirmingCancel(true)}
@@ -202,7 +261,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
               const statusMeta = VEHICLE_STATUS_META[vehicle.status];
               const hasReported = incident.reportedVehicleIds.includes(vehicle.id);
               const ackRemainingMs = vehicle.ackDeadline ? new Date(vehicle.ackDeadline).getTime() - now : 0;
-              const canRecall = !hasReported && vehicle.status !== 'on_scene';
+              const canRecall = !hasReported && !!vehicle.assignmentId && vehicle.status !== 'on_scene';
               return (
                 <div
                   key={vehicle.id}
@@ -220,7 +279,8 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                       ) : (
                         <span style={{ color: statusMeta.color }} className="font-semibold">
                           {statusMeta.label}
-                          {vehicle.status === 'awaiting_ack' && ` · còn ${formatCountdown(ackRemainingMs)}`}
+                          {vehicle.status === 'awaiting_ack' &&
+                            (ackRemainingMs > 0 ? ` · còn ${formatCountdown(ackRemainingMs)}` : ' · quá hạn phản hồi')}
                         </span>
                       )}
                       {!hasReported && vehicle.etaMinutes !== null && vehicle.status !== 'awaiting_ack' &&
@@ -231,11 +291,16 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                   {canRecall && (
                     <button
                       onClick={() => onCancelVehicle(vehicle.id)}
-                      className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 shrink-0 transition-colors"
+                      disabled={!!cancellingVehicleId}
+                      className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 shrink-0 transition-colors disabled:opacity-50"
                       aria-label="Hủy giao xe"
                       title="Hủy giao — trả xe về trạng thái sẵn sàng"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      {cancellingVehicleId === vehicle.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <X className="w-3.5 h-3.5" />
+                      )}
                     </button>
                   )}
                 </div>
@@ -270,6 +335,15 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
               </div>
             )}
 
+            {suggestionLoading && !suggestion && (
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 px-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Đang tìm xe phù hợp…
+              </div>
+            )}
+
+            {suggestionError && <p className="text-[11px] text-red-600 px-1">{suggestionError}</p>}
+
             {suggestion && (
               <div className="rounded-md border border-slate-200 bg-slate-50 p-2 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
@@ -286,13 +360,13 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                   )}
                 </div>
 
-                {suggestion.candidates.length === 0 ? (
+                {candidates.length === 0 ? (
                   <p className="text-[11px] text-red-600 py-1">
-                    Không còn xe phù hợp trong bán kính {suggestion.radiusKm} km.
+                    Không còn xe phù hợp{suggestion.radiusKm > 0 && ` trong bán kính ${suggestion.radiusKm} km`}.
                   </p>
                 ) : (
-                  suggestion.candidates.map((candidate, index) => {
-                    const { vehicle } = candidate;
+                  candidates.map((candidate, index) => {
+                    const vehicle = vehiclesById.get(candidate.vehicleId)!;
                     const TypeIcon = VEHICLE_TYPE_META[vehicle.type].icon;
                     const isAssigning = assigningVehicleId === vehicle.id;
                     return (
@@ -301,7 +375,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                         className="flex items-center gap-2 bg-white border border-slate-200 rounded-md px-2 py-1.5"
                         title={
                           algorithm === 'load_aware'
-                            ? `Cost = 0.5×khoảng cách + 0.3×tải trạm (${Math.round(candidate.stationLoad * 100)}%) + 0.2×nhiệm vụ đang chạy`
+                            ? `Cost = khoảng cách + tải trạm (${Math.round(candidate.stationLoad * 100)}%) + nhiệm vụ đang chạy (trọng số theo cấu hình Admin)`
                             : undefined
                         }
                       >
@@ -315,9 +389,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                             {candidate.km.toFixed(1)} km · ETA {candidate.etaMinutes} phút
                             {algorithm === 'load_aware' && ` · cost ${candidate.cost.toFixed(2)}`}
                           </p>
-                          <p className="text-[10px] text-slate-400 truncate">
-                            {stationsById.get(vehicle.stationId)?.name ?? vehicle.area}
-                          </p>
+                          <p className="text-[10px] text-slate-400 truncate">{vehicle.stationName}</p>
                           <VehicleTeamTag team={teamByVehicle.get(vehicle.id)} />
                         </div>
                         <button
@@ -360,6 +432,7 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
   const [algorithm, setAlgorithm] = useState<DispatchAlgorithm>('nearest');
   const [assigningVehicleId, setAssigningVehicleId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancellingVehicleId, setCancellingVehicleId] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
 
   const dispatchIncidents = useMemo(
@@ -378,7 +451,9 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
   // Nếu Operator chủ động bỏ chọn thì không tự chọn lại.
   const userClearedRef = useRef(false);
   const firstNeedingVehicles = dispatchIncidents.find(
-    (i) => i.status === 'approved' && i.assignedVehicleIds.length < MAX_VEHICLES_BY_LEVEL[i.severity]
+    (i) =>
+      i.status === 'approved' &&
+      i.assignedVehicleIds.length - i.reportedVehicleIds.length < MAX_VEHICLES_BY_LEVEL[i.severity]
   );
   useEffect(() => {
     if (selectedIncidentId || userClearedRef.current || !firstNeedingVehicles) return;
@@ -394,19 +469,27 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
   const handleAssign = async (incidentId: string, vehicleId: string) => {
     setAssigningVehicleId(vehicleId);
     setPanelError(null);
-    const result = await assignVehicle(vehicleId, incidentId);
+    const result = await assignVehicle(vehicleId, incidentId, algorithm);
     setAssigningVehicleId(null);
     if (!result.ok) setPanelError(result.message ?? 'Giao xe thất bại.');
+  };
+
+  const handleCancelVehicle = async (vehicleId: string) => {
+    setCancellingVehicleId(vehicleId);
+    setPanelError(null);
+    const result = await cancelAssignment(vehicleId);
+    setCancellingVehicleId(null);
+    if (!result.ok) setPanelError(result.message ?? 'Hủy giao xe thất bại.');
   };
 
   const handleCancelIncident = async (incidentId: string) => {
     setCancellingId(incidentId);
     setPanelError(null);
-    const ok = await rejectIncident(
+    const result = await rejectIncident(
       incidentId,
       'Điều phối viên hủy sự cố đã duyệt (nghi ngờ AI phân loại sai hoặc báo khống).'
     );
-    if (!ok) setPanelError('Hủy sự cố thất bại. Vui lòng thử lại.');
+    if (!result.ok) setPanelError(result.message ?? 'Hủy sự cố thất bại. Vui lòng thử lại.');
     else if (selectedIncidentId === incidentId) onSelectIncident(null);
     setCancellingId(null);
   };
@@ -456,7 +539,6 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
             <DispatchIncidentCard
               key={incident.id}
               incident={incident}
-              vehicles={vehicles}
               vehiclesById={vehiclesById}
               teamByVehicle={teamByVehicle}
               algorithm={algorithm}
@@ -467,7 +549,8 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
               isCancelling={cancellingId === incident.id}
               onSelect={() => handleToggleIncident(incident.id)}
               onAssign={(vehicleId) => handleAssign(incident.id, vehicleId)}
-              onCancelVehicle={cancelAssignment}
+              onCancelVehicle={handleCancelVehicle}
+              cancellingVehicleId={cancellingVehicleId}
               onCancelIncident={() => handleCancelIncident(incident.id)}
               onDismissNotice={(noticeId) => dismissResponseNotice(incident.id, noticeId)}
             />
@@ -504,7 +587,7 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-slate-900 font-mono-data truncate">{vehicle.plate}</p>
                     <p className="text-[10px] text-slate-500 truncate">
-                      {typeMeta.label} · {stationsById.get(vehicle.stationId)?.name ?? vehicle.area}
+                      {typeMeta.label} · {vehicle.stationName}
                     </p>
                     <VehicleTeamTag team={teamByVehicle.get(vehicle.id)} />
                   </div>

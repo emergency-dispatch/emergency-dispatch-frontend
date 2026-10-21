@@ -28,7 +28,7 @@ import {
   SEVERITY_LEVEL_META,
 } from '../../../data/incidentMock';
 import { useNow } from '../../../hooks/useNow';
-import { formatCountdown, maskPhone } from '../../../utils/incidentFormat';
+import { formatCountdown } from '../../../utils/incidentFormat';
 import type { BlockDuration, Incident, SeverityLevel } from '../../../types/incident';
 
 const CONFIRMABLE_LEVELS: SeverityLevel[] = [1, 2, 3];
@@ -42,7 +42,8 @@ interface IncidentDetailDrawerProps {
   onApprove: (id: string, confirmedSeverity: SeverityLevel, overrideReason?: string) => void;
   onReject: (id: string, reason: string, blockDuration: BlockDuration | null) => void;
   onRelock: (id: string) => void;
-  onRevealPhone: (id: string) => Promise<boolean>;
+  /** Trả số đầy đủ (backend ghi vết Audit Trail), null nếu thất bại. */
+  onRevealPhone: (id: string) => Promise<string | null>;
   isSubmitting?: boolean;
   errorMsg?: string | null;
 }
@@ -67,7 +68,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const [rejectReason, setRejectReason] = useState('');
   const [blockPhone, setBlockPhone] = useState(false);
   const [blockDuration, setBlockDuration] = useState<BlockDuration>('30d');
-  const [phoneRevealedAt, setPhoneRevealedAt] = useState<Date | null>(null);
+  // Backend luôn trả số đã che; số đầy đủ chỉ có sau khi bấm "Hiện số".
+  const [revealedPhone, setRevealedPhone] = useState<{ phone: string; at: Date } | null>(null);
   const [revealingPhone, setRevealingPhone] = useState(false);
 
   // Reset local form state whenever a different incident is opened.
@@ -79,7 +81,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     setRejectReason('');
     setBlockPhone(false);
     setBlockDuration('30d');
-    setPhoneRevealedAt(null);
+    setRevealedPhone(null);
   }, [incident?.id]);
 
   if (!incident) return null;
@@ -116,9 +118,9 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
 
   const handleRevealPhone = async () => {
     setRevealingPhone(true);
-    const ok = await onRevealPhone(incident.id);
+    const phone = await onRevealPhone(incident.id);
     setRevealingPhone(false);
-    if (ok) setPhoneRevealedAt(new Date());
+    if (phone) setRevealedPhone({ phone, at: new Date() });
   };
 
   return (
@@ -218,9 +220,9 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 <div className="flex items-center gap-2 text-sm text-slate-700 min-w-0">
                   <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span className="font-mono-data truncate">
-                    {hasPhone && !phoneRevealedAt ? maskPhone(incident.reporterPhone) : incident.reporterPhone}
+                    {revealedPhone?.phone ?? incident.reporterPhone}
                   </span>
-                  {hasPhone && !phoneRevealedAt && (
+                  {hasPhone && !revealedPhone && (
                     <button
                       onClick={handleRevealPhone}
                       disabled={revealingPhone || lockedByOther}
@@ -231,9 +233,9 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                     </button>
                   )}
                 </div>
-                {phoneRevealedAt && (
+                {revealedPhone && (
                   <p className="text-[11px] text-slate-400 pl-5">
-                    Đã ghi vết lượt xem số lúc {phoneRevealedAt.toLocaleTimeString('vi-VN')}
+                    Đã ghi vết lượt xem số lúc {revealedPhone.at.toLocaleTimeString('vi-VN')}
                   </p>
                 )}
                 <div className="flex items-center gap-2 text-sm text-slate-700 min-w-0">
@@ -319,7 +321,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                           onChange={(e) => setBlockPhone(e.target.checked)}
                           className="w-4 h-4 accent-red-600"
                         />
-                        Chặn số điện thoại người báo ({maskPhone(incident.reporterPhone)})
+                        Chặn số điện thoại người báo ({incident.reporterPhone})
                       </label>
                       {blockPhone && (
                         <select

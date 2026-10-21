@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
 import { Ambulance, Construction, Ship, ShieldCheck, Truck } from 'lucide-react';
 import { FireTruckIcon, type FireTruckIconProps } from '../common/FireTruckIcon';
-import { MAP_CENTER, VEHICLE_STATUS_META } from '../../data/liveMapMock';
+import { MAP_CENTER, VEHICLE_STATUS_META } from '../../data/liveMapMeta';
 import type { RescueUnitStatus, RescueUnitType } from '../../types/rescueUnit';
 
 // Nhãn/icon/màu hiển thị cho Đội xe theo enum backend (không phải dữ liệu mock).

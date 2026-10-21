@@ -1,19 +1,27 @@
 import { apiClient } from './apiClient';
-import { API_CONFIG } from '../config/api';
-import { createIncidentQueueMock } from '../data/incidentQueueMock';
 import type { ApiResponse } from '../types/auth';
-import { SOFT_LOCK_DURATION_MS } from '../data/incidentMock';
-import type { BlockDuration, CreateIncidentDto, IncidentResponseDto, PaginatedResultDto, VerifyIncidentRequestDto } from '../types/incident';
+import type {
+  BackendIncidentStatus,
+  BlockDuration,
+  CreateIncidentDto,
+  IncidentResponseDto,
+  PaginatedResultDto,
+  VerifyIncidentRequestDto,
+} from '../types/incident';
 
-// Mock mode (VITE_USE_MOCK_INCIDENTS=true): giữ hàng đợi trong bộ nhớ để duyệt/từ chối
-// xong thì sự cố biến mất khỏi các lần poll tiếp theo, giống backend thật.
-let mockQueue: IncidentResponseDto[] | null = null;
-const getMockQueue = () => (mockQueue ??= createIncidentQueueMock());
+const BLOCK_DURATION_TO_BACKEND: Record<BlockDuration, string> = {
+  '7d': 'SevenDays',
+  '30d': 'ThirtyDays',
+  '1y': 'OneYear',
+  permanent: 'Permanent',
+};
 
-const mockResponse = <T>(data: T, message = 'OK', success = true): Promise<ApiResponse<T>> =>
-  new Promise((resolve) => setTimeout(() => resolve({ success, message, data }), 400));
+// Sự cố đã duyệt còn cần điều phối / theo dõi trên Live Map.
+const DISPATCH_BOARD_STATUSES: BackendIncidentStatus[] = ['Verified', 'Dispatched', 'InProgress', 'Escalated'];
+const DISPATCH_BOARD_PAGE_SIZE = 100;
 
 export interface LockResultDto {
+  incidentId: string;
   lockedByOperatorId: string;
   lockedByOperatorName: string;
   lockExpiresAt: string;
@@ -51,12 +59,10 @@ export interface CitizenTrackingDto {
   notes?: string;
 }
 
-const takeFromMockQueue = (id: string): IncidentResponseDto => {
-  const queue = getMockQueue();
-  const incident = queue.find((i) => i.id === id)!;
-  mockQueue = queue.filter((i) => i.id !== id);
-  return incident;
-};
+export interface RevealPhoneDto {
+  incidentId: string;
+  phoneNumber: string | null;
+}
 
 export const incidentService = {
   /**
@@ -87,7 +93,6 @@ export const incidentService = {
    * ưu tiên sẵn ở backend (Unclassified/Severity giảm dần, cùng mức thì FIFO).
    */
   async getQueue(): Promise<ApiResponse<IncidentResponseDto[]>> {
-    if (API_CONFIG.USE_MOCK_INCIDENTS) return mockResponse([...getMockQueue()]);
     const response = await apiClient.get<ApiResponse<IncidentResponseDto[]>>('/Incidents/queue');
     return response.data;
   },
@@ -96,23 +101,12 @@ export const incidentService = {
    * Human-in-the-loop: Operator xác minh sự cố, có thể giữ nguyên hoặc ghi đè severity AI đề xuất.
    */
   async verify(id: string, dto: VerifyIncidentRequestDto): Promise<ApiResponse<IncidentResponseDto>> {
-    if (API_CONFIG.USE_MOCK_INCIDENTS) {
-      const incident = takeFromMockQueue(id);
-      return mockResponse({ ...incident, status: 'Verified', severity: dto.confirmedSeverity });
-    }
     const response = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/verify`, dto);
     return response.data;
   },
 
-  /**
-   * Hủy sự cố (báo sai/trùng lặp). Backend nhận thẳng một JSON string làm lý do.
-   */
+  /** Hủy sự cố (báo sai/trùng lặp). Body: CancelIncidentDto { reason }. */
   async cancel(id: string, reason: string): Promise<ApiResponse<IncidentResponseDto>> {
-    if (API_CONFIG.USE_MOCK_INCIDENTS) {
-      // Sự cố đã duyệt (hủy từ Dispatch Panel) không còn trong hàng đợi mock.
-      const incident = getMockQueue().find((i) => i.id === id) ? takeFromMockQueue(id) : ({ id } as IncidentResponseDto);
-      return mockResponse({ ...incident, status: 'Cancelled', operatorNotes: reason });
-    }
     const response = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/cancel`, { reason });
     return response.data;
   },
@@ -126,48 +120,52 @@ export const incidentService = {
     return response.data;
   },
 
-  // -------------------------------------------------------------------------
-  // TODO(backend): các endpoint dưới đây chưa có — tạm xử lý cục bộ ở frontend,
-  // hàng đợi mock giữ trạng thái khóa để mô phỏng nhiều Operator cùng mở ca.
-  // -------------------------------------------------------------------------
-
-  /** Khóa mềm 2 phút (LockedByOperatorId). Ca đang bị người khác giữ → success: false (HTTP 409). */
-  async lock(id: string, operator: { id: string; name: string }): Promise<ApiResponse<LockResultDto | null>> {
-    const incident = getMockQueue().find((i) => i.id === id);
-    const heldByOther =
-      incident?.lockedByOperatorId &&
-      incident.lockedByOperatorId !== operator.id &&
-      new Date(incident.lockExpiresAt ?? 0).getTime() > Date.now();
-    if (heldByOther) {
-      return mockResponse(null, `Ca đang được xử lý bởi ${incident.lockedByOperatorName}.`, false);
-    }
-
-    const lock: LockResultDto = {
-      lockedByOperatorId: operator.id,
-      lockedByOperatorName: operator.name,
-      lockExpiresAt: new Date(Date.now() + SOFT_LOCK_DURATION_MS).toISOString(),
-    };
-    if (incident) Object.assign(incident, lock);
-    return mockResponse(lock);
+  async getById(id: string): Promise<ApiResponse<IncidentResponseDto>> {
+    const response = await apiClient.get<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}`);
+    return response.data;
   },
 
-  async unlock(id: string): Promise<ApiResponse<null>> {
-    const incident = getMockQueue().find((i) => i.id === id);
-    if (incident) {
-      delete incident.lockedByOperatorId;
-      delete incident.lockedByOperatorName;
-      delete incident.lockExpiresAt;
-    }
-    return mockResponse(null);
+  /**
+   * Sự cố đã duyệt còn đang điều phối (Verified/Dispatched/InProgress/Escalated).
+   * Backend chỉ lọc được một trạng thái mỗi lần → gọi song song từng trạng thái.
+   */
+  async getDispatchBoard(): Promise<IncidentResponseDto[]> {
+    const pages = await Promise.all(
+      DISPATCH_BOARD_STATUSES.map((status) =>
+        apiClient.get<ApiResponse<PaginatedResultDto<IncidentResponseDto>>>('/Incidents', {
+          params: { status, pageIndex: 1, pageSize: DISPATCH_BOARD_PAGE_SIZE },
+        })
+      )
+    );
+    return pages.flatMap((res) => {
+      if (!res.data.success) throw new Error(res.data.message || 'Không thể tải sự cố đang điều phối.');
+      return res.data.data.items;
+    });
   },
 
-  /** Ghi vết mỗi lần Operator bấm "Hiện số" (Audit Trail). */
-  async logPhoneReveal(id: string): Promise<ApiResponse<null>> {
-    return mockResponse(null, `Đã ghi vết xem số điện thoại của sự cố ${id}.`);
+  /** Giữ / gia hạn khóa mềm 2 phút. Operator khác đang giữ → HTTP 409. */
+  async lock(id: string): Promise<ApiResponse<LockResultDto>> {
+    const response = await apiClient.put<ApiResponse<LockResultDto>>(`/Incidents/${id}/lock`);
+    return response.data;
   },
 
-  /** Đưa số điện thoại báo khống vào BlockedPhoneNumberList. */
-  async blockReporterPhone(id: string, duration: BlockDuration): Promise<ApiResponse<null>> {
-    return mockResponse(null, `Đã chặn số điện thoại của sự cố ${id} (${duration}).`);
+  async unlock(id: string): Promise<ApiResponse<boolean>> {
+    const response = await apiClient.delete<ApiResponse<boolean>>(`/Incidents/${id}/lock`);
+    return response.data;
+  },
+
+  /** Lấy số điện thoại đầy đủ của người báo — backend ghi vết vào Audit Trail. */
+  async revealPhone(id: string): Promise<ApiResponse<RevealPhoneDto>> {
+    const response = await apiClient.post<ApiResponse<RevealPhoneDto>>(`/Incidents/${id}/reveal-phone`);
+    return response.data;
+  },
+
+  /** Đưa số điện thoại báo khống vào danh sách chặn (lý do tối thiểu 5 ký tự). */
+  async blockReporterPhone(id: string, duration: BlockDuration, reason: string): Promise<ApiResponse<unknown>> {
+    const response = await apiClient.post<ApiResponse<unknown>>(`/Incidents/${id}/block-reporter`, {
+      duration: BLOCK_DURATION_TO_BACKEND[duration],
+      reason,
+    });
+    return response.data;
   },
 };

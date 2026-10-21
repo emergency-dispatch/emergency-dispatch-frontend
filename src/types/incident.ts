@@ -24,9 +24,10 @@ export type IncidentCategory = 'fire' | 'accident';
 // #Traffic_Jam chỉ là cảnh báo trên bản đồ, không vào hàng đợi / không chấm cấp.
 export type HazardTag = IncidentCategory | 'traffic_jam';
 
-// Local queue lifecycle only ('approved'/'rejected' incidents are already gone from
-// the backend queue by the time we set these — see DispatchContext.approveIncident/rejectIncident).
-export type IncidentStatus = 'pending' | 'approved' | 'rejected' | 'completed';
+// Gộp trạng thái backend cho UI Operator: pending = chờ thẩm định (Pending/AiProcessing/AiProcessed),
+// approved = đã xác minh, đang điều phối (Verified/Dispatched/InProgress), completed = đã đóng.
+// Escalated không phải một trạng thái riêng ở đây — xem Incident.escalated.
+export type IncidentStatus = 'pending' | 'approved' | 'completed';
 
 // Đội cứu hộ từ chối hoặc quá 120s không phản hồi → nhiệm vụ trả về trung tâm, Operator giao lại.
 export interface CrewResponseNotice {
@@ -61,6 +62,8 @@ export interface Incident {
   confidenceScore: number;
   aiSummary: string | null;
   status: IncidentStatus;
+  /** Backend đã leo thang (status Escalated): Cấp 3 quá ngưỡng chưa có đội nhận. */
+  escalated: boolean;
   area: string;
   lat: number;
   lng: number;
@@ -116,6 +119,9 @@ export interface IncidentMediaDto {
 export interface AiClassificationResultDto {
   hazardTags: string[];
   severityScore: number;
+  incidentType?: string | null;
+  eventType?: 'None' | 'FireExplosion' | 'TrafficAccident';
+  isTrafficJam?: boolean;
   summary?: string;
   confidenceScore?: number;
   isSuccess: boolean;
@@ -177,7 +183,7 @@ export interface VerifyIncidentRequestDto {
   operatorNotes?: string;
 }
 
-// Backend vẫn trả thang cũ: tạm quy đổi về Cấp 1–3 phía frontend cho tới khi backend cập nhật.
+// Unclassified (AI không phân loại được) hiển thị như Cấp 1 + % tin cậy thấp; Level4/5 chỉ còn ở dữ liệu cũ.
 const SEVERITY_FROM_BACKEND: Record<BackendSeverityLevel, SeverityLevel> = {
   Unclassified: 1,
   Level1: 1,
@@ -202,14 +208,34 @@ export function normalizeHazardTag(tag: string): string {
   return tag.replace(/^#/, '').trim().toLowerCase();
 }
 
+const ACTIVE_DISPATCH_STATUSES: BackendIncidentStatus[] = ['Verified', 'Dispatched', 'InProgress'];
+
+/** null = sự cố đã hủy (không còn hiện ở phân hệ Operator). */
+export function toOperatorStatus(dto: Pick<IncidentResponseDto, 'status' | 'verifiedAt'>): IncidentStatus | null {
+  if (dto.status === 'Cancelled') return null;
+  if (dto.status === 'Completed') return 'completed';
+  if (ACTIVE_DISPATCH_STATUSES.includes(dto.status)) return 'approved';
+  if (dto.status === 'Escalated') return dto.verifiedAt ? 'approved' : 'pending';
+  return 'pending';
+}
+
 /**
- * Maps an incident straight out of GET /api/Incidents/queue to the UI's Incident
- * shape. Always status: 'pending' — that's the only thing the queue endpoint returns.
+ * Maps an incident from GET /api/Incidents/queue, GET /api/Incidents or a SignalR push
+ * to the UI's Incident shape. Xe đã giao / báo cáo / phản hồi đội được DispatchContext
+ * ghép từ các lượt phân công (DispatchAssignment).
  */
 export function mapIncidentResponseToIncident(dto: IncidentResponseDto): Incident {
   const firstMedia = dto.mediaItems[0] ?? null;
   const ai = dto.aiClassification;
   const hazardTags = (ai?.hazardTags ?? []).map(normalizeHazardTag);
+  const category: IncidentCategory =
+    ai?.eventType === 'FireExplosion'
+      ? 'fire'
+      : ai?.eventType === 'TrafficAccident'
+        ? 'accident'
+        : hazardTags.includes('fire')
+          ? 'fire'
+          : 'accident';
   const hasActiveLock =
     !!dto.lockedByOperatorId && !!dto.lockExpiresAt && new Date(dto.lockExpiresAt).getTime() > Date.now();
 
@@ -217,12 +243,13 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto): Inciden
     id: dto.id,
     title: dto.title,
     description: dto.description,
-    category: hazardTags.includes('fire') ? 'fire' : 'accident',
+    category,
     hazardTags,
     severity: SEVERITY_FROM_BACKEND[dto.severity] ?? 1,
     confidenceScore: Math.round((ai?.confidenceScore ?? 0) * 100),
     aiSummary: ai?.summary ?? null,
-    status: 'pending',
+    status: toOperatorStatus(dto) ?? 'pending',
+    escalated: dto.status === 'Escalated',
     area: dto.locationAddress,
     lat: dto.latitude,
     lng: dto.longitude,

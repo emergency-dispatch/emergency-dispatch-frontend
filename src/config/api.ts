@@ -6,5 +6,4 @@ export const API_CONFIG = {
   USER_KEY: 'resq_user_data',
   GOOGLE_CLIENT_ID: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
   MAPBOX_TOKEN: import.meta.env.VITE_MAPBOX_TOKEN,
-  USE_MOCK_INCIDENTS: import.meta.env.VITE_USE_MOCK_INCIDENTS === 'true',
 };

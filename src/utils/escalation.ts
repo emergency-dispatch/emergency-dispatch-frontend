@@ -1,32 +1,19 @@
-import { ESCALATION_NIGHT_THRESHOLD_MS, ESCALATION_THRESHOLD_MS } from '../data/dispatchConfig';
-import type { Incident } from '../types/incident';
-import type { Vehicle, VehicleStatus } from '../types/vehicle';
+import type { EscalationSettingsDto } from '../services/liveMapService';
 
-// Đội đã "nhận" sự cố khi xe đã Chấp nhận trở đi — lúc đó sự cố tự hạ thang.
-const CLAIMED_STATUSES: VehicleStatus[] = ['accepted', 'en_route', 'on_scene', 'recovering'];
+const toMinutesOfDay = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
 
-export function isNightShift(now: number): boolean {
-  const hour = new Date(now).getHours();
-  return hour >= 22 || hour < 6;
+/** Ca đêm theo cấu hình leo thang của Admin (mặc định 22:00–06:00, có thể vắt qua nửa đêm). */
+export function isNightShift(now: number, settings: EscalationSettingsDto): boolean {
+  const date = new Date(now);
+  const minutes = date.getHours() * 60 + date.getMinutes();
+  const start = toMinutesOfDay(settings.nightStart);
+  const end = toMinutesOfDay(settings.nightEnd);
+  return start <= end ? minutes >= start && minutes < end : minutes >= start || minutes < end;
 }
 
-export function escalationThresholdMs(now: number): number {
-  return isNightShift(now) ? ESCALATION_NIGHT_THRESHOLD_MS : ESCALATION_THRESHOLD_MS;
-}
-
-/**
- * Mô phỏng Escalation Daemon phía client (FR-SYS-02): sự cố Cấp 3 chưa có đội nhận
- * quá ngưỡng → Escalated. TODO(backend): nhận trạng thái Escalated qua SignalR.
- */
-export function isIncidentEscalated(incident: Incident, vehiclesById: Map<string, Vehicle>, now: number): boolean {
-  if (incident.severity !== 3) return false;
-  if (incident.status !== 'pending' && incident.status !== 'approved') return false;
-
-  const claimed = incident.assignedVehicleIds.some((id) => {
-    const status = vehiclesById.get(id)?.status;
-    return !!status && CLAIMED_STATUSES.includes(status);
-  });
-  if (claimed) return false;
-
-  return now - new Date(incident.createdAt).getTime() > escalationThresholdMs(now);
+export function escalationThresholdMinutes(now: number, settings: EscalationSettingsDto): number {
+  return isNightShift(now, settings) ? settings.nightThresholdMinutes : settings.dayThresholdMinutes;
 }
