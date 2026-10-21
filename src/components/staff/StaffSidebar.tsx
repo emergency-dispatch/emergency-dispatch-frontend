@@ -12,12 +12,13 @@ import {
   Clock,
   CheckCircle2,
   LogOut,
+  Users,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffProfile } from '../../types/staff';
 import { useAuth } from '../../hooks/useAuth';
 
-export type StaffNavTab = 'mission' | 'schedule' | 'reports' | 'equipment' | 'profile';
+export type StaffNavTab = 'mission' | 'team' | 'schedule' | 'reports' | 'equipment' | 'profile';
 
 interface StaffSidebarProps {
   activeTab: StaffNavTab;
@@ -43,6 +44,14 @@ const NAV_ITEMS: {
     icon: Radio,
     badge: 'LIVE',
     badgeColor: 'bg-red-500 text-white animate-pulse',
+  },
+  {
+    id: 'team',
+    label: 'Tổ Làm Việc & Trạm',
+    sublabel: 'Kíp trực & Phương tiện',
+    icon: Users,
+    badge: 'Kíp trực',
+    badgeColor: 'bg-blue-500/20 text-blue-500 border border-blue-500/40',
   },
   {
     id: 'schedule',

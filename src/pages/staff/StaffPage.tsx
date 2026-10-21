@@ -12,6 +12,7 @@ import { StaffScheduleView } from '../../components/staff/schedule/StaffSchedule
 import { StaffReportsView } from '../../components/staff/reports/StaffReportsView';
 import { StaffEquipmentView } from '../../components/staff/equipment/StaffEquipmentView';
 import { StaffProfileView } from '../../components/staff/profile/StaffProfileView';
+import { StaffTeamView } from '../../components/staff/team/StaffTeamView';
 import {
   initialStaffMission,
   mockStaffProfile,
@@ -20,11 +21,92 @@ import {
   mockRoutePolyline,
 } from '../../data/staffMock';
 import type { StaffMission, MissionStatus, DigitalClosureReport, StaffProfile } from '../../types/staff';
+import type { DispatchAssignmentResponseDto } from '../../types/dispatch';
+import { dispatchService } from '../../services/dispatchService';
+import { incidentHubService } from '../../services/realtime/incidentHubService';
 import { SEVERITY_META } from '../../data/incidentMock';
 import { HazardTagBadge } from '../../components/common/HazardTagBadge';
-import { MapPin, Phone, User, ShieldAlert, Clock } from 'lucide-react';
+import { MapPin, Phone, User, ShieldAlert, Clock, RefreshCw, Radio } from 'lucide-react';
 import { staffAudioService } from '../../services/staffAudioService';
 import { useAuth } from '../../hooks/useAuth';
+
+function mapAssignmentDtoToMission(
+  dto: DispatchAssignmentResponseDto,
+  fallbackVehiclePlate?: string
+): StaffMission {
+  let missionStatus: MissionStatus = 'accepted';
+  if (dto.status === 'EnRoute') missionStatus = 'en_route';
+  else if (dto.status === 'OnScene') missionStatus = 'on_scene';
+  else if (dto.status === 'Completed' || dto.status === 'Cancelled') missionStatus = 'completed';
+  else if (dto.status === 'Accepted' || dto.status === 'Dispatched') missionStatus = 'accepted';
+
+  let sev: 1 | 2 | 3 = 2;
+  const s = String(dto.incidentSeverity).toLowerCase();
+  if (s.includes('3') || s.includes('critical') || s.includes('high') || s.includes('level3')) sev = 3;
+  else if (s.includes('1') || s.includes('low') || s.includes('level1')) sev = 1;
+
+  const incLat = dto.incidentLat || 10.8441;
+  const incLng = dto.incidentLng || 106.8089;
+  const vehLat = dto.rescueUnit?.currentLat || incLat - 0.006;
+  const vehLng = dto.rescueUnit?.currentLng || incLng - 0.006;
+
+  const plate = dto.rescueUnit?.plateNumber || fallbackVehiclePlate || '51A-114.99';
+
+  return {
+    id: dto.id,
+    incidentId: dto.incidentId,
+    title: dto.incidentTitle || 'Nhiệm vụ cứu hộ khẩn cấp',
+    description: dto.notes || 'Lực lượng phản ứng nhanh tiếp cận hiện trường và xử lý cứu hộ.',
+    severity: sev,
+    hazardTags: ['fire', 'injury'],
+    area: dto.rescueUnit?.stationName || 'Khu vực quản lý',
+    address: dto.incidentAddress || 'Địa chỉ sự cố đang xử lý',
+    incidentLat: incLat,
+    incidentLng: incLng,
+    callerName: 'Tổng đài viên điều động',
+    callerPhone: '114',
+    assignedAt: dto.dispatchedAt,
+    acceptedAt: dto.acceptedAt || undefined,
+    enRouteAt: dto.status === 'EnRoute' || dto.status === 'OnScene' || dto.status === 'Completed' ? dto.dispatchedAt : undefined,
+    onSceneAt: dto.arrivedAt || undefined,
+    completedAt: dto.completedAt || undefined,
+    vehicleId: dto.rescueUnitId,
+    vehiclePlate: plate,
+    vehicleType: 'fire_truck',
+    vehicleLat: vehLat,
+    vehicleLng: vehLng,
+    status: missionStatus,
+    currentStepIndex: 0,
+    routeSteps: mockRouteSteps,
+    routePolyline: mockRoutePolyline,
+    timeline: [
+      {
+        id: `tl-disp-${dto.id}`,
+        timestamp: new Date(dto.dispatchedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        status: 'accepted',
+        label: `Tổng đài điều phối kíp xe ${plate} tới hiện trường`,
+      },
+      ...(dto.acceptedAt ? [{
+        id: `tl-acc-${dto.id}`,
+        timestamp: new Date(dto.acceptedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        status: 'accepted' as MissionStatus,
+        label: 'Đội xe đã xác nhận tiếp nhận lệnh',
+      }] : []),
+      ...(dto.arrivedAt ? [{
+        id: `tl-arr-${dto.id}`,
+        timestamp: new Date(dto.arrivedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        status: 'on_scene' as MissionStatus,
+        label: 'Đã tiếp cận hiện trường sự cố',
+      }] : []),
+      ...(dto.completedAt ? [{
+        id: `tl-comp-${dto.id}`,
+        timestamp: new Date(dto.completedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        status: 'completed' as MissionStatus,
+        label: 'Hoàn tất nghiệm thu & đóng nhiệm vụ',
+      }] : []),
+    ],
+  };
+}
 
 export const StaffPage: React.FC = () => {
   const { user, refreshProfile } = useAuth();
@@ -82,6 +164,8 @@ export const StaffPage: React.FC = () => {
 
   const [activeMission, setActiveMission] = useState<StaffMission>(initialStaffMission);
   const [missionHistory, setMissionHistory] = useState<StaffMission[]>([]);
+  const [backendAssignments, setBackendAssignments] = useState<DispatchAssignmentResponseDto[]>([]);
+  const [loadingAssignments, setLoadingAssignments] = useState<boolean>(false);
 
   // Modals state
   const [isAlertOpen, setIsAlertOpen] = useState<boolean>(false);
@@ -91,8 +175,83 @@ export const StaffPage: React.FC = () => {
   // Incoming pending mission to be accepted/declined in alert modal
   const [pendingMission, setPendingMission] = useState<StaffMission | null>(null);
 
-  // Status transition handler
-  const handleStatusChange = (nextStatus: MissionStatus) => {
+  // Fetch assignments from backend (GET /api/dispatch/my-assignments)
+  const fetchMyAssignments = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoadingAssignments(true);
+    try {
+      const res = await dispatchService.getMyAssignments();
+      if (res.success && Array.isArray(res.data)) {
+        setBackendAssignments(res.data);
+        if (res.data.length > 0) {
+          // Find the active assignment (not completed/cancelled)
+          const activeDto = res.data.find(
+            (a) => a.status !== 'Completed' && a.status !== 'Cancelled'
+          );
+          const completedDtos = res.data.filter(
+            (a) => a.status === 'Completed' || a.status === 'Cancelled'
+          );
+
+          if (activeDto) {
+            const mapped = mapAssignmentDtoToMission(activeDto, profile.vehiclePlate);
+            setActiveMission(mapped);
+
+            // If newly dispatched and never accepted yet, open alert modal + siren
+            if (activeDto.status === 'Dispatched') {
+              setPendingMission(mapped);
+              setIsAlertOpen(true);
+              staffAudioService.playEmergencySiren();
+            }
+          }
+
+          if (completedDtos.length > 0) {
+            setMissionHistory(
+              completedDtos.map((c) => mapAssignmentDtoToMission(c, profile.vehiclePlate))
+            );
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[StaffPage] Could not load assignments from backend (using local mission):', err);
+    } finally {
+      if (!isSilent) setLoadingAssignments(false);
+    }
+  }, [profile.vehiclePlate]);
+
+  // Connect SignalR hub and poll fallback
+  useEffect(() => {
+    fetchMyAssignments();
+
+    // Start SignalR connection to /hubs/incidents
+    incidentHubService.start();
+
+    // Subscribe to new assignments pushed from CAD center (GET / Receive thông báo cứu hộ)
+    const unsubAssigned = incidentHubService.onJobAssigned((assignmentDto) => {
+      staffAudioService.playEmergencySiren();
+      const mapped = mapAssignmentDtoToMission(assignmentDto, profile.vehiclePlate);
+      setPendingMission(mapped);
+      setIsAlertOpen(true);
+      setActiveTab('mission');
+      fetchMyAssignments(true);
+    });
+
+    const unsubStatus = incidentHubService.onAssignmentStatus(() => {
+      fetchMyAssignments(true);
+    });
+
+    // Polling fallback every 15 seconds
+    const intervalId = setInterval(() => {
+      fetchMyAssignments(true);
+    }, 15000);
+
+    return () => {
+      unsubAssigned();
+      unsubStatus();
+      clearInterval(intervalId);
+    };
+  }, [fetchMyAssignments, profile.vehiclePlate]);
+
+  // Status transition handler (Điều phối công việc)
+  const handleStatusChange = async (nextStatus: MissionStatus) => {
     const timestamp = new Date().toLocaleTimeString('vi-VN', {
       hour: '2-digit',
       minute: '2-digit',
@@ -129,6 +288,22 @@ export const StaffPage: React.FC = () => {
 
     if (nextStatus === 'completed') {
       setIsReportModalOpen(true);
+      return;
+    }
+
+    // Call backend API to update status (PUT /api/dispatch/assignments/{id}/status)
+    try {
+      let beStatus: 'Accepted' | 'EnRoute' | 'OnScene' = 'Accepted';
+      if (nextStatus === 'en_route') beStatus = 'EnRoute';
+      else if (nextStatus === 'on_scene') beStatus = 'OnScene';
+
+      await dispatchService.updateAssignmentStatus(activeMission.id, {
+        status: beStatus,
+        notes: statusLabels[nextStatus],
+      });
+      fetchMyAssignments(true);
+    } catch (err) {
+      console.warn('[StaffPage] Update assignment status API error:', err);
     }
   };
 
@@ -172,8 +347,8 @@ export const StaffPage: React.FC = () => {
     }));
   };
 
-  // Submit Closure Report
-  const handleSubmitReport = (report: DigitalClosureReport) => {
+  // Submit Closure Report & Resolve Assignment
+  const handleSubmitReport = async (report: DigitalClosureReport) => {
     const updatedMission: StaffMission = {
       ...activeMission,
       status: 'completed',
@@ -184,6 +359,19 @@ export const StaffPage: React.FC = () => {
     setActiveMission(updatedMission);
     setMissionHistory((prev) => [updatedMission, ...prev.filter((m) => m.id !== updatedMission.id)]);
     setIsReportModalOpen(false);
+
+    // Call backend resolve API (POST /api/dispatch/assignments/{id}/resolve)
+    try {
+      const photoUrls = (report.photos || []).map((p) => p.url).filter((u) => u && !u.startsWith('blob:'));
+      await dispatchService.resolveAssignment(activeMission.id, {
+        resolutionSummary: report.actionSummary || 'Đã hoàn tất xử lý hiện trường sự cố và bàn giao an toàn.',
+        evidenceMediaUrls: photoUrls,
+        handoverNotes: `Bàn giao cho: ${report.handoverEntity || 'N/A'} - ${report.handoverContactName || ''} (${report.handoverContactPhone || ''})`,
+      });
+      fetchMyAssignments(true);
+    } catch (err) {
+      console.warn('[StaffPage] Resolve assignment API error:', err);
+    }
   };
 
   // Simulate Incoming Dispatch with Siren
@@ -227,12 +415,21 @@ export const StaffPage: React.FC = () => {
 
     setPendingMission(generatedMission);
     setIsAlertOpen(true);
-    setActiveTab('mission'); // Auto switch to mission tab
+    setActiveTab('mission');
   };
 
-  const handleAcceptMission = () => {
+  const handleAcceptMission = async () => {
     if (pendingMission) {
       setActiveMission(pendingMission);
+      try {
+        await dispatchService.updateAssignmentStatus(pendingMission.id, {
+          status: 'Accepted',
+          notes: 'Đội xe đã xác nhận tiếp nhận lệnh điều phối.',
+        });
+        fetchMyAssignments(true);
+      } catch (err) {
+        console.warn('[StaffPage] Accept mission API update status error:', err);
+      }
       setPendingMission(null);
     }
     setIsAlertOpen(false);
@@ -250,30 +447,55 @@ export const StaffPage: React.FC = () => {
       {/* 1. Left Feature Sidebar Component */}
       <StaffSidebar
         activeTab={activeTab}
-        onSelectTab={(tab) => setActiveTab(tab)}
+        onSelectTab={setActiveTab}
         collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        hasActiveMission={Boolean(activeMission)}
+        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+        hasActiveMission={activeMission.status !== 'completed'}
         profile={profile}
       />
 
-      {/* 2. Main Content Area */}
+      {/* 2. Main Content View Area */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        {/* Top Navbar */}
+        {/* Top Operational Bar */}
         <StaffNavbar
           profile={profile}
-          hasActiveMission={Boolean(activeMission)}
+          hasActiveMission={activeMission.status !== 'completed'}
           onOpenHistory={() => setIsHistoryOpen(true)}
           onSimulateNewMission={handleSimulateNewMission}
         />
 
-        {/* Dynamic Tab Body */}
-        <main className="flex-1 min-h-0 p-3 sm:p-4 md:p-5 overflow-y-auto">
-          {/* TAB 1: Live Mission & Navigation HUD */}
+        {/* Content Body based on selected Tab */}
+        <main className="flex-1 overflow-y-auto relative bg-slate-50">
+          {/* TAB 1: Live Mission HUD & Tactical Navigation */}
           {activeTab === 'mission' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start pb-8">
-              {/* Left Column: Mission Status & Navigation HUD & Actions (5 cols) */}
-              <div className="lg:col-span-5 flex flex-col gap-4">
+            <div className="p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
+              {/* Left Column: Mission Controls & Telemetry (5 cols) */}
+              <div className="lg:col-span-5 space-y-4">
+                {/* Active Dispatches Banner / Quick Refresh */}
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <Radio className="w-4 h-4 text-red-600 animate-pulse" />
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700">
+                      Nhiệm Vụ Đang Xử Lý
+                    </span>
+                    {backendAssignments.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-100 text-red-700">
+                        {backendAssignments.filter((a) => a.status !== 'Completed' && a.status !== 'Cancelled').length} Đang chạy
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => fetchMyAssignments(false)}
+                    disabled={loadingAssignments}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-all cursor-pointer disabled:opacity-50"
+                    title="Đồng bộ lại danh sách lệnh điều phối từ máy chủ"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${loadingAssignments ? 'animate-spin' : ''}`} />
+                    <span>Làm mới</span>
+                  </button>
+                </div>
+
                 {/* Status Stepper */}
                 <StaffStatusStepper
                   mission={activeMission}
@@ -281,22 +503,23 @@ export const StaffPage: React.FC = () => {
                   onOpenReportModal={() => setIsReportModalOpen(true)}
                 />
 
-                {/* Turn-by-Turn Navigation Guide HUD */}
+                {/* Turn-by-Turn GPS Direction Guide */}
                 <StaffTurnByTurnGuide
-                  steps={activeMission.routeSteps}
+                  steps={activeMission.routeSteps || mockRouteSteps}
                   currentStepIndex={activeMission.currentStepIndex}
                   onNextStep={handleNextStep}
                   onPrevStep={handlePrevStep}
                   isEnRoute={activeMission.status === 'en_route'}
                 />
 
-                {/* Incident Summary Card */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
-                  <div className="flex items-center justify-between">
+                {/* Incident Information Card */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded text-xs font-mono font-bold flex items-center gap-1 border ${severityMeta.badgeClass}`}>
-                        <ShieldAlert className="w-3.5 h-3.5" />
-                        MỨC ĐỘ {activeMission.severity} ({severityMeta.label})
+                      <span
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${severityMeta?.badgeClass || 'bg-red-600 text-white'}`}
+                      >
+                        {severityMeta?.label || `Cấp độ ${activeMission.severity}`}
                       </span>
                       <span className="text-xs text-slate-500 font-mono">
                         #{activeMission.incidentId}
@@ -360,10 +583,13 @@ export const StaffPage: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 2: Work Schedule & Shift Management */}
+          {/* TAB 2: Xem Tổ Làm Việc & Đội Ngũ Trạm */}
+          {activeTab === 'team' && <StaffTeamView />}
+
+          {/* TAB 3: Work Schedule & Shift Management */}
           {activeTab === 'schedule' && <StaffScheduleView />}
 
-          {/* TAB 3: Digital Closure Reports Archive */}
+          {/* TAB 4: Digital Closure Reports Archive */}
           {activeTab === 'reports' && (
             <StaffReportsView
               completedMissions={
@@ -373,10 +599,10 @@ export const StaffPage: React.FC = () => {
             />
           )}
 
-          {/* TAB 4: Vehicle & Equipment Checklist */}
+          {/* TAB 5: Vehicle & Equipment Checklist */}
           {activeTab === 'equipment' && <StaffEquipmentView />}
 
-          {/* TAB 5: Staff Profile & Certifications */}
+          {/* TAB 6: Staff Profile & Certifications */}
           {activeTab === 'profile' && (
             <StaffProfileView profile={profile} onProfileUpdated={handleProfileUpdated} />
           )}

@@ -8,6 +8,7 @@ import type {
   CreateIceContactDto,
   UpdateIceContactDto,
 } from '../types/auth';
+import type { StaffTeamResponseDto } from '../types/dispatch';
 
 export const userService = {
   /**
@@ -15,6 +16,15 @@ export const userService = {
    */
   async getMe(): Promise<ApiResponse<UserResponseDto>> {
     const response = await apiClient.get<ApiResponse<UserResponseDto>>('/Users/me');
+    return response.data;
+  },
+
+  /**
+   * Lấy thông tin Tổ làm việc, đồng đội trong ca trực và danh sách phương tiện của trạm
+   * (GET /api/users/my-team)
+   */
+  async getMyTeam(): Promise<ApiResponse<StaffTeamResponseDto>> {
+    const response = await apiClient.get<ApiResponse<StaffTeamResponseDto>>('/users/my-team');
     return response.data;
   },
 
