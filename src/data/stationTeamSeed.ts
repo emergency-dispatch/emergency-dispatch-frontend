@@ -1,6 +1,6 @@
 import type { StationTeam } from '../types/stationTeam';
 
-// Nhân sự & tổ mẫu, khớp ID trạm/xe/nhân sự với liveMapMock và data/admin (kíp trực trong shiftSeed).
+// Nhân sự & tổ mẫu, khớp ID trạm/xe/nhân sự với liveMapMock và data/admin.
 // Demo: st-1 có tổ thiếu người (Tổ 3 chỉ 1 người, rs-15 chưa vào tổ); st-4 có xe veh-9 chưa có tổ.
 // rs-25 … rs-28 chưa thuộc trạm nào.
 

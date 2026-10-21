@@ -6,8 +6,14 @@ import { MAX_TEAM_SIZE, MIN_TEAM_SIZE } from '../../../data/dispatchConfig';
 import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMock';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { stationTeamService } from '../../../services/stationTeamService';
-import { CREW_ROLES, CREW_ROLE_LABEL, type CrewRole } from '../../../types/shift';
-import type { StationStaff, StationTeam, TeamMember } from '../../../types/stationTeam';
+import {
+  CREW_ROLES,
+  CREW_ROLE_LABEL,
+  type CrewRole,
+  type StationStaff,
+  type StationTeam,
+  type TeamMember,
+} from '../../../types/stationTeam';
 import type { DispatchVehicleType, Vehicle } from '../../../types/vehicle';
 
 // Vai trò gợi ý khi tick chọn thành viên, theo loại xe tổ phụ trách.

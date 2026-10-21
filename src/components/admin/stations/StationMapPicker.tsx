@@ -42,7 +42,8 @@ const createPickerElement = () => {
 interface StationMapPickerProps {
   lat: number;
   lng: number;
-  radiusKm: number;
+  /** Bán kính phủ sóng; bỏ trống thì không vẽ vòng tròn (backend chưa lưu CoverageRadiusKm). */
+  radiusKm?: number;
   onChange: (lat: number, lng: number) => void;
 }
 
@@ -95,6 +96,10 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({ lat, lng, ra
 
     map.on('load', () => {
       const { lat: cLat, lng: cLng, radiusKm: cRadius } = latestRef.current;
+      if (cRadius === undefined) {
+        map.resize();
+        return;
+      }
       map.addSource(COVERAGE_SOURCE_ID, {
         type: 'geojson',
         data: buildCoveragePolygon(cLat, cLng, cRadius),
@@ -134,6 +139,7 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({ lat, lng, ra
 
   useEffect(() => {
     markerRef.current?.setLngLat([lng, lat]);
+    if (radiusKm === undefined) return;
     const source = mapRef.current?.getSource(COVERAGE_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
     source?.setData(buildCoveragePolygon(lat, lng, radiusKm));
   }, [lat, lng, radiusKm]);

@@ -1,4 +1,4 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { API_CONFIG } from '../config/api';
 import type { ApiResponse, AuthResponseDto } from '../types/auth';
 
@@ -134,9 +134,13 @@ function handleAuthFailure() {
   }
 }
 
-/**
- * Utility to extract a clean user-facing error message from Axios errors
- */
+/** Lấy `data` của ApiResponse; `success: false` → ném Error(message) để UI hiện qua getApiErrorMessage. */
+export async function unwrapApi<T>(request: Promise<AxiosResponse<ApiResponse<T>>>): Promise<T> {
+  const { data } = await request;
+  if (!data.success) throw new Error(data.message || 'Yêu cầu không thành công.');
+  return data.data;
+}
+
 /**
  * Utility to extract a clean user-facing error message from Axios errors
  */

@@ -1,7 +1,6 @@
 import { AxiosError, type AxiosResponse } from 'axios';
 import { API_CONFIG } from '../../config/api';
 import type { ApiResponse, UserDto } from '../../types/auth';
-import type { PaginatedResultDto } from '../../types/incident';
 
 // Tiện ích chung cho các service Admin chạy mock (backend chưa có API quản trị).
 
@@ -23,34 +22,7 @@ export function mockApiError(status: 400 | 404 | 409, message: string): AxiosErr
   return new AxiosError(message, `ERR_${status}`, undefined, undefined, response);
 }
 
-export interface PageParams {
-  pageIndex?: number;
-  pageSize?: number;
-}
-
-export function paginate<T>(items: T[], { pageIndex = 1, pageSize = 10 }: PageParams): PaginatedResultDto<T> {
-  const totalCount = items.length;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const page = Math.min(Math.max(1, pageIndex), totalPages);
-  return {
-    items: items.slice((page - 1) * pageSize, page * pageSize),
-    pageIndex: page,
-    pageSize,
-    totalCount,
-    totalPages,
-    hasPreviousPage: page > 1,
-    hasNextPage: page < totalPages,
-  };
-}
-
-export const normalizeText = (s: string) =>
-  s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase()
-    .trim();
+export { normalizeText, paginate, type PageParams } from './listUtils';
 
 /** Người thao tác hiện tại — backend thật lấy từ JWT. */
 export function getMockActor(): { id: string; name: string } {

@@ -6,23 +6,25 @@ import { StationsTable } from '../../components/admin/stations/StationsTable';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
-import { stationAdminService } from '../../services/admin/stationAdminService';
-import type { AdminStationListItem } from '../../types/adminFleet';
+import { stationAdminService, type StationStatusFilter } from '../../services/admin/stationAdminService';
+import type { StationResponseDto } from '../../types/station';
 
 const PAGE_SIZE = 10;
+const STATUSES: StationStatusFilter[] = ['active', 'inactive'];
+const STATUS_LABEL: Record<StationStatusFilter, string> = { active: 'Đang hoạt động', inactive: 'Tạm ngưng' };
 
 const StationsPage: React.FC = () => {
   const initial = useInitialQueryParams();
   const [search, setSearch] = useState(() => initial.text('search'));
-  const [includeDeleted, setIncludeDeleted] = useState(() => initial.flag('includeDeleted'));
+  const [status, setStatus] = useState<StationStatusFilter | ''>(() => initial.oneOf('status', STATUSES));
   const [pageIndex, setPageIndex] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
 
-  const params = { search: debouncedSearch, includeDeleted, pageIndex, pageSize: PAGE_SIZE };
+  const params = { search: debouncedSearch, status: status || undefined, pageIndex, pageSize: PAGE_SIZE };
   const query = useServiceQuery(() => stationAdminService.list(params), JSON.stringify(params));
 
-  const [formStation, setFormStation] = useState<AdminStationListItem | 'new' | null>(null);
-  const [deletingStation, setDeletingStation] = useState<AdminStationListItem | null>(null);
+  const [formStation, setFormStation] = useState<StationResponseDto | 'new' | null>(null);
+  const [deletingStation, setDeletingStation] = useState<StationResponseDto | null>(null);
   const [notice, setNotice] = useState<NoticeState>(null);
 
   return (
@@ -40,18 +42,22 @@ const StationsPage: React.FC = () => {
             className={`${inputClass} pl-9`}
           />
         </div>
-        <label className="flex items-center gap-2 text-xs text-slate-600 select-none">
-          <input
-            type="checkbox"
-            checked={includeDeleted}
-            onChange={(e) => {
-              setIncludeDeleted(e.target.checked);
-              setPageIndex(1);
-            }}
-            className="accent-red-600"
-          />
-          Hiện trạm đã xóa
-        </label>
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value as StationStatusFilter | '');
+            setPageIndex(1);
+          }}
+          aria-label="Lọc theo trạng thái"
+          className={`${inputClass} sm:w-44`}
+        >
+          <option value="">Tất cả trạng thái</option>
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABEL[s]}
+            </option>
+          ))}
+        </select>
         <button
           onClick={() => setFormStation('new')}
           className="sm:ml-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-sm shadow-red-500/25"
@@ -99,12 +105,12 @@ const StationsPage: React.FC = () => {
         <DeleteStationDialog
           station={deletingStation}
           onCancel={() => setDeletingStation(null)}
-          onDeleted={(affected) => {
+          onDeleted={(remainingUnits) => {
             setNotice({
               kind: 'success',
               message:
-                affected > 0
-                  ? `Đã xóa trạm "${deletingStation.name}". ${affected} xe chuyển sang Ngừng hoạt động.`
+                remainingUnits > 0
+                  ? `Đã xóa trạm "${deletingStation.name}". ${remainingUnits} xe vẫn gắn với trạm này — chuyển sang trạm khác ở trang Đội xe.`
                   : `Đã xóa trạm "${deletingStation.name}".`,
             });
             setDeletingStation(null);

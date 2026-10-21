@@ -1,35 +1,34 @@
 import React, { useState } from 'react';
 import { ConfirmModal, Notice } from '../common/ui';
 import { useServiceQuery } from '../common/hooks';
-import { ADMIN_VEHICLE_STATUS_META } from '../fleetMeta';
+import { RESCUE_UNIT_STATUS_META } from '../fleetMeta';
 import { stationAdminService } from '../../../services/admin/stationAdminService';
-import { vehicleAdminService } from '../../../services/admin/vehicleAdminService';
 import { getApiErrorMessage } from '../../../services/apiClient';
-import { isVehicleBusy, type AdminStationListItem } from '../../../types/adminFleet';
+import { ON_MISSION_UNIT_STATUSES } from '../../../types/rescueUnit';
+import type { StationResponseDto } from '../../../types/station';
 
 interface DeleteStationDialogProps {
-  station: AdminStationListItem;
+  station: StationResponseDto;
   onCancel: () => void;
-  onDeleted: (affectedCount: number) => void;
+  /** Số xe vẫn còn gắn với trạm đã xóa. */
+  onDeleted: (remainingUnits: number) => void;
 }
 
 export const DeleteStationDialog: React.FC<DeleteStationDialogProps> = ({ station, onCancel, onDeleted }) => {
-  const vehicles = useServiceQuery(
-    () => vehicleAdminService.list({ stationId: station.id, pageIndex: 1, pageSize: 500 }),
-    station.id
-  );
+  // Đọc lại chi tiết để có trạng thái xe mới nhất trước khi xóa.
+  const detail = useServiceQuery(() => stationAdminService.getById(station.id), station.id);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const items = vehicles.data?.items ?? [];
-  const busy = items.filter((v) => isVehicleBusy(v.status));
+  const units = detail.data?.rescueUnits ?? [];
+  const busy = units.filter((u) => ON_MISSION_UNIT_STATUSES.includes(u.status));
 
   const handleConfirm = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await stationAdminService.softDelete(station.id);
-      onDeleted(result.affectedVehicleIds.length);
+      await stationAdminService.remove(station.id);
+      onDeleted(units.length);
     } catch (err) {
       setError(getApiErrorMessage(err));
       setSubmitting(false);
@@ -40,38 +39,39 @@ export const DeleteStationDialog: React.FC<DeleteStationDialogProps> = ({ statio
     <ConfirmModal
       title="Xóa trạm cứu hộ?"
       confirmLabel="Xóa trạm"
-      confirmDisabled={vehicles.loading || !!vehicles.error || busy.length > 0}
+      confirmDisabled={detail.loading || !!detail.error || busy.length > 0}
       submitting={submitting}
       onCancel={onCancel}
       onConfirm={handleConfirm}
     >
       <p>
-        Xóa mềm trạm <span className="font-semibold text-slate-900">{station.name}</span>. Trạm sẽ bị ẩn khỏi danh sách.
+        Xóa mềm trạm <span className="font-semibold text-slate-900">{station.name}</span>. Trạm sẽ bị ẩn khỏi danh sách và
+        không khôi phục được từ giao diện.
       </p>
 
-      {vehicles.loading ? (
+      {detail.loading ? (
         <p className="text-slate-400">Đang kiểm tra xe thuộc trạm...</p>
-      ) : vehicles.error ? (
-        <Notice notice={{ kind: 'error', message: vehicles.error }} />
+      ) : detail.error ? (
+        <Notice notice={{ kind: 'error', message: detail.error }} />
       ) : busy.length > 0 ? (
         <Notice
           notice={{
             kind: 'error',
-            message: `Không thể xóa: còn ${busy.length} xe đang làm nhiệm vụ (${busy.map((v) => v.plate).join(', ')}). Chờ các xe hoàn tất nhiệm vụ rồi thử lại.`,
+            message: `Không thể xóa: còn ${busy.length} xe đang làm nhiệm vụ (${busy.map((u) => u.plateNumber).join(', ')}). Chờ các xe hoàn tất nhiệm vụ rồi thử lại.`,
           }}
         />
-      ) : items.length === 0 ? (
+      ) : units.length === 0 ? (
         <p>Trạm không có xe trực thuộc.</p>
       ) : (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
           <p className="text-amber-800 font-semibold">
-            {items.length} xe thuộc trạm sẽ chuyển sang trạng thái Ngừng hoạt động (OutOfService):
+            {units.length} xe vẫn gắn với trạm sau khi xóa. Nên chuyển các xe sang trạm khác trước:
           </p>
           <ul className="space-y-1 text-xs">
-            {items.map((v) => (
-              <li key={v.id} className="flex items-center justify-between gap-3">
-                <span className="font-mono-data font-semibold text-slate-800">{v.plate}</span>
-                <span className="text-slate-500">{ADMIN_VEHICLE_STATUS_META[v.status].label}</span>
+            {units.map((u) => (
+              <li key={u.id} className="flex items-center justify-between gap-3">
+                <span className="font-mono-data font-semibold text-slate-800">{u.plateNumber}</span>
+                <span className="text-slate-500">{RESCUE_UNIT_STATUS_META[u.status]?.label ?? u.statusName}</span>
               </li>
             ))}
           </ul>

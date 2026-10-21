@@ -26,9 +26,7 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
   // Đổi vai trò bị chặn khi tài khoản còn giữ vị trí gắn với vai trò hiện tại.
   const roleLockedReason = initialAccount?.headOfStation
     ? `Đang là trưởng trạm "${initialAccount.headOfStation.name}". Gỡ khỏi vị trí trưởng trạm (màn Trạm cứu hộ) trước khi đổi vai trò.`
-    : initialAccount?.assignedVehicle
-      ? `Đang phụ trách xe ${initialAccount.assignedVehicle.plate}. Gỡ khỏi vị trí người phụ trách xe (màn Đội xe) trước khi đổi vai trò.`
-      : null;
+    : null;
 
   const set = <K extends keyof InternalAccountInput>(key: K, value: InternalAccountInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }));

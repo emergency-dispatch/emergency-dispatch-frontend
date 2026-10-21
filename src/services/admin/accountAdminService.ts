@@ -1,5 +1,4 @@
 import { UserRole } from '../../types/auth';
-import { isVehicleBusy } from '../../types/adminFleet';
 import type { PaginatedResultDto } from '../../types/incident';
 import type {
   AccountLock,
@@ -11,7 +10,6 @@ import type {
 } from '../../types/internalAccount';
 import { adminStore } from './adminStore';
 import { auditTrailService } from './auditTrailService';
-import { currentShiftBusyVehicle } from './shiftService';
 import { clone, getMockActor, mockApiError, mockDelay, normalizeText, paginate, type PageParams } from './adminMock';
 
 export interface AccountListParams extends PageParams {
@@ -42,19 +40,12 @@ function headStationOf(accountId: string) {
   return adminStore.stations.find((s) => !s.isDeleted && s.headOperatorId === accountId) ?? null;
 }
 
-function vehicleOf(accountId: string) {
-  return adminStore.vehicles.find((v) => !v.isDeleted && v.crewMemberId === accountId) ?? null;
-}
-
 function toListItem(account: InternalAccount): InternalAccountListItem {
   effectiveLock(account);
   const station = headStationOf(account.id);
-  const vehicle = vehicleOf(account.id);
   return {
     ...account,
     headOfStation: station ? { id: station.id, name: station.name } : null,
-    assignedVehicle: vehicle ? { id: vehicle.id, plate: vehicle.plate, busy: isVehicleBusy(vehicle.status) } : null,
-    currentShiftBusyVehiclePlate: currentShiftBusyVehicle(account.id)?.plate ?? null,
   };
 }
 
@@ -89,10 +80,6 @@ function validate(input: InternalAccountInput, current: InternalAccount | null) 
     const station = headStationOf(current.id);
     if (station) {
       throw mockApiError(409, `${current.fullName} đang là trưởng trạm "${station.name}". Gỡ khỏi vị trí trưởng trạm trước khi đổi vai trò.`);
-    }
-    const vehicle = vehicleOf(current.id);
-    if (vehicle) {
-      throw mockApiError(409, `${current.fullName} đang phụ trách xe ${vehicle.plate}. Gỡ khỏi vị trí người phụ trách xe trước khi đổi vai trò.`);
     }
   }
 }
@@ -146,7 +133,6 @@ export const accountAdminService = {
   /**
    * Admin khóa tài khoản (bắt buộc lý do). Hệ quả:
    * - Operator đang là trưởng trạm → gỡ khỏi vị trí trưởng trạm.
-   * - RescueStaff có xe đang làm nhiệm vụ / hồi sức → 409; xe không làm nhiệm vụ → gỡ khỏi xe.
    */
   // TODO(backend): POST /api/Users/{id}/lock { reason }
   async lock(id: string, reason: string): Promise<InternalAccount> {
@@ -156,24 +142,11 @@ export const accountAdminService = {
     if (effectiveLock(account).kind === 'admin') throw mockApiError(409, 'Tài khoản đã bị khóa.');
     const lockLabel = account.lock.kind === 'failed_login' ? 'Khóa tạm (sai mật khẩu)' : 'Hoạt động';
 
-    const shiftVehicle = currentShiftBusyVehicle(account.id);
-    if (shiftVehicle) {
-      throw mockApiError(409, `${account.fullName} đang trong kíp ca hiện tại của xe ${shiftVehicle.plate} (đang làm nhiệm vụ), chưa thể khóa tài khoản.`);
-    }
-    const vehicle = vehicleOf(account.id);
-    if (vehicle && isVehicleBusy(vehicle.status)) {
-      throw mockApiError(409, `Xe ${vehicle.plate} của ${account.fullName} đang làm nhiệm vụ, chưa thể khóa tài khoản.`);
-    }
-
     const consequences: string[] = [];
     const station = headStationOf(account.id);
     if (station) {
       station.headOperatorId = null;
       consequences.push(`Gỡ khỏi vị trí trưởng trạm "${station.name}".`);
-    }
-    if (vehicle) {
-      vehicle.crewMemberId = null;
-      consequences.push(`Gỡ khỏi vị trí người phụ trách xe ${vehicle.plate}.`);
     }
 
     account.lock = { kind: 'admin', reason: trimmed, lockedAt: new Date().toISOString(), lockedByName: getMockActor().name };

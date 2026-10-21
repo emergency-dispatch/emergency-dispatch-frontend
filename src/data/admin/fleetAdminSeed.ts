@@ -1,9 +1,8 @@
-import { stations, vehicleSeeds } from '../liveMapMock';
-import { internalAccountSeed } from './internalAccountSeed';
-import type { AdminStation, AdminVehicle } from '../../types/adminFleet';
+import { stations } from '../liveMapMock';
+import type { AdminStation } from '../../types/adminFleet';
 
-// Trạm & xe của Admin dùng CHUNG nguồn với Live Map (liveMapMock): cùng id, tên, tọa độ,
-// biển số, loại xe, trạm trực thuộc. File này chỉ bổ sung các trường Live Map không có.
+// Trạm mock (id 'st-1'…) khớp Live Map — chỉ còn màn Tài khoản (trưởng trạm) và Trạm & Tổ của Operator dùng.
+// Trang Trạm cứu hộ / Đội xe của Admin đã dùng API thật.
 
 const STATION_EXTRAS: Record<
   string,
@@ -26,28 +25,3 @@ export function buildStationSeed(): AdminStation[] {
     isDeleted: false,
   }));
 }
-
-// Trạng thái lấy theo ảnh chụp lúc khởi tạo của Live Map (Live Map tự mô phỏng tiếp trong DispatchContext).
-export function buildVehicleSeed(): AdminVehicle[] {
-  const staffIdByName = new Map(internalAccountSeed.map((a) => [a.fullName, a.id]));
-  return vehicleSeeds.map((v) => ({
-    id: v.id,
-    plate: v.plate,
-    type: v.type,
-    stationId: v.stationId,
-    status: v.status,
-    crewMemberId: staffIdByName.get(v.driver) ?? null,
-    maintenanceSince: null,
-    isDeleted: false,
-  }));
-}
-
-const daysAgo = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString();
-
-// Xe chỉ có ở Admin (Live Map không hiển thị xe Bảo trì): demo "bảo trì quá lâu" và "chưa gán nhân sự".
-export const ADMIN_ONLY_VEHICLES: AdminVehicle[] = [
-  {
-    id: 'veh-11', plate: '51D-345.69', type: 'rescue', stationId: 'st-3', status: 'maintenance',
-    crewMemberId: null, maintenanceSince: daysAgo(5), isDeleted: false,
-  },
-];

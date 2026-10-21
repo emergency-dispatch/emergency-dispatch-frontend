@@ -3,12 +3,10 @@ import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   Building2,
-  CalendarX,
   CircleCheck,
   KeyRound,
   RefreshCw,
   Truck,
-  UserX,
   UserRound,
   Users,
   Wrench,
@@ -17,7 +15,7 @@ import {
 import { Notice, type NoticeState } from '../../components/admin/common/ui';
 import { useServiceQuery } from '../../components/admin/common/hooks';
 import { ROLE_META } from '../../components/admin/accounts/accountMeta';
-import { ADMIN_VEHICLE_STATUS_META } from '../../components/admin/fleetMeta';
+import { RESCUE_UNIT_STATUS_META } from '../../components/admin/fleetMeta';
 import { accountAdminService } from '../../services/admin/accountAdminService';
 import {
   LONG_MAINTENANCE_DAYS,
@@ -29,14 +27,12 @@ import { getApiErrorMessage } from '../../services/apiClient';
 import { useNow } from '../../hooks/useNow';
 import { formatCountdown } from '../../utils/incidentFormat';
 import { UserRole } from '../../types/auth';
-import { SHIFT_DEFINITIONS } from '../../types/shift';
 
 const VEHICLE_GROUPS: { key: OverviewVehicleGroup; label: string; color: string }[] = [
-  { key: 'available', label: 'Sẵn sàng', color: ADMIN_VEHICLE_STATUS_META.available.color },
-  { key: 'on_mission', label: 'Đang làm nhiệm vụ', color: ADMIN_VEHICLE_STATUS_META.en_route.color },
-  { key: 'recovering', label: 'Hồi sức', color: ADMIN_VEHICLE_STATUS_META.recovering.color },
-  { key: 'maintenance', label: 'Bảo trì', color: ADMIN_VEHICLE_STATUS_META.maintenance.color },
-  { key: 'out_of_service', label: 'Ngừng hoạt động', color: ADMIN_VEHICLE_STATUS_META.out_of_service.color },
+  { key: 'Available', label: RESCUE_UNIT_STATUS_META.Available.label, color: RESCUE_UNIT_STATUS_META.Available.color },
+  { key: 'on_mission', label: 'Đang làm nhiệm vụ', color: RESCUE_UNIT_STATUS_META.Dispatched.color },
+  { key: 'Returning', label: RESCUE_UNIT_STATUS_META.Returning.label, color: RESCUE_UNIT_STATUS_META.Returning.color },
+  { key: 'Maintenance', label: RESCUE_UNIT_STATUS_META.Maintenance.label, color: RESCUE_UNIT_STATUS_META.Maintenance.color },
 ];
 
 const vehicleLink = (plate: string) => `/admin/vehicles?search=${encodeURIComponent(plate)}`;
@@ -77,7 +73,7 @@ const OverviewPage: React.FC = () => {
               <Truck className="w-4 h-4 text-red-600" />
               Đội xe
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {VEHICLE_GROUPS.map((g) => (
                 <StatCard
                   key={g.key}
@@ -172,14 +168,7 @@ const ActionItems: React.FC<{
       title: 'Trạm không còn xe Sẵn sàng',
       icon: Building2,
       rows: items.stationsWithoutAvailableVehicle.map((s) => (
-        <ActionRow key={s.id} to={stationLink(s.name)} primary={s.name} secondary={`${s.vehicleCount} xe, không xe nào Sẵn sàng`} />
-      )),
-    },
-    {
-      title: 'Trạm chưa có trưởng trạm',
-      icon: Building2,
-      rows: items.stationsWithoutHead.map((s) => (
-        <ActionRow key={s.id} to={stationLink(s.name)} primary={s.name} secondary="Gán một Operator làm trưởng trạm" />
+        <ActionRow key={s.id} to={stationLink(s.name)} primary={s.name} secondary={s.vehicleCount === 0 ? 'Trạm chưa có xe nào' : `${s.vehicleCount} xe, không xe nào Sẵn sàng`} />
       )),
     },
     {
@@ -212,51 +201,7 @@ const ActionItems: React.FC<{
           to={vehicleLink(v.plate)}
           primary={v.plate}
           mono
-          secondary={`${v.stationName} · bảo trì từ ${formatDate(v.maintenanceSince)} (${v.days} ngày)`}
-        />
-      )),
-    },
-    {
-      title: 'Xe chưa có người phụ trách',
-      icon: UserX,
-      rows: items.vehiclesWithoutCrew.map((v) => (
-        <ActionRow key={v.id} to={vehicleLink(v.plate)} primary={v.plate} mono secondary={v.stationName} />
-      )),
-    },
-    {
-      title: 'Trạm chưa có ca trực hôm nay',
-      icon: CalendarX,
-      rows: items.stationsMissingShiftsToday.map((s) => (
-        <ActionRow
-          key={s.id}
-          to={`/admin/shifts?station=${encodeURIComponent(s.id)}`}
-          primary={s.name}
-          secondary={`Chưa có người trực: ${s.missing.map((t) => SHIFT_DEFINITIONS[t].label).join(', ')}`}
-        />
-      )),
-    },
-    {
-      title: 'Ca sắp tới có người bị khóa',
-      icon: UserX,
-      rows: items.upcomingShiftsWithLockedStaff.map((s) => (
-        <ActionRow
-          key={s.assignmentId}
-          to={`/admin/shifts?station=${encodeURIComponent(s.stationId)}&date=${s.date}`}
-          primary={s.staffName}
-          secondary={`${s.stationName} · ${s.rowLabel} · ${SHIFT_DEFINITIONS[s.shiftType].label} ${formatDate(`${s.date}T12:00:00`)}`}
-        />
-      )),
-    },
-    {
-      title: 'Xe Ngừng hoạt động chờ chuyển trạm',
-      icon: Truck,
-      rows: items.outOfServiceVehicles.map((v) => (
-        <ActionRow
-          key={v.id}
-          to={vehicleLink(v.plate)}
-          primary={v.plate}
-          mono
-          secondary={`Trạm cũ "${v.formerStationName}" đã bị xóa`}
+          secondary={`${v.stationName} · cập nhật lần cuối ${formatDate(v.maintenanceSince)} (${v.days} ngày)`}
         />
       )),
     },

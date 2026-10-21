@@ -156,7 +156,6 @@ const AccountsPage: React.FC = () => {
               mode === 'lock'
                 ? [
                     account.headOfStation && `Đã gỡ khỏi vị trí trưởng trạm "${account.headOfStation.name}".`,
-                    account.assignedVehicle && `Đã gỡ khỏi xe ${account.assignedVehicle.plate}.`,
                   ].filter(Boolean)
                 : [];
             setNotice({

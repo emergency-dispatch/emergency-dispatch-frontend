@@ -25,14 +25,10 @@ export interface InternalAccount {
   lock: AccountLock;
 }
 
-/** Dòng trong danh sách: kèm trạm/xe liên quan để hiển thị và cảnh báo khi khóa. */
+/** Dòng trong danh sách: kèm trạm liên quan để hiển thị và cảnh báo khi khóa. */
 export interface InternalAccountListItem extends InternalAccount {
   /** Operator: trạm đang làm trưởng (chỉ trạm chưa xóa). */
   headOfStation: { id: string; name: string } | null;
-  /** RescueStaff: xe đang được gán (chỉ xe chưa xóa). busy = đang làm nhiệm vụ / hồi sức. */
-  assignedVehicle: { id: string; plate: string; busy: boolean } | null;
-  /** RescueStaff: biển số xe đang làm nhiệm vụ / hồi sức mà người này đang trong kíp ca hiện tại. */
-  currentShiftBusyVehiclePlate: string | null;
 }
 
 export interface InternalAccountInput {

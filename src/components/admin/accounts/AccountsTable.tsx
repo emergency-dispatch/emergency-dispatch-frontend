@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Lock, LockOpen, Pencil, Timer, Truck } from 'lucide-react';
+import { Building2, Lock, LockOpen, Pencil, Timer } from 'lucide-react';
 import { iconButtonClass, thClass } from '../common/styles';
 import { ACCOUNT_STATUS_META, ROLE_META, displayStatus } from './accountMeta';
 import { useNow } from '../../../hooks/useNow';
@@ -79,16 +79,7 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
                       Trưởng trạm {account.headOfStation.name}
                     </span>
                   )}
-                  {account.assignedVehicle && (
-                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                      <Truck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      Xe <span className="font-mono-data">{account.assignedVehicle.plate}</span>
-                      {account.assignedVehicle.busy && (
-                        <span className="text-[10px] font-bold text-orange-600">· đang làm nhiệm vụ</span>
-                      )}
-                    </span>
-                  )}
-                  {!account.headOfStation && !account.assignedVehicle && <span className="text-slate-400">—</span>}
+                  {!account.headOfStation && <span className="text-slate-400">—</span>}
                 </td>
                 <td className="px-4 py-3">
                   <span

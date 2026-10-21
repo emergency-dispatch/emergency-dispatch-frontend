@@ -1,17 +1,17 @@
 import { UserRole } from '../../types/auth';
-import { ON_MISSION_VEHICLE_STATUSES } from '../../types/adminFleet';
+import { ON_MISSION_UNIT_STATUSES } from '../../types/rescueUnit';
 import type { InternalRole } from '../../types/internalAccount';
-import type { DutyShiftType } from '../../types/shift';
 import { adminStore } from './adminStore';
-import { stationsMissingShiftsToday, upcomingShiftsWithLockedStaff, type LockedStaffShift } from './shiftService';
-import { clone, mockDelay } from './adminMock';
+import { mockDelay } from './adminMock';
+import { stationAdminService } from './stationAdminService';
+import { vehicleAdminService } from './vehicleAdminService';
 
 /** Xe ở trạng thái Bảo trì lâu hơn ngưỡng này thì đưa vào khối "Cần xử lý". */
 export const LONG_MAINTENANCE_DAYS = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Nhóm trạng thái xe trên thẻ số liệu (Đang làm nhiệm vụ gộp chờ xác nhận → tại hiện trường). */
-export type OverviewVehicleGroup = 'available' | 'on_mission' | 'recovering' | 'maintenance' | 'out_of_service';
+/** Nhóm trạng thái xe trên thẻ số liệu (Đang làm nhiệm vụ = Đã điều động + Tại hiện trường). */
+export type OverviewVehicleGroup = 'Available' | 'on_mission' | 'Returning' | 'Maintenance';
 
 export interface AdminOverview {
   generatedAt: string;
@@ -21,37 +21,36 @@ export interface AdminOverview {
   citizenCount: number;
   actionItems: {
     stationsWithoutAvailableVehicle: { id: string; name: string; vehicleCount: number }[];
-    stationsWithoutHead: { id: string; name: string }[];
     failedLoginAccounts: { id: string; fullName: string; email: string; role: InternalRole; lockedUntil: string }[];
+    /** Backend chưa lưu thời điểm bắt đầu bảo trì → ước lượng bằng lần cập nhật cuối của xe. */
     longMaintenanceVehicles: { id: string; plate: string; stationName: string; maintenanceSince: string; days: number }[];
-    vehiclesWithoutCrew: { id: string; plate: string; stationName: string }[];
-    outOfServiceVehicles: { id: string; plate: string; formerStationName: string }[];
-    stationsMissingShiftsToday: { id: string; name: string; missing: DutyShiftType[] }[];
-    upcomingShiftsWithLockedStaff: LockedStaffShift[];
   };
 }
 
 export const overviewAdminService = {
-  /** Ảnh chụp trạng thái hiện tại — không có số liệu lịch sử. */
-  // TODO(backend): GET /api/Admin/overview
+  /**
+   * Ảnh chụp trạng thái hiện tại. Trạm & xe đọc từ API thật; tài khoản & Citizen vẫn là mock.
+   * TODO(backend): tài khoản / Citizen chuyển sang /api/users khi nối màn Tài khoản.
+   */
   async getOverview(): Promise<AdminOverview> {
-    await mockDelay();
+    const [stationPage, units] = await Promise.all([
+      stationAdminService.list({ pageIndex: 1, pageSize: 1000 }),
+      vehicleAdminService.listAll(),
+      mockDelay(),
+    ]);
     const now = Date.now();
-    const stations = adminStore.stations.filter((s) => !s.isDeleted);
-    const vehicles = adminStore.vehicles.filter((v) => !v.isDeleted);
-    const stationName = (id: string) => adminStore.stations.find((s) => s.id === id)?.name ?? '—';
-    const countStatus = (match: (status: string) => boolean) => vehicles.filter((v) => match(v.status)).length;
+    const stations = stationPage.items;
+    const countStatus = (match: (u: (typeof units)[number]) => boolean) => units.filter(match).length;
 
-    const overview: AdminOverview = {
+    return {
       generatedAt: new Date(now).toISOString(),
       vehicleCounts: {
-        available: countStatus((s) => s === 'available'),
-        on_mission: vehicles.filter((v) => ON_MISSION_VEHICLE_STATUSES.includes(v.status)).length,
-        recovering: countStatus((s) => s === 'recovering'),
-        maintenance: countStatus((s) => s === 'maintenance'),
-        out_of_service: countStatus((s) => s === 'out_of_service'),
+        Available: countStatus((u) => u.status === 'Available'),
+        on_mission: countStatus((u) => ON_MISSION_UNIT_STATUSES.includes(u.status)),
+        Returning: countStatus((u) => u.status === 'Returning'),
+        Maintenance: countStatus((u) => u.status === 'Maintenance'),
       },
-      activeStationCount: stations.length,
+      activeStationCount: stations.filter((s) => s.isActive).length,
       accountCounts: {
         [UserRole.Operator]: adminStore.accounts.filter((a) => a.role === UserRole.Operator).length,
         [UserRole.RescueStaff]: adminStore.accounts.filter((a) => a.role === UserRole.RescueStaff).length,
@@ -59,11 +58,8 @@ export const overviewAdminService = {
       citizenCount: adminStore.citizens.length,
       actionItems: {
         stationsWithoutAvailableVehicle: stations
-          .map((s) => ({ station: s, list: vehicles.filter((v) => v.stationId === s.id) }))
-          .filter(({ list }) => !list.some((v) => v.status === 'available'))
-          .map(({ station, list }) => ({ id: station.id, name: station.name, vehicleCount: list.length })),
-
-        stationsWithoutHead: stations.filter((s) => !s.headOperatorId).map((s) => ({ id: s.id, name: s.name })),
+          .filter((s) => s.isActive && s.activeUnitsCount === 0)
+          .map((s) => ({ id: s.id, name: s.name, vehicleCount: s.totalUnitsCount })),
 
         // Khóa tạm đã hết hạn thì không tính.
         failedLoginAccounts: adminStore.accounts.flatMap((a) =>
@@ -72,26 +68,15 @@ export const overviewAdminService = {
             : []
         ),
 
-        longMaintenanceVehicles: vehicles.flatMap((v) => {
-          if (v.status !== 'maintenance' || !v.maintenanceSince) return [];
-          const days = (now - new Date(v.maintenanceSince).getTime()) / DAY_MS;
+        longMaintenanceVehicles: units.flatMap((u) => {
+          const since = u.updatedAt ?? u.createdAt;
+          if (u.status !== 'Maintenance' || !since) return [];
+          const days = (now - new Date(since).getTime()) / DAY_MS;
           return days > LONG_MAINTENANCE_DAYS
-            ? [{ id: v.id, plate: v.plate, stationName: stationName(v.stationId), maintenanceSince: v.maintenanceSince, days: Math.floor(days) }]
+            ? [{ id: u.id, plate: u.plateNumber, stationName: u.stationName, maintenanceSince: since, days: Math.floor(days) }]
             : [];
         }),
-
-        vehiclesWithoutCrew: vehicles
-          .filter((v) => !v.crewMemberId && v.status !== 'out_of_service')
-          .map((v) => ({ id: v.id, plate: v.plate, stationName: stationName(v.stationId) })),
-
-        outOfServiceVehicles: vehicles
-          .filter((v) => v.status === 'out_of_service')
-          .map((v) => ({ id: v.id, plate: v.plate, formerStationName: stationName(v.stationId) })),
-
-        stationsMissingShiftsToday: stationsMissingShiftsToday(now),
-        upcomingShiftsWithLockedStaff: upcomingShiftsWithLockedStaff(now),
       },
     };
-    return clone(overview);
   },
 };
