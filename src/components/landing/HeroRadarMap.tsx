@@ -5,17 +5,21 @@ import {
   Flame,
   Truck,
   ShieldCheck,
-  Compass,
   Radio,
   Layers,
   Navigation,
   ChevronRight,
   AlertTriangle,
+  Plus,
+  Minus,
+  MapPin,
+  LocateFixed,
 } from 'lucide-react';
 import {
   MAPBOX_ACCESS_TOKEN,
   MAPBOX_DARK_STYLE,
   MAPBOX_REALISTIC_STYLE,
+  mapboxService,
 } from '../../services/mapboxService';
 import { incidentService, type CitizenTrackingDto } from '../../services/incidentService';
 import type { IncidentResponseDto } from '../../types/incident';
@@ -40,6 +44,12 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   const [reportedIncident, setReportedIncident] = useState<IncidentResponseDto | null>(null);
   const [trackingData, setTrackingData] = useState<CitizenTrackingDto | null>(null);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
+
+  // User location status on Radar
+  const [locationStatus, setLocationStatus] = useState<'locating' | 'locked' | 'failed'>('locating');
+  const [resolvedAddress, setResolvedAddress] = useState<string>('');
+  const [isLocatingUser, setIsLocatingUser] = useState<boolean>(false);
+  const myLocationMarkerRef = useRef<mapboxgl.Marker | null>(null);
 
   // Fetch citizen reported incident from storage & API
   const checkCitizenReportedIncident = useCallback(async () => {
@@ -78,6 +88,51 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     };
   }, [checkCitizenReportedIncident]);
 
+  // Determine user GPS / cached location
+  useEffect(() => {
+    let hasCached = false;
+    try {
+      const cached = localStorage.getItem('resq_citizen_coords');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.address) {
+          setResolvedAddress(parsed.address);
+          setLocationStatus('locked');
+          hasCached = true;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    if (navigator.geolocation) {
+      if (!hasCached) setLocationStatus('locating');
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setLocationStatus('locked');
+          try {
+            const addr = await mapboxService.reverseGeocode(lng, lat);
+            setResolvedAddress(addr);
+            localStorage.setItem('resq_citizen_coords', JSON.stringify({ lat, lng, address: addr, updatedAt: Date.now() }));
+          } catch {
+            setResolvedAddress('Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh');
+          }
+        },
+        () => {
+          if (!hasCached) {
+            setLocationStatus('failed');
+            setResolvedAddress('');
+          }
+        },
+        { enableHighAccuracy: true, timeout: 6000 }
+      );
+    } else if (!hasCached) {
+      setLocationStatus('failed');
+    }
+  }, []);
+
   // Load tracking data if incident is dispatched or in progress
   useEffect(() => {
     if (!reportedIncident?.id) return;
@@ -101,6 +156,78 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     }
   };
 
+  const handleZoomIn = () => {
+    mapRef.current?.zoomIn({ duration: 300 });
+  };
+
+  const handleZoomOut = () => {
+    mapRef.current?.zoomOut({ duration: 300 });
+  };
+
+  const handleGoToMyLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Trình duyệt của bạn không hỗ trợ định vị GPS.');
+      return;
+    }
+    setIsLocatingUser(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        setIsLocatingUser(false);
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setLocationStatus('locked');
+
+        if (mapRef.current) {
+          mapRef.current.flyTo({
+            center: [lng, lat],
+            zoom: 16,
+            essential: true,
+            duration: 1200,
+          });
+
+          if (!myLocationMarkerRef.current) {
+            const el = document.createElement('div');
+            el.className = 'cad-marker-my-location';
+            el.innerHTML = `
+              <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+                <span style="position: absolute; width: 40px; height: 40px; border-radius: 50%; background: rgba(59, 130, 246, 0.35); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+                <div style="width: 18px; height: 18px; border-radius: 50%; background: #2563EB; border: 3px solid #FFFFFF; box-shadow: 0 0 12px rgba(37, 99, 235, 0.8);"></div>
+              </div>
+            `;
+            myLocationMarkerRef.current = new mapboxgl.Marker({ element: el })
+              .setLngLat([lng, lat])
+              .addTo(mapRef.current);
+          } else {
+            myLocationMarkerRef.current.setLngLat([lng, lat]);
+          }
+        }
+
+        try {
+          const addr = await mapboxService.reverseGeocode(lng, lat);
+          setResolvedAddress(addr);
+          localStorage.setItem('resq_citizen_coords', JSON.stringify({ lat, lng, address: addr, updatedAt: Date.now() }));
+        } catch {
+          setResolvedAddress('Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh');
+        }
+      },
+      () => {
+        setIsLocatingUser(false);
+        try {
+          const cached = localStorage.getItem('resq_citizen_coords');
+          if (cached && mapRef.current) {
+            const parsed = JSON.parse(cached);
+            if (parsed.lat && parsed.lng) {
+              mapRef.current.flyTo({ center: [parsed.lng, parsed.lat], zoom: 16, essential: true, duration: 1000 });
+              return;
+            }
+          }
+        } catch {}
+        alert('Không lấy được vị trí. Vui lòng cho phép quyền truy cập vị trí trên trình duyệt.');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
   // Tactical Coordinates in SHTP - TP. Thủ Đức
   const INCIDENT_COORDS: [number, number] = [106.8035, 10.8405];
   const EMS_COORDS: [number, number] = [106.7925, 10.8345];
@@ -120,7 +247,10 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       center: INCIDENT_COORDS,
       zoom: 14.5,
       attributionControl: false,
-      scrollZoom: false,
+      scrollZoom: true,
+      doubleClickZoom: true,
+      dragPan: true,
+      touchZoomRotate: true,
       pitch: 25, // Subtle 2.5D tactical tilt
     });
 
@@ -271,6 +401,10 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       clearTimeout(t2);
       if (ro) ro.disconnect();
       emsEtaElRef.current = null;
+      if (myLocationMarkerRef.current) {
+        myLocationMarkerRef.current.remove();
+        myLocationMarkerRef.current = null;
+      }
       map.remove();
       mapRef.current = null;
     };
@@ -402,23 +536,62 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
               <ChevronRight className="w-3 h-3 text-red-600" />
             </div>
           </div>
-        ) : (
-          <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-2 sm:p-2.5 shadow-xl max-w-[200px] sm:max-w-[240px] text-left">
-            <div className="flex items-center justify-between gap-2 mb-0.5">
+        ) : locationStatus === 'failed' ? (
+          <div className="bg-white/95 backdrop-blur-md border border-red-200 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[220px] sm:max-w-[260px] text-left">
+            <div className="flex items-center justify-between gap-1.5 mb-1">
               <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-red-600 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
-                AI INCIDENT #8942
+                <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                <span>ĐỊNH VỊ GPS</span>
               </span>
-              <span className="px-1.5 py-0.5 rounded bg-red-600 text-white text-[9px] sm:text-[10px] font-extrabold font-mono-data">
-                CẤP 3 / 3
+              <span className="px-1.5 py-0.5 rounded bg-red-100 border border-red-200 text-red-700 text-[9px] sm:text-[10px] font-bold font-mono-data">
+                LỖI VỊ TRÍ
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] font-semibold text-slate-800 leading-tight truncate">
-              Cháy Lớn Kho Xưởng &amp; Nguy Cơ Cháy Lan
+            <p className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
+              Không lấy được vị trí
             </p>
-            <div className="mt-1 pt-1 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] font-mono-data text-slate-500">
-              <span>Thẻ: <strong className="text-red-600">#Fire</strong></span>
-              <span className="text-red-600 font-bold">98.4% tin cậy</span>
+            <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+              Vui lòng bật định vị GPS hoặc kiểm tra quyền truy cập vị trí trên trình duyệt.
+            </p>
+          </div>
+        ) : locationStatus === 'locating' ? (
+          <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[220px] sm:max-w-[260px] text-left">
+            <div className="flex items-center justify-between gap-1.5 mb-1">
+              <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-amber-600 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                <span>ĐỊNH VỊ GPS</span>
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[9px] sm:text-[10px] font-bold font-mono-data animate-pulse">
+                ĐANG DÒ GPS...
+              </span>
+            </div>
+            <p className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
+              Đang tìm vị trí hiện tại
+            </p>
+            <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+              Đang kết nối tín hiệu vệ tinh Mapbox CAD...
+            </p>
+          </div>
+        ) : (
+          <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[220px] sm:max-w-[260px] text-left">
+            <div className="flex items-center justify-between gap-1.5 mb-1">
+              <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-emerald-600 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>VỊ TRÍ HIỆN TRƯỜNG</span>
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] sm:text-[10px] font-bold font-mono-data">
+                SẴN SÀNG
+              </span>
+            </div>
+            <p className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight truncate">
+              Vị trí sẵn sàng
+            </p>
+            <p className="text-[10px] text-slate-600 mt-1 font-mono leading-tight truncate">
+              📍 {resolvedAddress || 'Khu Công nghệ cao, TP. Thủ Đức'}
+            </p>
+            <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] font-mono-data text-slate-500">
+              <span>Mạng lưới cứu hộ:</span>
+              <span className="text-emerald-700 font-bold">Trực chiến 24/7</span>
             </div>
           </div>
         )}
@@ -455,12 +628,41 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         </div>
       </div>
 
-      {/* Floating GPS Telemetry Pill */}
-      <div className="absolute bottom-2.5 right-2.5 z-30 pointer-events-auto">
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200 px-2 py-1 sm:px-3 sm:py-1 rounded-lg text-[9px] sm:text-[11px] font-mono-data text-slate-700 flex items-center gap-1.5 shadow-md">
-          <Compass className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-600 animate-spin" />
-          <span>10.8405° N, 106.8035° E</span>
-        </div>
+      {/* Floating Controls: My Location + Zoom In / Out */}
+      <div className="absolute bottom-3 right-3 z-30 pointer-events-auto flex flex-col gap-1.5 items-center">
+        <button
+          type="button"
+          onClick={handleGoToMyLocation}
+          disabled={isLocatingUser}
+          className={`w-8 h-8 rounded-lg border backdrop-blur-md flex items-center justify-center shadow-lg transition-all active:scale-95 cursor-pointer ${
+            isLocatingUser
+              ? 'bg-blue-600 text-white border-blue-400 animate-pulse'
+              : 'bg-slate-900/90 hover:bg-slate-800 text-white border-slate-700/80 hover:text-blue-400'
+          }`}
+          title="Vị trí của tôi"
+          aria-label="Vị trí của tôi"
+        >
+          <LocateFixed className={`w-4 h-4 ${isLocatingUser ? 'animate-spin text-white' : ''}`} />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleZoomIn}
+          className="w-8 h-8 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 backdrop-blur-md flex items-center justify-center shadow-lg transition-all active:scale-95 cursor-pointer"
+          title="Phóng to bản đồ (+)"
+          aria-label="Phóng to bản đồ"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={handleZoomOut}
+          className="w-8 h-8 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 backdrop-blur-md flex items-center justify-center shadow-lg transition-all active:scale-95 cursor-pointer"
+          title="Thu nhỏ bản đồ (-)"
+          aria-label="Thu nhỏ bản đồ"
+        >
+          <Minus className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );

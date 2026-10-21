@@ -126,7 +126,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
               setLocationAddress(addr);
               localStorage.setItem('resq_citizen_coords', JSON.stringify({ lat, lng, address: addr, updatedAt: Date.now() }));
             } catch {
-              setLocationAddress(`Tọa độ (${lat.toFixed(4)}, ${lng.toFixed(4)}) - Khu Công nghệ cao, TP. Thủ Đức`);
+              setLocationAddress('Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh');
             }
           },
           () => {
@@ -134,13 +134,14 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
               setGpsStatus('default');
               setLatitude(DEFAULT_COORDS.lat);
               setLongitude(DEFAULT_COORDS.lng);
-              setLocationAddress(DEFAULT_COORDS.address);
+              setLocationAddress('Không lấy được vị trí (Vui lòng chọn trên bản đồ)');
             }
           },
           { enableHighAccuracy: true, timeout: 6000 }
         );
       } else if (!hasPreFetched) {
         setGpsStatus('default');
+        setLocationAddress('Không lấy được vị trí (Vui lòng chọn trên bản đồ)');
       }
     }
   }, [isOpen, user]);
@@ -177,6 +178,12 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+
+    // Location validation
+    if (!locationAddress || locationAddress.startsWith('Không lấy được vị trí')) {
+      setErrorMsg('Chưa xác định được vị trí. Vui lòng click chọn hoặc kéo ghim vị trí hiện trường trên bản đồ bên dưới.');
+      return;
+    }
 
     // Phone validation if provided
     if (reporterPhone.trim() && !/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(reporterPhone.trim())) {
@@ -376,10 +383,10 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                       ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
                       : gpsStatus === 'locating'
                       ? 'bg-amber-100 text-amber-700 border-amber-200 animate-pulse'
-                      : 'bg-slate-100 text-slate-600 border-slate-200'
+                      : 'bg-red-100 text-red-700 border-red-200'
                   }`}
                 >
-                  {gpsStatus === 'locked' ? 'ĐÃ ĐỊNH VỊ' : gpsStatus === 'locating' ? 'ĐANG ĐỊNH VỊ...' : 'VỊ TRÍ MẶC ĐỊNH'}
+                  {gpsStatus === 'locked' ? 'ĐÃ ĐỊNH VỊ' : gpsStatus === 'locating' ? 'ĐANG ĐỊNH VỊ...' : 'KHÔNG LẤY ĐƯỢC VỊ TRÍ'}
                 </span>
               </div>
 

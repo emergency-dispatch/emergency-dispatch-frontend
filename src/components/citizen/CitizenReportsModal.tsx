@@ -49,6 +49,13 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
   const [isTrackingLoading, setIsTrackingLoading] = useState<boolean>(false);
   const [trackingError, setTrackingError] = useState<string>('');
 
+  // Cancel incident modal state for Citizen
+  const [cancellingIncident, setCancellingIncident] = useState<IncidentResponseDto | null>(null);
+  const [cancelReason, setCancelReason] = useState<string>('Bấm nhầm SOS / Thử nghiệm');
+  const [customReason, setCustomReason] = useState<string>('');
+  const [isCancelling, setIsCancelling] = useState<boolean>(false);
+  const [cancelError, setCancelError] = useState<string>('');
+
   const fetchReports = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -204,17 +211,37 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
     setTrackingError('');
   };
 
-  const handleCancelIncident = async (id: string) => {
-    const reason = window.prompt('Nhập lý do hủy báo cáo (ví dụ: Bấm nhầm SOS / Tình huống đã được người khác xử lý):');
-    if (!reason || !reason.trim()) return;
+  const handleOpenCancelModal = (incident: IncidentResponseDto) => {
+    setCancellingIncident(incident);
+    setCancelReason('Bấm nhầm SOS / Thử nghiệm');
+    setCustomReason('');
+    setCancelError('');
+  };
+
+  const handleCloseCancelModal = () => {
+    if (isCancelling) return;
+    setCancellingIncident(null);
+    setCancelError('');
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancellingIncident) return;
+    const finalReason = cancelReason === 'Khác' ? customReason.trim() : cancelReason;
+    if (!finalReason) {
+      setCancelError('Vui lòng chọn hoặc nhập lý do hủy báo cáo.');
+      return;
+    }
 
     try {
-      setIsLoading(true);
-      await incidentService.cancel(id, reason.trim());
+      setIsCancelling(true);
+      setCancelError('');
+      await incidentService.cancel(cancellingIncident.id, finalReason);
       await fetchReports();
+      setCancellingIncident(null);
     } catch (err) {
-      setErrorMsg(getApiErrorMessage(err, 'Không thể hủy sự cố.'));
-      setIsLoading(false);
+      setCancelError(getApiErrorMessage(err, 'Không thể hủy sự cố lúc này.'));
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -377,11 +404,8 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                   )}
 
                   {/* Item Actions */}
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-[11px] font-mono text-slate-400">
-                      Tọa độ: {incident.latitude.toFixed(4)}, {incident.longitude.toFixed(4)}
-                    </span>
-
+                  {/* Item Actions */}
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-end flex-wrap gap-2">
                     <div className="flex items-center gap-2">
                       {incident.status === 'Dispatched' || incident.status === 'InProgress' ? (
                         <button
@@ -397,7 +421,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                       {incident.status === 'Pending' || incident.status === 'AiProcessed' ? (
                         <button
                           type="button"
-                          onClick={() => handleCancelIncident(incident.id)}
+                          onClick={() => handleOpenCancelModal(incident)}
                           className="text-[11px] font-mono text-slate-500 hover:text-red-600 font-bold transition-colors cursor-pointer"
                         >
                           Hủy báo cáo này
@@ -462,8 +486,8 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                       {trackingData.dispatchStatus === 'EnRoute'
                         ? 'ĐANG DI CHUYỂN ĐẾN'
                         : trackingData.dispatchStatus === 'OnScene'
-                        ? 'ĐÃ ĐẾN HIỆN TRƯỜNG'
-                        : trackingData.dispatchStatus}
+                          ? 'ĐÃ ĐẾN HIỆN TRƯỜNG'
+                          : trackingData.dispatchStatus}
                     </span>
                   </div>
 
@@ -519,6 +543,117 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
             >
               Đóng cửa sổ
             </button>
+          </div>
+        </div>
+      )}
+      {/* Citizen Cancel Incident Confirmation Modal */}
+      {cancellingIncident && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
+          <div className="relative w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-red-50 text-red-600 border border-red-200">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Hủy Báo Cáo Sự Cố
+                  </h3>
+                  <p className="text-xs font-mono text-red-600 font-bold">
+                    #INC-{cancellingIncident.id.substring(0, 8).toUpperCase()}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseCancelModal}
+                disabled={isCancelling}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {cancelError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{cancelError}</span>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Bạn có chắc chắn muốn hủy yêu cầu cứu hộ này? Vui lòng chọn hoặc ghi rõ lý do để trung tâm CAD nắm thông tin:
+              </p>
+
+              <div className="space-y-2">
+                {[
+                  'Bấm nhầm nút SOS / Thử nghiệm',
+                  'Tình huống đã được tự xử lý an toàn',
+                  'Đã có người khác gọi cứu hộ hỗ trợ',
+                  'Khác',
+                ].map((reason) => (
+                  <label
+                    key={reason}
+                    onClick={() => setCancelReason(reason)}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all ${
+                      cancelReason === reason
+                        ? 'bg-red-50/80 border-red-500 text-red-700 font-bold'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="cancelReason"
+                      checked={cancelReason === reason}
+                      onChange={() => setCancelReason(reason)}
+                      className="accent-red-600"
+                    />
+                    <span>{reason === 'Khác' ? 'Lý do khác...' : reason}</span>
+                  </label>
+                ))}
+              </div>
+
+              {cancelReason === 'Khác' && (
+                <textarea
+                  value={customReason}
+                  onChange={(e) => setCustomReason(e.target.value)}
+                  placeholder="Nhập chi tiết lý do hủy báo cáo..."
+                  rows={2}
+                  className="w-full p-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500 font-sans"
+                  autoFocus
+                />
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={handleCloseCancelModal}
+                disabled={isCancelling}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono font-bold text-xs transition-colors cursor-pointer"
+              >
+                Quay lại
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancel}
+                disabled={isCancelling}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-mono font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+              >
+                {isCancelling ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang hủy...</span>
+                  </>
+                ) : (
+                  <>
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>Xác nhận hủy</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

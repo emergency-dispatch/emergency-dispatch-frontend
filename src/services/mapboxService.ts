@@ -19,8 +19,8 @@ try {
     (mapboxgl as any).config.EVENTS_URL = null;
   }
   if ((mapboxgl.Map as any)?.prototype) {
-    (mapboxgl.Map.prototype as any)._authenticate = function () {};
-    (mapboxgl.Map.prototype as any)._revokeAuth = function () {};
+    (mapboxgl.Map.prototype as any)._authenticate = function () { };
+    (mapboxgl.Map.prototype as any)._revokeAuth = function () { };
   }
 } catch {
   // Ignore
