@@ -1,23 +1,97 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Flame, Truck, ShieldCheck, Compass, Radio, Layers } from 'lucide-react';
+import {
+  Flame,
+  Truck,
+  ShieldCheck,
+  Compass,
+  Radio,
+  Layers,
+  Navigation,
+  ChevronRight,
+  AlertTriangle,
+} from 'lucide-react';
 import {
   MAPBOX_ACCESS_TOKEN,
   MAPBOX_DARK_STYLE,
   MAPBOX_REALISTIC_STYLE,
 } from '../../services/mapboxService';
+import { incidentService, type CitizenTrackingDto } from '../../services/incidentService';
+import type { IncidentResponseDto } from '../../types/incident';
 
 interface HeroRadarMapProps {
   etaTime: number;
   formatEta: (seconds: number) => string;
+  onOpenReports?: () => void;
 }
 
-export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({ etaTime, formatEta }) => {
+export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
+  etaTime,
+  formatEta,
+  onOpenReports,
+}) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const emsEtaElRef = useRef<HTMLSpanElement | null>(null);
   const [radarLayer, setRadarLayer] = useState<'satellite' | 'dark'>('satellite');
+
+  // Citizen reported incident state
+  const [reportedIncident, setReportedIncident] = useState<IncidentResponseDto | null>(null);
+  const [trackingData, setTrackingData] = useState<CitizenTrackingDto | null>(null);
+  const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
+
+  // Fetch citizen reported incident from storage & API
+  const checkCitizenReportedIncident = useCallback(async () => {
+    try {
+      const storedIds: string[] = JSON.parse(localStorage.getItem('resq_my_reported_incident_ids') || '[]');
+      if (storedIds.length > 0) {
+        const res = await incidentService.getIncidents({ pageSize: 20 });
+        const items = res.data?.items || [];
+        const match = items.find((i) => storedIds.includes(i.id));
+        if (match) {
+          setReportedIncident(match);
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    checkCitizenReportedIncident();
+
+    const handleIncidentUpdated = (e: any) => {
+      if (e.detail) {
+        setReportedIncident(e.detail);
+      } else {
+        checkCitizenReportedIncident();
+      }
+    };
+
+    window.addEventListener('resq_incident_updated', handleIncidentUpdated);
+    window.addEventListener('storage', checkCitizenReportedIncident);
+    return () => {
+      window.removeEventListener('resq_incident_updated', handleIncidentUpdated);
+      window.removeEventListener('storage', checkCitizenReportedIncident);
+    };
+  }, [checkCitizenReportedIncident]);
+
+  // Load tracking data if incident is dispatched or in progress
+  useEffect(() => {
+    if (!reportedIncident?.id) return;
+    if (reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress') {
+      incidentService
+        .getTracking(reportedIncident.id)
+        .then((res) => {
+          if (res.data) setTrackingData(res.data);
+        })
+        .catch(() => {});
+    } else {
+      setTrackingData(null);
+    }
+  }, [reportedIncident?.id, reportedIncident?.status]);
 
   const handleSetRadarLayer = (nextMode: 'satellite' | 'dark') => {
     if (nextMode === radarLayer) return;
@@ -209,6 +283,39 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({ etaTime, formatEta }
     }
   }, [etaTime, formatEta]);
 
+  // Update map marker if citizen reported incident has coords
+  useEffect(() => {
+    if (!mapRef.current || !reportedIncident?.latitude || !reportedIncident?.longitude) return;
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.remove();
+    }
+
+    const userEl = document.createElement('div');
+    userEl.className = 'cad-marker-user-incident cursor-pointer';
+    userEl.innerHTML = `
+      <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <span style="position: absolute; width: 64px; height: 64px; border-radius: 50%; background: rgba(220, 38, 38, 0.45); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: #DC2626; border: 2.5px solid #FFFFFF; box-shadow: 0 0 18px rgba(220, 38, 38, 0.85); display: flex; align-items: center; justify-content: center; color: white;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </div>
+      </div>
+    `;
+
+    userMarkerRef.current = new mapboxgl.Marker({ element: userEl })
+      .setLngLat([reportedIncident.longitude, reportedIncident.latitude])
+      .addTo(mapRef.current);
+
+    mapRef.current.flyTo({
+      center: [reportedIncident.longitude, reportedIncident.latitude],
+      zoom: 15,
+      essential: true,
+      duration: 1500,
+    });
+  }, [reportedIncident?.latitude, reportedIncident?.longitude]);
+
   return (
     <div className="relative flex-1 min-h-[160px] rounded-xl bg-slate-950 border border-slate-800 overflow-hidden">
       {/* Real Interactive Mapbox Dark Canvas */}
@@ -229,24 +336,92 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({ etaTime, formatEta }
 
       {/* Floating AI Hazard Classification Badge */}
       <div className="absolute top-2.5 left-2.5 z-30 animate-float-slow pointer-events-auto">
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-2 sm:p-2.5 shadow-xl max-w-[200px] sm:max-w-[240px] text-left">
-          <div className="flex items-center justify-between gap-2 mb-0.5">
-            <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-red-600 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
-              AI INCIDENT #8942
-            </span>
-            <span className="px-1.5 py-0.5 rounded bg-red-600 text-white text-[9px] sm:text-[10px] font-extrabold font-mono-data">
-              CẤP 3 / 3
-            </span>
+        {reportedIncident ? (
+          <div
+            onClick={onOpenReports}
+            className="bg-white/95 backdrop-blur-md border border-slate-200 hover:border-red-400 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[220px] sm:max-w-[270px] text-left cursor-pointer transition-all hover:scale-[1.02]"
+            title="Bấm để mở lịch sử sự cố và theo dõi xe cứu hộ"
+          >
+            <div className="flex items-center justify-between gap-1.5 mb-1">
+              <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-red-600 flex items-center gap-1.5">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress'
+                      ? 'bg-emerald-500 animate-ping'
+                      : reportedIncident.status === 'Cancelled'
+                      ? 'bg-slate-400'
+                      : 'bg-red-600 animate-pulse'
+                  }`}
+                />
+                <span className="truncate">SỰ CỐ CỦA BẠN #{reportedIncident.id.slice(0, 6).toUpperCase()}</span>
+              </span>
+              <span
+                className={`px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold font-mono-data shrink-0 ${
+                  reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress'
+                    ? 'bg-emerald-600 text-white'
+                    : reportedIncident.status === 'Cancelled'
+                    ? 'bg-slate-200 text-slate-700'
+                    : 'bg-red-600 text-white'
+                }`}
+              >
+                {reportedIncident.status === 'Dispatched'
+                  ? 'XE ĐANG ĐẾN'
+                  : reportedIncident.status === 'InProgress'
+                  ? 'ĐANG CỨU HỘ'
+                  : reportedIncident.status === 'Verified'
+                  ? 'ĐÃ DUYỆT'
+                  : reportedIncident.status === 'Cancelled'
+                  ? 'ĐÃ HỦY'
+                  : 'CHỜ TIẾP NHẬN'}
+              </span>
+            </div>
+
+            <p className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight truncate">
+              {reportedIncident.title}
+            </p>
+
+            <p className="text-[10px] text-slate-500 truncate mt-0.5 font-mono">
+              📍 {reportedIncident.locationAddress}
+            </p>
+
+            {/* Tracking live info if dispatched */}
+            {(reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress') && trackingData && (
+              <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] font-mono text-slate-700">
+                <span className="text-emerald-700 font-bold flex items-center gap-1">
+                  <Navigation className="w-3 h-3 text-emerald-600" />
+                  ETA: ~{trackingData.estimatedArrivalMinutes || 3}p
+                </span>
+                <span className="text-slate-600 font-bold truncate max-w-[110px]">
+                  {trackingData.plateNumber || 'Xe cứu hộ'}
+                </span>
+              </div>
+            )}
+
+            <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] font-mono-data text-red-600 font-bold">
+              <span>Bấm để theo dõi xe &amp; chi tiết</span>
+              <ChevronRight className="w-3 h-3 text-red-600" />
+            </div>
           </div>
-          <p className="text-[10px] sm:text-[11px] font-semibold text-slate-800 leading-tight truncate">
-            Cháy Lớn Kho Xưởng &amp; Nguy Cơ Cháy Lan
-          </p>
-          <div className="mt-1 pt-1 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] font-mono-data text-slate-500">
-            <span>Thẻ: <strong className="text-red-600">#Fire</strong></span>
-            <span className="text-red-600 font-bold">98.4% tin cậy</span>
+        ) : (
+          <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-2 sm:p-2.5 shadow-xl max-w-[200px] sm:max-w-[240px] text-left">
+            <div className="flex items-center justify-between gap-2 mb-0.5">
+              <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-red-600 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+                AI INCIDENT #8942
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-red-600 text-white text-[9px] sm:text-[10px] font-extrabold font-mono-data">
+                CẤP 3 / 3
+              </span>
+            </div>
+            <p className="text-[10px] sm:text-[11px] font-semibold text-slate-800 leading-tight truncate">
+              Cháy Lớn Kho Xưởng &amp; Nguy Cơ Cháy Lan
+            </p>
+            <div className="mt-1 pt-1 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] font-mono-data text-slate-500">
+              <span>Thẻ: <strong className="text-red-600">#Fire</strong></span>
+              <span className="text-red-600 font-bold">98.4% tin cậy</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Floating Map Style Switcher Segmented Pills */}

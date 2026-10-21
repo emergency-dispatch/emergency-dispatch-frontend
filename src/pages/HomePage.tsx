@@ -60,7 +60,10 @@ export const HomePage: React.FC = () => {
       {/* Main Landing Flow */}
       <main className="flex-grow">
         {/* Hero Section */}
-        <HeroSection onOpenSos={() => setSosModalOpen(true)} />
+        <HeroSection
+          onOpenSos={() => setSosModalOpen(true)}
+          onOpenReports={() => setReportsModalOpen(true)}
+        />
 
         {/* Real-Time Telemetry Bar */}
         <LiveTelemetryBar />
