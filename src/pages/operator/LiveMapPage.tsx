@@ -10,7 +10,7 @@ import type { VehicleFilters } from '../../types/vehicle';
 const DEFAULT_FILTERS: VehicleFilters = { type: 'all', status: 'all', stationId: 'all' };
 
 export const LiveMapPage: React.FC = () => {
-  const { vehicles, incidents, stations, trafficJams } = useDispatchStore();
+  const { vehicles, incidents, stations, trafficJams, resolveTrafficJam } = useDispatchStore();
   const [filters, setFilters] = useState<VehicleFilters>(DEFAULT_FILTERS);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
@@ -67,6 +67,7 @@ export const LiveMapPage: React.FC = () => {
           onSelectIncident={handleSelectIncident}
           stations={stations}
           trafficJams={trafficJams}
+          onResolveTrafficJam={resolveTrafficJam}
           vehiclesById={vehiclesById}
           incidentsById={incidentsById}
         />

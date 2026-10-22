@@ -1,9 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, ChevronDown, LogOut, MapPin, Settings, ShieldAlert, User } from 'lucide-react';
+import { Bell, CheckCheck, ChevronDown, LogOut, MapPin, Settings, ShieldAlert, Siren, User } from 'lucide-react';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useAuth } from '../../hooks/useAuth';
+import { useNotifications } from '../../hooks/useNotifications';
+import type { NotificationDto } from '../../services/notificationService';
 import { UserProfileModal } from '../profile/UserProfileModal';
+
+const formatTime = (iso: string) => {
+  const date = new Date(iso);
+  const sameDay = date.toDateString() === new Date().toDateString();
+  return sameDay
+    ? date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    : date.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+};
 
 export const OperatorTopbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -15,11 +25,19 @@ export const OperatorTopbar: React.FC = () => {
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
 
-  // Escalation Daemon: sự cố Cấp 3 chưa có đội nhận quá ngưỡng → chuông nhấp nháy.
+  // Thông báo thật từ backend (xe từ chối nhiệm vụ, leo thang, sự cố đóng…); chuông nhấp nháy khi còn sự cố leo thang.
   const { incidents, escalatedIncidentIds } = useDispatchStore();
-  const criticalUnclaimed = incidents.filter((i) => escalatedIncidentIds.has(i.id));
-  const unreadCount = criticalUnclaimed.length;
-  const hasCriticalAlert = criticalUnclaimed.length > 0;
+  const { items: notifications, unreadCount, loading, error, markRead, markAllRead } = useNotifications();
+  const hasCriticalAlert = escalatedIncidentIds.size > 0;
+
+  const openNotification = (notification: NotificationDto) => {
+    markRead(notification.id);
+    if (!notification.incidentId) return;
+    setNotifOpen(false);
+    const incident = incidents.find((i) => i.id === notification.incidentId);
+    if (incident?.status === 'pending') navigate('/dashboard/command-center/incidents');
+    else if (incident) navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: incident.id } });
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -96,41 +114,61 @@ export const OperatorTopbar: React.FC = () => {
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-80 rounded-xl cad-glass overflow-hidden z-[1200]">
-              <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+            <div className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-xl cad-glass overflow-hidden z-[1200]">
+              <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
                 <span className="text-xs font-mono-data uppercase tracking-wider text-slate-600 font-bold">
-                  Cảnh báo leo thang
+                  Thông báo{unreadCount > 0 && ` (${unreadCount} chưa đọc)`}
                 </span>
-                {hasCriticalAlert && (
-                  <span className="text-[10px] font-mono-data text-red-600 font-bold whitespace-nowrap">
-                    {criticalUnclaimed.length} CHƯA CÓ ĐỘI NHẬN
-                  </span>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 whitespace-nowrap"
+                  >
+                    <CheckCheck className="w-3.5 h-3.5" />
+                    Đọc tất cả
+                  </button>
                 )}
               </div>
-              <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                {criticalUnclaimed.length === 0 ? (
-                  <p className="px-4 py-6 text-center text-xs text-slate-500">Không có sự cố nào đang leo thang</p>
+              {hasCriticalAlert && (
+                <div className="px-4 py-2 bg-red-50 border-b border-red-100 flex items-center gap-2 text-[11px] font-semibold text-red-700">
+                  <Siren className="w-3.5 h-3.5 shrink-0" />
+                  {escalatedIncidentIds.size} sự cố đang leo thang, chưa có đơn vị nhận
+                </div>
+              )}
+              <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
+                {loading ? (
+                  <p className="px-4 py-6 text-center text-xs text-slate-500">Đang tải thông báo…</p>
+                ) : error ? (
+                  <p className="px-4 py-6 text-center text-xs text-red-600">{error}</p>
+                ) : notifications.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-xs text-slate-500">Chưa có thông báo nào</p>
                 ) : (
-                  criticalUnclaimed.map((incident) => {
-                    const waitMinutes = Math.max(
-                      0,
-                      Math.floor((Date.now() - new Date(incident.createdAt).getTime()) / 60000)
-                    );
-                    return (
-                      <div key={incident.id} className="px-4 py-3 hover:bg-slate-50 transition-colors">
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-xs font-semibold text-slate-900">{incident.title}</span>
-                          <span className="shrink-0 w-2 h-2 rounded-full bg-red-500 animate-pulse mt-1" />
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          Cấp 3 · {incident.area} · {incident.status === 'pending' ? 'chưa thẩm định' : 'chưa có đội nhận'}
-                        </p>
-                        <span className="text-[10px] font-mono-data text-red-600 mt-1 block">
-                          Chờ {waitMinutes} phút — đã leo thang
+                  notifications.map((notification) => (
+                    <button
+                      key={notification.id}
+                      onClick={() => openNotification(notification)}
+                      className={`w-full text-left px-4 py-3 transition-colors hover:bg-slate-50 ${
+                        notification.isRead ? '' : 'bg-red-50/40'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span
+                          className={`text-xs ${notification.isRead ? 'font-medium' : 'font-bold'} ${
+                            notification.type === 'Escalation' ? 'text-red-700' : 'text-slate-900'
+                          }`}
+                        >
+                          {notification.title}
+                        </span>
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-mono-data text-slate-400">
+                            {formatTime(notification.createdAt)}
+                          </span>
+                          {!notification.isRead && <span className="w-2 h-2 rounded-full bg-red-500" />}
                         </span>
                       </div>
-                    );
-                  })
+                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{notification.message}</p>
+                    </button>
+                  ))
                 )}
               </div>
             </div>

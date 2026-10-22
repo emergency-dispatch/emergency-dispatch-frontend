@@ -168,7 +168,10 @@ export function getApiErrorMessage(error: unknown, fallbackMessage = 'Đã có l
       return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và backend (http://localhost:5000).';
     }
     if (error.response?.status === 401) {
-      return 'Email hoặc mật khẩu không chính xác.';
+      // Chỉ màn đăng nhập mới là sai mật khẩu; API khác trả 401 nghĩa là phiên đã hết hạn.
+      return /\/auth\/login/i.test(error.config?.url ?? '')
+        ? 'Email hoặc mật khẩu không chính xác.'
+        : 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
     }
     if (error.response?.status === 403) {
       return 'Bạn không có quyền thực hiện thao tác này.';

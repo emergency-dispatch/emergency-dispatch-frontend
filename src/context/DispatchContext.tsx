@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { CREW_ACK_TIMEOUT_MS, MAX_VEHICLES_BY_LEVEL } from '../data/dispatchConfig';
+import { MAX_VEHICLES_BY_LEVEL } from '../data/dispatchConfig';
 import { incidentService } from '../services/incidentService';
 import { dispatchService } from '../services/dispatchService';
 import {
@@ -90,11 +90,18 @@ interface EscalationAlertMessage {
 
 type ActionResult = { ok: boolean; message?: string };
 
+// Hàng đợi chờ duyệt: đúng quy tắc của GET /api/incidents/queue (FR-OP-02) — Cấp 3 và sự cố AI không
+// phân loại được cùng nhóm đầu, rồi Cấp 2, Cấp 1; cùng nhóm thì FIFO. Áp lại ở client chỉ để chèn đúng
+// chỗ các sự cố mới nhận qua SignalR, không đổi thứ tự backend trả về.
+const queueRank = (i: Incident) => (i.severity === 3 || i.aiUnclassified ? 0 : i.severity === 2 ? 1 : 2);
+
 function sortByPriority(incidents: Incident[]): Incident[] {
+  const byCreatedAt = (a: Incident, b: Incident) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   return [...incidents].sort((a, b) => {
+    if (a.status === 'pending' && b.status === 'pending') return queueRank(a) - queueRank(b) || byCreatedAt(a, b);
+    // Bảng điều phối: sự cố leo thang trước, rồi Cấp cao trước.
     if (a.escalated !== b.escalated) return Number(b.escalated) - Number(a.escalated);
-    if (b.severity !== a.severity) return b.severity - a.severity;
-    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    return b.severity - a.severity || byCreatedAt(a, b);
   });
 }
 
@@ -111,6 +118,8 @@ interface DispatchContextValue {
   vehicles: Vehicle[];
   stations: Station[];
   trafficJams: TrafficJamReport[];
+  /** Đánh dấu điểm ùn tắc đã giải tỏa (PUT /api/traffic/{id}/resolve). */
+  resolveTrafficJam: (id: string) => Promise<ActionResult>;
   escalationSettings: EscalationSettingsDto;
   incidents: Incident[];
   highlightIncidentIds: Set<string>;
@@ -350,10 +359,6 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           etaMinutes,
           incidentId: assignment?.incidentId ?? null,
           lastUpdated: live?.at ?? unit.lastLocationUpdateAt ?? unit.updatedAt ?? unit.createdAt,
-          ackDeadline:
-            assignment?.status === 'Dispatched'
-              ? new Date(new Date(assignment.dispatchedAt).getTime() + CREW_ACK_TIMEOUT_MS).toISOString()
-              : null,
           assignmentId: assignment?.id ?? null,
         },
       ];
@@ -541,6 +546,16 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const resolveTrafficJam = async (id: string): Promise<ActionResult> => {
+    try {
+      await liveMapService.resolveTrafficJam(id);
+      setTrafficJams((prev) => prev.filter((j) => j.id !== id));
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: getApiErrorMessage(err, 'Không thể giải tỏa điểm ùn tắc.') };
+    }
+  };
+
   const dismissResponseNotice = (_incidentId: string, noticeId: string) => {
     setDismissedNoticeIds((prev) => new Set(prev).add(noticeId));
   };
@@ -552,6 +567,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         vehicles,
         stations,
         trafficJams,
+        resolveTrafficJam,
         escalationSettings,
         incidents,
         highlightIncidentIds,

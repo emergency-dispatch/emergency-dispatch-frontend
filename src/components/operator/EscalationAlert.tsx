@@ -63,7 +63,7 @@ export const EscalationAlert: React.FC = () => {
             <Siren className="w-5 h-5 shrink-0 mt-0.5 animate-pulse" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold">
-                {escalated.length} sự cố Cấp 3 chưa có đơn vị nhận quá {thresholdLabel}
+                {escalated.length} sự cố quá {thresholdLabel} chưa có đơn vị nhận
               </p>
               <p className="text-[11px] text-red-100 mt-0.5">
                 Đã tự động báo Trưởng trạm &amp; Admin · bán kính tìm xe đã nhân {escalationSettings.radiusMultiplier.toLocaleString('vi-VN')} lần (tối đa {escalationSettings.maxRadiusKm} km)

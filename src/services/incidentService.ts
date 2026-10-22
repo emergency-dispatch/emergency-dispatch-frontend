@@ -18,7 +18,8 @@ const BLOCK_DURATION_TO_BACKEND: Record<BlockDuration, string> = {
 
 // Sự cố đã duyệt còn cần điều phối / theo dõi trên Live Map.
 const DISPATCH_BOARD_STATUSES: BackendIncidentStatus[] = ['Verified', 'Dispatched', 'InProgress', 'Escalated'];
-const DISPATCH_BOARD_PAGE_SIZE = 100;
+// Backend tự cắt pageSize về tối đa 50 (PaginationParamsDto) → tải lần lượt từng trang.
+const DISPATCH_BOARD_PAGE_SIZE = 50;
 
 export interface LockResultDto {
   incidentId: string;
@@ -130,17 +131,18 @@ export const incidentService = {
    * Backend chỉ lọc được một trạng thái mỗi lần → gọi song song từng trạng thái.
    */
   async getDispatchBoard(): Promise<IncidentResponseDto[]> {
-    const pages = await Promise.all(
-      DISPATCH_BOARD_STATUSES.map((status) =>
-        apiClient.get<ApiResponse<PaginatedResultDto<IncidentResponseDto>>>('/Incidents', {
-          params: { status, pageIndex: 1, pageSize: DISPATCH_BOARD_PAGE_SIZE },
-        })
-      )
-    );
-    return pages.flatMap((res) => {
-      if (!res.data.success) throw new Error(res.data.message || 'Không thể tải sự cố đang điều phối.');
-      return res.data.data.items;
-    });
+    const fetchStatus = async (status: BackendIncidentStatus) => {
+      const items: IncidentResponseDto[] = [];
+      for (let pageIndex = 1; ; pageIndex++) {
+        const res = await apiClient.get<ApiResponse<PaginatedResultDto<IncidentResponseDto>>>('/Incidents', {
+          params: { status, pageIndex, pageSize: DISPATCH_BOARD_PAGE_SIZE },
+        });
+        if (!res.data.success) throw new Error(res.data.message || 'Không thể tải sự cố đang điều phối.');
+        items.push(...res.data.data.items);
+        if (!res.data.data.hasNextPage) return items;
+      }
+    };
+    return (await Promise.all(DISPATCH_BOARD_STATUSES.map(fetchStatus))).flat();
   },
 
   /** Giữ / gia hạn khóa mềm 2 phút. Operator khác đang giữ → HTTP 409. */

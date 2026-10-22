@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { Building2, Clock, ExternalLink, LocateFixed } from 'lucide-react';
+import { Building2, CheckCircle2, Clock, ExternalLink, Loader2, LocateFixed } from 'lucide-react';
 import { MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import { MAPBOX_ACCESS_TOKEN } from '../../../services/mapboxService';
@@ -99,6 +99,48 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle }> = ({ vehicle }) => {
           <span>ETA {vehicle.etaMinutes} phút</span>
         </div>
       )}
+    </div>
+  );
+};
+
+const TrafficJamPopup: React.FC<{
+  jam: TrafficJamReport;
+  onResolve?: (id: string) => Promise<{ ok: boolean; message?: string }>;
+}> = ({ jam, onResolve }) => {
+  const [resolving, setResolving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleResolve = async () => {
+    if (!onResolve) return;
+    setResolving(true);
+    setError(null);
+    const result = await onResolve(jam.id);
+    // Thành công → điểm ùn tắc bị gỡ khỏi bản đồ cùng popup này.
+    if (!result.ok) {
+      setResolving(false);
+      setError(result.message ?? 'Không thể giải tỏa điểm ùn tắc.');
+    }
+  };
+
+  return (
+    <div className="min-w-[200px] space-y-1">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600">Ùn tắc giao thông</p>
+      <p className="text-sm font-bold text-slate-900">{jam.area}</p>
+      <p className="text-xs text-slate-600">{jam.note}</p>
+      <p className="text-[11px] text-slate-400">
+        Báo lúc {new Date(jam.reportedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+      </p>
+      {onResolve && (
+        <button
+          onClick={handleResolve}
+          disabled={resolving}
+          className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-colors disabled:opacity-60"
+        >
+          {resolving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+          Đánh dấu đã giải tỏa
+        </button>
+      )}
+      {error && <p className="text-[11px] text-red-600">{error}</p>}
     </div>
   );
 };
@@ -213,6 +255,7 @@ interface LiveMapViewProps {
   onSelectIncident?: (id: string) => void;
   stations?: Station[];
   trafficJams?: TrafficJamReport[];
+  onResolveTrafficJam?: (id: string) => Promise<{ ok: boolean; message?: string }>;
   vehiclesById?: Map<string, Vehicle>;
   incidentsById?: Map<string, Incident>;
 }
@@ -226,6 +269,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   onSelectIncident,
   stations = [],
   trafficJams = [],
+  onResolveTrafficJam,
   vehiclesById,
   incidentsById,
 }) => {
@@ -312,14 +356,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
 
           {trafficJams.map((jam) => (
             <MapMarker key={jam.id} map={map} lat={jam.lat} lng={jam.lng} html={trafficJamMarkerHtml()} popupOffset={14}>
-              <div className="min-w-[180px] space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600">Ùn tắc giao thông</p>
-                <p className="text-sm font-bold text-slate-900">{jam.area}</p>
-                <p className="text-xs text-slate-600">{jam.note}</p>
-                <p className="text-[11px] text-slate-400">
-                  Báo lúc {new Date(jam.reportedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
+              <TrafficJamPopup jam={jam} onResolve={onResolveTrafficJam} />
             </MapMarker>
           ))}
 

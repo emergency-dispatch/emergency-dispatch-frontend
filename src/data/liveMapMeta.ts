@@ -5,7 +5,7 @@ import type { DispatchVehicleType, VehicleStatus, VehicleType } from '../types/v
 
 export const VEHICLE_STATUS_META: Record<VehicleStatus, { label: string; color: string }> = {
   available: { label: 'Sẵn sàng', color: '#10B981' },
-  awaiting_ack: { label: 'Chờ xác nhận', color: '#A855F7' },
+  awaiting_ack: { label: 'Chờ đội xác nhận', color: '#A855F7' },
   accepted: { label: 'Đã nhận', color: '#0EA5E9' },
   en_route: { label: 'Đang di chuyển', color: '#2563EB' },
   on_scene: { label: 'Tại hiện trường', color: '#F97316' },

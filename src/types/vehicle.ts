@@ -1,4 +1,4 @@
-// Vòng đời nhiệm vụ của xe phía Command Center: giao xe → đội có 120s xác nhận →
+// Vòng đời nhiệm vụ của xe phía Command Center: giao xe → chờ đội Chấp nhận / Từ chối (không giới hạn giờ) →
 // Accepted → EnRoute → OnScene → nộp báo cáo → hồi sức → Available.
 // 'unavailable' = xe Bảo trì / Ngừng hoạt động (Admin đặt), không điều được.
 export type VehicleStatus =
@@ -28,8 +28,6 @@ export interface Vehicle {
   etaMinutes: number | null;
   incidentId: string | null;
   lastUpdated: string;
-  /** Hạn chót đội cứu hộ phải Chấp nhận/Từ chối (trạng thái awaiting_ack). */
-  ackDeadline?: string | null;
   /** Lượt điều phối đang chạy của xe — dùng để hủy giao xe. */
   assignmentId: string | null;
 }

@@ -22,7 +22,6 @@ import { useNow } from '../../../hooks/useNow';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { dispatchService } from '../../../services/dispatchService';
-import { formatCountdown } from '../../../utils/incidentFormat';
 import type { Incident } from '../../../types/incident';
 import type { StationTeam } from '../../../types/stationTeam';
 import type { DispatchAlgorithm, DispatchSuggestion, Vehicle } from '../../../types/vehicle';
@@ -260,7 +259,6 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
             {assigned.map((vehicle) => {
               const statusMeta = VEHICLE_STATUS_META[vehicle.status];
               const hasReported = incident.reportedVehicleIds.includes(vehicle.id);
-              const ackRemainingMs = vehicle.ackDeadline ? new Date(vehicle.ackDeadline).getTime() - now : 0;
               const canRecall = !hasReported && !!vehicle.assignmentId && vehicle.status !== 'on_scene';
               return (
                 <div
@@ -279,8 +277,6 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                       ) : (
                         <span style={{ color: statusMeta.color }} className="font-semibold">
                           {statusMeta.label}
-                          {vehicle.status === 'awaiting_ack' &&
-                            (ackRemainingMs > 0 ? ` · còn ${formatCountdown(ackRemainingMs)}` : ' · quá hạn phản hồi')}
                         </span>
                       )}
                       {!hasReported && vehicle.etaMinutes !== null && vehicle.status !== 'awaiting_ack' &&

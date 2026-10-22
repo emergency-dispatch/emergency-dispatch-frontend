@@ -29,7 +29,7 @@ export type HazardTag = IncidentCategory | 'traffic_jam';
 // Escalated không phải một trạng thái riêng ở đây — xem Incident.escalated.
 export type IncidentStatus = 'pending' | 'approved' | 'completed';
 
-// Đội cứu hộ từ chối hoặc quá 120s không phản hồi → nhiệm vụ trả về trung tâm, Operator giao lại.
+// Đội cứu hộ từ chối nhiệm vụ → nhiệm vụ trả về trung tâm, Operator giao lại.
 export interface CrewResponseNotice {
   id: string;
   vehicleId: string;
@@ -62,8 +62,10 @@ export interface Incident {
   confidenceScore: number;
   aiSummary: string | null;
   status: IncidentStatus;
-  /** Backend đã leo thang (status Escalated): Cấp 3 quá ngưỡng chưa có đội nhận. */
+  /** Backend đã leo thang (status Escalated): sự cố quá ngưỡng chưa có đội nhận. */
   escalated: boolean;
+  /** AI không phân loại được (severity Unclassified) — hiển thị như Cấp 1 nhưng xếp đầu hàng đợi. */
+  aiUnclassified: boolean;
   area: string;
   lat: number;
   lng: number;
@@ -250,6 +252,7 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto): Inciden
     aiSummary: ai?.summary ?? null,
     status: toOperatorStatus(dto) ?? 'pending',
     escalated: dto.status === 'Escalated',
+    aiUnclassified: dto.severity === 'Unclassified',
     area: dto.locationAddress,
     lat: dto.latitude,
     lng: dto.longitude,

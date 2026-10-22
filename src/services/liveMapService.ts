@@ -85,6 +85,10 @@ export const liveMapService = {
     return hotspots.map(mapTrafficHotspot);
   },
 
+  async resolveTrafficJam(id: string): Promise<void> {
+    await unwrapApi(apiClient.put<ApiResponse<unknown>>(`/traffic/${id}/resolve`));
+  },
+
   /** Backend bọc cấu hình trong SettingsRecordDto { values, updatedAt, updatedByName }. */
   async getEscalationSettings(): Promise<EscalationSettingsDto> {
     const record = await unwrapApi(
