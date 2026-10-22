@@ -35,9 +35,11 @@ export function vehicleMarkerHtml(type: VehicleType, status: VehicleStatus, sele
   `;
 }
 
-// Marker sự cố: icon theo nhánh (🔥 Cháy nổ / 🚗 Tai nạn), màu theo cấp độ.
+// Marker sự cố: icon + màu theo nhánh, giống chú thích (🔥 Cháy nổ đỏ / 🚗 Tai nạn cam).
+// Cấp độ là huy hiệu số nhỏ ở góc, màu theo cấp.
 export function incidentMarkerHtml(category: IncidentCategory, severity: SeverityLevel, selected: boolean): string {
-  const color = SEVERITY_LEVEL_COLOR[severity];
+  const color = INCIDENT_CATEGORY_META[category].color;
+  const badge = selected ? 18 : 16;
   const size = selected ? 34 : 26;
   const ringBorder = '#FFFFFF';
   const categorySvg = renderToStaticMarkup(
@@ -55,6 +57,10 @@ export function incidentMarkerHtml(category: IncidentCategory, severity: Severit
       <div class="relative flex items-center justify-center rounded-full border-2 pointer-events-none" style="width:${size}px;height:${size}px;background:${color};border-color:${ringBorder};box-shadow:0 0 10px 2px ${color}99;">
         ${categorySvg}
       </div>
+      <span class="absolute flex items-center justify-center rounded-full font-bold text-white pointer-events-none"
+        style="right:-${Math.round(badge / 2.5)}px;top:-${Math.round(badge / 2.5)}px;width:${badge}px;height:${badge}px;background:${SEVERITY_LEVEL_COLOR[severity]};border:2px solid #FFFFFF;font-size:${badge - 7}px;line-height:1;">
+        ${severity}
+      </span>
     </div>
   `;
 }

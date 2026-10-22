@@ -75,8 +75,14 @@ export const MapLegend: React.FC = () => {
             );
           })}
           {SEVERITY_LEGEND.map(({ level, label }) => (
+            // Cấp độ = số nhỏ ở góc marker sự cố.
             <span key={level} className="flex items-center gap-1 text-xs text-slate-700">
-              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: SEVERITY_LEVEL_COLOR[level] }} />
+              <span
+                className="w-3.5 h-3.5 rounded-full shrink-0 flex items-center justify-center text-[8px] font-bold text-white"
+                style={{ backgroundColor: SEVERITY_LEVEL_COLOR[level] }}
+              >
+                {level}
+              </span>
               {label}
             </span>
           ))}
