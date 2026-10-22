@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   BellRing,
@@ -7,67 +7,15 @@ import {
   Loader2,
   MapPin,
   Phone,
-  Siren,
   User,
-  Volume2,
-  VolumeX,
   X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { INCIDENT_CATEGORY_META, SEVERITY_META } from '../../data/incidentMock';
 import { useDispatchStore } from '../../context/DispatchContext';
-import { useNow } from '../../hooks/useNow';
-import { SeverityBadge } from './incidents/SeverityBadge';
 import type { Incident } from '../../types/incident';
 
 const QUEUE_PATH = '/dashboard/command-center/incidents';
-// Operator chỉ cần biết có tin báo, không auto-accept — countdown dùng để urge thẩm định nhanh.
-const COUNTDOWN_SECONDS = 30;
-
-function useAudioAlert(active: boolean) {
-  const audioRef = useRef<AudioContext | null>(null);
-  const oscillatorsRef = useRef<OscillatorNode[]>([]);
-  const [muted, setMuted] = useState(false);
-
-  const stop = () => {
-    oscillatorsRef.current.forEach((o) => { try { o.stop(); } catch (_) {} });
-    oscillatorsRef.current = [];
-    audioRef.current?.close().catch(() => {});
-    audioRef.current = null;
-  };
-
-  useEffect(() => {
-    if (!active || muted) { stop(); return; }
-
-    const ctx = new AudioContext();
-    audioRef.current = ctx;
-
-    // Tạo âm báo khẩn cấp: 2 tone xen kẽ (như còi cứu thương)
-    const playTone = (freq: number, startTime: number, duration: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = freq;
-      osc.type = 'sine';
-      gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(0.18, startTime + 0.05);
-      gain.gain.linearRampToValueAtTime(0, startTime + duration - 0.05);
-      osc.start(startTime);
-      osc.stop(startTime + duration);
-      oscillatorsRef.current.push(osc);
-    };
-
-    for (let i = 0; i < 3; i++) {
-      playTone(880, ctx.currentTime + i * 0.45, 0.22);
-      playTone(1100, ctx.currentTime + i * 0.45 + 0.22, 0.22);
-    }
-
-    return stop;
-  }, [active, muted]);
-
-  return { muted, toggleMute: () => setMuted((v) => !v), stop };
-}
 
 interface ModalProps {
   incident: Incident;
@@ -76,25 +24,11 @@ interface ModalProps {
 }
 
 const IncidentModal: React.FC<ModalProps> = ({ incident, onDismiss, onGoToQueue }) => {
-  const [timeLeft, setTimeLeft] = useState(COUNTDOWN_SECONDS);
-  const { muted, toggleMute } = useAudioAlert(true);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) { clearInterval(timer); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   const now = Date.now();
   const minutes = Math.max(0, Math.floor((now - new Date(incident.createdAt).getTime()) / 60000));
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
   const severityMeta = SEVERITY_META[incident.severity];
-  const progress = (timeLeft / COUNTDOWN_SECONDS) * 100;
 
   return createPortal(
     <div
@@ -119,21 +53,6 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, onDismiss, onGoToQueue 
 
           <div className="flex items-center gap-2">
             <button
-              onClick={toggleMute}
-              className="p-1.5 rounded-lg bg-black/20 hover:bg-black/30 text-white transition-all"
-              title={muted ? 'Bật âm thanh' : 'Tắt âm thanh'}
-            >
-              {muted
-                ? <VolumeX className="w-4 h-4 text-white/70" />
-                : <Volume2 className="w-4 h-4 text-white animate-pulse" />
-              }
-            </button>
-            {/* Countdown */}
-            <div className="px-2.5 py-1 bg-black/25 rounded-lg text-center font-mono-data min-w-[44px]">
-              <div className="text-[9px] text-red-100 uppercase font-bold">Còn</div>
-              <div className="text-sm font-black text-white">{timeLeft}s</div>
-            </div>
-            <button
               onClick={onDismiss}
               className="p-1.5 rounded-lg bg-black/20 hover:bg-black/30 transition-all"
               aria-label="Đóng"
@@ -141,14 +60,6 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, onDismiss, onGoToQueue 
               <X className="w-4 h-4 text-white" />
             </button>
           </div>
-        </div>
-
-        {/* Progress bar countdown */}
-        <div className="w-full bg-slate-100 h-1.5 overflow-hidden">
-          <div
-            className="h-full bg-red-600 transition-all duration-1000 ease-linear"
-            style={{ width: `${progress}%` }}
-          />
         </div>
 
         {/* Body */}

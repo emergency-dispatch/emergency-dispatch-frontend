@@ -73,10 +73,14 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const [revealedPhone, setRevealedPhone] = useState<{ phone: string; at: Date } | null>(null);
   const [revealingPhone, setRevealingPhone] = useState(false);
 
-  // Reset local form state whenever a different incident is opened.
+  // Sync severity khi mở drawer mới HOẶC khi AI xong (aiPending → false).
+  // Dùng ref để không ghi đè khi Operator đã tự tay chọn cấp khác.
+  const operatorOverrodeRef = React.useRef(false);
+
   useEffect(() => {
     if (!incident) return;
-    // AI không phân loại được → không chọn sẵn cấp nào, Operator tự chọn.
+    // Mở sự cố mới → reset flag và chọn severity theo AI
+    operatorOverrodeRef.current = false;
     setConfirmedSeverity(incident.aiUnclassified ? null : incident.severity);
     setOverrideReason('');
     setRejecting(false);
@@ -85,6 +89,14 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     setBlockDuration('30d');
     setRevealedPhone(null);
   }, [incident?.id]);
+
+  // AI vừa xong phân tích (aiPending false → severity mới) — cập nhật nếu Operator chưa override.
+  useEffect(() => {
+    if (!incident || incident.aiPending) return;
+    if (operatorOverrodeRef.current) return; // Operator đã chọn tay → không ghi đè
+    setConfirmedSeverity(incident.aiUnclassified ? null : incident.severity);
+  }, [incident?.aiPending, incident?.severity, incident?.aiUnclassified]);
+
 
   if (!incident) return null;
 
@@ -358,7 +370,10 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                         <button
                           key={level}
                           type="button"
-                          onClick={() => setConfirmedSeverity(level)}
+                          onClick={() => {
+                          operatorOverrodeRef.current = true;
+                          setConfirmedSeverity(level);
+                        }}
                           disabled={!canAct}
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[11px] font-bold font-mono-data whitespace-nowrap transition-colors disabled:cursor-not-allowed ${
                             isActive ? meta.badgeClass : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
