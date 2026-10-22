@@ -4,8 +4,6 @@ import { inputClass } from '../common/styles';
 import { NOTIFY_ROLE_LABEL, escalationSeverityMeta } from './escalationMeta';
 import {
   DESCRIPTION_MAX_LENGTH,
-  EXPAND_RADIUS_PERCENT_RANGE,
-  TIMEOUT_MINUTES_RANGE,
   escalationService,
   validateEscalationRule,
 } from '../../../services/admin/escalationService';
@@ -25,13 +23,8 @@ interface EscalationRuleFormDrawerProps {
   onSaved: (rule: EscalationRuleDto) => void;
 }
 
-// Ô số giữ dạng chuỗi để gõ dở không bị nhảy; ô trống → NaN → báo lỗi.
-const toNumber = (s: string) => (s.trim() === '' ? NaN : Number(s));
-
 export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> = ({ initialRule, onClose, onSaved }) => {
   const [minSeverityLevel, setMinSeverityLevel] = useState<EscalationSeverity>(initialRule?.minSeverityLevel ?? 'Level3');
-  const [timeoutMinutes, setTimeoutMinutes] = useState(String(initialRule?.timeoutMinutes ?? 5));
-  const [expandRadiusPercent, setExpandRadiusPercent] = useState(String(initialRule?.expandRadiusPercent ?? 100));
   const [notifyRoles, setNotifyRoles] = useState<EscalationNotifyRole[]>(
     initialRule ? parseNotifyRoles(initialRule.notifyRoles) : ['Operator', 'Admin']
   );
@@ -42,8 +35,6 @@ export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> =
 
   const input = {
     minSeverityLevel,
-    timeoutMinutes: toNumber(timeoutMinutes),
-    expandRadiusPercent: toNumber(expandRadiusPercent),
     notifyRoles,
     isActive,
     description,
@@ -79,7 +70,11 @@ export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> =
     >
       <Notice notice={error ? { kind: 'error', message: error } : null} />
 
-      <FormField label="Áp dụng cho sự cố từ" required hint="Quy tắc áp dụng cho sự cố có cấp bằng hoặc cao hơn cấp này.">
+      <FormField
+        label="Áp dụng cho sự cố từ"
+        required
+        hint="Sự cố có cấp bằng hoặc cao hơn cấp này (và sự cố AI chưa phân loại) sẽ bị leo thang khi quá ngưỡng chờ."
+      >
         <div className="grid grid-cols-3 gap-2">
           {ESCALATION_SEVERITIES.map((level) => {
             const meta = escalationSeverityMeta(level);
@@ -100,42 +95,16 @@ export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> =
         </div>
       </FormField>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <FormField
-          label="Ngưỡng chờ (phút)"
-          required
-          hint={errors.timeoutMinutes ?? 'Chưa có đội nhận quá số phút này thì leo thang.'}
-        >
-          <input
-            type="number"
-            inputMode="numeric"
-            min={TIMEOUT_MINUTES_RANGE.min}
-            max={TIMEOUT_MINUTES_RANGE.max}
-            step={1}
-            value={timeoutMinutes}
-            onChange={(e) => setTimeoutMinutes(e.target.value)}
-            className={`${inputClass} font-mono-data ${errors.timeoutMinutes ? 'border-red-400' : ''}`}
-          />
-        </FormField>
-        <FormField
-          label="Mở rộng bán kính (%)"
-          required
-          hint={errors.expandRadiusPercent ?? 'VD 100% = bán kính tìm xe gấp đôi.'}
-        >
-          <input
-            type="number"
-            inputMode="numeric"
-            min={EXPAND_RADIUS_PERCENT_RANGE.min}
-            max={EXPAND_RADIUS_PERCENT_RANGE.max}
-            step={10}
-            value={expandRadiusPercent}
-            onChange={(e) => setExpandRadiusPercent(e.target.value)}
-            className={`${inputClass} font-mono-data ${errors.expandRadiusPercent ? 'border-red-400' : ''}`}
-          />
-        </FormField>
-      </div>
+      <p className="text-[11px] text-slate-500">
+        Ngưỡng chờ (ngày/đêm) và mức mở rộng bán kính dùng chung cho mọi quy tắc — chỉnh ở phần Cấu hình leo thang phía
+        trên.
+      </p>
 
-      <FormField label="Vai trò nhận cảnh báo" required hint={errors.notifyRoles}>
+      <FormField
+        label="Vai trò ghi nhận trong nhật ký"
+        required
+        hint={errors.notifyRoles ?? 'Cảnh báo realtime luôn gửi tới Điều phối viên và Quản trị viên.'}
+      >
         <div className="space-y-2">
           {ESCALATION_NOTIFY_ROLES.map((role) => (
             <label key={role} className="flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer select-none">
@@ -157,7 +126,7 @@ export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> =
           onChange={(e) => setDescription(e.target.value)}
           maxLength={DESCRIPTION_MAX_LENGTH}
           rows={3}
-          placeholder="VD: Leo thang sự cố Cấp 3 chưa có đội nhận quá 5 phút"
+          placeholder="VD: Leo thang sự cố Cấp 3 chưa có đội nhận"
           className={`${inputClass} resize-none`}
         />
       </FormField>

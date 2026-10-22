@@ -1,13 +1,13 @@
 import React from 'react';
 import { thClass } from '../common/styles';
-import { ACTOR_ROLE_LABEL, AUDIT_ACTION_LABEL, AUDIT_GROUP_META, formatAuditTime } from './auditMeta';
-import { AUDIT_ACTION_GROUP, type AuditTrailEntry } from '../../../types/auditTrail';
+import { actorRoleLabel, auditActionMeta, formatAuditTime } from './auditMeta';
+import type { AuditTrailEntryDto } from '../../../types/auditTrail';
 
 interface AuditTrailTableProps {
-  entries: AuditTrailEntry[];
+  entries: AuditTrailEntryDto[];
   loading: boolean;
   selectedId: string | null;
-  onSelect: (entry: AuditTrailEntry) => void;
+  onSelect: (entry: AuditTrailEntryDto) => void;
 }
 
 export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ entries, loading, selectedId, onSelect }) => (
@@ -22,8 +22,8 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ entries, loadi
           <th className={thClass}>Thời điểm</th>
           <th className={thClass}>Người thao tác</th>
           <th className={thClass}>Hành động</th>
-          <th className={thClass}>Đối tượng</th>
-          <th className={thClass}>Tóm tắt</th>
+          <th className={thClass}>Sự cố</th>
+          <th className={thClass}>Mô tả</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-100">
@@ -35,8 +35,8 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ entries, loadi
           </tr>
         )}
         {entries.map((e) => {
-          const group = AUDIT_GROUP_META[AUDIT_ACTION_GROUP[e.action]];
-          const Icon = group.icon;
+          const action = auditActionMeta(e.action);
+          const Icon = action.icon;
           return (
             <tr
               key={e.id}
@@ -52,27 +52,25 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ entries, loadi
                 selectedId === e.id ? 'bg-red-50/60' : 'hover:bg-slate-50'
               }`}
             >
-              <td className="px-4 py-3 font-mono-data text-xs text-slate-600 whitespace-nowrap">{formatAuditTime(e.at)}</td>
+              <td className="px-4 py-3 font-mono-data text-xs text-slate-600 whitespace-nowrap">{formatAuditTime(e.timestamp)}</td>
               <td className="px-4 py-3 whitespace-nowrap">
-                <div className="font-semibold text-slate-900">{e.actorName}</div>
-                <div className="text-[11px] text-slate-500">{ACTOR_ROLE_LABEL[e.actorRole]}</div>
+                <div className="font-semibold text-slate-900">{e.actorName || '—'}</div>
+                <div className="text-[11px] text-slate-500">{actorRoleLabel(e.actorRole)}</div>
               </td>
               <td className="px-4 py-3">
                 <span
-                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-bold whitespace-nowrap ${group.badgeClass}`}
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-bold whitespace-nowrap ${action.badgeClass}`}
                 >
                   <Icon className="w-3 h-3" />
-                  {AUDIT_ACTION_LABEL[e.action]}
+                  {action.label}
                 </span>
               </td>
-              <td className="px-4 py-3 whitespace-nowrap">
-                <div className="text-slate-800 font-mono-data text-xs">{e.targetLabel}</div>
-                {e.incidentId && e.targetType !== 'incident' && (
-                  <div className="text-[11px] text-slate-500 font-mono-data">{e.incidentId}</div>
-                )}
+              <td className="px-4 py-3 max-w-[240px]">
+                <div className="text-slate-800 text-xs truncate">{e.incidentTitle || 'Sự cố không còn tồn tại'}</div>
+                <div className="text-[11px] text-slate-500 font-mono-data">{e.incidentId.slice(0, 8)}</div>
               </td>
               <td className="px-4 py-3 text-xs text-slate-600 max-w-[360px]">
-                <span className="line-clamp-2">{e.detail}</span>
+                <span className="line-clamp-2">{e.description || '—'}</span>
               </td>
             </tr>
           );

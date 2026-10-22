@@ -162,7 +162,6 @@ Hệ thống đã tự động seed sẵn dữ liệu mẫu lên cơ sở dữ l
 * **Request Body**:
   ```json
   {
-    "accessToken": "ey...",
     "refreshToken": "by..."
   }
   ```
@@ -436,9 +435,9 @@ Hệ thống đã tự động seed sẵn dữ liệu mẫu lên cơ sở dữ l
 
 * **Mã hủy Guest SOS**:
   * Khi tạo SOS chưa đăng nhập, response có `data.guestCancellationToken` tương ứng `data.id`, hiệu lực **24 giờ**.
-  * Client cần lưu cặp ID/mã để hủy theo mục 2.6. Mã là bí mật, không phải JWT.
+  * Mã là bí mật, không phải JWT. Theo quy tắc main hiện tại, endpoint hủy bắt buộc đăng nhập; mã này chưa cấp quyền tự hủy cho Guest.
   * Chỉ trả mã trong response tạo Guest SOS; không trả qua GET chi tiết, danh sách, hàng đợi hoặc sự kiện realtime. SOS tạo khi đã đăng nhập không có mã này.
-  * Guest SOS cũ hoặc mất mã cần Operator/Admin hỗ trợ hủy; không có API lấy lại mã.
+  * Guest SOS cần Operator/Admin hỗ trợ hủy; không có API lấy lại mã.
   * Token dùng ASP.NET Core Data Protection; khi triển khai cần giữ key ring qua các lần khởi động và chia sẻ key ring giữa các API instance để xác minh token trong thời hạn.
 * **Hồ sơ và SMS trong response**: SOS gắn tài khoản khi tìm được hồ sơ có `reporterMedicalProfile` gồm Medical ID, Special Info và `iceContacts`. Guest không có hồ sơ tài khoản liên kết. `emergencySmsDispatchLog` chứa thông tin chuẩn bị SMS nếu bật cấu hình và có ICE; **không xác nhận đã gửi SMS**.
 
@@ -491,26 +490,20 @@ Hệ thống đã tự động seed sẵn dữ liệu mẫu lên cơ sở dữ l
 * **Response (200 OK)**: Sự cố chuyển sang trạng thái `Verified`.
 
 #### 2.6. Hủy sự cố báo sai / báo khống (`PUT /api/incidents/{id}/cancel`)
-* **Quyền hạn**:
-  * Citizen đã đăng nhập: chỉ hủy SOS của chính mình, dùng `Authorization: Bearer <token>`.
-  * Operator/Admin: được hủy sự cố bằng JWT.
-  * Guest: không cần đăng nhập nhưng phải gửi đúng `cancellationToken` tương ứng ID sự cố. Cho phép anonymous không có nghĩa ai cũng được hủy mọi sự cố.
-* **Request Body cho Guest**:
-  ```json
-  {
-    "reason": "Người báo xác nhận bấm nhầm SOS",
-    "cancellationToken": "<guestCancellationToken trả về khi tạo Guest SOS>"
-  }
-  ```
-* **Request Body khi dùng JWT và có quyền hủy**:
+* **Quyền hạn theo main hiện tại (BR-08)**: bắt buộc JWT, chỉ nhận vai trò Citizen, Operator hoặc Admin.
+  * Citizen chỉ tự hủy SOS của mình trước khi có xe được điều động. Chặn tự hủy khi trạng thái là `Dispatched`/`InProgress` hoặc có phân công đang hoạt động.
+  * Operator/Admin được hủy theo quyền điều phối, nhưng không được thao tác khi Operator khác đang giữ khóa mềm còn hiệu lực.
+  * Guest chưa đăng nhập không được gọi endpoint này, kể cả có `guestCancellationToken`; cần Operator/Admin hỗ trợ.
+* **Request Body**:
   ```json
   {
     "reason": "Đã xác minh báo nhầm sự cố"
   }
   ```
-* `reason` không bắt buộc, tối đa 500 ký tự; bỏ trống dùng lý do mặc định. `cancellationToken` tối đa 2.048 ký tự, chỉ dùng cho Guest SOS.
-* **200 OK**: `success:true`, `data.status: "Cancelled"`. Các phân công đang hoạt động được hủy/thu hồi, đơn vị tương ứng được cập nhật theo logic xử lý sự cố và phát cập nhật realtime.
-* **400 Bad Request**: không tìm thấy sự cố; đã `Completed`/`Cancelled`; không có quyền; mã Guest thiếu, sai, hết hạn hoặc thuộc sự cố khác. Các lỗi quyền trong luồng này hiện trả 400 thay vì 401/403.
+* `reason` không bắt buộc, tối đa 500 ký tự; bỏ trống dùng lý do mặc định theo ngôn ngữ request. Trường `cancellationToken` vẫn còn trong DTO để tương thích nhưng không cấp quyền hủy Guest trong luồng hiện tại.
+* **200 OK**: `success:true`, `data.status: "Cancelled"`. Operator/Admin có thể thu hồi các phân công đang hoạt động theo logic xử lý và phát cập nhật realtime.
+* **400 Bad Request**: không tìm thấy sự cố; đã `Completed`/`Cancelled`; người dân không sở hữu sự cố hoặc đội cứu hộ đã được điều động.
+* **401 Unauthorized**: chưa đăng nhập; **403 Forbidden**: JWT không có vai trò được phép; **409 Conflict**: Operator/Admin bị chặn do khóa mềm của Operator khác, `errorCode: "CONFLICT"`.
 
 ---
 
@@ -804,6 +797,18 @@ Hệ thống đã tự động seed sẵn dữ liệu mẫu lên cơ sở dữ l
 ```
 
 ---
+
+#### 8.2. Song ngữ cho Medical ID, ICE và hủy SOS
+* Gửi `Accept-Language: vi` hoặc `Accept-Language: en`; cũng hỗ trợ `vi-VN`, `en-US`. Mặc định là tiếng Việt. Header được ưu tiên trước query `?culture=`.
+* Dùng cùng `ILocalizationService` / `LocalizationHelper` và `LocalizationCatalog` của dự án. Không cần endpoint riêng cho từng ngôn ngữ.
+* Thông báo thành công/thất bại của hồ sơ, CRUD ICE, tạo SOS và hủy SOS dùng ngôn ngữ request; thông báo động có ID hoặc số xe cũng được dịch theo mẫu.
+* Lỗi DataAnnotations của các DTO hồ sơ/ICE/hủy SOS được dịch trong `ValidationProblemDetails.errors`; giữ nguyên HTTP 400, tên field và cấu trúc lỗi mặc định. Lỗi FluentValidation của tạo SOS nằm trong `ApiResponseDto.errors`.
+* Tên field JSON, ID, enum như `Cancelled`, `Level3` giữ nguyên ở cả hai ngôn ngữ. Nội dung người dùng nhập như bệnh nền, dị ứng, ngôn ngữ ưu tiên, ghi chú, quan hệ và mẫu SMS không tự dịch.
+* `preferredLanguage` là dữ liệu hồ sơ, không thay thế `Accept-Language` để chọn ngôn ngữ API.
+* Mẫu SMS mặc định và phần mô tả log chuẩn bị SMS theo ngôn ngữ request; mẫu do người dùng lưu giữ nguyên nội dung. Tọa độ luôn dùng dấu chấm thập phân ở cả hai ngôn ngữ.
+* Lý do hủy mặc định và ghi chú hệ thống khi hủy được tạo theo ngôn ngữ request, lưu nguyên văn; đổi header khi xem lại không dịch lại nội dung đã lưu.
+* Ví dụ cùng yêu cầu thêm ICE thành công: `vi` → `Thêm người thân khẩn cấp thành công.`; `en` → `Emergency contact added successfully.`
+* Test Swagger: chạy lại cùng request với header `vi` và `en`; kiểm tra `message`/lỗi validation thay đổi ngôn ngữ, trong khi giá trị hồ sơ và tên field giữ nguyên. Với test hủy SOS, dùng Citizen sở hữu sự cố hoặc Operator/Admin và tạo hai sự cố riêng cho hai ngôn ngữ; Guest chưa đăng nhập phải nhận 401.
 
 ### PHÂN HỆ 9: KẾT NỐI REAL-TIME WEBSOCKET (SIGNALR HUBS)
 
@@ -1162,3 +1167,42 @@ async function submitSosReport(file: File, description: string, lat: number, lng
 | Dashboard | `GET /api/dashboard/stats` |
 | Localization | `GET /api/localization/info` |
 | SignalR | `/hubs/incidents` · `/hubs/tracking` |
+
+---
+
+## 7. ENDPOINT MỚI / THAY ĐỔI THEO SRS (đợt 21/10/2026)
+
+> Chi tiết body/response và việc FE/Mobile cần đổi: `FE_MOBILE_HANDOFF.md` mục 6 và 7. Mọi lỗi nghiệp vụ có thêm `errorCode`: `CONFLICT` (409), `FORBIDDEN` (403), `NOT_FOUND` (404), `TOO_MANY_REQUESTS` (429).
+
+| Phân hệ | Endpoint | Quyền | Ghi chú |
+|---|---|---|---|
+| Incidents | `GET /api/incidents`, `GET /api/incidents/queue` | Operator, Admin | Trước đây công khai |
+| Incidents | `GET /api/incidents/{id}` | Đăng nhập | Citizen chỉ xem sự cố của mình; số điện thoại bị che trừ người báo |
+| Incidents | `PUT /api/incidents/{id}/verify` | Operator, Admin | Ghi đè mức độ AI bắt buộc `operatorNotes` ≥ 5 ký tự |
+| Incidents | `PUT /api/incidents/{id}/cancel` | Citizen (của mình, trước khi điều xe), Operator, Admin | Bỏ công khai |
+| Incidents | `PUT /api/incidents/{id}/lock`, `DELETE /api/incidents/{id}/lock` | Operator, Admin | Khóa mềm 2 phút (BR-15) |
+| Incidents | `POST /api/incidents/{id}/reveal-phone` | Operator, Admin, RescueStaff đang làm nhiệm vụ | Ghi Audit Trail |
+| Incidents | `POST /api/incidents/{id}/block-reporter` | Operator, Admin | Chặn số báo khống (BR-05) |
+| Incidents | `GET /api/incidents/my-reports` | Citizen | FR-CIT-05 |
+| Incidents | `GET /api/incidents/{id}/audit-trail` | Operator, Admin | |
+| Audit | `GET /api/audit-trail` | Admin | Lọc theo incident/actor/action/thời gian |
+| Dispatch | `POST /api/dispatch/assign` | Operator, Admin | Nhận `rescueUnitIds[]`, trả mảng; giới hạn số xe theo mức độ; 409 nếu xe bị giao trước |
+| Dispatch | `POST /api/dispatch/assignments/{id}/reject` | RescueStaff, Operator, Admin | Lý do bắt buộc (BR-22) |
+| Dispatch | `PUT /api/dispatch/assignments/{id}/status` | RescueStaff (xe của trạm mình), Operator, Admin | Thứ tự bắt buộc Accepted → EnRoute → OnScene |
+| Dispatch | `POST /api/dispatch/assignments/{id}/resolve` | RescueStaff, Operator, Admin | Bắt buộc ảnh + `victimsAssistedCount`; sự cố chỉ đóng khi mọi xe xong; xe CoolDown 5 phút |
+| Dispatch | `GET /api/dispatch/tracking/incident/{id}`, `GET /api/dispatch/assignments/incident/{id}` | Người báo, Operator, Admin, RescueStaff của trạm được giao | Bỏ công khai; tracking có `units[]` |
+| Dispatch | `GET /api/dispatch/recommend` | Operator, Admin | Load-Aware theo BR-11, bán kính tự mở rộng (BR-12); `maxDistanceKm` tùy chọn |
+| Stations | `GET/POST /api/stations/{id}/teams`, `PUT/DELETE /api/stations/{id}/teams/{teamId}` | Xem: Admin, Operator, RescueStaff · Sửa: Admin, Operator | Tổ làm việc |
+| Stations | `GET /api/stations/{id}/staff` | Admin, Operator, RescueStaff | Trước đây công khai |
+| Users | `POST /api/users/{id}/lock`, `POST /api/users/{id}/unlock` | Admin | Operator chỉ quản lý được RescueStaff |
+| Blocked numbers | `GET /api/blocked-numbers`, `POST /api/blocked-numbers/{id}/unblock`, `POST /api/blocked-numbers/{id}/extend` | Xem: Admin, Operator · Sửa: Admin | |
+| Settings | `GET/PUT /api/settings/escalation`, `GET/PUT /api/settings/dispatch`, `GET /api/settings/defaults` | Xem: Admin, Operator · Sửa: Admin | |
+| Notifications | `GET /api/notifications`, `GET /api/notifications/unread-count`, `PUT /api/notifications/{id}/read`, `PUT /api/notifications/read-all` | Đăng nhập | Realtime `ReceiveNotification` |
+| Benchmark | `GET /api/benchmark/telemetry-summary` | Admin, Operator | Số liệu RQ2/RQ3 |
+
+**SignalR:** `/hubs/incidents` và `/hubs/tracking` bắt buộc token; `SubscribeIncident` kiểm tra quyền; `UpdateLocation` chỉ cho xe thuộc trạm của nhân viên. Thêm sự kiện `ReceiveNotification`.
+
+**Enum mới:** `RescueUnitStatus.CoolDown`, `RescueUnitStatus.OutOfService`, `DispatchAssignmentStatus.Rejected`, `IncidentEventType` (`None`, `FireExplosion`, `TrafficAccident`), `CrewRole`, `BlockDuration`, `BlockedNumberStatus`, `AuditAction.PhoneRevealed`, `AuditAction.ReporterBlocked`.
+
+**Giới hạn:** SOS 5 lần/phút/IP và 1 sự cố đang hoạt động / 3 phút / tài khoản hoặc SĐT; mô tả SOS ≤ 200 ký tự; đăng nhập 10 lần/phút/IP; sai mật khẩu 5 lần khóa 15 phút.
+

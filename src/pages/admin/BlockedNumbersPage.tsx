@@ -6,15 +6,16 @@ import {
   BLOCK_DURATION_LABEL,
   BLOCK_STATUSES,
   BLOCK_STATUS_META,
+  extendedExpiry,
   formatExpiry,
+  isLaterExpiry,
 } from '../../components/admin/blocked/blockedMeta';
 import { ReasonModal } from '../../components/admin/common/ReasonModal';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass, labelClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
-import { blockedNumberService, extendedExpiry, isLaterExpiry } from '../../services/admin/blockedNumberService';
-import type { BlockedNumberListItem, BlockedNumberStatus } from '../../types/blockedNumber';
-import type { BlockDuration } from '../../types/incident';
+import { blockedNumberService } from '../../services/admin/blockedNumberService';
+import type { BlockDurationDto, BlockedNumberDto, BlockedNumberStatus } from '../../types/blockedNumber';
 
 const PAGE_SIZE = 10;
 
@@ -23,72 +24,49 @@ const BlockedNumbersPage: React.FC = () => {
   const [search, setSearch] = useState(() => initial.text('search'));
   // Mặc định chỉ hiện số còn hiệu lực; "" = tất cả.
   const [status, setStatus] = useState<BlockedNumberStatus | ''>(() =>
-    initial.text('status') === 'all' ? '' : initial.oneOf('status', BLOCK_STATUSES) || 'active'
+    initial.text('status') === 'all' ? '' : initial.oneOf('status', BLOCK_STATUSES) || 'Active'
   );
-  const [duration, setDuration] = useState<BlockDuration | ''>(() => initial.oneOf('duration', BLOCK_DURATIONS));
   const [pageIndex, setPageIndex] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
 
-  const params = {
-    search: debouncedSearch,
-    status: status || undefined,
-    duration: duration || undefined,
-    pageIndex,
-    pageSize: PAGE_SIZE,
-  };
+  const params = { search: debouncedSearch, status: status || undefined, pageIndex, pageSize: PAGE_SIZE };
   const query = useServiceQuery(() => blockedNumberService.list(params), JSON.stringify(params));
 
-  const [unblocking, setUnblocking] = useState<BlockedNumberListItem | null>(null);
-  const [extending, setExtending] = useState<BlockedNumberListItem | null>(null);
+  const [unblocking, setUnblocking] = useState<BlockedNumberDto | null>(null);
+  const [extending, setExtending] = useState<BlockedNumberDto | null>(null);
   const [notice, setNotice] = useState<NoticeState>(null);
-
-  const withPageReset =
-    <T,>(setter: (v: T) => void) =>
-    (v: T) => {
-      setter(v);
-      setPageIndex(1);
-    };
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
-      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-        <div className="relative flex-1 lg:max-w-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative flex-1 sm:max-w-sm">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             value={search}
-            onChange={(e) => withPageReset(setSearch)(e.target.value)}
-            placeholder="3 số cuối SĐT hoặc mã sự cố..."
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPageIndex(1);
+            }}
+            placeholder="Số điện thoại hoặc lý do chặn..."
             className={`${inputClass} pl-9`}
           />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:flex">
-          <select
-            value={status}
-            onChange={(e) => withPageReset(setStatus)(e.target.value as BlockedNumberStatus | '')}
-            aria-label="Lọc theo trạng thái"
-            className={`${inputClass} lg:w-44`}
-          >
-            <option value="">Tất cả trạng thái</option>
-            {BLOCK_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {BLOCK_STATUS_META[s].label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={duration}
-            onChange={(e) => withPageReset(setDuration)(e.target.value as BlockDuration | '')}
-            aria-label="Lọc theo thời hạn"
-            className={`${inputClass} lg:w-40`}
-          >
-            <option value="">Tất cả thời hạn</option>
-            {BLOCK_DURATIONS.map((d) => (
-              <option key={d} value={d}>
-                {BLOCK_DURATION_LABEL[d]}
-              </option>
-            ))}
-          </select>
-        </div>
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value as BlockedNumberStatus | '');
+            setPageIndex(1);
+          }}
+          aria-label="Lọc theo trạng thái"
+          className={`${inputClass} sm:w-44`}
+        >
+          <option value="">Tất cả trạng thái</option>
+          {BLOCK_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {BLOCK_STATUS_META[s].label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <Notice notice={notice} onClose={() => setNotice(null)} />
@@ -110,10 +88,9 @@ const BlockedNumbersPage: React.FC = () => {
         />
       )}
 
-      <div className="text-[11px] text-slate-500 space-y-0.5">
-        <p>Số bị chặn do Operator thêm khi hủy ca báo khống. Admin chỉ gỡ chặn hoặc gia hạn.</p>
-        <p className="italic">Bản mock: chưa nhận các số do Command Center chặn.</p>
-      </div>
+      <p className="text-[11px] text-slate-500">
+        Số bị chặn do Operator thêm khi hủy ca báo khống. Admin chỉ gỡ chặn hoặc gia hạn.
+      </p>
 
       {unblocking && (
         <ReasonModal
@@ -130,8 +107,7 @@ const BlockedNumbersPage: React.FC = () => {
           }}
         >
           <p className="text-xs">
-            Chặn {BLOCK_DURATION_LABEL[unblocking.duration].toLowerCase()} từ sự cố{' '}
-            <span className="font-mono-data">{unblocking.incidentId}</span>, hết hạn {formatExpiry(unblocking.expiresAt)}.
+            Chặn {BLOCK_DURATION_LABEL[unblocking.duration].toLowerCase()}, hết hạn {formatExpiry(unblocking.expiresAt)}.
           </p>
         </ReasonModal>
       )}
@@ -152,12 +128,12 @@ const BlockedNumbersPage: React.FC = () => {
 };
 
 const ExtendDialog: React.FC<{
-  item: BlockedNumberListItem;
+  item: BlockedNumberDto;
   onCancel: () => void;
   onDone: (message: string) => void;
 }> = ({ item, onCancel, onDone }) => {
-  const [duration, setDuration] = useState<BlockDuration | ''>('');
-  // Xem trước hạn mới (tính từ lúc mở hộp thoại); service tính lại khi lưu.
+  const [duration, setDuration] = useState<BlockDurationDto | ''>('');
+  // Xem trước hạn mới (tính từ lúc mở hộp thoại); backend tính lại khi lưu.
   const [openedAt] = useState(() => new Date());
   const nextExpiry = duration ? extendedExpiry(duration, openedAt) : undefined;
   const valid = nextExpiry !== undefined && isLaterExpiry(nextExpiry, item.expiresAt);
@@ -177,7 +153,8 @@ const ExtendDialog: React.FC<{
       }}
     >
       <p className="text-xs">
-        Hiện tại: {BLOCK_DURATION_LABEL[item.duration]}, hết hạn <span className="font-semibold">{formatExpiry(item.expiresAt)}</span>.
+        Hiện tại: {BLOCK_DURATION_LABEL[item.duration]}, hết hạn <span className="font-semibold">{formatExpiry(item.expiresAt)}</span>
+        {item.status === 'Expired' && ' (đã hết hạn)'}.
       </p>
       <div className="space-y-1.5">
         <span className={labelClass}>Thời hạn mới (tính từ hôm nay) *</span>

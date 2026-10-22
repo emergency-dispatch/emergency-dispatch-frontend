@@ -1,53 +1,52 @@
-import {
-  Ban,
-  Building2,
-  ClipboardList,
-  Settings2,
-  Siren,
-  UserCog,
-  type LucideIcon,
-} from 'lucide-react';
-import { UserRole } from '../../../types/auth';
-import type { AuditAction, AuditActionGroup, AuditActorRole, AuditTrailEntry } from '../../../types/auditTrail';
+import { ClipboardList, EyeOff, Siren, TriangleAlert, type LucideIcon } from 'lucide-react';
+import type { AuditAction } from '../../../types/auditTrail';
 
-export const AUDIT_GROUPS: AuditActionGroup[] = ['incident', 'dispatch', 'account', 'fleet', 'blocked_number', 'settings'];
+// Nhóm chỉ để tô màu / gắn icon — backend lọc theo từng hành động, không theo nhóm.
+type AuditGroup = 'incident' | 'dispatch' | 'escalation' | 'privacy';
 
-export const AUDIT_GROUP_META: Record<AuditActionGroup, { label: string; icon: LucideIcon; badgeClass: string }> = {
-  incident: { label: 'Sự cố', icon: Siren, badgeClass: 'bg-red-50 text-red-700 border-red-200' },
-  dispatch: { label: 'Điều phối', icon: ClipboardList, badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
-  account: { label: 'Tài khoản', icon: UserCog, badgeClass: 'bg-violet-50 text-violet-700 border-violet-200' },
-  fleet: { label: 'Đội xe & trạm', icon: Building2, badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  blocked_number: { label: 'Số bị chặn', icon: Ban, badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' },
-  settings: { label: 'Cấu hình', icon: Settings2, badgeClass: 'bg-slate-100 text-slate-700 border-slate-200' },
+const GROUP_META: Record<AuditGroup, { icon: LucideIcon; badgeClass: string }> = {
+  incident: { icon: Siren, badgeClass: 'bg-red-50 text-red-700 border-red-200' },
+  dispatch: { icon: ClipboardList, badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
+  escalation: { icon: TriangleAlert, badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' },
+  privacy: { icon: EyeOff, badgeClass: 'bg-violet-50 text-violet-700 border-violet-200' },
 };
 
-export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
-  incident_status_changed: 'Đổi trạng thái sự cố',
-  ai_confirmed: 'Xác nhận kết quả AI',
-  ai_overridden: 'Ghi đè cấp độ AI',
-  incident_cancelled_false_report: 'Hủy ca báo khống',
-  phone_revealed: 'Bấm "Hiện số"',
-  vehicle_assigned: 'Giao xe',
-  vehicle_released: 'Nhả xe',
-  handover_completed: 'Bàn giao nạn nhân',
-  number_blocked: 'Chặn số',
-  number_unblocked: 'Gỡ chặn số',
-  number_block_extended: 'Gia hạn chặn số',
-  account_locked: 'Khóa tài khoản',
-  account_unlocked: 'Mở khóa tài khoản',
-  station_deleted: 'Xóa trạm',
-  vehicle_status_changed: 'Đổi trạng thái xe',
-  vehicle_station_changed: 'Chuyển trạm xe',
-  vehicle_deleted: 'Xóa xe',
-  settings_changed: 'Thay đổi cấu hình',
+const ACTION_META: Record<AuditAction, { label: string; group: AuditGroup }> = {
+  Created: { label: 'Tạo sự cố', group: 'incident' },
+  AiAnalyzed: { label: 'AI phân tích', group: 'incident' },
+  Verified: { label: 'Xác nhận kết quả AI', group: 'incident' },
+  SeverityOverridden: { label: 'Ghi đè cấp độ AI', group: 'incident' },
+  StatusChanged: { label: 'Đổi trạng thái', group: 'incident' },
+  Cancelled: { label: 'Hủy sự cố', group: 'incident' },
+  Completed: { label: 'Hoàn thành', group: 'incident' },
+  Closed: { label: 'Đóng sự cố', group: 'incident' },
+  Dispatched: { label: 'Điều xe', group: 'dispatch' },
+  ReDispatched: { label: 'Điều xe lại', group: 'dispatch' },
+  AssignmentAccepted: { label: 'Đội nhận nhiệm vụ', group: 'dispatch' },
+  AssignmentRejected: { label: 'Đội từ chối nhiệm vụ', group: 'dispatch' },
+  Escalated: { label: 'Leo thang', group: 'escalation' },
+  DeEscalated: { label: 'Hạ thang', group: 'escalation' },
+  PhoneRevealed: { label: 'Bấm "Hiện số"', group: 'privacy' },
+  ReporterBlocked: { label: 'Chặn số người báo', group: 'privacy' },
 };
 
-export const ACTOR_ROLE_LABEL: Record<AuditActorRole, string> = {
-  [UserRole.Admin]: 'Quản trị viên',
-  [UserRole.Operator]: 'Điều phối viên',
-  [UserRole.RescueStaff]: 'Đội cứu hộ',
+/** Nhãn + icon + màu của một hành động; hành động lạ (backend thêm sau) hiện nguyên tên. */
+export function auditActionMeta(action: string): { label: string; icon: LucideIcon; badgeClass: string } {
+  const meta = ACTION_META[action as AuditAction];
+  const group = GROUP_META[meta?.group ?? 'incident'];
+  return { label: meta?.label ?? action, ...group };
+}
+
+const ACTOR_ROLE_LABEL: Record<string, string> = {
+  Admin: 'Quản trị viên',
+  Operator: 'Điều phối viên',
+  RescueStaff: 'Đội cứu hộ',
+  Citizen: 'Người dân',
+  AI_Worker: 'AI',
   System: 'Hệ thống',
 };
+
+export const actorRoleLabel = (role: string | null) => (role ? ACTOR_ROLE_LABEL[role] ?? role : '—');
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -62,25 +61,38 @@ export function toYmd(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-const stripSuffix = (label: string) => label.replace(/\s*\(.*\)\s*$/, '');
+export interface StateChange {
+  field: string;
+  from: string | null;
+  to: string | null;
+}
 
-/** Link sang màn quản lý đối tượng (ô tìm kiếm điền sẵn). Sự cố không có màn Admin → null. */
-export function auditTargetLink(entry: AuditTrailEntry): string | null {
-  const q = (value: string) => encodeURIComponent(value);
-  switch (entry.targetType) {
-    case 'station':
-      return `/admin/stations?search=${q(entry.targetLabel)}`;
-    case 'vehicle':
-      return `/admin/vehicles?search=${q(entry.targetLabel)}`;
-    case 'account':
-      return `/admin/accounts?search=${q(stripSuffix(entry.targetLabel))}`;
-    case 'citizen':
-      return `/admin/citizens?search=${q(stripSuffix(entry.targetLabel))}`;
-    case 'blocked_number':
-      return `/admin/blocked-numbers?search=${q(entry.targetLabel.slice(-3))}&status=all`;
-    case 'settings':
-      return entry.targetId === 'dispatch' ? '/admin/settings/dispatch' : '/admin/settings/escalation';
-    case 'incident':
-      return null;
+const formatValue = (value: unknown): string =>
+  value === null || value === undefined ? '—' : typeof value === 'object' ? JSON.stringify(value) : String(value);
+
+function parseState(json: string | null): Record<string, unknown> {
+  if (!json) return {};
+  try {
+    const parsed: unknown = JSON.parse(json);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : { value: parsed };
+  } catch {
+    return { value: json };
   }
+}
+
+/**
+ * Ghép oldStateJson / newStateJson thành danh sách "trường: cũ → mới". Trường chỉ có ở một phía thì phía kia là null
+ * (VD "Hiện số" chỉ ghi trạng thái mới).
+ */
+export function stateChanges(oldJson: string | null, newJson: string | null): StateChange[] {
+  const before = parseState(oldJson);
+  const after = parseState(newJson);
+  const fields = [...new Set([...Object.keys(before), ...Object.keys(after)])];
+  return fields
+    .map((field) => ({
+      field,
+      from: field in before ? formatValue(before[field]) : null,
+      to: field in after ? formatValue(after[field]) : null,
+    }))
+    .filter((c) => c.from !== c.to);
 }

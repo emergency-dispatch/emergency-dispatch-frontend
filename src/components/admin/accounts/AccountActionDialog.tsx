@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { ConfirmModal, Notice } from '../common/ui';
+import { inputClass } from '../common/styles';
+import { tempLockoutEnd } from './accountMeta';
 import { accountAdminService } from '../../../services/admin/accountAdminService';
 import { getApiErrorMessage } from '../../../services/apiClient';
+import { REASON_MIN_LENGTH } from '../../../services/admin/validation';
 import { UserStatus, type UserResponseDto } from '../../../types/auth';
 
 interface AccountActionDialogProps {
   account: UserResponseDto;
-  /** lock = đặt Bị khóa (Suspended); unlock = đặt Hoạt động (mở khóa hoặc kích hoạt); delete = xóa mềm. */
+  /** lock = khóa kèm lý do; unlock = mở khóa / kích hoạt / gỡ khóa tạm; delete = xóa mềm. */
   mode: 'lock' | 'unlock' | 'delete';
   onCancel: () => void;
   onDone: () => void;
@@ -16,12 +19,12 @@ const COPY = {
   lock: {
     title: (name: string) => `Khóa tài khoản ${name}?`,
     confirm: 'Khóa tài khoản',
-    body: 'Người này sẽ không đăng nhập được cho tới khi được mở khóa. Phiên đăng nhập đang mở hết hiệu lực khi token hết hạn.',
+    body: 'Người này bị đăng xuất khỏi mọi thiết bị ngay và không đăng nhập được cho tới khi được mở khóa.',
   },
   unlock: {
     title: (name: string) => `Mở khóa tài khoản ${name}?`,
     confirm: 'Mở khóa',
-    body: 'Tài khoản chuyển về trạng thái Hoạt động và đăng nhập lại được.',
+    body: 'Tài khoản chuyển về trạng thái Hoạt động và đăng nhập lại được. Khóa tạm do đăng nhập sai (nếu có) cũng được gỡ.',
   },
   delete: {
     title: (name: string) => `Xóa tài khoản ${name}?`,
@@ -31,16 +34,26 @@ const COPY = {
 };
 
 export const AccountActionDialog: React.FC<AccountActionDialogProps> = ({ account, mode, onCancel, onDone }) => {
+  const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const copy = COPY[mode];
-  const unlockLabel = mode === 'unlock' && account.status === UserStatus.Inactive ? 'Kích hoạt' : copy.confirm;
+  const isLock = mode === 'lock';
+  const reasonLength = reason.trim().length;
+  const confirmLabel =
+    mode !== 'unlock'
+      ? copy.confirm
+      : account.status === UserStatus.Inactive
+        ? 'Kích hoạt'
+        : account.status === UserStatus.Active && tempLockoutEnd(account)
+          ? 'Gỡ khóa tạm'
+          : copy.confirm;
 
   const handleConfirm = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      if (mode === 'lock') await accountAdminService.lock(account.id);
+      if (isLock) await accountAdminService.lock(account.id, reason);
       else if (mode === 'unlock') await accountAdminService.unlock(account.id);
       else await accountAdminService.remove(account.id);
       onDone();
@@ -53,7 +66,8 @@ export const AccountActionDialog: React.FC<AccountActionDialogProps> = ({ accoun
   return (
     <ConfirmModal
       title={copy.title(account.fullName)}
-      confirmLabel={unlockLabel}
+      confirmLabel={confirmLabel}
+      confirmDisabled={isLock && reasonLength < REASON_MIN_LENGTH}
       submitting={submitting}
       onCancel={onCancel}
       onConfirm={handleConfirm}
@@ -64,6 +78,25 @@ export const AccountActionDialog: React.FC<AccountActionDialogProps> = ({ accoun
         {account.stationName && ` · ${account.stationName}`}
       </p>
       <p>{copy.body}</p>
+      {isLock && (
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold text-slate-700">Lý do khóa *</label>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+            maxLength={500}
+            autoFocus
+            placeholder="VD: Tạm đình chỉ chờ xác minh vi phạm quy trình..."
+            className={`${inputClass} resize-none`}
+          />
+          <p
+            className={`text-[11px] font-mono-data ${reasonLength >= REASON_MIN_LENGTH ? 'text-slate-400' : 'text-amber-600'}`}
+          >
+            {reasonLength}/{REASON_MIN_LENGTH} ký tự tối thiểu · hiển thị cạnh trạng thái tài khoản
+          </p>
+        </div>
+      )}
     </ConfirmModal>
   );
 };

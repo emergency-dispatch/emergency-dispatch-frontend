@@ -3,13 +3,13 @@ import { CalendarPlus, ShieldOff } from 'lucide-react';
 import { LockableButton } from '../common/ui';
 import { iconButtonClass, thClass } from '../common/styles';
 import { BLOCK_DURATION_LABEL, BLOCK_STATUS_META, formatExpiry } from './blockedMeta';
-import type { BlockedNumberListItem } from '../../../types/blockedNumber';
+import type { BlockedNumberDto } from '../../../types/blockedNumber';
 
 interface BlockedNumbersTableProps {
-  items: BlockedNumberListItem[];
+  items: BlockedNumberDto[];
   loading: boolean;
-  onUnblock: (item: BlockedNumberListItem) => void;
-  onExtend: (item: BlockedNumberListItem) => void;
+  onUnblock: (item: BlockedNumberDto) => void;
+  onExtend: (item: BlockedNumberDto) => void;
 }
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('vi-VN');
@@ -44,12 +44,13 @@ export const BlockedNumbersTable: React.FC<BlockedNumbersTableProps> = ({ items,
         )}
         {items.map((b) => {
           const status = BLOCK_STATUS_META[b.status];
-          const active = b.status === 'active';
-          const extendLocked = !active
-            ? 'Chỉ gia hạn được số đang còn hiệu lực.'
-            : b.expiresAt === null
-              ? 'Số này đã bị chặn vĩnh viễn.'
-              : null;
+          const active = b.status === 'Active';
+          const extendLocked =
+            b.status === 'Removed'
+              ? 'Bản ghi đã gỡ chặn — hãy chặn lại từ sự cố mới.'
+              : b.expiresAt === null
+                ? 'Số này đã bị chặn vĩnh viễn.'
+                : null;
           return (
             <tr key={b.id} className={active ? 'hover:bg-slate-50' : 'bg-slate-50/60 text-slate-500'}>
               <td className="px-4 py-3 font-mono-data font-semibold text-slate-800 whitespace-nowrap">{b.maskedPhone}</td>
@@ -59,8 +60,10 @@ export const BlockedNumbersTable: React.FC<BlockedNumbersTableProps> = ({ items,
                 {formatExpiry(b.expiresAt)}
                 {b.lastExtendedAt && <div className="text-[10px] text-slate-400">gia hạn {formatDate(b.lastExtendedAt)}</div>}
               </td>
-              <td className="px-4 py-3 whitespace-nowrap">{b.blockedByName}</td>
-              <td className="px-4 py-3 font-mono-data text-slate-600 whitespace-nowrap">{b.incidentId}</td>
+              <td className="px-4 py-3 whitespace-nowrap">{b.blockedByName ?? '—'}</td>
+              <td className="px-4 py-3 font-mono-data text-slate-600 whitespace-nowrap" title={b.incidentId ?? undefined}>
+                {b.incidentId ? b.incidentId.slice(0, 8) : '—'}
+              </td>
               <td className="px-4 py-3 text-xs max-w-[240px]">
                 <span className="line-clamp-2" title={b.reason}>
                   {b.reason}
@@ -72,9 +75,9 @@ export const BlockedNumbersTable: React.FC<BlockedNumbersTableProps> = ({ items,
                 >
                   {status.label}
                 </span>
-                {b.status === 'removed' && b.removedAt && (
+                {b.status === 'Removed' && b.removedAt && (
                   <div className="mt-1 text-[10px] text-slate-400 max-w-[180px]" title={b.removeReason ?? undefined}>
-                    {b.removedByName} · {formatDate(b.removedAt)}
+                    {b.removedByName ?? '—'} · {formatDate(b.removedAt)}
                   </div>
                 )}
               </td>

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Lock, LockOpen } from 'lucide-react';
 import { iconButtonClass, thClass } from '../common/styles';
-import { ACCOUNT_STATUS_META } from '../accounts/accountMeta';
+import { AccountStatusCell } from '../accounts/AccountStatusCell';
+import { canUnlockUser } from '../accounts/accountMeta';
 import { maskPhone } from '../../../utils/incidentFormat';
 import { UserStatus, type UserResponseDto } from '../../../types/auth';
 
@@ -40,8 +41,8 @@ export const CitizensTable: React.FC<CitizensTableProps> = ({ citizens, loading,
           </tr>
         )}
         {citizens.map((c) => {
-          const statusMeta = ACCOUNT_STATUS_META[c.status];
-          const canUnlock = c.status === UserStatus.Suspended || c.status === UserStatus.Inactive;
+          const canUnlock = canUnlockUser(c);
+          const unlockLabel = c.status === UserStatus.Inactive ? 'Kích hoạt' : 'Mở khóa';
           return (
             <tr key={c.id} className="hover:bg-slate-50">
               <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">{c.fullName}</td>
@@ -56,11 +57,7 @@ export const CitizensTable: React.FC<CitizensTableProps> = ({ citizens, loading,
               </td>
               <td className="px-4 py-3 text-slate-500 font-mono-data whitespace-nowrap">{formatDate(c.createdAt)}</td>
               <td className="px-4 py-3">
-                <span
-                  className={`inline-block px-2 py-0.5 rounded-md border text-[10px] font-bold font-mono-data whitespace-nowrap ${statusMeta.badgeClass}`}
-                >
-                  {statusMeta.label}
-                </span>
+                <AccountStatusCell user={c} />
               </td>
               <td className="px-4 py-3">
                 <div className="flex justify-end">
@@ -68,8 +65,8 @@ export const CitizensTable: React.FC<CitizensTableProps> = ({ citizens, loading,
                     <button
                       onClick={() => onUnlock(c)}
                       className={iconButtonClass}
-                      aria-label={c.status === UserStatus.Suspended ? 'Mở khóa' : 'Kích hoạt'}
-                      title={c.status === UserStatus.Suspended ? 'Mở khóa' : 'Kích hoạt'}
+                      aria-label={unlockLabel}
+                      title={unlockLabel}
                     >
                       <LockOpen className="w-3.5 h-3.5" />
                     </button>

@@ -95,14 +95,16 @@ export const accountAdminService = {
     return putUser(id, input);
   },
 
-  /** Khóa = đặt trạng thái Suspended (backend chặn đăng nhập). Backend chưa lưu lý do khóa. */
-  async lock(id: string): Promise<UserResponseDto> {
-    return putUser(id, { status: UserStatus.Suspended });
+  /**
+   * Khóa thủ công kèm lý do (backend bắt buộc ≥ 5 ký tự): đặt Suspended, lưu lý do và thu hồi mọi phiên đăng nhập.
+   */
+  async lock(id: string, reason: string): Promise<UserResponseDto> {
+    return unwrapApi(apiClient.post<ApiResponse<UserResponseDto>>(`/users/${id}/lock`, { reason: reason.trim() }));
   },
 
-  /** Mở khóa / kích hoạt = đặt trạng thái Active. */
+  /** Mở khóa: về Active, gỡ cả khóa Admin lẫn khóa tạm do đăng nhập sai. Cũng dùng để kích hoạt tài khoản Inactive. */
   async unlock(id: string): Promise<UserResponseDto> {
-    return putUser(id, { status: UserStatus.Active });
+    return unwrapApi(apiClient.post<ApiResponse<UserResponseDto>>(`/users/${id}/unlock`));
   },
 
   /** Xóa mềm tài khoản. */

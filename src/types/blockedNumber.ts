@@ -1,19 +1,22 @@
-import type { BlockDuration } from './incident';
+// Mirror EmergencyDispatch.Application.DTOs.Security (enum trả về dạng chuỗi).
+// Tên thời hạn khác BlockDuration ('7d'…) của Operator ở types/incident.ts — hai bên không dùng chung.
 
-export type BlockedNumberStatus = 'active' | 'expired' | 'removed';
+export type BlockDurationDto = 'SevenDays' | 'ThirtyDays' | 'OneYear' | 'Permanent';
 
-/** Mirror dự kiến của BlockedPhoneNumberDto (backend chưa có). */
-export interface BlockedNumberListItem {
+export type BlockedNumberStatus = 'Active' | 'Expired' | 'Removed';
+
+/** Một bản ghi của GET /api/blocked-numbers — số điện thoại luôn được backend che. */
+export interface BlockedNumberDto {
   id: string;
   maskedPhone: string;
-  duration: BlockDuration;
+  duration: BlockDurationDto;
+  status: BlockedNumberStatus;
   blockedAt: string;
   /** null = vĩnh viễn. */
   expiresAt: string | null;
-  blockedByName: string;
-  incidentId: string;
   reason: string;
-  status: BlockedNumberStatus;
+  incidentId: string | null;
+  blockedByName: string | null;
   lastExtendedAt: string | null;
   removedAt: string | null;
   removedByName: string | null;

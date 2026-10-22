@@ -19,7 +19,6 @@ import {
   type SettingsRecord,
 } from '../../services/admin/adminSettingsService';
 import { getApiErrorMessage } from '../../services/apiClient';
-import { MAX_SEARCH_RADIUS_KM } from '../../data/dispatchConfig';
 
 const WEIGHT_FIELDS: { key: 'distance' | 'stationLoad' | 'activeMissions'; label: string }[] = [
   { key: 'distance', label: 'Khoảng cách' },
@@ -28,7 +27,14 @@ const WEIGHT_FIELDS: { key: 'distance' | 'stationLoad' | 'activeMissions'; label
 ];
 
 const DispatchSettingsPage: React.FC = () => {
-  const query = useServiceQuery(async () => ({ dispatch: await adminSettingsService.getDispatchSettings() }), 'dispatch-settings');
+  // Nấc bán kính cuối không được vượt bán kính tối đa của cấu hình leo thang → tải cả hai.
+  const query = useServiceQuery(async () => {
+    const [dispatch, escalation] = await Promise.all([
+      adminSettingsService.getDispatchSettings(),
+      adminSettingsService.getEscalationSettings(),
+    ]);
+    return { dispatch, escalation };
+  }, 'dispatch-settings');
   // Thông báo "đã lưu" giữ ở cấp trang vì form được dựng lại sau khi lưu.
   const [flash, setFlash] = useState<NoticeState>(null);
 
@@ -39,7 +45,7 @@ const DispatchSettingsPage: React.FC = () => {
     <DispatchForm
       key={query.data.dispatch.updatedAt ?? 'default'}
       record={query.data.dispatch}
-      maxRadiusKm={MAX_SEARCH_RADIUS_KM}
+      maxRadiusKm={query.data.escalation.values.maxRadiusKm}
       initialNotice={flash}
       onSaved={(message) => {
         setFlash({ kind: 'success', message });
@@ -108,7 +114,8 @@ const DispatchForm: React.FC<{
         <span className="inline-flex items-start gap-1.5">
           <FlaskConical className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
-            Tham số gợi ý điều phối xe. Dùng cho thí nghiệm so sánh thuật toán Nearest-Available và Load-Aware (RQ2).
+            Tham số gợi ý điều phối xe, áp dụng ngay cho lần gợi ý tiếp theo ở Command Center. Dùng cho thí nghiệm so sánh
+            thuật toán Nearest-Available và Load-Aware (RQ2).
           </span>
         </span>
       }
@@ -165,8 +172,8 @@ const DispatchForm: React.FC<{
         <div>
           <h3 className="text-sm font-bold text-slate-900">Các nấc mở rộng bán kính tìm xe</h3>
           <p className="text-[11px] text-slate-500 mt-0.5">
-            Không có xe phù hợp ở nấc hiện tại thì tìm ở nấc tiếp theo. Nấc cuối tối đa {maxRadiusKm} km (bán kính tìm
-            xe tối đa của hệ thống).
+            Không có xe phù hợp ở nấc hiện tại thì tìm ở nấc tiếp theo. Nấc cuối tối đa {maxRadiusKm} km (bán kính tối đa
+            của Cấu hình leo thang).
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -215,15 +222,6 @@ const DispatchForm: React.FC<{
       <section className="space-y-4 pt-5 border-t border-slate-100">
         <h3 className="text-sm font-bold text-slate-900">Thời gian</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <NumberSettingField
-            label="Chờ đội phản hồi"
-            unit="giây"
-            step={1}
-            value={draft.crewAckTimeoutSeconds}
-            onChange={set('crewAckTimeoutSeconds')}
-            error={errors.crewAckTimeoutSeconds}
-            hint="Quá hạn chưa Chấp nhận/Từ chối thì xe trả về trung tâm."
-          />
           <NumberSettingField
             label="Hồi sức sau nhiệm vụ"
             unit="phút"

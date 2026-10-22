@@ -27,9 +27,9 @@ export const citizenAdminService = {
     );
   },
 
-  /** Đặt Suspended → chặn đăng nhập. Backend chưa lưu lý do khóa. */
-  lock: (id: string) => accountAdminService.lock(id),
+  /** Khóa kèm lý do → chặn đăng nhập và báo sự cố mới, thu hồi phiên đăng nhập đang mở. */
+  lock: (id: string, reason: string) => accountAdminService.lock(id, reason),
 
-  /** Đặt Active (mở khóa hoặc kích hoạt). */
+  /** Mở khóa / kích hoạt (gỡ cả khóa tạm do đăng nhập sai). */
   unlock: (id: string) => accountAdminService.unlock(id),
 };

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Building2, Lock, LockOpen, Pencil, Trash2 } from 'lucide-react';
 import { iconButtonClass, thClass } from '../common/styles';
-import { ACCOUNT_STATUS_META, ROLE_META } from './accountMeta';
+import { AccountStatusCell } from './AccountStatusCell';
+import { ROLE_META, canUnlockUser } from './accountMeta';
 import { maskPhone } from '../../../utils/incidentFormat';
 import { UserRole, UserStatus, type UserResponseDto } from '../../../types/auth';
 
@@ -44,10 +45,9 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({ accounts, loading,
             </tr>
           )}
           {accounts.map((account) => {
-            const statusMeta = ACCOUNT_STATUS_META[account.status];
             const role = ROLE_META[account.role as UserRole.Operator | UserRole.RescueStaff];
-            const suspended = account.status === UserStatus.Suspended;
             const inactive = account.status === UserStatus.Inactive;
+            const unlockLabel = inactive ? 'Kích hoạt tài khoản' : 'Mở khóa tài khoản';
 
             return (
               <tr key={account.id} className="hover:bg-slate-50">
@@ -84,11 +84,7 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({ accounts, loading,
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded-md border text-[10px] font-bold font-mono-data whitespace-nowrap ${statusMeta.badgeClass}`}
-                  >
-                    {statusMeta.label}
-                  </span>
+                  <AccountStatusCell user={account} />
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1.5">
@@ -100,12 +96,12 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({ accounts, loading,
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
-                    {suspended || inactive ? (
+                    {canUnlockUser(account) ? (
                       <button
                         onClick={() => onUnlock(account)}
                         className={iconButtonClass}
-                        aria-label={suspended ? 'Mở khóa tài khoản' : 'Kích hoạt tài khoản'}
-                        title={suspended ? 'Mở khóa tài khoản' : 'Kích hoạt tài khoản'}
+                        aria-label={unlockLabel}
+                        title={unlockLabel}
                       >
                         <LockOpen className="w-3.5 h-3.5" />
                       </button>

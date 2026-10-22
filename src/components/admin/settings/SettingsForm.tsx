@@ -87,14 +87,11 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
         </div>
       </form>
 
-      <div className="text-[11px] text-slate-500 space-y-0.5">
-        <p>
-          {updatedAt
-            ? `Cập nhật gần nhất: ${formatDateTime(updatedAt)} bởi ${updatedByName ?? '—'}.`
-            : 'Chưa có ai cập nhật — đang dùng giá trị mặc định.'}
-        </p>
-        <p className="italic">Bản mock: Command Center chưa đọc cấu hình này.</p>
-      </div>
+      <p className="text-[11px] text-slate-500">
+        {updatedAt
+          ? `Cập nhật gần nhất: ${formatDateTime(updatedAt)} bởi ${updatedByName ?? '—'}.`
+          : 'Chưa có ai cập nhật — đang dùng giá trị mặc định.'}
+      </p>
 
       {confirmRestore && (
         <ConfirmModal

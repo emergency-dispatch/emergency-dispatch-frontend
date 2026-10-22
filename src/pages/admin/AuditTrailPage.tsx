@@ -2,21 +2,14 @@ import React, { useState } from 'react';
 import { Lock, Search, X } from 'lucide-react';
 import { AuditDetailDrawer } from '../../components/admin/audit/AuditDetailDrawer';
 import { AuditTrailTable } from '../../components/admin/audit/AuditTrailTable';
-import {
-  ACTOR_ROLE_LABEL,
-  AUDIT_ACTION_LABEL,
-  AUDIT_GROUPS,
-  AUDIT_GROUP_META,
-  toYmd,
-} from '../../components/admin/audit/auditMeta';
+import { auditActionMeta, toYmd } from '../../components/admin/audit/auditMeta';
 import { Notice, Pagination } from '../../components/admin/common/ui';
 import { inputClass, labelClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
-import { auditTrailService } from '../../services/admin/auditTrailService';
-import { AUDIT_ACTION_GROUP, type AuditAction, type AuditActionGroup, type AuditTrailEntry } from '../../types/auditTrail';
+import { GUID_PATTERN, auditTrailService } from '../../services/admin/auditTrailService';
+import { AUDIT_ACTIONS, type AuditAction, type AuditTrailEntryDto } from '../../types/auditTrail';
 
 const PAGE_SIZE = 20;
-const ALL_ACTIONS = Object.keys(AUDIT_ACTION_LABEL) as AuditAction[];
 const YMD_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const daysAgoYmd = (days: number) => {
@@ -36,19 +29,17 @@ const AuditTrailPage: React.FC = () => {
   const dateParam = (key: string) => (YMD_PATTERN.test(initial.text(key)) ? initial.text(key) : '');
 
   const [incidentId, setIncidentId] = useState(() => initial.text('incident'));
-  const [actorId, setActorId] = useState(() => initial.text('actor'));
-  const [group, setGroup] = useState<AuditActionGroup | ''>(() => initial.oneOf('group', AUDIT_GROUPS));
-  const [action, setAction] = useState<AuditAction | ''>(() => initial.oneOf('action', ALL_ACTIONS));
+  const [action, setAction] = useState<AuditAction | ''>(() => initial.oneOf('action', AUDIT_ACTIONS));
   const [fromDate, setFromDate] = useState(() => dateParam('from'));
   const [toDate, setToDate] = useState(() => dateParam('to'));
   const [pageIndex, setPageIndex] = useState(1);
-  const debouncedIncident = useDebouncedValue(incidentId);
-  const [selected, setSelected] = useState<AuditTrailEntry | null>(null);
+  const debouncedIncident = useDebouncedValue(incidentId.trim());
+  const [selected, setSelected] = useState<AuditTrailEntryDto | null>(null);
 
+  // Backend chỉ lọc theo mã sự cố đầy đủ → mã gõ dở thì chưa lọc, chỉ nhắc.
+  const incidentValid = !debouncedIncident || GUID_PATTERN.test(debouncedIncident);
   const filter = {
-    incidentId: debouncedIncident || undefined,
-    actorId: actorId || undefined,
-    group: group || undefined,
+    incidentId: incidentValid ? debouncedIncident || undefined : undefined,
     action: action || undefined,
     fromDate: fromDate || undefined,
     toDate: toDate || undefined,
@@ -57,10 +48,6 @@ const AuditTrailPage: React.FC = () => {
     () => auditTrailService.list(filter, { pageIndex, pageSize: PAGE_SIZE }),
     JSON.stringify({ filter, pageIndex })
   );
-  const actors = useServiceQuery(() => auditTrailService.listActors(), 'audit-actors');
-
-  // Loại hành động chỉ liệt kê trong nhóm đang chọn.
-  const actionOptions = group ? ALL_ACTIONS.filter((a) => AUDIT_ACTION_GROUP[a] === group) : ALL_ACTIONS;
 
   const withPageReset =
     <T,>(setter: (v: T) => void) =>
@@ -70,12 +57,10 @@ const AuditTrailPage: React.FC = () => {
     };
 
   const activeQuick = QUICK_RANGES.find((r) => fromDate === daysAgoYmd(r.days) && toDate === daysAgoYmd(0));
-  const hasFilter = !!(incidentId || actorId || group || action || fromDate || toDate);
+  const hasFilter = !!(incidentId || action || fromDate || toDate);
 
   const clearFilters = () => {
     setIncidentId('');
-    setActorId('');
-    setGroup('');
     setAction('');
     setFromDate('');
     setToDate('');
@@ -85,7 +70,7 @@ const AuditTrailPage: React.FC = () => {
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label className={labelClass}>Mã sự cố</label>
             <div className="relative">
@@ -93,52 +78,25 @@ const AuditTrailPage: React.FC = () => {
               <input
                 value={incidentId}
                 onChange={(e) => withPageReset(setIncidentId)(e.target.value)}
-                placeholder="VD: inc-2041"
-                className={`${inputClass} pl-9 font-mono-data`}
+                placeholder="Dán mã sự cố đầy đủ (GUID)"
+                className={`${inputClass} pl-9 font-mono-data ${incidentValid ? '' : 'border-amber-400'}`}
               />
             </div>
+            {!incidentValid && (
+              <p className="text-[11px] text-amber-700">Cần mã đầy đủ dạng 3fa85f64-5717-4562-b3fc-2c963f66afa6.</p>
+            )}
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Người thao tác</label>
-            <select value={actorId} onChange={(e) => withPageReset(setActorId)(e.target.value)} className={inputClass}>
-              <option value="">Tất cả</option>
-              {(actors.data ?? []).map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} ({ACTOR_ROLE_LABEL[a.role]})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className={labelClass}>Nhóm hành động</label>
-            <select
-              value={group}
-              onChange={(e) => {
-                const next = e.target.value as AuditActionGroup | '';
-                withPageReset(setGroup)(next);
-                if (next && action && AUDIT_ACTION_GROUP[action] !== next) setAction('');
-              }}
-              className={inputClass}
-            >
-              <option value="">Tất cả nhóm</option>
-              {AUDIT_GROUPS.map((g) => (
-                <option key={g} value={g}>
-                  {AUDIT_GROUP_META[g].label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className={labelClass}>Loại hành động</label>
+            <label className={labelClass}>Hành động</label>
             <select
               value={action}
               onChange={(e) => withPageReset(setAction)(e.target.value as AuditAction | '')}
               className={inputClass}
             >
-              <option value="">Tất cả loại</option>
-              {actionOptions.map((a) => (
+              <option value="">Tất cả hành động</option>
+              {AUDIT_ACTIONS.map((a) => (
                 <option key={a} value={a}>
-                  {AUDIT_ACTION_LABEL[a]}
+                  {auditActionMeta(a).label}
                 </option>
               ))}
             </select>
@@ -201,7 +159,7 @@ const AuditTrailPage: React.FC = () => {
 
       <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
         <Lock className="w-3.5 h-3.5" />
-        Nhật ký chỉ đọc, không thể sửa hoặc xóa.
+        Nhật ký chỉ đọc, ghi lại mọi thao tác trên sự cố (thẩm định, điều xe, leo thang, hiện số, chặn số…).
       </p>
 
       {query.error && <Notice notice={{ kind: 'error', message: query.error }} />}
@@ -222,7 +180,17 @@ const AuditTrailPage: React.FC = () => {
         />
       )}
 
-      {selected && <AuditDetailDrawer entry={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <AuditDetailDrawer
+          entry={selected}
+          onClose={() => setSelected(null)}
+          onFilterIncident={(id) => {
+            setIncidentId(id);
+            setPageIndex(1);
+            setSelected(null);
+          }}
+        />
+      )}
     </div>
   );
 };
