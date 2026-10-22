@@ -5,11 +5,11 @@ import { MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../dat
 import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import { MAPBOX_ACCESS_TOKEN } from '../../../services/mapboxService';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
+import { useAuth } from '../../../hooks/useAuth';
 import { TEAM_FUNCTION_META } from '../teams/teamFunction';
 import type { Station, Vehicle } from '../../../types/vehicle';
 import type { Incident, TrafficJamReport } from '../../../types/incident';
 import {
-  clusterMarkerHtml,
   incidentMarkerHtml,
   stationMarkerHtml,
   trafficJamMarkerHtml,
@@ -22,9 +22,9 @@ import { MapLegend } from './MapLegend';
 import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } from './MapLayerToggle';
 
 // Bán kính gom cụm (px trên màn hình) — các xe nằm gần nhau hơn mức này ở zoom hiện tại sẽ gộp lại.
-const CLUSTER_RADIUS_PX = 36;
 const MAX_ZOOM = 18;
 // Thứ tự lớp marker: sự cố luôn nằm trên xe, xe nằm trên trạm / điểm ùn tắc.
+const STATION_Z_INDEX = 1;
 const VEHICLE_Z_INDEX = 2;
 const INCIDENT_Z_INDEX = 3;
 
@@ -170,100 +170,72 @@ const TrafficJamPopup: React.FC<{
   );
 };
 
-interface ClusteredVehicleMarkersProps {
+// Xe đậu tại trạm xếp hàng ngay dưới ghim trạm (pixel), mỗi hàng tối đa PARKED_PER_ROW xe.
+const PARKED_PER_ROW = 4;
+const PARKED_SPACING_PX = 26;
+const PARKED_TOP_PX = 16;
+
+interface VehicleMarkersProps {
   map: mapboxgl.Map;
   vehicles: Vehicle[];
+  stations: Station[];
   selectedVehicleId: string | null;
   onSelectVehicle: (id: string) => void;
 }
 
-/** Gom cụm marker xe theo khoảng cách pixel ở mức zoom hiện tại; bấm cụm để phóng to. */
-const ClusteredVehicleMarkers: React.FC<ClusteredVehicleMarkersProps> = ({
-  map,
-  vehicles,
-  selectedVehicleId,
-  onSelectVehicle,
-}) => {
-  const [zoom, setZoom] = useState(() => map.getZoom());
-  useEffect(() => {
-    const handleZoomEnd = () => setZoom(map.getZoom());
-    map.on('zoomend', handleZoomEnd);
-    return () => {
-      map.off('zoomend', handleZoomEnd);
-    };
-  }, [map]);
+/**
+ * Mỗi xe một marker (không gom cụm), icon theo loại xe, màu theo trạng thái.
+ * Xe không có nhiệm vụ đứng tại trạm của nó; xe đang làm nhiệm vụ hiện theo vị trí GPS thật.
+ */
+const VehicleMarkers: React.FC<VehicleMarkersProps> = ({ map, vehicles, stations, selectedVehicleId, onSelectVehicle }) => {
+  const placements = useMemo(() => {
+    const stationsById = new Map(stations.map((s) => [s.id, s]));
+    const parkedByStation = new Map<string, Vehicle[]>();
+    vehicles.forEach((v) => {
+      if (v.incidentId || !stationsById.has(v.stationId)) return;
+      parkedByStation.set(v.stationId, [...(parkedByStation.get(v.stationId) ?? []), v]);
+    });
 
-  const groups = useMemo(() => {
-    const result: Array<{ center: mapboxgl.Point; members: Vehicle[] }> = [];
-    for (const vehicle of vehicles) {
-      // Khoảng cách pixel giữa các xe chỉ phụ thuộc mức zoom, không phụ thuộc vị trí khung nhìn.
-      const point = map.project([vehicle.lng, vehicle.lat]);
-      // Xe đang chọn luôn đứng riêng để không bị "nuốt" vào cụm.
-      const group =
-        vehicle.id === selectedVehicleId
-          ? undefined
-          : result.find(
-              (g) => !g.members.some((m) => m.id === selectedVehicleId) && g.center.dist(point) < CLUSTER_RADIUS_PX
-            );
-      if (group) group.members.push(vehicle);
-      else result.push({ center: point, members: [vehicle] });
-    }
+    const result = new Map<string, { lat: number; lng: number; offset?: [number, number] }>();
+    parkedByStation.forEach((parked, stationId) => {
+      const station = stationsById.get(stationId)!;
+      [...parked]
+        .sort((a, b) => a.plate.localeCompare(b.plate))
+        .forEach((v, index) => {
+          const row = Math.floor(index / PARKED_PER_ROW);
+          const inRow = Math.min(PARKED_PER_ROW, parked.length - row * PARKED_PER_ROW);
+          const col = index % PARKED_PER_ROW;
+          result.set(v.id, {
+            lat: station.lat,
+            lng: station.lng,
+            offset: [(col - (inRow - 1) / 2) * PARKED_SPACING_PX, PARKED_TOP_PX + row * PARKED_SPACING_PX],
+          });
+        });
+    });
+    vehicles.forEach((v) => {
+      if (!result.has(v.id)) result.set(v.id, { lat: v.lat, lng: v.lng });
+    });
     return result;
-    // map.project() đọc zoom hiện tại của map — `zoom` có trong deps để gom cụm lại sau mỗi lần zoom.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehicles, zoom, selectedVehicleId, map]);
+  }, [vehicles, stations]);
 
   return (
     <>
-      {groups.map((group) => {
-        if (group.members.length === 1) {
-          const vehicle = group.members[0];
-          const isSelected = vehicle.id === selectedVehicleId;
-          return (
-            <MapMarker
-              key={vehicle.id}
-              map={map}
-              lat={vehicle.lat}
-              lng={vehicle.lng}
-              html={vehicleMarkerHtml(vehicle.type, vehicle.status, isSelected)}
-              zIndex={VEHICLE_Z_INDEX}
-              popupOffset={isSelected ? 18 : 14}
-              onClick={() => onSelectVehicle(vehicle.id)}
-            >
-              <VehiclePopup vehicle={vehicle} />
-            </MapMarker>
-          );
-        }
-
-        const bounds = boundsOf(group.members);
-        const center = bounds.getCenter();
-        const atMaxZoom = zoom >= MAX_ZOOM - 1;
+      {vehicles.map((vehicle) => {
+        const place = placements.get(vehicle.id)!;
+        const isSelected = vehicle.id === selectedVehicleId;
         return (
           <MapMarker
-            key={`cluster-${group.members.map((v) => v.id).join('-')}-${atMaxZoom ? 'max' : 'zoom'}`}
+            key={vehicle.id}
             map={map}
-            lat={center.lat}
-            lng={center.lng}
-            html={clusterMarkerHtml(group.members.length)}
-            zIndex={VEHICLE_Z_INDEX}
-            popupOffset={20}
-            onClick={() => {
-              if (!atMaxZoom) map.fitBounds(bounds, { padding: 80, maxZoom: MAX_ZOOM, duration: 600 });
-            }}
+            lat={place.lat}
+            lng={place.lng}
+            offset={place.offset}
+            html={vehicleMarkerHtml(vehicle.type, vehicle.status, isSelected)}
+            zIndex={isSelected ? VEHICLE_Z_INDEX + 1 : VEHICLE_Z_INDEX}
+            popupOffset={isSelected ? 18 : 14}
+            onClick={() => onSelectVehicle(vehicle.id)}
           >
-            {atMaxZoom && (
-              <div className="space-y-1">
-                {group.members.map((v) => (
-                  <button
-                    key={v.id}
-                    onClick={() => onSelectVehicle(v.id)}
-                    className="block w-full text-left text-xs font-mono-data font-bold text-slate-800 hover:text-red-600"
-                  >
-                    {v.plate} · {VEHICLE_STATUS_META[v.status].label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <VehiclePopup vehicle={vehicle} />
           </MapMarker>
         );
       })}
@@ -302,6 +274,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   incidentsById,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
   const [tileMode, setTileMode] = useState<MapTileMode>('light');
   const appliedTileModeRef = useRef(tileMode);
@@ -370,19 +343,33 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
 
           <MapRouteLayer map={map} routes={routes} selectedVehicleId={selectedVehicleId} />
 
-          {stations.map((station) => (
-            <MapMarker
-              key={station.id}
-              map={map}
-              lat={station.lat}
-              lng={station.lng}
-              html={stationMarkerHtml()}
-              popupOffset={10}
-            >
-              <div className="text-xs font-semibold text-slate-900">{station.name}</div>
-              <div className="text-[11px] text-slate-500">{station.address}</div>
-            </MapMarker>
-          ))}
+          {stations.map((station) => {
+            const isMine = station.id === user?.stationId;
+            const stationVehicles = vehicles.filter((v) => v.stationId === station.id);
+            return (
+              <MapMarker
+                key={station.id}
+                map={map}
+                lat={station.lat}
+                lng={station.lng}
+                anchor="bottom"
+                html={stationMarkerHtml(isMine)}
+                zIndex={STATION_Z_INDEX}
+                popupOffset={40}
+              >
+                <div className="min-w-[200px] space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                    {isMine ? 'Trạm bạn phụ trách' : 'Trạm cứu hộ'}
+                  </p>
+                  <p className="text-sm font-bold text-slate-900">{station.name}</p>
+                  <p className="text-[11px] text-slate-500">{station.address}</p>
+                  <p className="text-[11px] text-slate-600 pt-1">
+                    {stationVehicles.filter((v) => v.status === 'available').length}/{stationVehicles.length} xe sẵn sàng
+                  </p>
+                </div>
+              </MapMarker>
+            );
+          })}
 
           {trafficJams.map((jam) => (
             <MapMarker key={jam.id} map={map} lat={jam.lat} lng={jam.lng} html={trafficJamMarkerHtml()} popupOffset={14}>
@@ -390,9 +377,10 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
             </MapMarker>
           ))}
 
-          <ClusteredVehicleMarkers
+          <VehicleMarkers
             map={map}
             vehicles={vehicles}
+            stations={stations}
             selectedVehicleId={selectedVehicleId}
             onSelectVehicle={onSelectVehicle}
           />

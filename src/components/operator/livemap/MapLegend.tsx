@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { ChevronDown, Info } from 'lucide-react';
+import { Building2, ChevronDown, Info } from 'lucide-react';
 import { HAZARD_TAG_META, INCIDENT_CATEGORY_META, SEVERITY_LEVEL_COLOR } from '../../../data/incidentMock';
-import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
+import { DISPATCH_VEHICLE_TYPES, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 
 const SEVERITY_LEGEND = [
   { level: 1, label: 'Cấp 1' },
@@ -85,6 +85,19 @@ export const MapLegend: React.FC = () => {
 
       <div className="pt-2 border-t border-slate-200">
         <div className={sectionTitle}>Tổ / xe</div>
+        <div className="flex items-center gap-3 flex-wrap mb-1.5">
+          {DISPATCH_VEHICLE_TYPES.map((type) => {
+            const TypeIcon = VEHICLE_TYPE_META[type].icon;
+            return (
+              <span key={type} className="flex items-center gap-1 text-xs text-slate-700">
+                <span className="w-4 h-4 rounded-full bg-slate-500 flex items-center justify-center shrink-0">
+                  <TypeIcon className="w-2.5 h-2.5" color="#FFFFFF" />
+                </span>
+                {VEHICLE_TYPE_META[type].label}
+              </span>
+            );
+          })}
+        </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
           {Object.entries(VEHICLE_STATUS_META).map(([status, meta]) => (
             <div key={status} className="flex items-center gap-1.5 min-w-0">
@@ -95,10 +108,18 @@ export const MapLegend: React.FC = () => {
         </div>
       </div>
 
-      <div className="pt-2 border-t border-slate-200 flex items-center gap-4">
+      <div className="pt-2 border-t border-slate-200 flex items-center gap-x-4 gap-y-1 flex-wrap">
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm border border-slate-500 rotate-45 shrink-0" />
-          <span className="text-xs text-slate-700">Trạm</span>
+          <span className="w-4 h-4 rounded-[5px] bg-red-700 flex items-center justify-center shrink-0">
+            <Building2 className="w-2.5 h-2.5 text-white" />
+          </span>
+          <span className="text-xs text-slate-700">Trạm của bạn</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-4 h-4 rounded-[5px] bg-slate-800 flex items-center justify-center shrink-0">
+            <Building2 className="w-2.5 h-2.5 text-white" />
+          </span>
+          <span className="text-xs text-slate-700">Trạm khác</span>
         </span>
         <span className="flex items-center gap-1.5">
           <span

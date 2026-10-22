@@ -9,6 +9,10 @@ interface MapMarkerProps {
   /** HTML của phần tử marker (xem mapIcons.ts). */
   html: string;
   zIndex?: number;
+  /** Điểm của phần tử neo vào tọa độ (mặc định tâm). Ghim trạm neo 'bottom' để mũi ghim chỉ đúng vị trí. */
+  anchor?: mapboxgl.Anchor;
+  /** Dời phần tử theo pixel so với điểm neo — xe đậu xếp hàng dưới ghim trạm. */
+  offset?: [number, number];
   /** Khoảng cách popup so với tâm marker (px). */
   popupOffset?: number;
   onClick?: () => void;
@@ -26,6 +30,8 @@ export const MapMarker: React.FC<MapMarkerProps> = ({
   lng,
   html,
   zIndex,
+  anchor = 'center',
+  offset,
   popupOffset = 16,
   onClick,
   children,
@@ -41,7 +47,7 @@ export const MapMarker: React.FC<MapMarkerProps> = ({
     const handleClick = () => onClickRef.current?.();
     element.addEventListener('click', handleClick);
 
-    const marker = new mapboxgl.Marker({ element }).setLngLat([lng, lat]).addTo(map);
+    const marker = new mapboxgl.Marker({ element, anchor, offset }).setLngLat([lng, lat]).addTo(map);
     if (hasPopup) {
       marker.setPopup(new mapboxgl.Popup({ offset: popupOffset, maxWidth: '280px' }).setDOMContent(popupNode));
     }
@@ -54,7 +60,12 @@ export const MapMarker: React.FC<MapMarkerProps> = ({
     };
     // Vị trí cập nhật ở effect riêng bên dưới — không tạo lại marker mỗi tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, element, popupNode, hasPopup, popupOffset]);
+  }, [map, element, popupNode, hasPopup, popupOffset, anchor]);
+
+  const [offsetX, offsetY] = offset ?? [0, 0];
+  useEffect(() => {
+    markerRef.current?.setOffset([offsetX, offsetY]);
+  }, [offsetX, offsetY]);
 
   useEffect(() => {
     markerRef.current?.setLngLat([lng, lat]);

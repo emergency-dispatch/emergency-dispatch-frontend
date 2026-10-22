@@ -1,5 +1,6 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { Building2 } from 'lucide-react';
 import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { HAZARD_TAG_META, INCIDENT_CATEGORY_META, SEVERITY_LEVEL_COLOR } from '../../../data/incidentMock';
 import type { VehicleStatus, VehicleType } from '../../../types/vehicle';
@@ -69,18 +70,16 @@ export function trafficJamMarkerHtml(): string {
   `;
 }
 
-// Cụm marker xe khi nhiều xe nằm sát nhau ở mức zoom hiện tại.
-export function clusterMarkerHtml(count: number): string {
-  const size = count >= 5 ? 38 : 32;
+// Ghim trạm cứu hộ: khối vuông bo góc màu navy + icon tòa nhà trạm, mũi ghim ở đáy (marker neo 'bottom').
+export function stationMarkerHtml(isMine = false): string {
+  const bg = isMine ? '#B91C1C' : '#1E293B';
+  const svg = renderToStaticMarkup(createElement(Building2, { width: 16, height: 16, color: '#FFFFFF', strokeWidth: 2.25 }));
   return `
-    <div class="flex items-center justify-center rounded-full border-2 font-bold text-white cursor-pointer" style="width:${size}px;height:${size}px;background:#131D33;border-color:#FFFFFF;box-shadow:0 0 0 4px rgba(19,29,51,0.25);font-size:12px;">
-      ${count}
+    <div class="cursor-pointer flex flex-col items-center" style="filter:drop-shadow(0 2px 4px rgba(15,23,42,0.35));">
+      <div class="flex items-center justify-center" style="width:30px;height:30px;border-radius:9px;background:${bg};border:2px solid #FFFFFF;">
+        ${svg}
+      </div>
+      <div style="width:0;height:0;margin-top:-1px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid ${bg};"></div>
     </div>
-  `;
-}
-
-export function stationMarkerHtml(): string {
-  return `
-    <div class="cursor-pointer" style="width:14px;height:14px;background:#131D33;border:2px solid #FFFFFF;transform:rotate(45deg);box-shadow:0 1px 4px rgba(0,0,0,0.6);"></div>
   `;
 }
