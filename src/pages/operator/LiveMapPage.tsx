@@ -21,7 +21,7 @@ export const LiveMapPage: React.FC = () => {
   const dispatchIncidents = useMemo(() => incidents.filter((i) => i.status === 'approved'), [incidents]);
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
   const incidentsById = useMemo(() => new Map(incidents.map((i) => [i.id, i])), [incidents]);
-  const routes = useDispatchRoutes(incidents, vehicles);
+  const routes = useDispatchRoutes(incidents, vehicles, stations);
 
   const handleSelectVehicle = (id: string) => {
     setSelectedVehicleId((current) => (current === id ? null : id));
