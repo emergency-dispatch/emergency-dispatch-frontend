@@ -148,7 +148,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
           <>
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Radar className="w-4 h-4 text-red-600 shrink-0" />
-              Gợi ý tổ
+              Điều Phối Xe
             </h2>
             <p className="text-[10px] text-slate-500 mt-0.5">Chọn sự cố ở bảng bên trái</p>
           </>
@@ -164,9 +164,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                 key={key}
                 onClick={() => setAlgorithm(key)}
                 title={DISPATCH_ALGORITHM_META[key].description}
-                className={`py-1.5 rounded-md text-[11px] font-bold transition-colors ${
-                  algorithm === key ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                }`}
+                className={`py-1.5 rounded-md text-[11px] font-bold transition-colors ${algorithm === key ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
               >
                 {DISPATCH_ALGORITHM_META[key].label}
               </button>
