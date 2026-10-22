@@ -1,10 +1,43 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, ChevronDown, LogOut, MapPin, Settings, ShieldAlert, Siren, User } from 'lucide-react';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
 import type { NotificationDto } from '../../services/notificationService';
+import { incidentHubService, type HubStatus } from '../../services/realtime/incidentHubService';
+
+// Chấm trạng thái = kết nối realtime thật. Mất kết nối thì dữ liệu vẫn tự tải lại mỗi 20 giây (poll dự phòng).
+const HUB_STATUS_META: Record<HubStatus, { label: string; dot: string; text: string; ping: boolean; title: string }> = {
+  connected: {
+    label: 'TRỰC TUYẾN',
+    dot: 'bg-emerald-500',
+    text: 'text-emerald-600',
+    ping: true,
+    title: 'Đang nhận dữ liệu realtime',
+  },
+  connecting: {
+    label: 'ĐANG KẾT NỐI',
+    dot: 'bg-slate-400',
+    text: 'text-slate-500',
+    ping: false,
+    title: 'Đang kết nối realtime…',
+  },
+  reconnecting: {
+    label: 'ĐANG NỐI LẠI',
+    dot: 'bg-amber-500',
+    text: 'text-amber-600',
+    ping: true,
+    title: 'Mất kết nối realtime, đang tự nối lại. Dữ liệu vẫn tự tải lại mỗi 20 giây.',
+  },
+  disconnected: {
+    label: 'MẤT KẾT NỐI',
+    dot: 'bg-amber-500',
+    text: 'text-amber-600',
+    ping: false,
+    title: 'Không kết nối được realtime, sẽ tự thử lại. Dữ liệu vẫn tự tải lại mỗi 20 giây.',
+  },
+};
 import { UserProfileModal } from '../profile/UserProfileModal';
 
 const formatTime = (iso: string) => {
@@ -29,6 +62,8 @@ export const OperatorTopbar: React.FC = () => {
   const { incidents, escalatedIncidentIds } = useDispatchStore();
   const { items: notifications, unreadCount, loading, error, markRead, markAllRead } = useNotifications();
   const hasCriticalAlert = escalatedIncidentIds.size > 0;
+  const hubStatus = useSyncExternalStore(incidentHubService.subscribeStatus, incidentHubService.getStatus);
+  const statusMeta = HUB_STATUS_META[hubStatus];
 
   const openNotification = (notification: NotificationDto) => {
     markRead(notification.id);
@@ -54,7 +89,7 @@ export const OperatorTopbar: React.FC = () => {
 
   const displayName = user?.fullName || 'Điều phối viên';
   const displayRole = user?.role || 'Operator';
-  const displayStation = user?.stationName || 'Trung tâm Điều phối Cứu nạn ResQ';
+  const displayStation = user?.stationName || 'Trung tâm điều phối';
   const initials = displayName
     .split(' ')
     .map((w) => w[0])
@@ -79,16 +114,21 @@ export const OperatorTopbar: React.FC = () => {
 
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 min-w-0">
           <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0" />
-          <div className="flex flex-col leading-tight min-w-0">
-            <span className="text-xs font-semibold text-slate-900 truncate">{displayStation}</span>
-            <span className="text-[10px] font-mono-data text-slate-500 truncate">Vùng phản ứng trọng điểm</span>
-          </div>
-          <span className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-200 shrink-0">
+          <span className="text-xs font-semibold text-slate-900 truncate">{displayStation}</span>
+          <span
+            className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-200 shrink-0"
+            title={statusMeta.title}
+            role="status"
+          >
             <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+              {statusMeta.ping && (
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${statusMeta.dot}`} />
+              )}
+              <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${statusMeta.dot}`} />
             </span>
-            <span className="text-[10px] font-mono-data text-emerald-600 font-semibold whitespace-nowrap">TRỰC CA</span>
+            <span className={`text-[10px] font-mono-data font-semibold whitespace-nowrap ${statusMeta.text}`}>
+              {statusMeta.label}
+            </span>
           </span>
         </div>
       </div>

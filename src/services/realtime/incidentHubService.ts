@@ -4,7 +4,12 @@ import type { DispatchAssignmentResponseDto } from '../../types/dispatch';
 
 type Listener = (payload: any) => void;
 
+/** connecting: đang kết nối lần đầu · reconnecting: rớt mạng, đang tự nối lại · disconnected: chưa nối được. */
+export type HubStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+
 const STOP_DELAY_MS = 300;
+// Lần kết nối đầu thất bại hoặc hết lượt tự nối lại → SignalR không tự thử nữa, client tự thử lại theo chu kỳ.
+const RETRY_DELAY_MS = 10000;
 type JobAssignedListener = (assignment: DispatchAssignmentResponseDto) => void;
 
 /** Tên sự kiện server → client (EmergencyDispatch.API.Realtime.RealtimeContract). */
@@ -30,6 +35,11 @@ class HubClient {
   private registeredEvents = new Set<string>();
   private startPromise: Promise<boolean> | null = null;
   private stopTimer: ReturnType<typeof setTimeout> | null = null;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private status: HubStatus = 'disconnected';
+  /** Đã từng kết nối thành công trong phiên này (lần nối sau tính là "nối lại"). */
+  private hasConnected = false;
+  private statusListeners = new Set<() => void>();
 
   constructor(private readonly hubPath: string) {}
 
@@ -52,11 +62,29 @@ class HubClient {
     });
   }
 
+  private setStatus(status: HubStatus) {
+    if (this.status === status) return;
+    this.status = status;
+    this.statusListeners.forEach((listener) => listener());
+  }
+
+  private scheduleRetry() {
+    if (this.retryTimer || this.stopTimer) return;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      this.start();
+    }, RETRY_DELAY_MS);
+  }
+
   public start(): Promise<boolean> {
     // Vừa unmount rồi mount lại (React StrictMode / đổi trang nhanh) → giữ nguyên kết nối cũ.
     if (this.stopTimer) {
       clearTimeout(this.stopTimer);
       this.stopTimer = null;
+    }
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
     }
     if (this.connection && this.connection.state !== HubConnectionState.Disconnected) {
       return this.startPromise ?? Promise.resolve(true);
@@ -64,6 +92,7 @@ class HubClient {
 
     const token = localStorage.getItem(API_CONFIG.TOKEN_KEY);
     if (!token) {
+      this.setStatus('disconnected');
       return Promise.resolve(false);
     }
 
@@ -77,14 +106,37 @@ class HubClient {
     this.connection = connection;
     this.registeredEvents.clear();
     this.listeners.forEach((_, event) => this.register(event));
-    connection.onreconnected(() => this.reconnectedListeners.forEach((listener) => listener()));
+    connection.onreconnecting(() => this.setStatus('reconnecting'));
+    connection.onreconnected(() => {
+      this.setStatus('connected');
+      this.reconnectedListeners.forEach((listener) => listener());
+    });
+    connection.onclose(() => {
+      // Bị ngắt ngoài ý muốn (hết lượt tự nối lại) — stop() chủ động đã gỡ this.connection trước đó.
+      if (this.connection !== connection) return;
+      this.connection = null;
+      this.setStatus('disconnected');
+      this.scheduleRetry();
+    });
 
+    const isRetry = this.hasConnected;
+    this.setStatus(isRetry ? 'reconnecting' : 'connecting');
     this.startPromise = connection
       .start()
-      .then(() => true)
+      .then(() => {
+        this.setStatus('connected');
+        this.hasConnected = true;
+        // Nối lại sau một khoảng mất kết nối → báo để tải lại dữ liệu đã lỡ.
+        if (isRetry) this.reconnectedListeners.forEach((listener) => listener());
+        return true;
+      })
       .catch((err) => {
-        console.warn(`[${this.hubPath}] SignalR connection failed (will fallback to polling):`, err);
-        if (this.connection === connection) this.connection = null;
+        console.warn(`[${this.hubPath}] SignalR connection failed (will retry, polling meanwhile):`, err);
+        if (this.connection === connection) {
+          this.connection = null;
+          this.setStatus('disconnected');
+          this.scheduleRetry();
+        }
         return false;
       });
     return this.startPromise;
@@ -97,11 +149,17 @@ class HubClient {
     return new Promise((resolve) => {
       this.stopTimer = setTimeout(async () => {
         this.stopTimer = null;
+        if (this.retryTimer) {
+          clearTimeout(this.retryTimer);
+          this.retryTimer = null;
+        }
         const connection = this.connection;
         const pendingStart = this.startPromise;
         this.connection = null;
         this.startPromise = null;
         this.registeredEvents.clear();
+        this.hasConnected = false;
+        this.setStatus('disconnected');
         try {
           // Chờ bắt tay xong rồi mới ngắt, tránh lỗi "stopped during negotiation".
           await pendingStart;
@@ -117,6 +175,16 @@ class HubClient {
   public isConnected(): boolean {
     return this.connection?.state === HubConnectionState.Connected;
   }
+
+  public getStatus = (): HubStatus => this.status;
+
+  /** Dùng với useSyncExternalStore. */
+  public subscribeStatus = (listener: () => void): (() => void) => {
+    this.statusListeners.add(listener);
+    return () => {
+      this.statusListeners.delete(listener);
+    };
+  };
 
   /** Đăng ký nghe một sự kiện; trả hàm hủy đăng ký. */
   public on<T = any>(event: string, listener: (payload: T) => void): () => void {

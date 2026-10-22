@@ -15,7 +15,17 @@ export const IncidentThumbnail: React.FC<IncidentThumbnailProps> = ({ incident, 
   if (incident.mediaUrl) {
     return (
       <div className={`relative overflow-hidden rounded-lg bg-slate-100 ${className}`}>
-        <img src={incident.mediaUrl} alt={incident.title} className="w-full h-full object-cover" />
+        {incident.mediaType === 'video' ? (
+          // Ảnh thu nhỏ của video: khung hình đầu tiên (thẻ <img> không đọc được tệp video).
+          <video src={incident.mediaUrl} preload="metadata" muted className="w-full h-full object-cover bg-black" />
+        ) : (
+          <img src={incident.mediaUrl} alt={incident.title} className="w-full h-full object-cover" />
+        )}
+        {incident.media.length > 1 && (
+          <span className="absolute bottom-0.5 right-0.5 px-1 rounded bg-black/60 text-[9px] font-bold text-white">
+            {incident.media.length}
+          </span>
+        )}
         {incident.mediaType === 'video' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/30">
             <CirclePlay className="w-5 h-5 text-white drop-shadow" />

@@ -58,6 +58,20 @@ export interface CitizenTrackingDto {
   arrivedAt?: string;
   completedAt?: string;
   notes?: string;
+  /** Mọi xe đang được giao cho sự cố (Cấp 3 có thể nhiều xe); các trường đơn ở trên là xe đầu tiên. */
+  units?: TrackedUnitDto[];
+}
+
+export interface TrackedUnitDto {
+  assignmentId: string;
+  rescueUnitId: string;
+  plateNumber?: string;
+  vehicleLat: number;
+  vehicleLng: number;
+  routeTrajectory: RoutePoint[];
+  distanceKm: number;
+  estimatedArrivalMinutes: number;
+  dispatchStatus: string;
 }
 
 export interface RevealPhoneDto {

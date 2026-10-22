@@ -14,6 +14,8 @@ import {
   vehicleMarkerHtml,
 } from './mapIcons';
 import { MapMarker } from './MapMarker';
+import { MapRouteLayer } from './MapRouteLayer';
+import type { DispatchRoute } from '../../../hooks/useDispatchRoutes';
 import { MapLegend } from './MapLegend';
 import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } from './MapLayerToggle';
 
@@ -256,6 +258,8 @@ interface LiveMapViewProps {
   stations?: Station[];
   trafficJams?: TrafficJamReport[];
   onResolveTrafficJam?: (id: string) => Promise<{ ok: boolean; message?: string }>;
+  /** Lộ trình xe đang tới hiện trường. */
+  routes?: DispatchRoute[];
   vehiclesById?: Map<string, Vehicle>;
   incidentsById?: Map<string, Incident>;
 }
@@ -270,6 +274,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   stations = [],
   trafficJams = [],
   onResolveTrafficJam,
+  routes = [],
   vehiclesById,
   incidentsById,
 }) => {
@@ -339,6 +344,8 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
             selectedIncident={selectedIncident}
             recenterTrigger={recenterCount}
           />
+
+          <MapRouteLayer map={map} routes={routes} selectedVehicleId={selectedVehicleId} />
 
           {stations.map((station) => (
             <MapMarker

@@ -41,6 +41,25 @@ export interface CrewResponseNotice {
 
 export type IncidentMediaType = 'image' | 'video';
 
+export interface IncidentMedia {
+  url: string;
+  type: IncidentMediaType;
+}
+
+/** Hồ sơ y tế & danh bạ người thân của người báo (chỉ có khi người báo có tài khoản). SĐT đã bị backend che. */
+export interface ReporterMedicalProfile {
+  bloodType: string | null;
+  medicalNotes: string | null;
+  chronicConditions: string[];
+  allergies: string[];
+  currentMedications: string[];
+  mobilityLimitations: string[];
+  preferredLanguage: string | null;
+  dependentsNote: string | null;
+  householdMembersCount: number;
+  iceContacts: Array<{ id: string; name: string; phoneNumber: string; relationship: string; isPrimary: boolean }>;
+}
+
 // Khóa mềm 2 phút khi một Operator mở ca (FR-OP-02).
 export interface IncidentLock {
   operatorId: string;
@@ -58,8 +77,10 @@ export interface Incident {
   category: IncidentCategory;
   hazardTags: string[];
   severity: SeverityLevel;
-  /** % tin cậy của AI (0–100). */
+  /** % tin cậy của AI (0–100). Vô nghĩa khi aiPending. */
   confidenceScore: number;
+  /** AI chưa trả kết quả (sự cố vừa gửi / đang phân tích). */
+  aiPending: boolean;
   aiSummary: string | null;
   status: IncidentStatus;
   /** Backend đã leo thang (status Escalated): sự cố quá ngưỡng chưa có đội nhận. */
@@ -72,8 +93,13 @@ export interface Incident {
   reporterName: string;
   reporterPhone: string;
   createdAt: string;
+  /** Media đầu tiên — dùng cho ảnh thu nhỏ. */
   mediaType: IncidentMediaType;
   mediaUrl: string | null;
+  media: IncidentMedia[];
+  reporterMedical: ReporterMedicalProfile | null;
+  /** Nhật ký SMS khẩn cấp đã tự gửi tới người thân (nếu người báo bật). */
+  emergencySmsLog: string | null;
   assignedVehicleIds: string[];
   /** Xe đã nộp báo cáo kết thúc — ca nhiều xe chỉ đóng khi tất cả xe đã nộp. */
   reportedVehicleIds: string[];
@@ -156,6 +182,8 @@ export interface IncidentResponseDto {
   updatedAt?: string;
   mediaItems: IncidentMediaDto[];
   aiClassification?: AiClassificationResultDto | null;
+  reporterMedicalProfile?: (ReporterMedicalProfile & { userId: string; fullName: string; phoneNumber: string }) | null;
+  emergencySmsDispatchLog?: string | null;
 }
 
 export interface CreateIncidentDto {
@@ -249,6 +277,7 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto): Inciden
     hazardTags,
     severity: SEVERITY_FROM_BACKEND[dto.severity] ?? 1,
     confidenceScore: Math.round((ai?.confidenceScore ?? 0) * 100),
+    aiPending: !ai && (dto.status === 'Pending' || dto.status === 'AiProcessing'),
     aiSummary: ai?.summary ?? null,
     status: toOperatorStatus(dto) ?? 'pending',
     escalated: dto.status === 'Escalated',
@@ -261,6 +290,9 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto): Inciden
     createdAt: dto.createdAt,
     mediaType: firstMedia?.mediaType === 'Video' ? 'video' : 'image',
     mediaUrl: firstMedia?.mediaUrl ?? null,
+    media: dto.mediaItems.map((m) => ({ url: m.mediaUrl, type: m.mediaType === 'Video' ? 'video' : 'image' })),
+    reporterMedical: dto.reporterMedicalProfile ?? null,
+    emergencySmsLog: dto.emergencySmsDispatchLog || null,
     assignedVehicleIds: [],
     reportedVehicleIds: [],
     responseNotices: [],

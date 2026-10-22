@@ -5,6 +5,7 @@ import { DispatchPanel } from '../../components/operator/livemap/DispatchPanel';
 import { LiveMapView } from '../../components/operator/livemap/LiveMapView';
 import { VehiclePanel } from '../../components/operator/livemap/VehiclePanel';
 import { useDispatchStore } from '../../context/DispatchContext';
+import { useDispatchRoutes } from '../../hooks/useDispatchRoutes';
 import type { VehicleFilters } from '../../types/vehicle';
 
 const DEFAULT_FILTERS: VehicleFilters = { type: 'all', status: 'all', stationId: 'all' };
@@ -35,6 +36,7 @@ export const LiveMapPage: React.FC = () => {
   );
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
   const incidentsById = useMemo(() => new Map(incidents.map((i) => [i.id, i])), [incidents]);
+  const routes = useDispatchRoutes(incidents, vehicles);
 
   const handleSelectVehicle = (id: string) => {
     setSelectedVehicleId((current) => (current === id ? null : id));
@@ -68,6 +70,7 @@ export const LiveMapPage: React.FC = () => {
           stations={stations}
           trafficJams={trafficJams}
           onResolveTrafficJam={resolveTrafficJam}
+          routes={routes}
           vehiclesById={vehiclesById}
           incidentsById={incidentsById}
         />

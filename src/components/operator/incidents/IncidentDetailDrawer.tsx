@@ -7,7 +7,6 @@ import {
   CircleCheck,
   Clock,
   Eye,
-  ImageOff,
   Loader2,
   Lock,
   MapPin,
@@ -19,6 +18,8 @@ import {
 } from 'lucide-react';
 import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { ConfidenceBadge } from './ConfidenceBadge';
+import { IncidentMediaGallery } from './IncidentMediaGallery';
+import { ReporterMedicalCard } from './ReporterMedicalCard';
 import { SeverityBadge } from './SeverityBadge';
 import {
   BLOCK_DURATION_OPTIONS,
@@ -89,7 +90,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const waitMinutes = Math.max(0, Math.round((now - new Date(incident.createdAt).getTime()) / 60000));
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
-  const isLowConfidence = incident.confidenceScore < LOW_CONFIDENCE_THRESHOLD;
+  const isLowConfidence = !incident.aiPending && incident.confidenceScore < LOW_CONFIDENCE_THRESHOLD;
   const hasPhone = /\d/.test(incident.reporterPhone);
 
   const lockRemainingMs = incident.lock ? new Date(incident.lock.expiresAt).getTime() - now : 0;
@@ -145,7 +146,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
         {isEscalated && (
           <div className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-red-600 text-xs text-white font-semibold">
             <Siren className="w-3.5 h-3.5 shrink-0 animate-pulse" />
-            Sự cố đã leo thang — Cấp 3 chờ quá lâu chưa có đội nhận. Ưu tiên thẩm định và điều phối ngay.
+            Sự cố đã leo thang — chờ quá ngưỡng mà chưa có đội nhận. Ưu tiên thẩm định và điều phối ngay.
           </div>
         )}
 
@@ -192,18 +193,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
           <div className="grid md:grid-cols-2 gap-5 p-5">
             {/* Cột trái: media hiện trường + thông tin người báo */}
             <div className="space-y-4 min-w-0">
-              <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-100">
-                {incident.mediaUrl && incident.mediaType === 'video' ? (
-                  <video src={incident.mediaUrl} controls className="w-full h-full object-cover bg-black" />
-                ) : incident.mediaUrl ? (
-                  <img src={incident.mediaUrl} alt={incident.title} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-slate-400">
-                    <ImageOff className="w-8 h-8 text-slate-300" />
-                    <span className="text-xs">Người báo không gửi kèm hình ảnh</span>
-                  </div>
-                )}
-              </div>
+              <IncidentMediaGallery key={incident.id} media={incident.media} title={incident.title} />
 
               <div>
                 <p className="text-xs font-mono-data uppercase tracking-widest text-slate-400 font-bold mb-1.5">
@@ -247,6 +237,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                   <span className="truncate">{waitMinutes} phút trước</span>
                 </div>
               </div>
+
+              <ReporterMedicalCard profile={incident.reporterMedical} smsLog={incident.emergencySmsLog} />
             </div>
 
             {/* Cột phải: kết quả AI + thẩm định */}
@@ -266,33 +258,43 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                   <BrainCircuit className="w-3.5 h-3.5 text-red-600 shrink-0" />
                   Kết quả phân tích AI
                 </div>
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <p className="text-slate-500 mb-1">Loại sự kiện</p>
-                    <span className="inline-flex items-center gap-1 font-bold" style={{ color: category.color }}>
-                      <CategoryIcon className="w-3.5 h-3.5" />
-                      {category.label}
+                {incident.aiPending ? (
+                  <div className="flex items-start gap-2 rounded-lg bg-white border border-slate-200 px-3 py-2.5 text-xs text-slate-600">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 mt-0.5 text-red-600" />
+                    <span>
+                      <strong>AI đang phân tích hình ảnh…</strong> Kết quả sẽ tự hiện khi có. Bạn vẫn có thể tự thẩm định
+                      dựa trên media và mô tả.
                     </span>
                   </div>
-                  <div>
-                    <p className="text-slate-500 mb-1">Độ tin cậy AI</p>
-                    <ConfidenceBadge score={incident.confidenceScore} />
-                  </div>
-                  <div>
-                    <p className="text-slate-500 mb-1">Cấp độ đề xuất</p>
-                    <SeverityBadge severity={incident.severity} />
-                  </div>
-                  {incident.hazardTags.length > 0 && (
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 text-xs">
                     <div>
-                      <p className="text-slate-500 mb-1">Thẻ nguy cơ</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {incident.hazardTags.map((tag) => (
-                          <HazardTagBadge key={tag} tag={tag} />
-                        ))}
-                      </div>
+                      <p className="text-slate-500 mb-1">Loại sự kiện</p>
+                      <span className="inline-flex items-center gap-1 font-bold" style={{ color: category.color }}>
+                        <CategoryIcon className="w-3.5 h-3.5" />
+                        {category.label}
+                      </span>
                     </div>
-                  )}
-                </div>
+                    <div>
+                      <p className="text-slate-500 mb-1">Độ tin cậy AI</p>
+                      <ConfidenceBadge score={incident.confidenceScore} />
+                    </div>
+                    <div>
+                      <p className="text-slate-500 mb-1">Cấp độ đề xuất</p>
+                      <SeverityBadge severity={incident.severity} />
+                    </div>
+                    {incident.hazardTags.length > 0 && (
+                      <div>
+                        <p className="text-slate-500 mb-1">Thẻ nguy cơ</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {incident.hazardTags.map((tag) => (
+                            <HazardTagBadge key={tag} tag={tag} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {incident.aiSummary && (
                   <p className="text-sm text-slate-600 leading-relaxed border-t border-slate-200 pt-3">
                     {incident.aiSummary}

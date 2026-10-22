@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Lock, Siren } from 'lucide-react';
+import { AlertTriangle, Loader2, Lock, Siren } from 'lucide-react';
 import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { IncidentThumbnail } from './IncidentThumbnail';
 import { ConfidenceBadge } from './ConfidenceBadge';
@@ -28,7 +28,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
   onClick,
 }) => {
   const waitMinutes = Math.max(0, Math.round((now - new Date(incident.createdAt).getTime()) / 60000));
-  const isLowConfidence = incident.confidenceScore < LOW_CONFIDENCE_THRESHOLD;
+  const isLowConfidence = !incident.aiPending && incident.confidenceScore < LOW_CONFIDENCE_THRESHOLD;
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
 
@@ -58,8 +58,17 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
             <CategoryIcon className="w-3.5 h-3.5" />
             {category.label}
           </span>
-          <SeverityBadge severity={incident.severity} />
-          <ConfidenceBadge score={incident.confidenceScore} />
+          {incident.aiPending ? (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-600 shrink-0">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              AI đang phân tích
+            </span>
+          ) : (
+            <>
+              <SeverityBadge severity={incident.severity} />
+              <ConfidenceBadge score={incident.confidenceScore} />
+            </>
+          )}
           {isLowConfidence && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-amber-300 bg-amber-50 text-[10px] font-bold text-amber-700 shrink-0">
               <AlertTriangle className="w-3 h-3" />
