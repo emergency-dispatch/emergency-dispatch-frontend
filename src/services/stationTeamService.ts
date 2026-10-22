@@ -35,7 +35,7 @@ const mapTeam = (dto: StationTeamDto): StationTeam => ({
   stationId: dto.stationId,
   name: dto.name,
   vehicleId: dto.rescueUnitId,
-  members: dto.members.map((m) => ({ staffId: m.staffId, crewRole: toCrewRole(m.crewRole) })),
+  members: dto.members.map((m) => ({ staffId: m.staffId, crewRole: toCrewRole(m.crewRole), fullName: m.fullName })),
 });
 
 let teams: StationTeam[] = [];

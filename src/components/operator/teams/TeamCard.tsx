@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle, Building2, Crown, Pencil, Trash2 } from 'lucide-react';
 import { LockableButton, VehicleStatusBadge } from '../../admin/common/ui';
 import { iconButtonClass } from '../../admin/common/styles';
+import { TEAM_FUNCTION_META } from './teamFunction';
 import { MIN_TEAM_SIZE } from '../../../data/dispatchConfig';
 import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { CREW_ROLE_LABEL, type StationStaff, type StationTeam } from '../../../types/stationTeam';
@@ -28,7 +29,20 @@ export const TeamCard: React.FC<TeamCardProps> = ({ team, staffById, vehicle, lo
     <div className={`rounded-xl border bg-white p-4 space-y-3 ${understaffed ? 'border-amber-300' : 'border-slate-200'}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-sm font-bold text-slate-900 truncate">{team.name}</h3>
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="text-sm font-bold text-slate-900 truncate">{team.name}</h3>
+            {vehicle ? (
+              <span
+                className={`px-1.5 py-0.5 rounded border text-[10px] font-bold whitespace-nowrap shrink-0 ${TEAM_FUNCTION_META[vehicle.type].badgeClass}`}
+              >
+                {TEAM_FUNCTION_META[vehicle.type].label}
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.5 rounded border border-amber-200 bg-amber-50 text-[10px] font-bold text-amber-700 whitespace-nowrap shrink-0">
+                Chưa gắn xe
+              </span>
+            )}
+          </div>
           <div className="mt-1 flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1 text-[11px] text-slate-600">
               <TypeIcon className="w-3.5 h-3.5 shrink-0" />
