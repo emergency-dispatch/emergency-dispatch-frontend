@@ -1,134 +1,276 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  BellRing,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  MapPin,
+  Phone,
+  Siren,
+  User,
+  Volume2,
+  VolumeX,
+  X,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { BellRing, Loader2, MapPin, X } from 'lucide-react';
-import { INCIDENT_CATEGORY_META } from '../../data/incidentMock';
+import { INCIDENT_CATEGORY_META, SEVERITY_META } from '../../data/incidentMock';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useNow } from '../../hooks/useNow';
 import { SeverityBadge } from './incidents/SeverityBadge';
 import type { Incident } from '../../types/incident';
 
-const MAX_VISIBLE = 3;
-// Tự đóng sau 30 giây — sự cố vẫn nằm trong hàng đợi (và số đếm ở sidebar), chỉ thông báo nổi biến mất.
-const AUTO_DISMISS_MS = 30000;
 const QUEUE_PATH = '/dashboard/command-center/incidents';
+// Operator chỉ cần biết có tin báo, không auto-accept — countdown dùng để urge thẩm định nhanh.
+const COUNTDOWN_SECONDS = 30;
 
-const ToastCard: React.FC<{ incident: Incident; now: number; onOpen: () => void; onDismiss: () => void }> = ({
-  incident,
-  now,
-  onOpen,
-  onDismiss,
-}) => {
+function useAudioAlert(active: boolean) {
+  const audioRef = useRef<AudioContext | null>(null);
+  const oscillatorsRef = useRef<OscillatorNode[]>([]);
+  const [muted, setMuted] = useState(false);
+
+  const stop = () => {
+    oscillatorsRef.current.forEach((o) => { try { o.stop(); } catch (_) {} });
+    oscillatorsRef.current = [];
+    audioRef.current?.close().catch(() => {});
+    audioRef.current = null;
+  };
+
   useEffect(() => {
-    const timer = setTimeout(onDismiss, AUTO_DISMISS_MS);
-    return () => clearTimeout(timer);
-    // Hẹn giờ một lần cho mỗi thông báo.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!active || muted) { stop(); return; }
+
+    const ctx = new AudioContext();
+    audioRef.current = ctx;
+
+    // Tạo âm báo khẩn cấp: 2 tone xen kẽ (như còi cứu thương)
+    const playTone = (freq: number, startTime: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.18, startTime + 0.05);
+      gain.gain.linearRampToValueAtTime(0, startTime + duration - 0.05);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+      oscillatorsRef.current.push(osc);
+    };
+
+    for (let i = 0; i < 3; i++) {
+      playTone(880, ctx.currentTime + i * 0.45, 0.22);
+      playTone(1100, ctx.currentTime + i * 0.45 + 0.22, 0.22);
+    }
+
+    return stop;
+  }, [active, muted]);
+
+  return { muted, toggleMute: () => setMuted((v) => !v), stop };
+}
+
+interface ModalProps {
+  incident: Incident;
+  onDismiss: () => void;
+  onGoToQueue: () => void;
+}
+
+const IncidentModal: React.FC<ModalProps> = ({ incident, onDismiss, onGoToQueue }) => {
+  const [timeLeft, setTimeLeft] = useState(COUNTDOWN_SECONDS);
+  const { muted, toggleMute } = useAudioAlert(true);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) { clearInterval(timer); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
+  const now = Date.now();
+  const minutes = Math.max(0, Math.floor((now - new Date(incident.createdAt).getTime()) / 60000));
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
-  const minutes = Math.max(0, Math.floor((now - new Date(incident.createdAt).getTime()) / 60000));
+  const severityMeta = SEVERITY_META[incident.severity];
+  const progress = (timeLeft / COUNTDOWN_SECONDS) * 100;
 
-  return (
+  return createPortal(
     <div
-      role="alert"
-      className="pointer-events-auto w-full rounded-xl bg-white border border-slate-200 border-l-4 border-l-red-600 shadow-xl shadow-slate-900/15 p-3 animate-drawer-in"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
+      onClick={(e) => { if (e.target === e.currentTarget) onDismiss(); }}
     >
-      <div className="flex items-start gap-2.5">
-        <span className="p-1.5 rounded-lg bg-red-50 text-red-600 shrink-0">
-          <BellRing className="w-4 h-4" />
-        </span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-mono-data uppercase tracking-widest text-red-600 font-bold">
-              Tin báo mới
-            </span>
-            <span className="text-[10px] font-mono-data text-slate-400 whitespace-nowrap">
-              {minutes === 0 ? 'vừa xong' : `${minutes} phút trước`}
-            </span>
+      <div className="relative w-full max-w-lg bg-white border-2 border-red-600 rounded-2xl shadow-2xl overflow-hidden text-slate-900 flex flex-col max-h-[90vh]">
+
+        {/* Header đỏ */}
+        <div className="relative bg-red-600 px-5 py-4 flex items-center justify-between text-white">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-xl">
+              <BellRing className="w-5 h-5 text-white animate-bounce" />
+            </div>
+            <div>
+              <div className="text-[10px] font-mono-data uppercase tracking-widest text-red-100 font-bold">
+                TIN BÁO KHẨN CẤP MỚI
+              </div>
+              <h2 className="text-base font-black text-white leading-tight">Cần Thẩm Định Ngay</h2>
+            </div>
           </div>
-          <p className="text-sm font-bold text-slate-900 truncate mt-0.5">{incident.title}</p>
-          <p className="flex items-center gap-1 text-[11px] text-slate-500 truncate">
-            <MapPin className="w-3 h-3 shrink-0" />
-            <span className="truncate">{incident.area}</span>
-          </p>
-          <div className="flex items-center gap-2 mt-1.5">
-            {incident.aiPending ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                AI đang phân tích
-              </span>
-            ) : (
-              <>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold" style={{ color: category.color }}>
-                  <CategoryIcon className="w-3.5 h-3.5" />
-                  {category.label}
-                </span>
-                <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
-              </>
-            )}
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleMute}
+              className="p-1.5 rounded-lg bg-black/20 hover:bg-black/30 text-white transition-all"
+              title={muted ? 'Bật âm thanh' : 'Tắt âm thanh'}
+            >
+              {muted
+                ? <VolumeX className="w-4 h-4 text-white/70" />
+                : <Volume2 className="w-4 h-4 text-white animate-pulse" />
+              }
+            </button>
+            {/* Countdown */}
+            <div className="px-2.5 py-1 bg-black/25 rounded-lg text-center font-mono-data min-w-[44px]">
+              <div className="text-[9px] text-red-100 uppercase font-bold">Còn</div>
+              <div className="text-sm font-black text-white">{timeLeft}s</div>
+            </div>
+            <button
+              onClick={onDismiss}
+              className="p-1.5 rounded-lg bg-black/20 hover:bg-black/30 transition-all"
+              aria-label="Đóng"
+            >
+              <X className="w-4 h-4 text-white" />
+            </button>
           </div>
         </div>
-        <button
-          onClick={onDismiss}
-          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 shrink-0"
-          aria-label="Đóng thông báo"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
+
+        {/* Progress bar countdown */}
+        <div className="w-full bg-slate-100 h-1.5 overflow-hidden">
+          <div
+            className="h-full bg-red-600 transition-all duration-1000 ease-linear"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+
+        {/* Body */}
+        <div className="p-5 overflow-y-auto space-y-4">
+
+          {/* Mức độ + loại */}
+          <div className="flex items-center flex-wrap gap-2">
+            <span
+              className={`px-2.5 py-1 rounded-md text-xs font-mono-data font-bold flex items-center gap-1.5 border ${severityMeta.badgeClass}`}
+            >
+              CẤP {incident.severity} · {severityMeta.label}
+            </span>
+            <span className="inline-flex items-center gap-1 text-xs font-bold" style={{ color: category.color }}>
+              <CategoryIcon className="w-3.5 h-3.5" />
+              {category.label}
+            </span>
+            {incident.aiPending && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                AI đang phân tích…
+              </span>
+            )}
+          </div>
+
+          {/* Tiêu đề + mô tả */}
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+            <h3 className="text-base font-bold text-slate-900">{incident.title}</h3>
+            {incident.description && (
+              <p className="text-xs text-slate-600 leading-relaxed">{incident.description}</p>
+            )}
+          </div>
+
+          {/* Thông tin địa điểm + thời gian */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono-data uppercase font-bold text-slate-400">
+                <MapPin className="w-3.5 h-3.5 text-red-600" />
+                Địa điểm
+              </div>
+              <p className="text-xs font-semibold text-slate-900 leading-snug">{incident.area}</p>
+            </div>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono-data uppercase font-bold text-slate-400">
+                <Clock className="w-3.5 h-3.5 text-slate-500" />
+                Thời gian chờ
+              </div>
+              <p className="text-sm font-black text-slate-900 font-mono-data">
+                {minutes === 0 ? 'Vừa xong' : `${minutes} phút`}
+              </p>
+            </div>
+          </div>
+
+          {/* Người báo */}
+          {(incident.reporterName || incident.reporterPhone) && (
+            <div className="p-3.5 rounded-xl bg-red-50/60 border border-red-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+              {incident.reporterName && (
+                <div className="flex items-center gap-2">
+                  <User className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="text-slate-600">Người báo: <strong className="text-slate-900">{incident.reporterName}</strong></span>
+                </div>
+              )}
+              {incident.reporterPhone && incident.reporterPhone !== '—' && (
+                <div className="flex items-center gap-2">
+                  <Phone className="w-3.5 h-3.5 text-red-600" />
+                  <a href={`tel:${incident.reporterPhone}`} className="text-red-600 font-mono-data font-bold hover:underline">
+                    {incident.reporterPhone}
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="px-5 pb-5 pt-2 flex gap-3">
+          <button
+            onClick={onDismiss}
+            className="flex-1 py-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold flex items-center justify-center gap-2 transition-all"
+          >
+            <X className="w-4 h-4 text-slate-400" />
+            Bỏ qua
+          </button>
+          <button
+            onClick={onGoToQueue}
+            className="flex-[2] py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-red-600/20 active:scale-95"
+          >
+            <CheckCircle2 className="w-5 h-5 animate-pulse" />
+            Thẩm định ngay
+          </button>
+        </div>
       </div>
-      <button
-        onClick={onOpen}
-        className="mt-2.5 w-full py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors"
-      >
-        Thẩm định ngay
-      </button>
-    </div>
+    </div>,
+    document.body
   );
 };
 
 /**
- * Thông báo nổi khi có tin báo mới từ người dân (SignalR ReceiveNewIncident, kèm tiếng bíp ở DispatchContext).
- * Hiện ở mọi màn Command Center; Drawer chi tiết đang mở thì dời sang trái để không che Drawer.
+ * Hiển thị popup giữa màn hình khi có tin báo mới từ người dân.
+ * Hiện từng tin báo một (FIFO), dismiss thì chuyển sang tin tiếp theo.
  */
 export const IncomingIncidentToasts: React.FC = () => {
-  const { incomingIncidents, dismissIncomingIncident, incidentDrawerOpen } = useDispatchStore();
+  const { incomingIncidents, dismissIncomingIncident } = useDispatchStore();
   const navigate = useNavigate();
-  const now = useNow(30000);
 
-  if (incomingIncidents.length === 0) return null;
+  // Chỉ hiện tin báo đầu tiên trong queue; dismiss → tin tiếp theo tự lên
+  const current = incomingIncidents[0] ?? null;
 
-  const visible = incomingIncidents.slice(0, MAX_VISIBLE);
-  const hidden = incomingIncidents.length - visible.length;
+  if (!current) return null;
 
-  const open = (id: string) => {
-    dismissIncomingIncident(id);
-    navigate(QUEUE_PATH, { state: { openIncidentId: id } });
+  const handleDismiss = () => dismissIncomingIncident(current.id);
+
+  const handleGoToQueue = () => {
+    dismissIncomingIncident(current.id);
+    navigate(QUEUE_PATH, { state: { openIncidentId: current.id } });
   };
 
   return (
-    <div
-      className={`pointer-events-none fixed top-20 z-[1502] w-[min(22rem,calc(100vw-2rem))] space-y-2 ${
-        incidentDrawerOpen ? 'left-4' : 'right-4'
-      }`}
-    >
-      {visible.map((incident) => (
-        <ToastCard
-          key={incident.id}
-          incident={incident}
-          now={now}
-          onOpen={() => open(incident.id)}
-          onDismiss={() => dismissIncomingIncident(incident.id)}
-        />
-      ))}
-      {hidden > 0 && (
-        <button
-          onClick={() => navigate(QUEUE_PATH)}
-          className="pointer-events-auto w-full py-2 rounded-xl bg-slate-900/85 text-white text-xs font-bold shadow-lg hover:bg-slate-900"
-        >
-          +{hidden} tin báo mới khác — mở hàng đợi
-        </button>
-      )}
-    </div>
+    <IncidentModal
+      key={current.id}
+      incident={current}
+      onDismiss={handleDismiss}
+      onGoToQueue={handleGoToQueue}
+    />
   );
 };
