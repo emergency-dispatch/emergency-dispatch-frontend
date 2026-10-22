@@ -1,7 +1,7 @@
 import type { RescueUnitResponseDto } from './rescueUnit';
 
 // Mirror EmergencyDispatch.Application.DTOs.Station.
-// Backend chưa có: bán kính phủ sóng, trưởng trạm, phân khu. Trạm đã xóa mềm không bao giờ được trả về.
+// Backend chưa có: trưởng trạm, phân khu. Trạm đã xóa mềm không bao giờ được trả về.
 
 export interface StationStaffMemberDto {
   id: string;
@@ -23,6 +23,7 @@ export interface StationResponseDto {
   longitude: number;
   phoneNumber: string | null;
   isActive: boolean;
+  coverageRadiusKm: number;
   /** Số xe đang Available. */
   activeUnitsCount: number;
   totalUnitsCount: number;
@@ -40,4 +41,11 @@ export interface StationUpsertDto {
   longitude: number;
   phoneNumber: string | null;
   isActive: boolean;
+  /**
+   * Bắt buộc gửi cả khi sửa: backend không giữ giá trị cũ, thiếu trường này sẽ bị đặt về mặc định 10 km.
+   */
+  coverageRadiusKm: number;
 }
+
+/** Giới hạn của CreateStationDto / UpdateStationDto (FR-AD-01). */
+export const COVERAGE_RADIUS_KM = { min: 5, max: 50, default: 10 };

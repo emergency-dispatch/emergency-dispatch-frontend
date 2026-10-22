@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../common/ui';
 import { inputClass } from '../common/styles';
 import { useServiceQuery } from '../common/hooks';
-import { RESCUE_UNIT_TYPE_META } from '../fleetMeta';
+import { RESCUE_UNIT_STATUS_META, RESCUE_UNIT_TYPE_META } from '../fleetMeta';
 import { stationAdminService } from '../../../services/admin/stationAdminService';
-import { isUnitAtStation, vehicleAdminService, type VehicleEditInput } from '../../../services/admin/vehicleAdminService';
+import { isOffMission, vehicleAdminService, type VehicleEditInput } from '../../../services/admin/vehicleAdminService';
 import { getApiErrorMessage } from '../../../services/apiClient';
-import { RESCUE_UNIT_TYPES, type RescueUnitResponseDto } from '../../../types/rescueUnit';
+import {
+  ADMIN_SETTABLE_UNIT_STATUSES,
+  RESCUE_UNIT_TYPES,
+  type RescueUnitResponseDto,
+  type RescueUnitStatus,
+} from '../../../types/rescueUnit';
 
 interface VehicleFormDrawerProps {
   initialVehicle: RescueUnitResponseDto | null;
@@ -25,12 +30,18 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
     unitType: initialVehicle?.unitType ?? 'FireTruck',
     stationId: initialVehicle?.stationId ?? '',
   });
+  const [status, setStatus] = useState<RescueUnitStatus | undefined>(initialVehicle?.status);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const stationItems = stations.data?.items ?? [];
-  // Xe đang làm nhiệm vụ: vẫn sửa được biển số / loại xe, nhưng không đổi trạm.
-  const stationLocked = !!initialVehicle && !isUnitAtStation(initialVehicle.status);
+  // Xe đang làm nhiệm vụ: vẫn sửa được biển số / loại xe, nhưng không đổi trạm và trạng thái.
+  const onMission = !!initialVehicle && !isOffMission(initialVehicle.status);
+  // Trạng thái hiện tại do hệ thống đặt (VD Hồi sức) vẫn hiện trong danh sách để không mất giá trị đang có.
+  const statusOptions =
+    initialVehicle && !ADMIN_SETTABLE_UNIT_STATUSES.includes(initialVehicle.status)
+      ? [initialVehicle.status, ...ADMIN_SETTABLE_UNIT_STATUSES]
+      : ADMIN_SETTABLE_UNIT_STATUSES;
   // Thêm xe mới: mặc định chọn trạm đầu tiên khi danh sách trạm về.
   const stationId = form.stationId || stationItems[0]?.id || '';
   // Trạm của xe có thể đã bị xóa / tạm ngưng — vẫn hiện để không mất giá trị đang chọn.
@@ -48,7 +59,13 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
-    const input = { ...form, plateNumber: plate, stationId };
+    // Chỉ gửi trạng thái khi Admin đổi — giữ nguyên thì service gửi lại trạng thái mới nhất của xe.
+    const input = {
+      ...form,
+      plateNumber: plate,
+      stationId,
+      status: initialVehicle && status !== initialVehicle.status ? status : undefined,
+    };
     try {
       const saved = initialVehicle
         ? await vehicleAdminService.update(initialVehicle.id, input)
@@ -106,12 +123,18 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
       <FormField
         label="Trạm trực thuộc"
         required
-        hint={stationLocked ? 'Xe đang làm nhiệm vụ — không thể đổi trạm trực thuộc.' : undefined}
+        hint={
+          onMission
+            ? 'Xe đang làm nhiệm vụ — không thể đổi trạm trực thuộc.'
+            : currentStationMissing
+              ? 'Trạm cũ của xe đã bị xóa — chọn trạm mới.'
+              : undefined
+        }
       >
         <select
           value={stationId}
           onChange={(e) => set('stationId', e.target.value)}
-          disabled={stationLocked || (stations.loading && !stations.data)}
+          disabled={onMission || (stations.loading && !stations.data)}
           className={inputClass}
         >
           {!stationId && <option value="">— Chưa có trạm —</option>}
@@ -128,7 +151,30 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
         {stations.error && <p className="text-[11px] text-red-600">{stations.error}</p>}
       </FormField>
 
-      {!initialVehicle && (
+      {initialVehicle ? (
+        <FormField
+          label="Trạng thái"
+          required
+          hint={
+            onMission
+              ? 'Xe đang làm nhiệm vụ — trạng thái tự cập nhật theo tiến độ nhiệm vụ.'
+              : 'Đã điều động / Tại hiện trường / Đang quay về / Hồi sức do hệ thống tự đặt.'
+          }
+        >
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as RescueUnitStatus)}
+            disabled={onMission}
+            className={inputClass}
+          >
+            {statusOptions.map((s) => (
+              <option key={s} value={s} disabled={!ADMIN_SETTABLE_UNIT_STATUSES.includes(s)}>
+                {RESCUE_UNIT_STATUS_META[s].label}
+              </option>
+            ))}
+          </select>
+        </FormField>
+      ) : (
         <p className="text-xs text-slate-500">Xe mới được tạo ở trạng thái Sẵn sàng, vị trí ban đầu tại trạm.</p>
       )}
     </DrawerShell>

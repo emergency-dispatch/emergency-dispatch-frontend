@@ -5,7 +5,7 @@ import { inputClass } from '../common/styles';
 import { MAP_CENTER } from '../fleetMeta';
 import { HOTLINE_PATTERN, stationAdminService } from '../../../services/admin/stationAdminService';
 import { getApiErrorMessage } from '../../../services/apiClient';
-import type { StationResponseDto, StationUpsertDto } from '../../../types/station';
+import { COVERAGE_RADIUS_KM, type StationResponseDto, type StationUpsertDto } from '../../../types/station';
 
 interface StationFormDrawerProps {
   initialStation: StationResponseDto | null;
@@ -25,6 +25,8 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
     longitude: initialStation?.longitude ?? MAP_CENTER[1],
     phoneNumber: initialStation?.phoneNumber ?? '',
     isActive: initialStation?.isActive ?? true,
+    // Ô số giữ dạng chuỗi để gõ dở không bị nhảy.
+    coverageRadiusKm: String(initialStation?.coverageRadiusKm ?? COVERAGE_RADIUS_KM.default),
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,9 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
 
   const hotline = form.phoneNumber.replace(/\s/g, '');
   const hotlineValid = HOTLINE_PATTERN.test(hotline);
-  const canSubmit = form.name.trim().length > 0 && form.address.trim().length > 0 && hotlineValid;
+  const radiusKm = form.coverageRadiusKm.trim() === '' ? NaN : Number(form.coverageRadiusKm);
+  const radiusValid = radiusKm >= COVERAGE_RADIUS_KM.min && radiusKm <= COVERAGE_RADIUS_KM.max;
+  const canSubmit = form.name.trim().length > 0 && form.address.trim().length > 0 && hotlineValid && radiusValid;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +51,7 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
       longitude: form.longitude,
       phoneNumber: hotline,
       isActive: form.isActive,
+      coverageRadiusKm: radiusKm,
     };
     try {
       const saved = initialStation
@@ -104,6 +109,27 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
         />
       </FormField>
 
+      <FormField
+        label="Bán kính phủ sóng (km)"
+        required
+        hint={
+          radiusValid
+            ? `Vùng trạm phụ trách, vẽ trên bản đồ bên dưới. Từ ${COVERAGE_RADIUS_KM.min} đến ${COVERAGE_RADIUS_KM.max} km.`
+            : `Nhập từ ${COVERAGE_RADIUS_KM.min} đến ${COVERAGE_RADIUS_KM.max} km.`
+        }
+      >
+        <input
+          type="number"
+          inputMode="decimal"
+          min={COVERAGE_RADIUS_KM.min}
+          max={COVERAGE_RADIUS_KM.max}
+          step={0.5}
+          value={form.coverageRadiusKm}
+          onChange={(e) => set('coverageRadiusKm', e.target.value)}
+          className={`${inputClass} font-mono-data sm:max-w-[160px] ${radiusValid ? '' : 'border-red-400'}`}
+        />
+      </FormField>
+
       <label className="flex items-center gap-2 text-sm text-slate-700 select-none cursor-pointer">
         <input
           type="checkbox"
@@ -119,6 +145,7 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
           <StationMapPicker
             lat={form.latitude}
             lng={form.longitude}
+            radiusKm={radiusValid ? radiusKm : undefined}
             onChange={(latitude, longitude) => setForm((f) => ({ ...f, latitude, longitude }))}
           />
         </div>

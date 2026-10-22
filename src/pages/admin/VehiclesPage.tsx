@@ -130,7 +130,7 @@ const VehiclesPage: React.FC = () => {
             className={`${inputClass} lg:w-44`}
           >
             <option value="">Tất cả trạng thái</option>
-            <option value="on_mission">Đang làm nhiệm vụ (tất cả)</option>
+            <option value="on_mission">Đang làm nhiệm vụ (điều động · hiện trường · quay về)</option>
             {RESCUE_UNIT_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {RESCUE_UNIT_STATUS_META[s].label}

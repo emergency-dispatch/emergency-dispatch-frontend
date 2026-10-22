@@ -20,6 +20,8 @@ export const RESCUE_UNIT_STATUS_META: Record<RescueUnitStatus, { label: string; 
   Available: { label: 'Sẵn sàng', color: VEHICLE_STATUS_META.available.color },
   Dispatched: { label: 'Đã điều động', color: VEHICLE_STATUS_META.en_route.color },
   OnScene: { label: 'Tại hiện trường', color: VEHICLE_STATUS_META.on_scene.color },
-  Returning: { label: 'Đang quay về', color: VEHICLE_STATUS_META.recovering.color },
+  Returning: { label: 'Đang quay về', color: VEHICLE_STATUS_META.accepted.color },
+  CoolDown: { label: 'Hồi sức', color: VEHICLE_STATUS_META.recovering.color },
   Maintenance: { label: 'Bảo trì', color: '#D97706' },
+  OutOfService: { label: 'Ngừng hoạt động', color: '#94A3B8' },
 };

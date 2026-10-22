@@ -105,14 +105,12 @@ const StationsPage: React.FC = () => {
         <DeleteStationDialog
           station={deletingStation}
           onCancel={() => setDeletingStation(null)}
-          onDeleted={(remainingUnits) => {
-            setNotice({
-              kind: 'success',
-              message:
-                remainingUnits > 0
-                  ? `Đã xóa trạm "${deletingStation.name}". ${remainingUnits} xe vẫn gắn với trạm này — chuyển sang trạm khác ở trang Đội xe.`
-                  : `Đã xóa trạm "${deletingStation.name}".`,
-            });
+          onDeleted={({ units, staff }) => {
+            const extras = [
+              units > 0 && `${units} xe chuyển sang Ngừng hoạt động — chuyển sang trạm mới ở trang Đội xe.`,
+              staff > 0 && `${staff} nhân sự bị gỡ khỏi trạm.`,
+            ].filter(Boolean);
+            setNotice({ kind: 'success', message: [`Đã xóa trạm "${deletingStation.name}".`, ...extras].join(' ') });
             setDeletingStation(null);
             query.reload();
           }}

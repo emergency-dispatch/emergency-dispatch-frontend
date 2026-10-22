@@ -17,15 +17,35 @@ export const RESCUE_UNIT_TYPES: RescueUnitType[] = [
   'PolicePatrol',
 ];
 
-export type RescueUnitStatus = 'Available' | 'Dispatched' | 'OnScene' | 'Returning' | 'Maintenance';
+/**
+ * CoolDown: hồi sức sau khi nghiệm thu nhiệm vụ (BR-27). OutOfService: ngừng hoạt động, VD xe của trạm đã bị xóa.
+ */
+export type RescueUnitStatus =
+  | 'Available'
+  | 'Dispatched'
+  | 'OnScene'
+  | 'Returning'
+  | 'CoolDown'
+  | 'Maintenance'
+  | 'OutOfService';
 
-export const RESCUE_UNIT_STATUSES: RescueUnitStatus[] = ['Available', 'Dispatched', 'OnScene', 'Returning', 'Maintenance'];
+export const RESCUE_UNIT_STATUSES: RescueUnitStatus[] = [
+  'Available',
+  'Dispatched',
+  'OnScene',
+  'Returning',
+  'CoolDown',
+  'Maintenance',
+  'OutOfService',
+];
 
-/** Admin chỉ chủ động đổi qua lại hai trạng thái này; các trạng thái còn lại do luồng điều phối tự đặt. */
-export const ADMIN_SETTABLE_UNIT_STATUSES: RescueUnitStatus[] = ['Available', 'Maintenance'];
+/** Admin đặt thủ công được (RescueUnitService.EnsureManualStatusAllowed); các trạng thái còn lại do luồng điều phối tự đặt. */
+export const ADMIN_SETTABLE_UNIT_STATUSES: RescueUnitStatus[] = ['Available', 'Maintenance', 'OutOfService'];
 
-/** Backend chặn xóa trạm / xóa xe khi xe đang ở các trạng thái này. */
-export const ON_MISSION_UNIT_STATUSES: RescueUnitStatus[] = ['Dispatched', 'OnScene'];
+/**
+ * Đang trong vòng đời nhiệm vụ (RescueUnitService.IsOnMission): backend chặn xóa xe, xóa trạm, đổi trạng thái thủ công.
+ */
+export const ON_MISSION_UNIT_STATUSES: RescueUnitStatus[] = ['Dispatched', 'OnScene', 'Returning'];
 
 export interface RescueUnitResponseDto {
   id: string;

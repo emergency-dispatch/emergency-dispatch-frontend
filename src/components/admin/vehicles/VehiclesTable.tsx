@@ -3,7 +3,7 @@ import { Pencil, Trash2, Wrench, CircleCheck } from 'lucide-react';
 import { LockableButton, VehicleStatusBadge } from '../common/ui';
 import { iconButtonClass, thClass } from '../common/styles';
 import { RESCUE_UNIT_STATUS_META, RESCUE_UNIT_TYPE_META } from '../fleetMeta';
-import { isUnitAtStation } from '../../../services/admin/vehicleAdminService';
+import { isOffMission } from '../../../services/admin/vehicleAdminService';
 import { ON_MISSION_UNIT_STATUSES, type RescueUnitResponseDto } from '../../../types/rescueUnit';
 
 interface VehiclesTableProps {
@@ -58,9 +58,11 @@ export const VehiclesTable: React.FC<VehiclesTableProps> = ({
             const statusMeta = RESCUE_UNIT_STATUS_META[vehicle.status];
             const inMaintenance = vehicle.status === 'Maintenance';
             const pending = pendingId === vehicle.id;
-            const missionLock = isUnitAtStation(vehicle.status)
-              ? null
-              : `Xe đang ${statusMeta?.label.toLowerCase() ?? vehicle.statusName} — chỉ đổi được khi xe về trạm.`;
+            const missionLock = !isOffMission(vehicle.status)
+              ? `Xe đang ${statusMeta?.label.toLowerCase() ?? vehicle.statusName} — chỉ đổi được khi xe xong nhiệm vụ.`
+              : vehicle.status === 'OutOfService'
+                ? 'Xe ngừng hoạt động — bấm Sửa xe để chọn trạm mới và đặt trạng thái.'
+                : null;
             const deleteLock = ON_MISSION_UNIT_STATUSES.includes(vehicle.status)
               ? 'Xe đang làm nhiệm vụ — không thể xóa.'
               : null;

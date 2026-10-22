@@ -26,8 +26,13 @@ import { UserRole } from '../../types/auth';
 const VEHICLE_GROUPS: { key: OverviewVehicleGroup; label: string; color: string }[] = [
   { key: 'Available', label: RESCUE_UNIT_STATUS_META.Available.label, color: RESCUE_UNIT_STATUS_META.Available.color },
   { key: 'on_mission', label: 'Đang làm nhiệm vụ', color: RESCUE_UNIT_STATUS_META.Dispatched.color },
-  { key: 'Returning', label: RESCUE_UNIT_STATUS_META.Returning.label, color: RESCUE_UNIT_STATUS_META.Returning.color },
+  { key: 'CoolDown', label: RESCUE_UNIT_STATUS_META.CoolDown.label, color: RESCUE_UNIT_STATUS_META.CoolDown.color },
   { key: 'Maintenance', label: RESCUE_UNIT_STATUS_META.Maintenance.label, color: RESCUE_UNIT_STATUS_META.Maintenance.color },
+  {
+    key: 'OutOfService',
+    label: RESCUE_UNIT_STATUS_META.OutOfService.label,
+    color: RESCUE_UNIT_STATUS_META.OutOfService.color,
+  },
 ];
 
 const vehicleLink = (plate: string) => `/admin/vehicles?search=${encodeURIComponent(plate)}`;
@@ -65,7 +70,7 @@ const OverviewPage: React.FC = () => {
               <Truck className="w-4 h-4 text-red-600" />
               Đội xe
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {VEHICLE_GROUPS.map((g) => (
                 <StatCard
                   key={g.key}
@@ -144,6 +149,19 @@ const ActionItems: React.FC<{ items: AdminOverview['actionItems'] }> = ({ items 
           primary={v.plate}
           mono
           secondary={`${v.stationName} · cập nhật lần cuối ${formatDate(v.maintenanceSince)} (${v.days} ngày)`}
+        />
+      )),
+    },
+    {
+      title: 'Xe ngừng hoạt động chờ chuyển trạm',
+      icon: Truck,
+      rows: items.outOfServiceVehicles.map((v) => (
+        <ActionRow
+          key={v.id}
+          to={vehicleLink(v.plate)}
+          primary={v.plate}
+          mono
+          secondary={v.stationName ? `Trạm cũ: ${v.stationName}` : 'Trạm cũ đã bị xóa'}
         />
       )),
     },

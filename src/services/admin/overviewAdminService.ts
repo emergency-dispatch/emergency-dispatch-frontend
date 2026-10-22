@@ -9,8 +9,8 @@ import { vehicleAdminService } from './vehicleAdminService';
 export const LONG_MAINTENANCE_DAYS = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Nhóm trạng thái xe trên thẻ số liệu (Đang làm nhiệm vụ = Đã điều động + Tại hiện trường). */
-export type OverviewVehicleGroup = 'Available' | 'on_mission' | 'Returning' | 'Maintenance';
+/** Nhóm trạng thái xe trên thẻ số liệu (Đang làm nhiệm vụ = Đã điều động + Tại hiện trường + Đang quay về). */
+export type OverviewVehicleGroup = 'Available' | 'on_mission' | 'CoolDown' | 'Maintenance' | 'OutOfService';
 
 export interface AdminOverview {
   generatedAt: string;
@@ -22,6 +22,8 @@ export interface AdminOverview {
     stationsWithoutAvailableVehicle: { id: string; name: string; vehicleCount: number }[];
     /** Backend chưa lưu thời điểm bắt đầu bảo trì → ước lượng bằng lần cập nhật cuối của xe. */
     longMaintenanceVehicles: { id: string; plate: string; stationName: string; maintenanceSince: string; days: number }[];
+    /** Xe ngừng hoạt động (thường do trạm cũ bị xóa) — cần chuyển sang trạm mới. */
+    outOfServiceVehicles: { id: string; plate: string; stationName: string }[];
   };
 }
 
@@ -44,8 +46,9 @@ export const overviewAdminService = {
       vehicleCounts: {
         Available: countStatus((u) => u.status === 'Available'),
         on_mission: countStatus((u) => ON_MISSION_UNIT_STATUSES.includes(u.status)),
-        Returning: countStatus((u) => u.status === 'Returning'),
+        CoolDown: countStatus((u) => u.status === 'CoolDown'),
         Maintenance: countStatus((u) => u.status === 'Maintenance'),
+        OutOfService: countStatus((u) => u.status === 'OutOfService'),
       },
       activeStationCount: stations.filter((s) => s.isActive).length,
       accountCounts: {
@@ -66,6 +69,10 @@ export const overviewAdminService = {
             ? [{ id: u.id, plate: u.plateNumber, stationName: u.stationName, maintenanceSince: since, days: Math.floor(days) }]
             : [];
         }),
+
+        outOfServiceVehicles: units
+          .filter((u) => u.status === 'OutOfService')
+          .map((u) => ({ id: u.id, plate: u.plateNumber, stationName: u.stationName })),
       },
     };
   },
