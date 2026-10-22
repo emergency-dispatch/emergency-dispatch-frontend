@@ -48,10 +48,14 @@ export const EscalationAlert: React.FC = () => {
         <button
           onClick={expand}
           style={positionStyle('6rem')}
-          className={`fixed top-20 ${centeredClass} z-[1501] flex items-center gap-2 px-3.5 py-2 rounded-full bg-red-600 text-white text-xs font-bold shadow-xl animate-flash-critical`}
+          className={`fixed top-20 ${centeredClass} z-[1501] px-3.5 py-2 rounded-full bg-red-600 text-white text-xs font-bold shadow-xl shadow-red-900/30 hover:bg-red-700`}
         >
-          <Siren className="w-4 h-4" />
-          {escalated.length} sự cố đang leo thang
+          {/* Nhấp nháy bằng vòng lan ra phía sau — nền nút giữ đỏ đặc để chữ trắng luôn đọc được. */}
+          <span aria-hidden className="absolute inset-0 rounded-full bg-red-600 animate-ping opacity-40" />
+          <span className="relative flex items-center gap-2">
+            <Siren className="w-4 h-4" />
+            {escalated.length} sự cố đang leo thang
+          </span>
         </button>
       ) : (
         <div
