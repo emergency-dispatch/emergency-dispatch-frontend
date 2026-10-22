@@ -16,9 +16,8 @@ const formatDate = (iso: string) => new Date(iso).toLocaleDateString('vi-VN');
 
 export const BlockedNumbersTable: React.FC<BlockedNumbersTableProps> = ({ items, loading, onUnblock, onExtend }) => (
   <div
-    className={`rounded-xl border border-slate-200 overflow-x-auto bg-white shadow-xs transition-opacity ${
-      loading ? 'opacity-60' : ''
-    }`}
+    className={`rounded-xl border border-slate-200 overflow-x-auto bg-white shadow-xs transition-opacity ${loading ? 'opacity-60' : ''
+      }`}
   >
     <table className="w-full text-sm min-w-[1100px]">
       <thead>
@@ -38,7 +37,7 @@ export const BlockedNumbersTable: React.FC<BlockedNumbersTableProps> = ({ items,
         {items.length === 0 && (
           <tr>
             <td colSpan={9} className="px-4 py-10 text-center text-slate-400 text-sm">
-              {loading ? 'Đang tải...' : 'Không có số nào phù hợp.'}
+              {loading ? 'Đang tải...' : 'Không có số nào bị chặn.'}
             </td>
           </tr>
         )}
