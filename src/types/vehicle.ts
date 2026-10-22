@@ -32,6 +32,11 @@ export interface Vehicle {
   lastUpdated: string;
   /** Lượt điều phối đang chạy của xe — dùng để hủy giao xe. */
   assignmentId: string | null;
+  /**
+   * Có vị trí GPS thật cho nhiệm vụ hiện tại (realtime, hoặc cập nhật sau lúc được giao).
+   * false → chưa có GPS mới, bản đồ đặt xe tại trạm thay vì tọa độ cũ trong DB.
+   */
+  hasLiveGps: boolean;
 }
 
 export interface Station {

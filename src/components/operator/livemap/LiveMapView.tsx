@@ -185,14 +185,15 @@ interface VehicleMarkersProps {
 
 /**
  * Mỗi xe một marker (không gom cụm), icon theo loại xe, màu theo trạng thái.
- * Xe không có nhiệm vụ đứng tại trạm của nó; xe đang làm nhiệm vụ hiện theo vị trí GPS thật.
+ * Xe đứng tại trạm của nó, trừ xe đang làm nhiệm vụ đã có GPS thật (hiện theo vị trí GPS).
  */
 const VehicleMarkers: React.FC<VehicleMarkersProps> = ({ map, vehicles, stations, selectedVehicleId, onSelectVehicle }) => {
   const placements = useMemo(() => {
     const stationsById = new Map(stations.map((s) => [s.id, s]));
     const parkedByStation = new Map<string, Vehicle[]>();
     vehicles.forEach((v) => {
-      if (v.incidentId || !stationsById.has(v.stationId)) return;
+      // Đang làm nhiệm vụ mà đã có GPS thật → hiện theo GPS; còn lại (kể cả xe vừa được giao, chưa gửi GPS) đứng tại trạm.
+      if ((v.incidentId && v.hasLiveGps) || !stationsById.has(v.stationId)) return;
       parkedByStation.set(v.stationId, [...(parkedByStation.get(v.stationId) ?? []), v]);
     });
 

@@ -378,6 +378,11 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           incidentId: assignment?.incidentId ?? null,
           lastUpdated: live?.at ?? unit.lastLocationUpdateAt ?? unit.updatedAt ?? unit.createdAt,
           assignmentId: assignment?.id ?? null,
+          hasLiveGps:
+            !!live ||
+            (!!assignment &&
+              !!unit.lastLocationUpdateAt &&
+              new Date(unit.lastLocationUpdateAt).getTime() >= new Date(assignment.dispatchedAt).getTime()),
         },
       ];
     });

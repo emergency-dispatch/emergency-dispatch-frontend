@@ -76,7 +76,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   // Reset local form state whenever a different incident is opened.
   useEffect(() => {
     if (!incident) return;
-    setConfirmedSeverity(incident.severity);
+    // AI không phân loại được → không chọn sẵn cấp nào, Operator tự chọn.
+    setConfirmedSeverity(incident.aiUnclassified ? null : incident.severity);
     setOverrideReason('');
     setRejecting(false);
     setRejectReason('');
@@ -99,7 +100,10 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const canAct = !!activeLock && !lockedByOther;
   const lockWasMine = incident.lock?.operatorId === currentOperatorId;
 
-  const isOverride = confirmedSeverity !== null && confirmedSeverity !== incident.severity;
+  // Backend coi Unclassified → Level 1–3 là ghi đè AI (bắt buộc operatorNotes ≥ 5 ký tự), nên ca AI không phân loại
+  // được luôn cần lý do, kể cả khi chọn Cấp 1.
+  const isOverride =
+    confirmedSeverity !== null && (incident.aiUnclassified || confirmedSeverity !== incident.severity);
   const overrideReasonLength = overrideReason.trim().length;
   const overrideReasonValid = !isOverride || overrideReasonLength >= OVERRIDE_REASON_MIN_LENGTH;
   const canApprove = canAct && !isSubmitting && confirmedSeverity !== null && overrideReasonValid;
@@ -361,7 +365,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                           }`}
                         >
                           {meta.label}
-                          {level === incident.severity && (
+                          {level === incident.severity && !incident.aiUnclassified && (
                             <span className="px-1 rounded bg-slate-900/10 text-[9px] tracking-wide">AI</span>
                           )}
                         </button>
@@ -372,8 +376,18 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                   {isOverride && (
                     <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3.5 space-y-2">
                       <p className="text-xs text-amber-800">
-                        Bạn đang ghi đè cấp độ AI đề xuất ({SEVERITY_LEVEL_META[incident.severity].label} →{' '}
-                        {SEVERITY_LEVEL_META[confirmedSeverity].label}). Lý do sẽ được lưu vào nhật ký kiểm tra.
+                        {incident.aiUnclassified ? (
+                          <>
+                            AI không phân loại được — bạn tự xác định mức{' '}
+                            {SEVERITY_LEVEL_META[confirmedSeverity].label}. Ghi lý do (căn cứ từ ảnh/video, mô tả, gọi xác
+                            minh…); lý do sẽ được lưu vào nhật ký kiểm tra.
+                          </>
+                        ) : (
+                          <>
+                            Bạn đang ghi đè cấp độ AI đề xuất ({SEVERITY_LEVEL_META[incident.severity].label} →{' '}
+                            {SEVERITY_LEVEL_META[confirmedSeverity].label}). Lý do sẽ được lưu vào nhật ký kiểm tra.
+                          </>
+                        )}
                       </p>
                       <textarea
                         value={overrideReason}
