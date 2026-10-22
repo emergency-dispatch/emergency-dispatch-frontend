@@ -238,6 +238,14 @@ export function normalizeHazardTag(tag: string): string {
   return tag.replace(/^#/, '').trim().toLowerCase();
 }
 
+/**
+ * Tag backend tự gắn khi AI không phân loại được (AiClassificationResultDto.CreateFallback:
+ * "Unclassified", "NeedsHumanReview"), đã chuẩn hóa. Không phải mối nguy thật → ẩn khỏi danh sách tag.
+ */
+export const AI_FALLBACK_TAGS: ReadonlySet<string> = new Set(['unclassified', 'needshumanreview', 'needs_human_review']);
+
+export const isAiFallbackTag = (tag: string) => AI_FALLBACK_TAGS.has(normalizeHazardTag(tag));
+
 const ACTIVE_DISPATCH_STATUSES: BackendIncidentStatus[] = ['Verified', 'Dispatched', 'InProgress'];
 
 /** null = sự cố đã hủy (không còn hiện ở phân hệ Operator). */

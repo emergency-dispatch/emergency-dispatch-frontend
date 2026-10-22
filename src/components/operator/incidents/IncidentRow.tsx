@@ -4,9 +4,15 @@ import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { IncidentThumbnail } from './IncidentThumbnail';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { SeverityBadge } from './SeverityBadge';
-import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_COLOR } from '../../../data/incidentMock';
+import {
+  AI_PENDING_RAIL_COLOR,
+  AI_UNCLASSIFIED_RAIL,
+  INCIDENT_CATEGORY_META,
+  SEVERITY_LEVEL_COLOR,
+} from '../../../data/incidentMock';
+import { QUEUE_COLUMNS } from './queueColumns';
 import { formatCountdown, formatDateTime, formatWaitDuration } from '../../../utils/incidentFormat';
-import { normalizeHazardTag, type Incident } from '../../../types/incident';
+import { isAiFallbackTag, type Incident } from '../../../types/incident';
 
 interface IncidentRowProps {
   incident: Incident;
@@ -18,11 +24,6 @@ interface IncidentRowProps {
   onClick: () => void;
 }
 
-// Tag hệ thống đã được thể hiện bằng badge "Chưa phân loại" → không lặp lại dưới tiêu đề.
-const REDUNDANT_TAGS = new Set(['unclassified', 'needshumanreview', 'needs_human_review']);
-
-// Vạch màu bên trái = cấp độ. Ca chưa phân loại dùng vạch sọc xám để không lẫn với Cấp 1 xanh.
-const UNCLASSIFIED_RAIL = 'repeating-linear-gradient(135deg, #475569 0 4px, #CBD5E1 4px 8px)';
 
 export const IncidentRow: React.FC<IncidentRowProps> = ({
   incident,
@@ -41,12 +42,13 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
   const activeLock = incident.lock && lockRemainingMs > 0 ? incident.lock : null;
   const lockedByOther = !!activeLock && activeLock.operatorId !== currentOperatorId;
 
-  const visibleTags = incident.hazardTags.filter((tag) => !REDUNDANT_TAGS.has(normalizeHazardTag(tag)));
+  // Tag hệ thống đã được thể hiện bằng badge "Chưa phân loại" → không lặp lại dưới tiêu đề.
+  const visibleTags = incident.hazardTags.filter((tag) => !isAiFallbackTag(tag));
   const railStyle: React.CSSProperties =
     incident.aiPending
-      ? { background: '#CBD5E1' }
+      ? { background: AI_PENDING_RAIL_COLOR }
       : incident.aiUnclassified
-        ? { background: UNCLASSIFIED_RAIL }
+        ? { background: AI_UNCLASSIFIED_RAIL }
         : { background: SEVERITY_LEVEL_COLOR[incident.severity] };
 
   return (
@@ -59,7 +61,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
     >
       <span aria-hidden className="absolute left-0 top-0 bottom-0 w-1.5" style={railStyle} />
 
-      <IncidentThumbnail incident={incident} className="w-12 h-12 shrink-0" />
+      <IncidentThumbnail incident={incident} className={`${QUEUE_COLUMNS.thumbnail} h-12 shrink-0`} />
 
       {/* Cái gì, ở đâu */}
       <div className="flex-1 min-w-0">
@@ -90,7 +92,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
       </div>
 
       {/* AI đánh giá thế nào */}
-      <div className="hidden md:flex w-56 shrink-0 items-center gap-3">
+      <div className={`hidden md:flex ${QUEUE_COLUMNS.ai} shrink-0 items-center gap-3`}>
         {incident.aiPending ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -105,7 +107,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
       </div>
 
       {/* Đã chờ bao lâu */}
-      <div className="w-36 shrink-0 text-right">
+      <div className={`${QUEUE_COLUMNS.wait} shrink-0 text-right`}>
         <div
           className={`text-sm font-semibold tabular-nums whitespace-nowrap ${isEscalated ? 'text-red-700' : 'text-slate-800'}`}
           title={`Tiếp nhận lúc ${formatDateTime(incident.createdAt)}`}

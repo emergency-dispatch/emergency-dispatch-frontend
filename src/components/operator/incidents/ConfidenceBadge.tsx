@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { LOW_CONFIDENCE_THRESHOLD } from '../../../data/incidentMock';
+import { HIGH_CONFIDENCE_THRESHOLD, LOW_CONFIDENCE_THRESHOLD } from '../../../data/incidentMock';
 
 interface ConfidenceBadgeProps {
   /** % tin cậy của AI (0–100). */
@@ -13,7 +13,7 @@ interface ConfidenceBadgeProps {
  */
 export const ConfidenceBadge: React.FC<ConfidenceBadgeProps> = ({ score }) => {
   const isLow = score < LOW_CONFIDENCE_THRESHOLD;
-  const tierClass = score >= 80 ? 'text-emerald-700' : isLow ? 'text-amber-700' : 'text-slate-600';
+  const tierClass = score >= HIGH_CONFIDENCE_THRESHOLD ? 'text-emerald-700' : isLow ? 'text-amber-700' : 'text-slate-600';
 
   return (
     <span

@@ -183,7 +183,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
               <CategoryIcon className="w-3.5 h-3.5" />
               {category.label}
             </span>
-            <SeverityBadge severity={incident.severity} />
+            <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
             {isEscalated && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white uppercase animate-pulse shrink-0">
                 <Siren className="w-3 h-3" />

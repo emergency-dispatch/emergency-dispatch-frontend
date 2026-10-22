@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { AlertTriangle, Inbox, ListChecks, Loader2, Siren } from 'lucide-react';
 import { IncidentRow } from './IncidentRow';
+import { QUEUE_COLUMNS } from './queueColumns';
 import { useNow } from '../../../hooks/useNow';
 import type { Incident } from '../../../types/incident';
 
@@ -94,10 +95,10 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
 
       {!isLoading && incidents.length > 0 && (
         <div className="shrink-0 hidden md:flex items-center gap-4 pl-6 pr-6 py-2 border-b border-slate-200 text-[11px] font-semibold text-slate-500">
-          <span className="w-12 shrink-0" />
+          <span className={`${QUEUE_COLUMNS.thumbnail} shrink-0`} />
           <span className="flex-1">Sự cố</span>
-          <span className="w-56 shrink-0">Đánh giá AI</span>
-          <span className="w-36 shrink-0 text-right">Thời gian chờ</span>
+          <span className={`${QUEUE_COLUMNS.ai} shrink-0`}>Đánh giá AI</span>
+          <span className={`${QUEUE_COLUMNS.wait} shrink-0 text-right`}>Thời gian chờ</span>
         </div>
       )}
 

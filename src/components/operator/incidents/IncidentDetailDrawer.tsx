@@ -281,7 +281,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                     </div>
                     <div>
                       <p className="text-slate-500 mb-1">Cấp độ đề xuất</p>
-                      <SeverityBadge severity={incident.severity} />
+                      <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
                     </div>
                     {incident.hazardTags.length > 0 && (
                       <div>

@@ -64,7 +64,7 @@ const ToastCard: React.FC<{ incident: Incident; now: number; onOpen: () => void;
                   <CategoryIcon className="w-3.5 h-3.5" />
                   {category.label}
                 </span>
-                <SeverityBadge severity={incident.severity} />
+                <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
               </>
             )}
           </div>
