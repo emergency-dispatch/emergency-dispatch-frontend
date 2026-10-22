@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { AddressSearchField } from './AddressSearchField';
 import { StationMapPicker } from './StationMapPicker';
 import { StationStaffSection, type StationMemberDraft } from './StationStaffSection';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../common/ui';
@@ -48,6 +49,7 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
   const [geocodeMiss, setGeocodeMiss] = useState(false);
   // Chỉ nhận kết quả của lần bấm bản đồ mới nhất (bấm liên tục thì các yêu cầu cũ có thể về sau).
   const geocodeSeq = useRef(0);
+  const [recenterKey, setRecenterKey] = useState(0);
 
   const handlePickLocation = async (latitude: number, longitude: number) => {
     setForm((f) => ({ ...f, latitude, longitude }));
@@ -139,17 +141,23 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
         hint={
           geocodeMiss
             ? 'Không tìm được địa chỉ cho vị trí này — vui lòng nhập tay.'
-            : 'Tự điền khi chọn vị trí trên bản đồ; có thể sửa lại.'
+            : 'Gõ địa chỉ rồi chọn gợi ý để bản đồ dời tới, hoặc chọn vị trí trên bản đồ để tự điền địa chỉ.'
         }
       >
-        <input
+        <AddressSearchField
           value={form.address}
-          onChange={(e) => set('address', e.target.value)}
+          onChange={(value) => set('address', value)}
+          onPick={(s) => {
+            // Hủy kết quả tra ngược đang chờ (nếu có) để không ghi đè địa chỉ vừa chọn.
+            geocodeSeq.current++;
+            setGeocoding(false);
+            setGeocodeMiss(false);
+            setForm((f) => ({ ...f, address: s.label.slice(0, ADDRESS_MAX), latitude: s.lat, longitude: s.lng }));
+            setRecenterKey((k) => k + 1);
+          }}
           maxLength={ADDRESS_MAX}
-          required
           disabled={geocoding}
           placeholder={geocoding ? 'Đang tìm địa chỉ...' : undefined}
-          className={inputClass}
         />
         {geocoding && (
           <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
@@ -217,6 +225,7 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
             lng={form.longitude}
             radiusKm={radiusValid ? radiusKm : undefined}
             onChange={handlePickLocation}
+            recenterKey={recenterKey}
           />
         </div>
         <p className="text-[11px] font-mono-data text-slate-500">

@@ -45,6 +45,8 @@ interface StationMapPickerProps {
   /** Bán kính phủ sóng; bỏ trống thì không vẽ vòng tròn (backend chưa lưu CoverageRadiusKm). */
   radiusKm?: number;
   onChange: (lat: number, lng: number) => void;
+  /** Đổi giá trị này để bay bản đồ tới vị trí hiện tại (VD sau khi chọn địa chỉ từ ô tìm kiếm). */
+  recenterKey?: number;
 }
 
 /**
@@ -52,7 +54,7 @@ interface StationMapPickerProps {
  * panning/zooming, only the marker + coverage circle move on click/drag.
  * Re-centering on every position change would be jarring UX.
  */
-export const StationMapPicker: React.FC<StationMapPickerProps> = ({ lat, lng, radiusKm, onChange }) => {
+export const StationMapPicker: React.FC<StationMapPickerProps> = ({ lat, lng, radiusKm, onChange, recenterKey }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
@@ -143,6 +145,12 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({ lat, lng, ra
     const source = mapRef.current?.getSource(COVERAGE_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
     source?.setData(buildCoveragePolygon(lat, lng, radiusKm));
   }, [lat, lng, radiusKm]);
+
+  useEffect(() => {
+    if (!recenterKey) return;
+    const { lat: cLat, lng: cLng } = latestRef.current;
+    mapRef.current?.flyTo({ center: [cLng, cLat], zoom: Math.max(mapRef.current.getZoom(), 15), duration: 800 });
+  }, [recenterKey]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 };
