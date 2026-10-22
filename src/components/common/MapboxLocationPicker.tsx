@@ -9,6 +9,7 @@ interface MapboxLocationPickerProps {
   longitude: number;
   onChange: (lat: number, lng: number, address?: string) => void;
   height?: string;
+  scrollZoom?: boolean;
 }
 
 export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
@@ -16,6 +17,7 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
   longitude,
   onChange,
   height = '220px',
+  scrollZoom = true,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -37,8 +39,12 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
       center: [longitude, latitude],
       zoom: 15,
       attributionControl: false,
-      scrollZoom: false, // Prevents intercepting page/modal mouse wheel scroll
+      scrollZoom: scrollZoom,
     });
+
+    if (scrollZoom) {
+      map.scrollZoom.enable();
+    }
 
     // Error handling to prevent unhandled tile load breaks
     map.on('error', (err) => {
@@ -162,8 +168,8 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
   };
 
   return (
-    <div className="relative rounded-xl overflow-hidden border border-slate-300 shadow-xs">
-      <div ref={mapContainerRef} style={{ width: '100%', height }} />
+    <div className="relative rounded-xl overflow-hidden border border-slate-300 shadow-xs h-full w-full min-h-[280px]">
+      <div ref={mapContainerRef} style={{ width: '100%', height }} className={height === '100%' ? 'h-full w-full' : ''} />
 
       {/* Floating Controls */}
       <div className="absolute top-2.5 left-2.5 flex items-center gap-2 z-10">

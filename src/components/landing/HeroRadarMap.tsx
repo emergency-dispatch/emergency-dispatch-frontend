@@ -56,11 +56,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     try {
       const storedIds: string[] = JSON.parse(localStorage.getItem('resq_my_reported_incident_ids') || '[]');
       if (storedIds.length > 0) {
-        const res = await incidentService.getIncidents({ pageSize: 20 });
-        const items = res.data?.items || [];
-        const match = items.find((i) => storedIds.includes(i.id));
-        if (match) {
-          setReportedIncident(match);
+        const res = await incidentService.getById(storedIds[0]);
+        if (res.success && res.data) {
+          setReportedIncident(res.data);
           return;
         }
       }

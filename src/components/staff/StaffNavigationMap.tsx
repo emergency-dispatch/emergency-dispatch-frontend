@@ -96,7 +96,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
   const setupRouteLayers = useCallback((map: mapboxgl.Map, coords: [number, number][]) => {
     const addOrUpdate = () => {
       try {
-        const geojsonData: GeoJSON.Feature<GeoJSON.LineString> = {
+        const geojsonData: any = {
           type: 'Feature',
           properties: {},
           geometry: {
