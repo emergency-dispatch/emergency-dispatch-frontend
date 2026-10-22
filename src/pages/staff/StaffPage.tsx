@@ -29,10 +29,16 @@ import { HazardTagBadge } from '../../components/common/HazardTagBadge';
 import { MapPin, Phone, User, ShieldAlert, Clock, RefreshCw, Radio } from 'lucide-react';
 import { staffAudioService } from '../../services/staffAudioService';
 import { useAuth } from '../../hooks/useAuth';
+import { routingService, type RouteResult } from '../../services/routingService';
+
+export const isGuid = (val?: string): boolean =>
+  typeof val === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
 function mapAssignmentDtoToMission(
   dto: DispatchAssignmentResponseDto,
-  fallbackVehiclePlate?: string
+  fallbackVehiclePlate?: string,
+  routeResult?: RouteResult
 ): StaffMission {
   let missionStatus: MissionStatus = 'accepted';
   if (dto.status === 'EnRoute') missionStatus = 'en_route';
@@ -77,8 +83,8 @@ function mapAssignmentDtoToMission(
     vehicleLng: vehLng,
     status: missionStatus,
     currentStepIndex: 0,
-    routeSteps: mockRouteSteps,
-    routePolyline: mockRoutePolyline,
+    routeSteps: routeResult?.steps || mockRouteSteps,
+    routePolyline: routeResult?.polyline || mockRoutePolyline,
     timeline: [
       {
         id: `tl-disp-${dto.id}`,
@@ -192,7 +198,13 @@ export const StaffPage: React.FC = () => {
           );
 
           if (activeDto) {
-            const mapped = mapAssignmentDtoToMission(activeDto, profile.vehiclePlate);
+            const incLat = activeDto.incidentLat || 10.8441;
+            const incLng = activeDto.incidentLng || 106.8089;
+            const vehLat = activeDto.rescueUnit?.currentLat || incLat - 0.006;
+            const vehLng = activeDto.rescueUnit?.currentLng || incLng - 0.006;
+
+            const routeRes = await routingService.calculateDrivingRoute([vehLat, vehLng], [incLat, incLng]);
+            const mapped = mapAssignmentDtoToMission(activeDto, profile.vehiclePlate, routeRes);
             setActiveMission(mapped);
 
             // If newly dispatched and never accepted yet, open alert modal + siren
@@ -225,9 +237,15 @@ export const StaffPage: React.FC = () => {
     incidentHubService.start();
 
     // Subscribe to new assignments pushed from CAD center (GET / Receive thông báo cứu hộ)
-    const unsubAssigned = incidentHubService.onJobAssigned((assignmentDto) => {
+    const unsubAssigned = incidentHubService.onJobAssigned(async (assignmentDto) => {
       staffAudioService.playEmergencySiren();
-      const mapped = mapAssignmentDtoToMission(assignmentDto, profile.vehiclePlate);
+      const incLat = assignmentDto.incidentLat || 10.8441;
+      const incLng = assignmentDto.incidentLng || 106.8089;
+      const vehLat = assignmentDto.rescueUnit?.currentLat || incLat - 0.006;
+      const vehLng = assignmentDto.rescueUnit?.currentLng || incLng - 0.006;
+
+      const routeRes = await routingService.calculateDrivingRoute([vehLat, vehLng], [incLat, incLng]);
+      const mapped = mapAssignmentDtoToMission(assignmentDto, profile.vehiclePlate, routeRes);
       setPendingMission(mapped);
       setIsAlertOpen(true);
       setActiveTab('mission');
@@ -249,6 +267,37 @@ export const StaffPage: React.FC = () => {
       clearInterval(intervalId);
     };
   }, [fetchMyAssignments, profile.vehiclePlate]);
+
+  // Tự động tính toán đường đi thực tế men theo mạng lưới đường bộ (OSRM)
+  useEffect(() => {
+    let isCancelled = false;
+    const computeRoute = async () => {
+      if (!activeMission.vehicleLat || !activeMission.incidentLat) return;
+      try {
+        const routeRes = await routingService.calculateDrivingRoute(
+          [activeMission.vehicleLat, activeMission.vehicleLng],
+          [activeMission.incidentLat, activeMission.incidentLng]
+        );
+        if (!isCancelled && routeRes.polyline.length > 2) {
+          setActiveMission((prev) => {
+            if (prev.routePolyline.length === routeRes.polyline.length) return prev;
+            return {
+              ...prev,
+              routePolyline: routeRes.polyline,
+              routeSteps: routeRes.steps,
+            };
+          });
+        }
+      } catch (err) {
+        console.warn('Auto route computation warning:', err);
+      }
+    };
+
+    computeRoute();
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeMission.incidentLat, activeMission.incidentLng, activeMission.vehicleLat, activeMission.vehicleLng]);
 
   // Status transition handler (Điều phối công việc)
   const handleStatusChange = async (nextStatus: MissionStatus) => {
@@ -291,19 +340,21 @@ export const StaffPage: React.FC = () => {
       return;
     }
 
-    // Call backend API to update status (PUT /api/dispatch/assignments/{id}/status)
-    try {
-      let beStatus: 'Accepted' | 'EnRoute' | 'OnScene' = 'Accepted';
-      if (nextStatus === 'en_route') beStatus = 'EnRoute';
-      else if (nextStatus === 'on_scene') beStatus = 'OnScene';
+    // Call backend API to update status if mission ID is a valid GUID in DB
+    if (isGuid(activeMission.id)) {
+      try {
+        let beStatus: 'Accepted' | 'EnRoute' | 'OnScene' = 'Accepted';
+        if (nextStatus === 'en_route') beStatus = 'EnRoute';
+        else if (nextStatus === 'on_scene') beStatus = 'OnScene';
 
-      await dispatchService.updateAssignmentStatus(activeMission.id, {
-        status: beStatus,
-        notes: statusLabels[nextStatus],
-      });
-      fetchMyAssignments(true);
-    } catch (err) {
-      console.warn('[StaffPage] Update assignment status API error:', err);
+        await dispatchService.updateAssignmentStatus(activeMission.id, {
+          status: beStatus,
+          notes: statusLabels[nextStatus],
+        });
+        fetchMyAssignments(true);
+      } catch (err) {
+        console.warn('[StaffPage] Update assignment status API error:', err);
+      }
     }
   };
 
@@ -360,25 +411,34 @@ export const StaffPage: React.FC = () => {
     setMissionHistory((prev) => [updatedMission, ...prev.filter((m) => m.id !== updatedMission.id)]);
     setIsReportModalOpen(false);
 
-    // Call backend resolve API (POST /api/dispatch/assignments/{id}/resolve)
-    try {
-      const photoUrls = (report.photos || []).map((p) => p.url).filter((u) => u && !u.startsWith('blob:'));
-      await dispatchService.resolveAssignment(activeMission.id, {
-        resolutionSummary: report.actionSummary || 'Đã hoàn tất xử lý hiện trường sự cố và bàn giao an toàn.',
-        evidenceMediaUrls: photoUrls,
-        handoverNotes: `Bàn giao cho: ${report.handoverEntity || 'N/A'} - ${report.handoverContactName || ''} (${report.handoverContactPhone || ''})`,
-      });
-      fetchMyAssignments(true);
-    } catch (err) {
-      console.warn('[StaffPage] Resolve assignment API error:', err);
+    // Call backend resolve API if real GUID
+    if (isGuid(activeMission.id)) {
+      try {
+        const photoUrls = (report.photos || []).map((p) => p.url).filter((u) => u && !u.startsWith('blob:'));
+        await dispatchService.resolveAssignment(activeMission.id, {
+          resolutionSummary: report.actionSummary || 'Đã hoàn tất xử lý hiện trường sự cố và bàn giao an toàn.',
+          evidenceMediaUrls: photoUrls,
+          handoverNotes: `Bàn giao cho: ${report.handoverEntity || 'N/A'} - ${report.handoverContactName || ''} (${report.handoverContactPhone || ''})`,
+        });
+        fetchMyAssignments(true);
+      } catch (err) {
+        console.warn('[StaffPage] Resolve assignment API error:', err);
+      }
     }
   };
 
-  // Simulate Incoming Dispatch with Siren
-  const handleSimulateNewMission = () => {
+  // Simulate Incoming Dispatch with Siren & OSRM Route
+  const handleSimulateNewMission = async () => {
     const randomSeed =
       sampleIncomingMissions[Math.floor(Math.random() * sampleIncomingMissions.length)];
     const newMissionId = `MS-2026-${Math.floor(100 + Math.random() * 900)}`;
+
+    const incLat = randomSeed.incidentLat || 10.8441;
+    const incLng = randomSeed.incidentLng || 106.8089;
+    const vehLat = 10.8452;
+    const vehLng = 106.7955;
+
+    const routeRes = await routingService.calculateDrivingRoute([vehLat, vehLng], [incLat, incLng]);
 
     const generatedMission: StaffMission = {
       id: newMissionId,
@@ -389,26 +449,26 @@ export const StaffPage: React.FC = () => {
       hazardTags: randomSeed.hazardTags || ['fire', 'injury'],
       area: randomSeed.area || 'Phân khu 1',
       address: randomSeed.address || 'Đường D1, Khu Công nghệ cao TP.HCM',
-      incidentLat: randomSeed.incidentLat || 10.8441,
-      incidentLng: randomSeed.incidentLng || 106.8089,
+      incidentLat: incLat,
+      incidentLng: incLng,
       callerName: randomSeed.callerName || 'Công nhân báo tin',
       callerPhone: randomSeed.callerPhone || '0901 234 567',
       assignedAt: new Date().toISOString(),
       vehicleId: profile.id,
       vehiclePlate: profile.vehiclePlate,
       vehicleType: profile.vehicleType,
-      vehicleLat: 10.8452,
-      vehicleLng: 106.7955,
+      vehicleLat: vehLat,
+      vehicleLng: vehLng,
       status: 'accepted',
       currentStepIndex: 0,
-      routeSteps: mockRouteSteps,
-      routePolyline: mockRoutePolyline,
+      routeSteps: routeRes.steps,
+      routePolyline: routeRes.polyline,
       timeline: [
         {
           id: `tl-${Date.now()}`,
           timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
           status: 'accepted',
-          label: `Tổng đài CAD điều động kíp xe ${profile.vehiclePlate} tiếp nhận nhiệm vụ ${newMissionId}`,
+          label: `Tổng đài CAD điều động kíp xe ${profile.vehiclePlate} tiếp nhận nhiệm vụ diễn tập ${newMissionId}`,
         },
       ],
     };
@@ -421,14 +481,16 @@ export const StaffPage: React.FC = () => {
   const handleAcceptMission = async () => {
     if (pendingMission) {
       setActiveMission(pendingMission);
-      try {
-        await dispatchService.updateAssignmentStatus(pendingMission.id, {
-          status: 'Accepted',
-          notes: 'Đội xe đã xác nhận tiếp nhận lệnh điều phối.',
-        });
-        fetchMyAssignments(true);
-      } catch (err) {
-        console.warn('[StaffPage] Accept mission API update status error:', err);
+      if (isGuid(pendingMission.id)) {
+        try {
+          await dispatchService.updateAssignmentStatus(pendingMission.id, {
+            status: 'Accepted',
+            notes: 'Đội xe đã xác nhận tiếp nhận lệnh điều phối.',
+          });
+          fetchMyAssignments(true);
+        } catch (err) {
+          console.warn('[StaffPage] Accept mission API update status error:', err);
+        }
       }
       setPendingMission(null);
     }
@@ -472,28 +534,55 @@ export const StaffPage: React.FC = () => {
               {/* Left Column: Mission Controls & Telemetry (5 cols) */}
               <div className="lg:col-span-5 space-y-4">
                 {/* Active Dispatches Banner / Quick Refresh */}
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <Radio className="w-4 h-4 text-red-600 animate-pulse" />
-                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700">
-                      Nhiệm Vụ Đang Xử Lý
-                    </span>
-                    {backendAssignments.length > 0 && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-100 text-red-700">
-                        {backendAssignments.filter((a) => a.status !== 'Completed' && a.status !== 'Cancelled').length} Đang chạy
+                <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-xs space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Radio className="w-4 h-4 text-red-600 animate-pulse shrink-0" />
+                      <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800 truncate">
+                        Nhiệm Vụ Tác Chiến
                       </span>
-                    )}
+                      {isGuid(activeMission.id) ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                          Kết Nối CAD (Trực Tuyến)
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                          Chế Độ Diễn Tập
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => fetchMyAssignments(false)}
+                      disabled={loadingAssignments}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-bold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                      title="Đồng bộ lại danh sách lệnh điều phối từ máy chủ CAD"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${loadingAssignments ? 'animate-spin' : ''}`} />
+                      <span>{loadingAssignments ? 'Đang tải...' : 'Đồng bộ CAD'}</span>
+                    </button>
                   </div>
 
-                  <button
-                    onClick={() => fetchMyAssignments(false)}
-                    disabled={loadingAssignments}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-all cursor-pointer disabled:opacity-50"
-                    title="Đồng bộ lại danh sách lệnh điều phối từ máy chủ"
-                  >
-                    <RefreshCw className={`w-3 h-3 ${loadingAssignments ? 'animate-spin' : ''}`} />
-                    <span>Làm mới</span>
-                  </button>
+                  {!isGuid(activeMission.id) && (
+                    <div className="text-[11px] text-slate-600 bg-slate-50 rounded-xl p-2.5 border border-slate-200/70 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 shadow-xs" />
+                        <span className="truncate">
+                          {backendAssignments.length === 0
+                            ? 'Trực chiến sẵn sàng. Đang chờ lệnh điều động từ Tổng đài qua SignalR.'
+                            : 'Đang theo dõi kịch bản diễn tập phản ứng nhanh.'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSimulateNewMission}
+                        className="text-[11px] font-bold text-red-600 hover:text-red-700 hover:underline shrink-0 cursor-pointer"
+                        title="Đổi tình huống diễn tập khác"
+                      >
+                        Đổi tình huống
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Status Stepper */}

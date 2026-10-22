@@ -18,7 +18,6 @@ import {
   Eye,
 } from 'lucide-react';
 import type { DigitalClosureReport, ClosureEvidencePhoto, StaffMission } from '../../types/staff';
-import { mockEvidencePhotos } from '../../data/staffMock';
 import { StaffQrHandover } from './StaffQrHandover';
 import { StaffSignaturePad } from './StaffSignaturePad';
 import { staffAudioService } from '../../services/staffAudioService';
@@ -44,15 +43,15 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
   onSubmitReport,
 }) => {
   const [photos, setPhotos] = useState<ClosureEvidencePhoto[]>(
-    mission.closureReport?.photos || mockEvidencePhotos
+    mission.closureReport?.photos || []
   );
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   const [casualtiesTreated, setCasualtiesTreated] = useState<number>(
-    mission.closureReport?.casualtiesTreated ?? 2
+    mission.closureReport?.casualtiesTreated ?? 0
   );
   const [casualtiesHospitalized, setCasualtiesHospitalized] = useState<number>(
-    mission.closureReport?.casualtiesHospitalized ?? 2
+    mission.closureReport?.casualtiesHospitalized ?? 0
   );
   const [fireExtinguished, setFireExtinguished] = useState<boolean>(
     mission.closureReport?.fireExtinguished ?? true
@@ -61,8 +60,7 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
     mission.closureReport?.hazardsNeutralized ?? true
   );
   const [actionSummary, setActionSummary] = useState<string>(
-    mission.closureReport?.actionSummary ||
-      'Đã triển khai 02 lăng B phun bọt dập tắt hoàn toàn đám cháy tại tầng 2. Cứu nạn an toàn 02 người mắc kẹt tại ban công, đã sơ cứu ban đầu và chuyển xe cấp cứu 115 an toàn.'
+    mission.closureReport?.actionSummary || ''
   );
 
   const [handoverEntity, setHandoverEntity] = useState<string>(

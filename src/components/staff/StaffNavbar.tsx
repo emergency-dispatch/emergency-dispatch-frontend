@@ -114,16 +114,6 @@ export const StaffNavbar: React.FC<StaffNavbarProps> = ({
           {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 animate-pulse" />}
         </button>
 
-        {/* Simulate New Mission (Demo trigger) */}
-        <button
-          onClick={onSimulateNewMission}
-          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer"
-          title="Tạo giả lập nhận nhiệm vụ điều phối mới kèm còi hú cảnh báo"
-        >
-          <BellRing className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Giả Lập Báo Động</span>
-        </button>
-
         {/* Mission History */}
         <button
           onClick={onOpenHistory}
