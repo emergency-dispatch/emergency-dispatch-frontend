@@ -1,5 +1,5 @@
 import React from 'react';
-import { Percent } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { LOW_CONFIDENCE_THRESHOLD } from '../../../data/incidentMock';
 
 interface ConfidenceBadgeProps {
@@ -7,14 +7,21 @@ interface ConfidenceBadgeProps {
   score: number;
 }
 
+/**
+ * "AI 86%". Dưới ngưỡng thì đổi sang hổ phách kèm biểu tượng cảnh báo — gộp luôn cảnh báo
+ * "Độ tin cậy thấp" vào đây thay vì thêm một badge riêng.
+ */
 export const ConfidenceBadge: React.FC<ConfidenceBadgeProps> = ({ score }) => {
-  const tierClass =
-    score >= 80 ? 'text-emerald-400' : score >= LOW_CONFIDENCE_THRESHOLD ? 'text-amber-400' : 'text-red-400';
+  const isLow = score < LOW_CONFIDENCE_THRESHOLD;
+  const tierClass = score >= 80 ? 'text-emerald-700' : isLow ? 'text-amber-700' : 'text-slate-600';
 
   return (
-    <span className={`inline-flex items-center gap-0.5 font-mono-data font-bold text-xs shrink-0 ${tierClass}`}>
-      {score}
-      <Percent className="w-3 h-3" />
+    <span
+      className={`inline-flex items-center gap-1 text-xs font-semibold tabular-nums whitespace-nowrap shrink-0 ${tierClass}`}
+      title={isLow ? 'Độ tin cậy thấp — xem kỹ ảnh/video trước khi duyệt' : `AI tin cậy ${score}%`}
+    >
+      {isLow && <AlertTriangle className="w-3.5 h-3.5" />}
+      AI {score}%
     </span>
   );
 };

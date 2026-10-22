@@ -1,5 +1,5 @@
-import React from 'react';
-import { AlertTriangle, Inbox, ListChecks, Loader2 } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { AlertTriangle, Inbox, ListChecks, Loader2, Siren } from 'lucide-react';
 import { IncidentRow } from './IncidentRow';
 import { useNow } from '../../../hooks/useNow';
 import type { Incident } from '../../../types/incident';
@@ -15,6 +15,24 @@ interface IncidentQueueListProps {
   loadError?: string | null;
 }
 
+interface GroupHeaderProps {
+  label: string;
+  count: number;
+  tone: 'alert' | 'neutral';
+}
+
+const GroupHeader: React.FC<GroupHeaderProps> = ({ label, count, tone }) => (
+  <div
+    className={`sticky top-0 z-10 flex items-center gap-2 px-6 py-2 border-b text-xs font-bold ${
+      tone === 'alert' ? 'bg-red-50 border-red-100 text-red-700' : 'bg-slate-50 border-slate-200 text-slate-600'
+    }`}
+  >
+    {tone === 'alert' && <Siren className="w-3.5 h-3.5" />}
+    {label}
+    <span className="font-semibold tabular-nums opacity-70">{count}</span>
+  </div>
+);
+
 export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
   incidents,
   highlightIds,
@@ -27,22 +45,59 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
 }) => {
   const now = useNow();
 
+  // Giữ nguyên thứ tự ưu tiên từ store, chỉ tách ca leo thang lên nhóm riêng.
+  const [escalated, waiting] = useMemo(() => {
+    const esc: Incident[] = [];
+    const rest: Incident[] = [];
+    incidents.forEach((inc) => (escalatedIds.has(inc.id) ? esc : rest).push(inc));
+    return [esc, rest];
+  }, [incidents, escalatedIds]);
+
+  const renderRow = (incident: Incident) => (
+    <IncidentRow
+      key={incident.id}
+      incident={incident}
+      isNew={highlightIds.has(incident.id)}
+      isSelected={incident.id === selectedId}
+      isEscalated={escalatedIds.has(incident.id)}
+      now={now}
+      currentOperatorId={currentOperatorId}
+      onClick={() => onSelect(incident.id)}
+    />
+  );
+
   return (
-    <div className="h-full flex flex-col">
-      <div className="shrink-0 px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+    <div className="h-full flex flex-col bg-white">
+      <div className="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
         <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2.5">
           <ListChecks className="w-5 h-5 text-red-600" />
           Incident Queue
         </h1>
-        <span className="text-xs font-mono-data text-slate-500 whitespace-nowrap">
-          {incidents.length} đang chờ xử lý
-        </span>
+        <div className="flex items-center gap-4 text-sm whitespace-nowrap">
+          <span className="text-slate-600">
+            <span className="font-bold text-slate-900 tabular-nums">{incidents.length}</span> đang chờ
+          </span>
+          {escalated.length > 0 && (
+            <span className="text-red-700">
+              <span className="font-bold tabular-nums">{escalated.length}</span> leo thang
+            </span>
+          )}
+        </div>
       </div>
 
       {loadError && (
         <div className="shrink-0 mx-5 mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-600">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span>{loadError}</span>
+        </div>
+      )}
+
+      {!isLoading && incidents.length > 0 && (
+        <div className="shrink-0 hidden md:flex items-center gap-4 pl-6 pr-6 py-2 border-b border-slate-200 text-[11px] font-semibold text-slate-500">
+          <span className="w-12 shrink-0" />
+          <span className="flex-1">Sự cố</span>
+          <span className="w-56 shrink-0">Đánh giá AI</span>
+          <span className="w-36 shrink-0 text-right">Thời gian chờ</span>
         </div>
       )}
 
@@ -57,19 +112,21 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
             <Inbox className="w-8 h-8" />
             <p className="text-sm text-slate-500">Không có sự cố nào đang chờ xử lý</p>
           </div>
+        ) : escalated.length === 0 ? (
+          waiting.map(renderRow)
         ) : (
-          incidents.map((incident) => (
-            <IncidentRow
-              key={incident.id}
-              incident={incident}
-              isNew={highlightIds.has(incident.id)}
-              isSelected={incident.id === selectedId}
-              isEscalated={escalatedIds.has(incident.id)}
-              now={now}
-              currentOperatorId={currentOperatorId}
-              onClick={() => onSelect(incident.id)}
-            />
-          ))
+          <>
+            <section aria-label="Sự cố leo thang">
+              <GroupHeader label="Leo thang, cần thẩm định ngay" count={escalated.length} tone="alert" />
+              {escalated.map(renderRow)}
+            </section>
+            {waiting.length > 0 && (
+              <section aria-label="Sự cố đang chờ">
+                <GroupHeader label="Đang chờ thẩm định" count={waiting.length} tone="neutral" />
+                {waiting.map(renderRow)}
+              </section>
+            )}
+          </>
         )}
       </div>
     </div>
