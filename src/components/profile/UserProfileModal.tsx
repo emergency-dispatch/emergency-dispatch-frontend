@@ -28,6 +28,7 @@ import { userService } from '../../services/userService';
 import { mediaService } from '../../services/mediaService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import { BloodType, Gender, UserRole, UserResponseDto, IceContactDto } from '../../types/auth';
+import { getAvatarUrl } from '../../utils/avatar';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -37,7 +38,7 @@ interface UserProfileModalProps {
 type TabType = 'general' | 'medical' | 'ice' | 'security';
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) => {
-  const { user, updateProfile, refreshProfile } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('general');
 
   // General state
@@ -119,24 +120,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         setSmsTemplate(fullUser.smsTemplate || 'CẤP CỨU: Tôi vừa bấm SOS tại tọa độ {lat},{lng}. Cần hỗ trợ khẩn cấp!');
       }
 
-      refreshProfile()
-        .then((updated) => {
-          if (updated) {
-            setAvatarUrl(updated.avatarUrl || '');
-            setAddress(updated.address || '');
-            setCitizenIdNumber(updated.citizenIdNumber || '');
-            setGender(updated.gender || Gender.Male);
-            setMedicalNotes(updated.medicalNotes || '');
-            setChronicConditions((updated.chronicConditions || []).join(', '));
-            setAllergies((updated.allergies || []).join(', '));
-            setCurrentMedications((updated.currentMedications || []).join(', '));
-            setMobilityLimitations((updated.mobilityLimitations || []).join(', '));
-            setAutoSendSmsOnSos(updated.autoSendSmsOnSos ?? true);
-            setSmsTemplate(updated.smsTemplate || 'CẤP CỨU: Tôi vừa bấm SOS tại tọa độ {lat},{lng}. Cần hỗ trợ khẩn cấp!');
-          }
-        })
-        .catch(() => {});
-
       loadIceContacts();
     } else {
       document.body.style.overflow = '';
@@ -144,7 +127,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen, user, refreshProfile]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -183,9 +166,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
           .map((s) => s.trim())
           .filter(Boolean);
 
+      const cleanPhone = phoneNumber.trim();
+      if (cleanPhone && !/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(cleanPhone)) {
+        setErrorMsg('Số điện thoại không đúng định dạng Việt Nam (ví dụ: 0912345678).');
+        setIsLoading(false);
+        return;
+      }
+
       await updateProfile({
         fullName: fullName.trim(),
-        phoneNumber: phoneNumber.trim() || undefined,
+        phoneNumber: cleanPhone ? cleanPhone : null,
         avatarUrl: avatarUrl.trim() || undefined,
         address: address.trim() || undefined,
         citizenIdNumber: citizenIdNumber.trim() || undefined,
@@ -314,17 +304,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
           <div className="flex items-center gap-3">
             <div className="relative group">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={fullName}
-                  className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-sm"
-                />
-              ) : (
-                <div className="w-11 h-11 rounded-xl bg-red-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
-                  {user?.fullName?.substring(0, 2).toUpperCase() || 'CD'}
-                </div>
-              )}
+              <img
+                src={getAvatarUrl(avatarUrl)}
+                alt={fullName}
+                className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-sm"
+              />
               <button
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
@@ -480,19 +464,45 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Số điện thoại
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                      Số điện thoại
+                    </label>
+                    {phoneNumber && (
+                      <button
+                        type="button"
+                        onClick={() => setPhoneNumber('')}
+                        className="text-[11px] text-red-600 hover:text-red-700 hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                        title="Xóa số điện thoại"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Xóa số</span>
+                      </button>
+                    )}
+                  </div>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                     <input
                       type="tel"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="0912345678"
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
+                      placeholder="0912345678 (để trống nếu muốn xóa)"
+                      className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                     />
+                    {phoneNumber && (
+                      <button
+                        type="button"
+                        onClick={() => setPhoneNumber('')}
+                        className="absolute right-2.5 top-2.5 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                        title="Xóa trắng số điện thoại"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
+                  <p className="text-[11px] text-slate-400">
+                    Để trống và bấm &ldquo;Lưu thay đổi&rdquo; nếu bạn muốn gỡ bỏ số điện thoại khỏi hồ sơ.
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">
