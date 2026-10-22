@@ -75,22 +75,28 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
     <div className={`rounded-lg border transition-all duration-150 ${borderClass}`}>
       {/* Header row — bấm để chọn sự cố */}
       <button onClick={onSelect} className="w-full text-left px-3 pt-3 pb-2">
+        {/* Dòng 1: category + thời gian */}
         <div className="flex items-center justify-between gap-2 mb-1">
-          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
             <span className="inline-flex items-center gap-1 text-[10px] font-bold shrink-0" style={{ color: category.color }}>
               <CategoryIcon className="w-3 h-3" />
               {category.label}
             </span>
-            <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
-            {isEscalated && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white uppercase animate-pulse shrink-0">
-                <Siren className="w-2.5 h-2.5" />
-                Leo thang
-              </span>
-            )}
+            <div className="min-w-0 overflow-hidden">
+              <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+            </div>
           </div>
           <span className="text-[10px] font-mono-data text-slate-400 whitespace-nowrap shrink-0">{waitMinutes}ph</span>
         </div>
+        {/* Dòng 2: badge leo thang (chỉ hiện khi cần, không làm tràn) */}
+        {isEscalated && (
+          <div className="mb-1">
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white uppercase animate-pulse">
+              <Siren className="w-2.5 h-2.5" />
+              Leo thang — chưa có đơn vị nhận
+            </span>
+          </div>
+        )}
         <p className="text-xs font-semibold text-slate-900 truncate leading-snug">{incident.title}</p>
         <p className="text-[10px] text-slate-500 truncate mt-0.5">{incident.area}</p>
       </button>
