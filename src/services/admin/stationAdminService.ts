@@ -40,8 +40,16 @@ export const stationAdminService = {
   },
 
   /**
-   * Xóa mềm trạm. Backend chặn (400) khi còn xe Dispatched/OnScene; xe còn lại vẫn gắn với trạm đã xóa,
-   * không tự chuyển trạng thái.
+   * Gán nhân sự vào trạm (stationId) hoặc gỡ khỏi trạm (null). Không gửi tên tổ: chuyển sang trạm khác thì
+   * backend tự gỡ người đó khỏi tổ của trạm cũ, gỡ khỏi trạm thì gỡ luôn khỏi tổ. Chia tổ do Operator làm ở Trạm & Tổ.
+   */
+  async assignStaff(userId: string, stationId: string | null): Promise<void> {
+    await unwrapApi(apiClient.put<ApiResponse<unknown>>(`/users/${userId}/assign-station-team`, { stationId }));
+  },
+
+  /**
+   * Xóa mềm trạm. Backend chặn (400) khi còn xe đang làm nhiệm vụ; xe còn lại chuyển Ngừng hoạt động,
+   * nhân sự bị gỡ khỏi trạm và các tổ của trạm bị xóa.
    */
   async remove(id: string): Promise<void> {
     await unwrapApi(apiClient.delete<ApiResponse<null>>(`/stations/${id}`));

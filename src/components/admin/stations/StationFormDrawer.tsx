@@ -1,17 +1,29 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { StationMapPicker } from './StationMapPicker';
+import { StationStaffSection, type StationMemberDraft } from './StationStaffSection';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../common/ui';
 import { inputClass } from '../common/styles';
 import { MAP_CENTER } from '../fleetMeta';
 import { HOTLINE_PATTERN, stationAdminService } from '../../../services/admin/stationAdminService';
 import { getApiErrorMessage } from '../../../services/apiClient';
+import { mapboxService } from '../../../services/mapboxService';
 import { COVERAGE_RADIUS_KM, type StationResponseDto, type StationUpsertDto } from '../../../types/station';
 
 interface StationFormDrawerProps {
   initialStation: StationResponseDto | null;
   onClose: () => void;
-  onSaved: (station: StationResponseDto) => void;
+  /** `staffWarning`: trạm đã lưu nhưng còn nhân sự chưa gán / gỡ được. */
+  onSaved: (station: StationResponseDto, staffWarning: string | null) => void;
 }
+
+const toDraft = (m: StationResponseDto['staffMembers'][number]): StationMemberDraft => ({
+  id: m.id,
+  fullName: m.fullName,
+  email: m.email,
+  role: m.role,
+  movingFromStation: null,
+});
 
 // Giới hạn độ dài khớp validation của CreateStationDto / UpdateStationDto.
 const NAME_MAX = 200;
@@ -28,8 +40,27 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
     // Ô số giữ dạng chuỗi để gõ dở không bị nhảy.
     coverageRadiusKm: String(initialStation?.coverageRadiusKm ?? COVERAGE_RADIUS_KM.default),
   });
+  const [initialMembers] = useState<StationMemberDraft[]>(() => (initialStation?.staffMembers ?? []).map(toDraft));
+  const [members, setMembers] = useState<StationMemberDraft[]>(initialMembers);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodeMiss, setGeocodeMiss] = useState(false);
+  // Chỉ nhận kết quả của lần bấm bản đồ mới nhất (bấm liên tục thì các yêu cầu cũ có thể về sau).
+  const geocodeSeq = useRef(0);
+
+  const handlePickLocation = async (latitude: number, longitude: number) => {
+    setForm((f) => ({ ...f, latitude, longitude }));
+    const seq = ++geocodeSeq.current;
+    setGeocoding(true);
+    setGeocodeMiss(false);
+    const address = await mapboxService.reverseGeocode(longitude, latitude);
+    if (seq !== geocodeSeq.current) return;
+    setGeocoding(false);
+    // Không tìm được thì service trả chuỗi "Tọa độ (...)" — giữ nguyên địa chỉ đang có để Admin tự nhập.
+    if (address.startsWith('Tọa độ (')) setGeocodeMiss(true);
+    else setForm((f) => ({ ...f, address: address.slice(0, ADDRESS_MAX) }));
+  };
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -53,15 +84,32 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
       isActive: form.isActive,
       coverageRadiusKm: radiusKm,
     };
+    let saved: StationResponseDto;
     try {
-      const saved = initialStation
+      saved = initialStation
         ? await stationAdminService.update(initialStation.id, body)
         : await stationAdminService.create(body);
-      onSaved(saved);
     } catch (err) {
       setError(getApiErrorMessage(err));
       setSubmitting(false);
+      return;
     }
+
+    // Trạm đã lưu → gán người mới thêm, gỡ người bị bỏ ra. Lỗi từng người không hoàn tác trạm đã lưu.
+    const memberIds = new Set(members.map((m) => m.id));
+    const initialIds = new Set(initialMembers.map((m) => m.id));
+    const changes = [
+      ...members.filter((m) => !initialIds.has(m.id)).map((m) => ({ member: m, stationId: saved.id as string | null })),
+      ...initialMembers.filter((m) => !memberIds.has(m.id)).map((m) => ({ member: m, stationId: null })),
+    ];
+    const results = await Promise.allSettled(
+      changes.map((c) => stationAdminService.assignStaff(c.member.id, c.stationId))
+    );
+    const failed = changes.filter((_, i) => results[i].status === 'rejected').map((c) => c.member.fullName);
+    onSaved(
+      saved,
+      failed.length > 0 ? `Chưa cập nhật được nhân sự: ${failed.join(', ')}. Mở Sửa trạm để thử lại.` : null
+    );
   };
 
   return (
@@ -85,14 +133,30 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
         />
       </FormField>
 
-      <FormField label="Địa chỉ" required>
+      <FormField
+        label="Địa chỉ"
+        required
+        hint={
+          geocodeMiss
+            ? 'Không tìm được địa chỉ cho vị trí này — vui lòng nhập tay.'
+            : 'Tự điền khi chọn vị trí trên bản đồ; có thể sửa lại.'
+        }
+      >
         <input
           value={form.address}
           onChange={(e) => set('address', e.target.value)}
           maxLength={ADDRESS_MAX}
           required
+          disabled={geocoding}
+          placeholder={geocoding ? 'Đang tìm địa chỉ...' : undefined}
           className={inputClass}
         />
+        {geocoding && (
+          <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Đang tìm địa chỉ theo vị trí trên bản đồ...
+          </p>
+        )}
       </FormField>
 
       <FormField
@@ -140,13 +204,19 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
         Trạm đang hoạt động
       </label>
 
-      <FormField label="Vị trí trên bản đồ" required hint="Bấm lên bản đồ để đặt vị trí hoặc kéo marker.">
+      <StationStaffSection stationId={initialStation?.id ?? null} members={members} onChange={setMembers} />
+
+      <FormField
+        label="Vị trí trên bản đồ"
+        required
+        hint="Bấm lên bản đồ hoặc kéo marker để đặt vị trí — địa chỉ được điền tự động."
+      >
         <div className="h-64 rounded-lg overflow-hidden border border-slate-200">
           <StationMapPicker
             lat={form.latitude}
             lng={form.longitude}
             radiusKm={radiusValid ? radiusKm : undefined}
-            onChange={(latitude, longitude) => setForm((f) => ({ ...f, latitude, longitude }))}
+            onChange={handlePickLocation}
           />
         </div>
         <p className="text-[11px] font-mono-data text-slate-500">

@@ -90,10 +90,15 @@ const StationsPage: React.FC = () => {
         <StationFormDrawer
           initialStation={formStation === 'new' ? null : formStation}
           onClose={() => setFormStation(null)}
-          onSaved={(saved) => {
+          onSaved={(saved, staffWarning) => {
             setNotice({
-              kind: 'success',
-              message: formStation === 'new' ? `Đã thêm trạm "${saved.name}".` : `Đã cập nhật trạm "${saved.name}".`,
+              kind: staffWarning ? 'error' : 'success',
+              message: [
+                formStation === 'new' ? `Đã thêm trạm "${saved.name}".` : `Đã cập nhật trạm "${saved.name}".`,
+                staffWarning,
+              ]
+                .filter(Boolean)
+                .join(' '),
             });
             setFormStation(null);
             query.reload();
