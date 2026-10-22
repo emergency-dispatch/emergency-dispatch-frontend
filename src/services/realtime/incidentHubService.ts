@@ -176,6 +176,13 @@ class HubClient {
     return this.connection?.state === HubConnectionState.Connected;
   }
 
+  public async invoke<T = any>(methodName: string, ...args: any[]): Promise<T | null> {
+    if (!this.connection || this.connection.state !== HubConnectionState.Connected) {
+      return null;
+    }
+    return this.connection.invoke<T>(methodName, ...args);
+  }
+
   public getStatus = (): HubStatus => this.status;
 
   /** Dùng với useSyncExternalStore. */

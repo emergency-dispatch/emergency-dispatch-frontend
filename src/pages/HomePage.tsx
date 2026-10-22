@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '../components/layout/Navbar';
 import { HeroSection } from '../components/landing/HeroSection';
-import { LiveTelemetryBar } from '../components/landing/LiveTelemetryBar';
 import { FeaturesSection } from '../components/landing/FeaturesSection';
 import { AiHighlightSection } from '../components/landing/AiHighlightSection';
 import { HowItWorksSection } from '../components/landing/HowItWorksSection';
@@ -87,12 +86,9 @@ export const HomePage: React.FC = () => {
                   <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
                     Chưa có số điện thoại
                   </h4>
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
-                    CẦN THIẾT
-                  </span>
                 </div>
                 <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed text-pretty">
-                  Bổ sung SĐT để lực lượng 114/115 liên hệ xác minh hiện trường khi&nbsp;gửi&nbsp;SOS.
+                  Bổ sung SĐT để lực lượng cứu hộ liên hệ xác minh hiện trường khi&nbsp;gửi&nbsp;SOS.
                 </p>
               </div>
 
@@ -117,9 +113,6 @@ export const HomePage: React.FC = () => {
           onOpenSos={() => setSosModalOpen(true)}
           onOpenReports={() => setReportsModalOpen(true)}
         />
-
-        {/* Real-Time Telemetry Bar */}
-        <LiveTelemetryBar />
 
         {/* Features Section */}
         <FeaturesSection />
