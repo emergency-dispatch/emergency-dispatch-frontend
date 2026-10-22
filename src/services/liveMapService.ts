@@ -80,6 +80,11 @@ export const liveMapService = {
     return unwrapApi(apiClient.get<ApiResponse<RescueUnitResponseDto[]>>('/rescue-units'));
   },
 
+  /** Operator chỉ đặt thủ công Sẵn sàng ⇄ Bảo trì; các trạng thái khác do luồng điều phối tự đặt. */
+  async setRescueUnitStatus(id: string, status: 'Available' | 'Maintenance'): Promise<RescueUnitResponseDto> {
+    return unwrapApi(apiClient.put<ApiResponse<RescueUnitResponseDto>>(`/rescue-units/${id}/status`, { status }));
+  },
+
   async getActiveTrafficJams(): Promise<TrafficJamReport[]> {
     const hotspots = await unwrapApi(apiClient.get<ApiResponse<TrafficHotspotResponseDto[]>>('/traffic/active'));
     return hotspots.map(mapTrafficHotspot);

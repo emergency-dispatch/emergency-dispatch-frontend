@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { IncidentDetailDrawer } from '../../components/operator/incidents/IncidentDetailDrawer';
 import { IncidentQueueList } from '../../components/operator/incidents/IncidentQueueList';
 import { useDispatchStore } from '../../context/DispatchContext';
@@ -63,6 +64,18 @@ export const IncidentQueuePage: React.FC = () => {
       new Date(target.lock.expiresAt).getTime() > Date.now();
     if (!heldByOther) acquireLock(id);
   };
+
+  // Mở từ thông báo tin báo mới ("Thẩm định ngay") → mở sẵn ca đó. Chờ ca có trong danh sách rồi mới mở.
+  const location = useLocation();
+  const openIncidentId = (location.state as { openIncidentId?: string } | null)?.openIncidentId;
+  const [openedFromState, setOpenedFromState] = useState<string | null>(null);
+  const openKey = openIncidentId ? `${location.key}:${openIncidentId}` : null;
+  useEffect(() => {
+    if (!openKey || openedFromState === openKey) return;
+    if (!pendingIncidents.some((inc) => inc.id === openIncidentId)) return;
+    setOpenedFromState(openKey);
+    handleSelect(openIncidentId!);
+  }, [openKey, pendingIncidents]);
 
   const handleClose = () => {
     if (selectedId) releaseIncident(selectedId);

@@ -2,6 +2,9 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronsLeft, ChevronsRight, ShieldAlert } from 'lucide-react';
 import { dashboardNavGroups } from '../../data/dashboardMock';
+import { useDispatchStore } from '../../context/DispatchContext';
+
+const QUEUE_PATH = '/dashboard/command-center/incidents';
 
 interface OperatorSidebarProps {
   collapsed: boolean;
@@ -9,6 +12,10 @@ interface OperatorSidebarProps {
 }
 
 export const OperatorSidebar: React.FC<OperatorSidebarProps> = ({ collapsed, onToggle }) => {
+  // Số ca chờ thẩm định — luôn thấy ở sidebar dù Operator đang ở màn khác.
+  const { incidents } = useDispatchStore();
+  const pendingCount = incidents.filter((i) => i.status === 'pending').length;
+
   return (
     <aside
       className={`flex flex-col h-full shrink-0 bg-white border-r border-slate-200 transition-all duration-300 ${
@@ -39,6 +46,7 @@ export const OperatorSidebar: React.FC<OperatorSidebarProps> = ({ collapsed, onT
             <div className="space-y-1">
               {group.items.map((item) => {
                 const Icon = item.icon;
+                const badge = item.path === QUEUE_PATH && pendingCount > 0 ? pendingCount : 0;
                 return (
                   <NavLink
                     key={item.path}
@@ -57,13 +65,24 @@ export const OperatorSidebar: React.FC<OperatorSidebarProps> = ({ collapsed, onT
                     {({ isActive }) => (
                       <>
                         <div
-                          className={`p-1.5 rounded-lg transition-colors shrink-0 ${
+                          className={`relative p-1.5 rounded-lg transition-colors shrink-0 ${
                             isActive ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-500'
                           }`}
                         >
                           <Icon className="w-4 h-4" />
+                          {collapsed && badge > 0 && (
+                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-600 border-2 border-white" />
+                          )}
                         </div>
-                        {!collapsed && <span className="truncate">{item.label}</span>}
+                        {!collapsed && <span className="truncate flex-1">{item.label}</span>}
+                        {!collapsed && badge > 0 && (
+                          <span
+                            className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0"
+                            title={`${badge} sự cố chờ thẩm định`}
+                          >
+                            {badge > 99 ? '99+' : badge}
+                          </span>
+                        )}
                       </>
                     )}
                   </NavLink>

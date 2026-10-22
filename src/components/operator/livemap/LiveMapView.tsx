@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { Building2, CheckCircle2, Clock, ExternalLink, Loader2, LocateFixed } from 'lucide-react';
+import { Building2, CheckCircle2, Clock, Crown, ExternalLink, Loader2, LocateFixed, Users } from 'lucide-react';
 import { MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import { MAPBOX_ACCESS_TOKEN } from '../../../services/mapboxService';
+import { useTeamByVehicle } from '../../../hooks/useStationTeams';
+import { TEAM_FUNCTION_META } from '../teams/teamFunction';
 import type { Station, Vehicle } from '../../../types/vehicle';
 import type { Incident, TrafficJamReport } from '../../../types/incident';
 import {
@@ -71,29 +73,50 @@ const MapCameraController: React.FC<MapCameraControllerProps> = ({
   return null;
 };
 
+/** Popup xe: điều phối theo tổ nên tổ phụ trách đứng đầu, biển số / loại xe ghi nhỏ bên dưới. */
 const VehiclePopup: React.FC<{ vehicle: Vehicle }> = ({ vehicle }) => {
+  const team = useTeamByVehicle().get(vehicle.id);
   const statusMeta = VEHICLE_STATUS_META[vehicle.status];
-  const typeMeta = VEHICLE_TYPE_META[vehicle.type];
-  const TypeIcon = typeMeta.icon;
+  const fn = TEAM_FUNCTION_META[vehicle.type];
+  const FnIcon = fn.icon;
+  const leader = team?.members.find((m) => m.crewRole === 'commander');
 
   return (
-    <div className="min-w-[180px] space-y-1.5">
+    <div className="min-w-[200px] space-y-1.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-bold text-slate-900 font-mono-data">{vehicle.plate}</span>
+        <span className={`text-sm font-bold truncate ${team ? 'text-slate-900' : 'text-amber-700'}`}>
+          {team?.name ?? 'Chưa có tổ phụ trách'}
+        </span>
         <span
-          className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+          className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0"
           style={{ color: statusMeta.color, backgroundColor: `${statusMeta.color}1A` }}
         >
           {statusMeta.label}
         </span>
       </div>
-      <div className="flex items-center gap-1.5 text-xs text-slate-600">
-        <TypeIcon className="w-3.5 h-3.5 shrink-0" />
-        <span>{typeMeta.label}</span>
-      </div>
-      <div className="flex items-center gap-1.5 text-xs text-slate-600">
+      <span
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${fn.badgeClass}`}
+      >
+        <FnIcon className="w-3 h-3" />
+        {fn.label}
+      </span>
+      {team ? (
+        <div className="flex items-center gap-1.5 text-xs text-slate-600">
+          {leader ? <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" /> : <Users className="w-3.5 h-3.5 shrink-0" />}
+          <span className="truncate">
+            {leader?.fullName ? `${leader.fullName} · ` : ''}
+            {team.members.length} người
+          </span>
+        </div>
+      ) : (
+        <p className="text-[11px] text-amber-700">Gắn xe cho một tổ ở màn Station Teams để điều động được.</p>
+      )}
+      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
         <Building2 className="w-3.5 h-3.5 shrink-0" />
-        <span>{vehicle.stationName}</span>
+        <span className="truncate">
+          <span className="font-mono-data">{vehicle.plate}</span> · {VEHICLE_TYPE_META[vehicle.type].label} ·{' '}
+          {vehicle.stationName}
+        </span>
       </div>
       {vehicle.etaMinutes !== null && (
         <div className="flex items-center gap-1.5 text-xs text-red-600 font-semibold">
@@ -423,7 +446,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
       <MapLegend />
 
       {/* Camera / layer / external navigation controls — mirrors the Staff field map's control set. */}
-      <div className="absolute top-16 right-4 z-[1000] flex flex-col gap-2">
+      <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
         <button
           onClick={() => setRecenterCount((v) => v + 1)}
           className="p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-red-600 shadow-md transition-all active:scale-95"

@@ -22,6 +22,8 @@ export interface Vehicle {
   status: VehicleStatus;
   stationId: string;
   stationName: string;
+  /** Trạng thái gốc của backend (RescueUnitStatus) — phân biệt Bảo trì / Ngừng hoạt động, Quay về / Hồi sức. */
+  unitStatus: string;
   lat: number;
   lng: number;
   heading: number;
@@ -58,10 +60,4 @@ export interface DispatchSuggestion {
   radiusKm: number;
   expanded: boolean;
   candidates: DispatchCandidate[];
-}
-
-export interface VehicleFilters {
-  type: DispatchVehicleType | 'all';
-  status: VehicleStatus | 'all';
-  stationId: string | 'all';
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { DispatchProvider } from '../../context/DispatchContext';
 import { EscalationAlert } from './EscalationAlert';
+import { IncomingIncidentToasts } from './IncomingIncidentToasts';
 import { OperatorSidebar } from './OperatorSidebar';
 import { OperatorTopbar } from './OperatorTopbar';
 
@@ -21,6 +22,7 @@ export const OperatorLayout: React.FC = () => {
         </div>
       </div>
       <EscalationAlert />
+      <IncomingIncidentToasts />
     </DispatchProvider>
   );
 };
