@@ -180,40 +180,6 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
     }
   };
 
-  const getSeverityBadge = (severity: string) => {
-    switch (severity) {
-      case 'Level3':
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-100 text-red-700 border border-red-200">
-            Cấp 3 - Khẩn cấp
-          </span>
-        );
-      case 'Level2':
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 text-amber-700 border border-amber-200">
-            Cấp 2 - Trung bình
-          </span>
-        );
-      case 'Level1':
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-            Cấp 1 - Nhẹ
-          </span>
-        );
-      case 'Unclassified':
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-100 text-purple-700 border border-purple-200">
-            Chưa phân loại / Cần xác minh
-          </span>
-        );
-      default:
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-600 border border-slate-200">
-            Đang chấm điểm AI
-          </span>
-        );
-    }
-  };
 
   const handleOpenTracking = (incident: IncidentResponseDto) => {
     setTrackingIncident(incident);
@@ -344,7 +310,6 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                           INC-{incident.id.substring(0, 8).toUpperCase()}
                         </span>
                         {getStatusBadge(incident.status)}
-                        {getSeverityBadge(incident.severity)}
                       </div>
                       <h3 className="text-sm font-bold text-slate-900">{incident.title}</h3>
                     </div>
