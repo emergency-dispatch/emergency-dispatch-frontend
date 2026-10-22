@@ -544,27 +544,42 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                       />
 
                       {photoPreview ? (
-                        <div className="p-2 rounded-xl border border-red-200 bg-red-50/40 flex items-center justify-between">
-                          <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="relative rounded-xl border border-red-200 bg-red-50/30 overflow-hidden group">
+                          <div className="relative w-full h-36 sm:h-48 bg-slate-900 flex items-center justify-center overflow-hidden">
                             <img
                               src={photoPreview}
                               alt="Hiện trường"
-                              className="w-10 h-10 object-cover rounded-lg border border-slate-200 shrink-0"
+                              className="w-full h-full object-cover"
                             />
-                            <div className="text-xs min-w-0">
-                              <span className="font-bold text-slate-800 block truncate">{photoFile?.name}</span>
-                              <span className="text-[10px] text-slate-500">
-                                {Math.round((photoFile?.size || 0) / 1024)} KB — Sẵn sàng tải lên
-                              </span>
-                            </div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
+                            {/* Overlay delete button top-right */}
+                            <button
+                              type="button"
+                              onClick={handleRemovePhoto}
+                              className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-red-600 text-white transition-all shadow-md cursor-pointer"
+                              title="Xóa ảnh này"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                            {/* Change photo button */}
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-black/60 hover:bg-black/80 text-white text-[10px] font-mono font-bold transition-all shadow-md cursor-pointer flex items-center gap-1"
+                            >
+                              <Camera className="w-3 h-3" />
+                              <span>Đổi ảnh</span>
+                            </button>
+                            <span className="absolute bottom-2 left-2.5 text-[10px] font-mono text-white/90 drop-shadow-md truncate max-w-[200px]">
+                              {photoFile?.name}
+                            </span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={handleRemovePhoto}
-                            className="p-1 rounded-lg text-red-600 hover:bg-red-100 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="px-3 py-1.5 flex items-center justify-between text-xs bg-white border-t border-red-100">
+                            <span className="text-[11px] font-bold text-slate-700">Ảnh hiện trường</span>
+                            <span className="text-[10px] text-emerald-600 font-mono font-bold">
+                              {Math.round((photoFile?.size || 0) / 1024)} KB · Sẵn sàng gửi CAD
+                            </span>
+                          </div>
                         </div>
                       ) : (
                         <button
@@ -652,16 +667,19 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
               </div>
 
               {/* Details Card */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left space-y-2.5 font-mono text-xs w-full">
-                <div className="flex items-start justify-between gap-4 pb-2.5 border-b border-slate-200">
-                  <span className="text-slate-500 font-bold shrink-0 whitespace-nowrap">HIỆN TRƯỜNG:</span>
-                  <span className="text-slate-900 font-bold text-right text-xs leading-relaxed break-words flex-1">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-3 font-mono text-xs w-full max-w-xl mx-auto">
+                <div className="space-y-1.5 pb-2.5 border-b border-slate-200">
+                  <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px] uppercase tracking-wide">
+                    <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                    <span>HIỆN TRƯỜNG:</span>
+                  </div>
+                  <p className="text-slate-900 font-bold text-xs leading-relaxed break-words text-left pl-5">
                     {createdIncident.locationAddress}
-                  </span>
+                  </p>
                 </div>
                 <div className="flex items-center justify-between pt-0.5">
-                  <span className="text-slate-500 font-bold shrink-0 whitespace-nowrap">THỜI GIAN TIẾP NHẬN:</span>
-                  <span className="text-slate-800 font-bold">
+                  <span className="text-slate-500 font-bold shrink-0 text-[11px] uppercase tracking-wide">THỜI GIAN TIẾP NHẬN:</span>
+                  <span className="text-slate-900 font-bold">
                     {new Date(createdIncident.createdAt).toLocaleTimeString('vi-VN')}
                   </span>
                 </div>

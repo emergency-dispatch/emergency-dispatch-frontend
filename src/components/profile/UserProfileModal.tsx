@@ -28,7 +28,7 @@ import { userService } from '../../services/userService';
 import { mediaService } from '../../services/mediaService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import { BloodType, Gender, UserRole, UserResponseDto, IceContactDto } from '../../types/auth';
-import { getAvatarUrl } from '../../utils/avatar';
+import { getAvatarUrl, DEFAULT_AVATAR } from '../../utils/avatar';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -305,8 +305,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
           <div className="flex items-center gap-3">
             <div className="relative group">
               <img
-                src={getAvatarUrl(avatarUrl)}
+                src={getAvatarUrl(avatarUrl, fullName || user?.fullName)}
                 alt={fullName}
+                onError={(e) => {
+                  e.currentTarget.src = DEFAULT_AVATAR;
+                }}
                 className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-sm"
               />
               <button

@@ -23,7 +23,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types/auth';
 import { UserProfileModal } from '../profile/UserProfileModal';
-import { getAvatarUrl } from '../../utils/avatar';
+import { getAvatarUrl, DEFAULT_AVATAR } from '../../utils/avatar';
 
 interface NavbarProps {
   onOpenSos: () => void;
@@ -271,8 +271,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                     className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 flex items-center gap-2 text-xs text-slate-700 font-mono-data hover:border-red-500 transition-all shadow-xs"
                   >
                     <img
-                      src={getAvatarUrl(user.avatarUrl)}
+                      src={getAvatarUrl(user.avatarUrl, user.fullName)}
                       alt={user.fullName}
+                      onError={(e) => {
+                        e.currentTarget.src = DEFAULT_AVATAR;
+                      }}
                       className="w-6 h-6 rounded-lg object-cover shadow-xs shrink-0 border border-slate-200"
                     />
                     <span className="max-w-[90px] xl:max-w-[120px] truncate font-semibold text-slate-800">
@@ -286,8 +289,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                     <div className="absolute right-0 mt-2 w-60 rounded-xl bg-white border border-slate-200 shadow-xl overflow-hidden z-50 animate-fadeIn">
                       <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 flex items-center gap-3">
                         <img
-                          src={getAvatarUrl(user.avatarUrl)}
+                          src={getAvatarUrl(user.avatarUrl, user.fullName)}
                           alt={user.fullName}
+                          onError={(e) => {
+                            e.currentTarget.src = DEFAULT_AVATAR;
+                          }}
                           className="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-200 shadow-xs"
                         />
                         <div className="min-w-0 flex-1">
@@ -490,8 +496,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                     className="w-full py-2.5 px-3 rounded-lg bg-white hover:bg-slate-50 text-slate-800 font-semibold border border-slate-200 flex items-center gap-2.5 text-sm shadow-xs"
                   >
                     <img
-                      src={getAvatarUrl(user.avatarUrl)}
+                      src={getAvatarUrl(user.avatarUrl, user.fullName)}
                       alt={user.fullName}
+                      onError={(e) => {
+                        e.currentTarget.src = DEFAULT_AVATAR;
+                      }}
                       className="w-6 h-6 rounded-full object-cover shrink-0 border border-slate-200"
                     />
                     <span className="truncate flex-1 text-left">Hồ sơ cá nhân ({user.fullName})</span>

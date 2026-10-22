@@ -26,6 +26,7 @@ import { UserRole } from '../../types/auth';
 import { incidentService, type CitizenTrackingDto } from '../../services/incidentService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { IncidentResponseDto } from '../../types/incident';
+import { CitizenLiveTrackingMapModal } from './CitizenLiveTrackingMapModal';
 
 interface CitizenReportsModalProps {
   isOpen: boolean;
@@ -214,28 +215,12 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
     }
   };
 
-  const handleOpenTracking = async (incident: IncidentResponseDto) => {
+  const handleOpenTracking = (incident: IncidentResponseDto) => {
     setTrackingIncident(incident);
-    setTrackingError('');
-    setIsTrackingLoading(true);
-    try {
-      const res = await incidentService.getTracking(incident.id);
-      if (res.data) {
-        setTrackingData(res.data);
-      } else {
-        setTrackingError('Chưa có thông tin xe cứu hộ đang di chuyển.');
-      }
-    } catch (err) {
-      setTrackingError(getApiErrorMessage(err, 'Chưa có thông tin điều phối xe cho sự cố này.'));
-    } finally {
-      setIsTrackingLoading(false);
-    }
   };
 
   const handleCloseTracking = () => {
     setTrackingIncident(null);
-    setTrackingData(null);
-    setTrackingError('');
   };
 
   const handleOpenCancelModal = (incident: IncidentResponseDto) => {
