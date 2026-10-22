@@ -207,6 +207,33 @@ export interface PaginatedResultDto<T> {
   hasNextPage: boolean;
 }
 
+export interface MyReportUnitDto {
+  plateNumber: string;
+  unitType: number | string;
+  stationName?: string;
+  status: string;
+}
+
+export interface MyReportDto {
+  id: string;
+  title: string;
+  description: string;
+  locationAddress: string;
+  latitude?: number;
+  longitude?: number;
+  status: BackendIncidentStatus;
+  severity: BackendSeverityLevel;
+  resolutionSummary?: string;
+  cancellationReason?: string;
+  mediaUrls: string[];
+  reportedAt: string;
+  verifiedAt?: string;
+  dispatchedAt?: string;
+  onSceneAt?: string;
+  completedAt?: string;
+  dispatchedUnits?: MyReportUnitDto[];
+}
+
 export interface VerifyIncidentRequestDto {
   confirmedSeverity: BackendSeverityLevel;
   adjustedTitle?: string;

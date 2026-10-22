@@ -22,6 +22,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { UserRole } from '../../types/auth';
 import { incidentService, type CitizenTrackingDto } from '../../services/incidentService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { IncidentResponseDto } from '../../types/incident';
@@ -61,7 +62,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
       setIsLoading(true);
       setErrorMsg('');
 
-      const res = await incidentService.getIncidents({ pageSize: 50 });
+      let items: IncidentResponseDto[] = [];
       let localIds: string[] = [];
       try {
         localIds = JSON.parse(localStorage.getItem('resq_my_reported_incident_ids') || '[]');
@@ -69,34 +70,60 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
         localIds = [];
       }
 
-      const localIdSet = new Set(localIds);
-      const userPhoneClean = (user?.phoneNumber || '').replace(/\s+/g, '');
-      const userIdClean = user?.id?.toLowerCase();
+      // 1. Phân quyền theo Role để tránh lỗi 403 Forbidden và không chồng chéo với Operator:
+      if (user?.role === UserRole.Operator || user?.role === UserRole.Admin) {
+        // Operator / Admin: dùng getIncidents (có quyền truy cập toàn bộ hệ thống)
+        const res = await incidentService.getIncidents({ pageSize: 50 });
+        items = res.data?.items || [];
+      } else if (user?.role === UserRole.Citizen) {
+        // Citizen: gọi endpoint chuyên biệt GET /api/Incidents/my-reports (dành riêng cho người dân)
+        const res = await incidentService.getMyReports({ pageSize: 50 });
+        items = (res.data?.items || []).map((item) => ({
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          locationAddress: item.locationAddress,
+          latitude: item.latitude ?? 0,
+          longitude: item.longitude ?? 0,
+          status: item.status,
+          severity: item.severity,
+          createdAt: item.reportedAt,
+          updatedAt: item.reportedAt,
+          verifiedAt: item.verifiedAt,
+          mediaItems: (item.mediaUrls || []).map((url, idx) => ({
+            id: `${item.id}-media-${idx}`,
+            incidentId: item.id,
+            mediaUrl: url,
+            mediaType: (url.toLowerCase().endsWith('.mp4') ? 'Video' : 'Image') as any,
+            uploadedAt: item.reportedAt,
+          })),
+        } as IncidentResponseDto));
+      }
 
-      const allItems = res.data?.items || [];
-      const myItems = allItems.filter((item) => {
-        if (userIdClean && item.reportedByUserId && item.reportedByUserId.toLowerCase() === userIdClean) {
-          return true;
-        }
-        if (userPhoneClean && item.reporterPhone) {
-          const itemPhone = item.reporterPhone.replace(/\s+/g, '');
-          if (itemPhone === userPhoneClean) return true;
-        }
-        if (localIdSet.has(item.id)) {
-          return true;
-        }
-        return false;
-      });
+      // 2. Bổ sung các sự cố vừa báo từ trình duyệt này (nếu chưa có trong kết quả trả về)
+      const existingIdSet = new Set(items.map((i) => i.id));
+      const missingLocalIds = localIds.filter((id) => !existingIdSet.has(id));
 
-      // Sort by createdAt descending
-      myItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setIncidents(myItems);
+      if (missingLocalIds.length > 0) {
+        const localFetches = await Promise.allSettled(
+          missingLocalIds.slice(0, 10).map((id) => incidentService.getById(id))
+        );
+        for (const r of localFetches) {
+          if (r.status === 'fulfilled' && r.value.success && r.value.data) {
+            items.push(r.value.data);
+          }
+        }
+      }
+
+      // Sắp xếp mới nhất lên đầu
+      items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setIncidents(items);
     } catch (err) {
       setErrorMsg(getApiErrorMessage(err, 'Không thể tải lịch sử báo cáo sự cố.'));
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, user?.phoneNumber]);
+  }, [user]);
 
   useEffect(() => {
     if (isOpen) {
