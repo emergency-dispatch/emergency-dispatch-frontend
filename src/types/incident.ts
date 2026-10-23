@@ -207,6 +207,33 @@ export interface PaginatedResultDto<T> {
   hasNextPage: boolean;
 }
 
+export interface MyReportUnitDto {
+  plateNumber: string;
+  unitType: number | string;
+  stationName?: string;
+  status: string;
+}
+
+export interface MyReportDto {
+  id: string;
+  title: string;
+  description: string;
+  locationAddress: string;
+  latitude?: number;
+  longitude?: number;
+  status: BackendIncidentStatus;
+  severity: BackendSeverityLevel;
+  resolutionSummary?: string;
+  cancellationReason?: string;
+  mediaUrls: string[];
+  reportedAt: string;
+  verifiedAt?: string;
+  dispatchedAt?: string;
+  onSceneAt?: string;
+  completedAt?: string;
+  dispatchedUnits?: MyReportUnitDto[];
+}
+
 export interface VerifyIncidentRequestDto {
   confirmedSeverity: BackendSeverityLevel;
   adjustedTitle?: string;
@@ -237,6 +264,14 @@ export function severityToBackend(severity: SeverityLevel): BackendSeverityLevel
 export function normalizeHazardTag(tag: string): string {
   return tag.replace(/^#/, '').trim().toLowerCase();
 }
+
+/**
+ * Tag backend tự gắn khi AI không phân loại được (AiClassificationResultDto.CreateFallback:
+ * "Unclassified", "NeedsHumanReview"), đã chuẩn hóa. Không phải mối nguy thật → ẩn khỏi danh sách tag.
+ */
+export const AI_FALLBACK_TAGS: ReadonlySet<string> = new Set(['unclassified', 'needshumanreview', 'needs_human_review']);
+
+export const isAiFallbackTag = (tag: string) => AI_FALLBACK_TAGS.has(normalizeHazardTag(tag));
 
 const ACTIVE_DISPATCH_STATUSES: BackendIncidentStatus[] = ['Verified', 'Dispatched', 'InProgress'];
 

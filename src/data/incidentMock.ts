@@ -52,6 +52,14 @@ export const SEVERITY_LEVEL_COLOR: Record<SeverityLevel, string> = {
 // Dưới ngưỡng này (%), sự cố được gắn cảnh báo "Độ tin cậy thấp" để Operator xem kỹ media.
 export const LOW_CONFIDENCE_THRESHOLD = 50;
 
+// Từ ngưỡng này (%) trở lên, % tin cậy AI hiện màu xanh.
+export const HIGH_CONFIDENCE_THRESHOLD = 80;
+
+// Vạch màu bên trái dòng hàng đợi khi chưa có cấp độ: AI đang phân tích (xám nhạt) / AI không phân loại được (sọc xám,
+// để không lẫn với Cấp 1 xanh).
+export const AI_PENDING_RAIL_COLOR = '#CBD5E1';
+export const AI_UNCLASSIFIED_RAIL = 'repeating-linear-gradient(135deg, #475569 0 4px, #CBD5E1 4px 8px)';
+
 // Ghi đè cấp độ AI bắt buộc lý do tối thiểu (FR-OP-03, lưu IncidentAuditTrail).
 export const OVERRIDE_REASON_MIN_LENGTH = 5;
 

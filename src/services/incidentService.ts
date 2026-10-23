@@ -7,6 +7,7 @@ import type {
   IncidentResponseDto,
   PaginatedResultDto,
   VerifyIncidentRequestDto,
+  MyReportDto,
 } from '../types/incident';
 
 const BLOCK_DURATION_TO_BACKEND: Record<BlockDuration, string> = {
@@ -100,6 +101,19 @@ export const incidentService = {
     searchTerm?: string;
   }): Promise<ApiResponse<PaginatedResultDto<IncidentResponseDto>>> {
     const response = await apiClient.get<ApiResponse<PaginatedResultDto<IncidentResponseDto>>>('/Incidents', { params });
+    return response.data;
+  },
+
+  /**
+   * Lịch sử báo cáo sự cố của người dân (GET /api/Incidents/my-reports)
+   * Phân quyền dành riêng cho Citizen, không bị 403 Forbidden như /api/Incidents
+   */
+  async getMyReports(params?: {
+    status?: number;
+    pageIndex?: number;
+    pageSize?: number;
+  }): Promise<ApiResponse<PaginatedResultDto<MyReportDto>>> {
+    const response = await apiClient.get<ApiResponse<PaginatedResultDto<MyReportDto>>>('/Incidents/my-reports', { params });
     return response.data;
   },
 

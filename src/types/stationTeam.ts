@@ -18,9 +18,11 @@ export interface TeamMember {
   staffId: string;
   /** 'commander' = Tổ trưởng (tối đa 1 người/tổ). */
   crewRole: CrewRole;
+  /** Tên do backend trả kèm tổ — Dispatch Panel dùng để hiện tổ trưởng mà không cần tải danh sách nhân sự. */
+  fullName?: string;
 }
 
-/** Mirror dự kiến của StationTeamDto (backend chưa có). */
+/** Mirror StationTeamDto (GET /api/stations/{id}/teams). */
 export interface StationTeam {
   id: string;
   stationId: string;

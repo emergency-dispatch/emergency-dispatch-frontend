@@ -10,6 +10,7 @@ import {
   type TrafficHotspotResponseDto,
 } from '../services/liveMapService';
 import { stationTeamService } from '../services/stationTeamService';
+import { staffAudioService } from '../services/staffAudioService';
 import { HubEvents, incidentHubService, trackingHubService } from '../services/realtime/incidentHubService';
 import { getApiErrorMessage } from '../services/apiClient';
 import { useAuth } from '../hooks/useAuth';
@@ -120,6 +121,8 @@ interface DispatchContextValue {
   trafficJams: TrafficJamReport[];
   /** Đánh dấu điểm ùn tắc đã giải tỏa (PUT /api/traffic/{id}/resolve). */
   resolveTrafficJam: (id: string) => Promise<ActionResult>;
+  /** Màn Đội xe: đặt xe Bảo trì / đưa trở lại Sẵn sàng (xe đang làm nhiệm vụ bị backend chặn). */
+  setVehicleStatus: (id: string, status: 'Available' | 'Maintenance') => Promise<ActionResult>;
   escalationSettings: EscalationSettingsDto;
   incidents: Incident[];
   highlightIncidentIds: Set<string>;
@@ -140,6 +143,9 @@ interface DispatchContextValue {
   assignVehicle: (vehicleId: string, incidentId: string, algorithm?: DispatchAlgorithm) => Promise<ActionResult>;
   cancelAssignment: (vehicleId: string) => Promise<ActionResult>;
   dismissResponseNotice: (incidentId: string, noticeId: string) => void;
+  /** Sự cố mới báo tới, còn chờ duyệt và Operator chưa đóng thông báo (mới nhất trước). */
+  incomingIncidents: Incident[];
+  dismissIncomingIncident: (id: string) => void;
 }
 
 const DispatchContext = createContext<DispatchContextValue | null>(null);
@@ -166,6 +172,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [incidentsLoading, setIncidentsLoading] = useState(true);
   const [incidentsError, setIncidentsError] = useState<string | null>(null);
   const [incidentDrawerOpen, setIncidentDrawerOpen] = useState(false);
+  const [incomingIds, setIncomingIds] = useState<string[]>([]);
   const knownIncidentIdsRef = useRef<Set<string> | null>(null);
 
   const highlight = useCallback((ids: string[]) => {
@@ -178,6 +185,13 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return next;
       });
     }, HIGHLIGHT_DURATION_MS);
+  }, []);
+
+  /** Sự cố mới báo tới → hiện thông báo nổi + bíp (Operator có thể đang ở Live Map, không nhìn hàng đợi). */
+  const announceIncoming = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    setIncomingIds((prev) => [...ids.filter((id) => !prev.includes(id)), ...prev]);
+    staffAudioService.playPriorityBeep();
   }, []);
 
   /** Ghi đè / thêm sự cố từ API hoặc SignalR; sự cố đã hủy bị gỡ khỏi bảng. */
@@ -222,7 +236,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Sự cố mới xuất hiện giữa hai lần poll (khi SignalR rớt) → nháy sáng.
       if (knownIncidentIdsRef.current) {
         const known = knownIncidentIdsRef.current;
-        highlight(queueRes.data.filter((dto) => !known.has(dto.id)).map((dto) => dto.id));
+        const arrived = queueRes.data.filter((dto) => !known.has(dto.id)).map((dto) => dto.id);
+        highlight(arrived);
+        announceIncoming(arrived);
       }
       knownIncidentIdsRef.current = new Set([...(knownIncidentIdsRef.current ?? []), ...freshIds]);
       setIncidentsError(null);
@@ -231,7 +247,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setIncidentsLoading(false);
     }
-  }, [highlight]);
+  }, [highlight, announceIncoming]);
 
   const refreshAll = useCallback(() => {
     refreshBoard();
@@ -270,6 +286,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         upsertIncidents([dto]);
         knownIncidentIdsRef.current?.add(dto.id);
         highlight([dto.id]);
+        announceIncoming([dto.id]);
       }),
       incidentHubService.on<IncidentResponseDto>(HubEvents.ReceiveIncidentUpdate, (dto) => upsertIncidents([dto])),
       incidentHubService.on<EscalationAlertMessage>(HubEvents.ReceiveEscalationAlert, (alert) => {
@@ -312,7 +329,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       incidentHubService.stop();
       trackingHubService.stop();
     };
-  }, [upsertIncidents, highlight, refreshUnits, refreshAll]);
+  }, [upsertIncidents, highlight, announceIncoming, refreshUnits, refreshAll]);
 
   // ---------------------------------------------------------------------------
   // Derived view models
@@ -353,6 +370,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           status,
           stationId: unit.stationId,
           stationName: unit.stationName,
+          unitStatus: unit.status,
           lat: live?.lat ?? unit.currentLat,
           lng: live?.lng ?? unit.currentLng,
           heading: live?.heading ?? 0,
@@ -360,6 +378,11 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           incidentId: assignment?.incidentId ?? null,
           lastUpdated: live?.at ?? unit.lastLocationUpdateAt ?? unit.updatedAt ?? unit.createdAt,
           assignmentId: assignment?.id ?? null,
+          hasLiveGps:
+            !!live ||
+            (!!assignment &&
+              !!unit.lastLocationUpdateAt &&
+              new Date(unit.lastLocationUpdateAt).getTime() >= new Date(assignment.dispatchedAt).getTime()),
         },
       ];
     });
@@ -397,6 +420,16 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
     return sortByPriority(list);
   }, [incidentDtos, assignments, dismissedNoticeIds]);
+
+  // Thông báo tự biến mất khi sự cố không còn chờ duyệt (đã duyệt / bị hủy, kể cả bởi Operator khác).
+  const incomingIncidents = useMemo(() => {
+    const byId = new Map(incidents.map((i) => [i.id, i]));
+    return incomingIds.map((id) => byId.get(id)).filter((i): i is Incident => i?.status === 'pending');
+  }, [incomingIds, incidents]);
+
+  const dismissIncomingIncident = useCallback((id: string) => {
+    setIncomingIds((prev) => prev.filter((x) => x !== id));
+  }, []);
 
   const escalatedIncidentIds = useMemo(
     () => new Set(incidents.filter((i) => i.escalated).map((i) => i.id)),
@@ -546,6 +579,17 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const setVehicleStatus = async (id: string, status: 'Available' | 'Maintenance'): Promise<ActionResult> => {
+    try {
+      const updated = await liveMapService.setRescueUnitStatus(id, status);
+      setUnits((prev) => prev.map((u) => (u.id === id ? updated : u)));
+      return { ok: true };
+    } catch (err) {
+      refreshUnits();
+      return { ok: false, message: getApiErrorMessage(err, 'Không đổi được trạng thái xe.') };
+    }
+  };
+
   const resolveTrafficJam = async (id: string): Promise<ActionResult> => {
     try {
       await liveMapService.resolveTrafficJam(id);
@@ -568,6 +612,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         stations,
         trafficJams,
         resolveTrafficJam,
+        setVehicleStatus,
         escalationSettings,
         incidents,
         highlightIncidentIds,
@@ -584,6 +629,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         assignVehicle,
         cancelAssignment,
         dismissResponseNotice,
+        incomingIncidents,
+        dismissIncomingIncident,
       }}
     >
       {children}

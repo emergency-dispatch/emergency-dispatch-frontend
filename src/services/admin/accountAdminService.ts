@@ -85,12 +85,11 @@ export const accountAdminService = {
       apiClient.post<ApiResponse<UserResponseDto>>('/users', {
         ...input,
         phoneNumber: input.phoneNumber || null,
-        stationId: input.stationId || null,
       })
     );
   },
 
-  /** Email không đổi được qua API. */
+  /** Email không đổi được qua API. Trạm giữ nguyên (putUser gửi lại trạm hiện tại). */
   async update(id: string, input: InternalAccountInput): Promise<UserResponseDto> {
     return putUser(id, input);
   },

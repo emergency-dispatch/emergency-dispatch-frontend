@@ -3,14 +3,16 @@ import { UserRole, type UserResponseDto } from './auth';
 // Tài khoản nội bộ Admin quản lý: chỉ Operator và RescueStaff (Admin không tạo được Admin khác).
 export type InternalRole = UserRole.Operator | UserRole.RescueStaff;
 
-/** Body của POST /api/users (CreateUserDto) — Admin đặt mật khẩu ban đầu. */
+/**
+ * Body của POST /api/users (CreateUserDto) — Admin đặt mật khẩu ban đầu.
+ * Không gửi trạm: gán người vào trạm làm ở tab Trạm cứu hộ (PUT /api/users/{id}/assign-station-team).
+ */
 export interface CreateInternalAccountDto {
   fullName: string;
   email: string;
   password: string;
   phoneNumber: string;
   role: InternalRole;
-  stationId: string | null;
 }
 
 /**
@@ -25,4 +27,4 @@ export interface AdminUserDto extends UserResponseDto {
 }
 
 /** Các trường Admin sửa được qua PUT /api/users/{id} (email không đổi được). */
-export type InternalAccountInput = Pick<CreateInternalAccountDto, 'fullName' | 'phoneNumber' | 'role' | 'stationId'>;
+export type InternalAccountInput = Pick<CreateInternalAccountDto, 'fullName' | 'phoneNumber' | 'role'>;

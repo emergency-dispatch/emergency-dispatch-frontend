@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../common/ui';
 import { inputClass } from '../common/styles';
-import { useServiceQuery } from '../common/hooks';
 import { INTERNAL_ROLES, ROLE_META } from './accountMeta';
 import { accountAdminService } from '../../../services/admin/accountAdminService';
-import { stationAdminService } from '../../../services/admin/stationAdminService';
 import { EMAIL_PATTERN, PASSWORD_MIN_LENGTH, PHONE_PATTERN } from '../../../services/admin/validation';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { UserRole, type UserResponseDto } from '../../../types/auth';
@@ -19,7 +17,6 @@ interface AccountFormDrawerProps {
 const FULL_NAME_MAX_LENGTH = 100;
 
 export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAccount, onClose, onSaved }) => {
-  const stations = useServiceQuery(() => stationAdminService.list({ pageIndex: 1, pageSize: 500 }), 'account-stations');
   const isEdit = !!initialAccount;
 
   const [fullName, setFullName] = useState(initialAccount?.fullName ?? '');
@@ -29,14 +26,8 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
   const [role, setRole] = useState<InternalRole>(
     initialAccount?.role === UserRole.RescueStaff ? UserRole.RescueStaff : UserRole.Operator
   );
-  const [stationId, setStationId] = useState(initialAccount?.stationId ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const stationItems = stations.data?.items ?? [];
-  // Trạm cũ có thể đã bị xóa — vẫn hiện để không mất giá trị đang gán.
-  const currentStationMissing =
-    !!initialAccount?.stationId && !!stations.data && !stationItems.some((s) => s.id === initialAccount.stationId);
 
   const phone = phoneNumber.replace(/[\s.-]/g, '');
   const emailValid = EMAIL_PATTERN.test(email.trim());
@@ -50,7 +41,7 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
-    const input = { fullName: fullName.trim(), phoneNumber: phone, role, stationId: stationId || null };
+    const input = { fullName: fullName.trim(), phoneNumber: phone, role };
     try {
       const saved = initialAccount
         ? await accountAdminService.update(initialAccount.id, input)
@@ -156,26 +147,10 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
         </div>
       </FormField>
 
-      <FormField label="Trạm công tác" hint="Bỏ trống nếu chưa phân công trạm.">
-        <select
-          value={stationId}
-          onChange={(e) => setStationId(e.target.value)}
-          disabled={stations.loading && !stations.data}
-          className={inputClass}
-        >
-          <option value="">— Chưa gán trạm —</option>
-          {initialAccount?.stationId && currentStationMissing && (
-            <option value={initialAccount.stationId}>{initialAccount.stationName || 'Trạm không còn tồn tại'}</option>
-          )}
-          {stationItems.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-              {s.isActive ? '' : ' (tạm ngưng)'}
-            </option>
-          ))}
-        </select>
-        {stations.error && <p className="text-[11px] text-red-600">{stations.error}</p>}
-      </FormField>
+      <p className="text-xs text-slate-500">
+        {initialAccount?.stationName ? `Đang thuộc trạm ${initialAccount.stationName}. ` : ''}
+        Gán tài khoản vào trạm ở tab Trạm cứu hộ (Thêm / Sửa trạm → Nhân sự của trạm).
+      </p>
     </DrawerShell>
   );
 };

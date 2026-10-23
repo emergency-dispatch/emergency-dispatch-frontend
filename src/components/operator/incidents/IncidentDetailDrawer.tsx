@@ -73,10 +73,15 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const [revealedPhone, setRevealedPhone] = useState<{ phone: string; at: Date } | null>(null);
   const [revealingPhone, setRevealingPhone] = useState(false);
 
-  // Reset local form state whenever a different incident is opened.
+  // Sync severity khi mở drawer mới HOẶC khi AI xong (aiPending → false).
+  // Dùng ref để không ghi đè khi Operator đã tự tay chọn cấp khác.
+  const operatorOverrodeRef = React.useRef(false);
+
   useEffect(() => {
     if (!incident) return;
-    setConfirmedSeverity(incident.severity);
+    // Mở sự cố mới → reset flag và chọn severity theo AI
+    operatorOverrodeRef.current = false;
+    setConfirmedSeverity(incident.aiUnclassified ? null : incident.severity);
     setOverrideReason('');
     setRejecting(false);
     setRejectReason('');
@@ -84,6 +89,14 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     setBlockDuration('30d');
     setRevealedPhone(null);
   }, [incident?.id]);
+
+  // AI vừa xong phân tích (aiPending false → severity mới) — cập nhật nếu Operator chưa override.
+  useEffect(() => {
+    if (!incident || incident.aiPending) return;
+    if (operatorOverrodeRef.current) return; // Operator đã chọn tay → không ghi đè
+    setConfirmedSeverity(incident.aiUnclassified ? null : incident.severity);
+  }, [incident?.aiPending, incident?.severity, incident?.aiUnclassified]);
+
 
   if (!incident) return null;
 
@@ -99,7 +112,10 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const canAct = !!activeLock && !lockedByOther;
   const lockWasMine = incident.lock?.operatorId === currentOperatorId;
 
-  const isOverride = confirmedSeverity !== null && confirmedSeverity !== incident.severity;
+  // Backend coi Unclassified → Level 1–3 là ghi đè AI (bắt buộc operatorNotes ≥ 5 ký tự), nên ca AI không phân loại
+  // được luôn cần lý do, kể cả khi chọn Cấp 1.
+  const isOverride =
+    confirmedSeverity !== null && (incident.aiUnclassified || confirmedSeverity !== incident.severity);
   const overrideReasonLength = overrideReason.trim().length;
   const overrideReasonValid = !isOverride || overrideReasonLength >= OVERRIDE_REASON_MIN_LENGTH;
   const canApprove = canAct && !isSubmitting && confirmedSeverity !== null && overrideReasonValid;
@@ -281,7 +297,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                     </div>
                     <div>
                       <p className="text-slate-500 mb-1">Cấp độ đề xuất</p>
-                      <SeverityBadge severity={incident.severity} />
+                      <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
                     </div>
                     {incident.hazardTags.length > 0 && (
                       <div>
@@ -354,14 +370,17 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                         <button
                           key={level}
                           type="button"
-                          onClick={() => setConfirmedSeverity(level)}
+                          onClick={() => {
+                          operatorOverrodeRef.current = true;
+                          setConfirmedSeverity(level);
+                        }}
                           disabled={!canAct}
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[11px] font-bold font-mono-data whitespace-nowrap transition-colors disabled:cursor-not-allowed ${
                             isActive ? meta.badgeClass : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
                           }`}
                         >
                           {meta.label}
-                          {level === incident.severity && (
+                          {level === incident.severity && !incident.aiUnclassified && (
                             <span className="px-1 rounded bg-slate-900/10 text-[9px] tracking-wide">AI</span>
                           )}
                         </button>
@@ -372,8 +391,18 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                   {isOverride && (
                     <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3.5 space-y-2">
                       <p className="text-xs text-amber-800">
-                        Bạn đang ghi đè cấp độ AI đề xuất ({SEVERITY_LEVEL_META[incident.severity].label} →{' '}
-                        {SEVERITY_LEVEL_META[confirmedSeverity].label}). Lý do sẽ được lưu vào nhật ký kiểm tra.
+                        {incident.aiUnclassified ? (
+                          <>
+                            AI không phân loại được — bạn tự xác định mức{' '}
+                            {SEVERITY_LEVEL_META[confirmedSeverity].label}. Ghi lý do (căn cứ từ ảnh/video, mô tả, gọi xác
+                            minh…); lý do sẽ được lưu vào nhật ký kiểm tra.
+                          </>
+                        ) : (
+                          <>
+                            Bạn đang ghi đè cấp độ AI đề xuất ({SEVERITY_LEVEL_META[incident.severity].label} →{' '}
+                            {SEVERITY_LEVEL_META[confirmedSeverity].label}). Lý do sẽ được lưu vào nhật ký kiểm tra.
+                          </>
+                        )}
                       </p>
                       <textarea
                         value={overrideReason}

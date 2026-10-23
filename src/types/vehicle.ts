@@ -22,6 +22,8 @@ export interface Vehicle {
   status: VehicleStatus;
   stationId: string;
   stationName: string;
+  /** Trạng thái gốc của backend (RescueUnitStatus) — phân biệt Bảo trì / Ngừng hoạt động, Quay về / Hồi sức. */
+  unitStatus: string;
   lat: number;
   lng: number;
   heading: number;
@@ -30,6 +32,11 @@ export interface Vehicle {
   lastUpdated: string;
   /** Lượt điều phối đang chạy của xe — dùng để hủy giao xe. */
   assignmentId: string | null;
+  /**
+   * Có vị trí GPS thật cho nhiệm vụ hiện tại (realtime, hoặc cập nhật sau lúc được giao).
+   * false → chưa có GPS mới, bản đồ đặt xe tại trạm thay vì tọa độ cũ trong DB.
+   */
+  hasLiveGps: boolean;
 }
 
 export interface Station {
@@ -58,10 +65,4 @@ export interface DispatchSuggestion {
   radiusKm: number;
   expanded: boolean;
   candidates: DispatchCandidate[];
-}
-
-export interface VehicleFilters {
-  type: DispatchVehicleType | 'all';
-  status: VehicleStatus | 'all';
-  stationId: string | 'all';
 }

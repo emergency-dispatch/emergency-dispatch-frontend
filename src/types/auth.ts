@@ -160,8 +160,8 @@ export interface RefreshTokenRequestDto {
 
 export interface UpdateProfileDto {
   fullName: string;
-  phoneNumber?: string;
-  avatarUrl?: string;
+  phoneNumber?: string | null;
+  avatarUrl?: string | null;
   dateOfBirth?: string;
   gender?: Gender;
   citizenIdNumber?: string;

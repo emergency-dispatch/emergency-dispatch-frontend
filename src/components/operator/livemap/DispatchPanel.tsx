@@ -13,10 +13,10 @@ import {
   X,
 } from 'lucide-react';
 import { SeverityBadge } from '../incidents/SeverityBadge';
-import { VehicleTeamTag } from '../teams/VehicleTeamTag';
+import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { DISPATCH_ALGORITHM_META, MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
-import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
+import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useNow } from '../../../hooks/useNow';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
@@ -136,8 +136,13 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
     algorithm,
     `${incident.assignedVehicleIds.join(',')}|${isEscalated}`
   );
-  // Gợi ý chỉ còn xe đang Sẵn sàng (trạng thái xe có thể đổi sau khi backend trả gợi ý).
-  const candidates = (suggestion?.candidates ?? []).filter((c) => vehiclesById.get(c.vehicleId)?.status === 'available');
+  // Gợi ý chỉ còn xe đang Sẵn sàng (trạng thái xe có thể đổi sau khi backend trả gợi ý) và có tổ phụ trách —
+  // điều động theo tổ, xe chưa có tổ không hiện.
+  const readyCandidates = (suggestion?.candidates ?? []).filter(
+    (c) => vehiclesById.get(c.vehicleId)?.status === 'available'
+  );
+  const candidates = readyCandidates.filter((c) => teamByVehicle.has(c.vehicleId));
+  const vehiclesWithoutTeam = readyCandidates.length - candidates.length;
 
   const handleDragOver = (e: React.DragEvent) => {
     if (isFull || isCompleted || !e.dataTransfer.types.includes(DRAG_MIME)) return;
@@ -178,7 +183,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
               <CategoryIcon className="w-3.5 h-3.5" />
               {category.label}
             </span>
-            <SeverityBadge severity={incident.severity} />
+            <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
             {isEscalated && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white uppercase animate-pulse shrink-0">
                 <Siren className="w-3 h-3" />
@@ -243,7 +248,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
           <>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono-data uppercase tracking-wider text-slate-500 font-bold">
-                Xe đã giao ({activeCount}/{maxVehicles})
+                Tổ đã giao ({activeCount}/{maxVehicles})
               </span>
               <button
                 onClick={() => setConfirmingCancel(true)}
@@ -260,37 +265,48 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
               const statusMeta = VEHICLE_STATUS_META[vehicle.status];
               const hasReported = incident.reportedVehicleIds.includes(vehicle.id);
               const canRecall = !hasReported && !!vehicle.assignmentId && vehicle.status !== 'on_scene';
+              const team = teamByVehicle.get(vehicle.id);
+              const progress = (
+                <>
+                  {' · '}
+                  {hasReported ? (
+                    <span className="inline-flex items-center gap-0.5 text-emerald-600 font-semibold">
+                      <FileCheck2 className="w-3 h-3" />
+                      Đã nộp báo cáo
+                    </span>
+                  ) : (
+                    <span style={{ color: statusMeta.color }} className="font-semibold">
+                      {statusMeta.label}
+                    </span>
+                  )}
+                  {!hasReported && vehicle.etaMinutes !== null && vehicle.status !== 'awaiting_ack' &&
+                    ` · ETA ${vehicle.etaMinutes} phút`}
+                </>
+              );
               return (
                 <div
                   key={vehicle.id}
                   className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-md px-2.5 py-2"
                 >
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-mono-data text-red-600 font-bold truncate">{vehicle.plate}</p>
-                    <p className="text-[10px] text-slate-500 truncate">
-                      {VEHICLE_TYPE_META[vehicle.type].label} ·{' '}
-                      {hasReported ? (
-                        <span className="inline-flex items-center gap-0.5 text-emerald-600 font-semibold">
-                          <FileCheck2 className="w-3 h-3" />
-                          Đã nộp báo cáo
-                        </span>
-                      ) : (
-                        <span style={{ color: statusMeta.color }} className="font-semibold">
-                          {statusMeta.label}
-                        </span>
-                      )}
-                      {!hasReported && vehicle.etaMinutes !== null && vehicle.status !== 'awaiting_ack' &&
-                        ` · ETA ${vehicle.etaMinutes} phút`}
-                    </p>
-                    <VehicleTeamTag team={teamByVehicle.get(vehicle.id)} />
-                  </div>
+                  {team ? (
+                    <DispatchTeamLabel team={team} vehicle={vehicle} detail={progress} />
+                  ) : (
+                    // Xe giao trước khi có tổ (hoặc tổ đã bị xóa) — vẫn theo dõi được tiến độ.
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-amber-700 truncate">Xe chưa có tổ phụ trách</p>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        <span className="font-mono-data">{vehicle.plate}</span>
+                        {progress}
+                      </p>
+                    </div>
+                  )}
                   {canRecall && (
                     <button
                       onClick={() => onCancelVehicle(vehicle.id)}
                       disabled={!!cancellingVehicleId}
                       className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 shrink-0 transition-colors disabled:opacity-50"
-                      aria-label="Hủy giao xe"
-                      title="Hủy giao — trả xe về trạng thái sẵn sàng"
+                      aria-label="Hủy giao tổ"
+                      title="Hủy giao — trả tổ về trạng thái sẵn sàng"
                     >
                       {cancellingVehicleId === vehicle.id ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -309,7 +325,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
                 </span>
-                <span className="text-[11px] font-semibold">Chưa giao xe — chọn từ gợi ý hoặc kéo-thả xe vào đây</span>
+                <span className="text-[11px] font-semibold">Chưa giao tổ — chọn từ gợi ý hoặc kéo-thả tổ vào đây</span>
               </div>
             )}
 
@@ -319,7 +335,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                 className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed border-red-300 text-[11px] font-bold text-red-600 hover:bg-red-50 transition-colors"
               >
                 <Radar className="w-3.5 h-3.5" />
-                Khớp loại xe
+                Gợi ý tổ phù hợp
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
             )}
@@ -327,14 +343,14 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
             {isFull && (
               <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Đã đủ số xe tối đa cho {incident.severity === 3 ? 'Cấp 3' : 'Cấp 1–2'}
+                Đã đủ số tổ tối đa cho {incident.severity === 3 ? 'Cấp 3' : 'Cấp 1–2'}
               </div>
             )}
 
             {suggestionLoading && !suggestion && (
               <div className="flex items-center gap-1.5 text-[11px] text-slate-500 px-1">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                Đang tìm xe phù hợp…
+                Đang tìm tổ phù hợp…
               </div>
             )}
 
@@ -345,7 +361,7 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                 <div className="flex items-center justify-between gap-2">
                   <span className="flex items-center gap-1 text-[10px] font-mono-data uppercase tracking-wider text-slate-500 font-bold">
                     <Radar className="w-3 h-3" />
-                    KHỚP LOẠI XE · bán kính {suggestion.radiusKm} km
+                    TỔ PHÙ HỢP · bán kính {suggestion.radiusKm} km
                   </span>
                   {isEscalated ? (
                     <span className="text-[10px] font-bold text-red-600 whitespace-nowrap">Nhân đôi (leo thang)</span>
@@ -358,12 +374,12 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
 
                 {candidates.length === 0 ? (
                   <p className="text-[11px] text-red-600 py-1">
-                    Không còn xe phù hợp{suggestion.radiusKm > 0 && ` trong bán kính ${suggestion.radiusKm} km`}.
+                    Không còn tổ phù hợp{suggestion.radiusKm > 0 && ` trong bán kính ${suggestion.radiusKm} km`}.
                   </p>
                 ) : (
                   candidates.map((candidate, index) => {
                     const vehicle = vehiclesById.get(candidate.vehicleId)!;
-                    const TypeIcon = VEHICLE_TYPE_META[vehicle.type].icon;
+                    const team = teamByVehicle.get(vehicle.id)!;
                     const isAssigning = assigningVehicleId === vehicle.id;
                     return (
                       <div
@@ -378,15 +394,17 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                         <span className="w-4 text-[10px] font-mono-data font-bold text-slate-400 text-center shrink-0">
                           {index + 1}
                         </span>
-                        <TypeIcon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                         <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-mono-data font-bold text-slate-900 truncate">{vehicle.plate}</p>
-                          <p className="text-[10px] text-slate-500 truncate">
-                            {candidate.km.toFixed(1)} km · ETA {candidate.etaMinutes} phút
-                            {algorithm === 'load_aware' && ` · cost ${candidate.cost.toFixed(2)}`}
-                          </p>
-                          <p className="text-[10px] text-slate-400 truncate">{vehicle.stationName}</p>
-                          <VehicleTeamTag team={teamByVehicle.get(vehicle.id)} />
+                          <DispatchTeamLabel
+                            team={team}
+                            vehicle={vehicle}
+                            detail={
+                              <>
+                                {` · ${candidate.km.toFixed(1)} km · ETA ${candidate.etaMinutes} phút`}
+                                {algorithm === 'load_aware' && ` · cost ${candidate.cost.toFixed(2)}`}
+                              </>
+                            }
+                          />
                         </div>
                         <button
                           onClick={() => onAssign(vehicle.id)}
@@ -399,6 +417,11 @@ const DispatchIncidentCard: React.FC<DispatchIncidentCardProps> = ({
                       </div>
                     );
                   })
+                )}
+                {vehiclesWithoutTeam > 0 && (
+                  <p className="text-[10px] text-amber-700 px-0.5">
+                    {vehiclesWithoutTeam} xe phù hợp chưa có tổ phụ trách — chia tổ ở màn Station Teams để điều động.
+                  </p>
                 )}
               </div>
             )}
@@ -439,9 +462,17 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
         .sort((a, b) => Number(a.status === 'completed') - Number(b.status === 'completed') || b.severity - a.severity),
     [incidents]
   );
-  const availableVehicles = useMemo(() => vehicles.filter((v) => v.status === 'available'), [vehicles]);
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
   const teamByVehicle = useTeamByVehicle();
+  // Tổ sẵn sàng = tổ có xe đang Sẵn sàng. Kéo-thả tổ = giao xe của tổ đó.
+  const readyTeams = useMemo(
+    () =>
+      vehicles
+        .filter((v) => v.status === 'available' && teamByVehicle.has(v.id))
+        .map((v) => ({ vehicle: v, team: teamByVehicle.get(v.id)! }))
+        .sort((a, b) => a.team.name.localeCompare(b.team.name, 'vi')),
+    [vehicles, teamByVehicle]
+  );
 
   // Mở chế độ điều phối mà chưa chọn sự cố → tự chọn sự cố ưu tiên nhất còn thiếu xe để gợi ý hiện ngay.
   // Nếu Operator chủ động bỏ chọn thì không tự chọn lại.
@@ -499,7 +530,7 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
             Điều phối sự cố
           </h2>
           <p className="text-[11px] text-slate-500 mt-0.5">
-            Chọn sự cố để xem gợi ý xe, bấm "Giao" hoặc kéo-thả xe vào sự cố
+            Chọn sự cố để xem tổ phù hợp, bấm "Giao" hoặc kéo-thả tổ vào sự cố
           </p>
         </div>
         <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-100">
@@ -557,17 +588,17 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
       <div className="shrink-0 border-t border-slate-200 max-h-[35%] flex flex-col">
         <div className="px-4 py-2.5 shrink-0 flex items-center justify-between">
           <h3 className="text-[11px] font-mono-data uppercase tracking-wider text-slate-500 font-bold">
-            Xe sẵn sàng ({availableVehicles.length})
+            Tổ sẵn sàng ({readyTeams.length})
           </h3>
           <span className="text-[10px] text-slate-400">Kéo thả vào sự cố</span>
         </div>
         <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2 min-h-0">
-          {availableVehicles.length === 0 ? (
-            <p className="text-[11px] text-slate-400 text-center py-3">Không còn xe trống</p>
+          {readyTeams.length === 0 ? (
+            <p className="text-[11px] text-slate-400 text-center py-3">
+              Không còn tổ sẵn sàng — tổ cần gắn xe ở màn Station Teams mới điều động được.
+            </p>
           ) : (
-            availableVehicles.map((vehicle) => {
-              const typeMeta = VEHICLE_TYPE_META[vehicle.type];
-              const TypeIcon = typeMeta.icon;
+            readyTeams.map(({ vehicle, team }) => {
               return (
                 <div
                   key={vehicle.id}
@@ -579,13 +610,8 @@ export const DispatchPanel: React.FC<DispatchPanelProps> = ({ selectedIncidentId
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-slate-200 bg-white cursor-grab active:cursor-grabbing hover:border-slate-300"
                 >
                   <GripVertical className="w-3.5 h-3.5 text-slate-300 shrink-0" />
-                  <TypeIcon className="w-4 h-4 text-emerald-600 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-900 font-mono-data truncate">{vehicle.plate}</p>
-                    <p className="text-[10px] text-slate-500 truncate">
-                      {typeMeta.label} · {vehicle.stationName}
-                    </p>
-                    <VehicleTeamTag team={teamByVehicle.get(vehicle.id)} />
+                    <DispatchTeamLabel team={team} vehicle={vehicle} detail={` · ${vehicle.stationName}`} />
                   </div>
                 </div>
               );

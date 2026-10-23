@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Crown, Lock } from 'lucide-react';
+import { AlertTriangle, Crown, Lock } from 'lucide-react';
+import { TEAM_FUNCTION_META } from './teamFunction';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../../admin/common/ui';
 import { inputClass } from '../../admin/common/styles';
 import { MAX_TEAM_SIZE, MIN_TEAM_SIZE } from '../../../data/dispatchConfig';
@@ -110,13 +111,16 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} className={inputClass} />
       </FormField>
 
-      <FormField label="Xe phụ trách" hint="Mỗi xe chỉ có 1 tổ. Xe đang làm nhiệm vụ không đổi tổ được.">
+      <FormField
+        label="Xe phụ trách"
+        hint="Loại xe quyết định chức năng của tổ và loại sự cố tổ được điều động. Mỗi xe chỉ có 1 tổ."
+      >
         <select
           value={vehicleId ?? ''}
           onChange={(e) => setVehicleId(e.target.value || null)}
           className={inputClass}
         >
-          <option value="">Trực tại trạm (không theo xe)</option>
+          <option value="">Trực tại trạm (không theo xe — không điều động được)</option>
           {stationVehicles.map((v) => {
             const otherTeam = vehicleOfOtherTeam.get(v.id);
             const busy = v.status !== 'available' && v.id !== team?.vehicleId;
@@ -129,6 +133,17 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
             );
           })}
         </select>
+        {selectedVehicle ? (
+          <p className="text-xs text-slate-600">
+            Chức năng của tổ:{' '}
+            <span className="font-bold text-slate-900">{TEAM_FUNCTION_META[selectedVehicle.type].label}</span>
+          </p>
+        ) : (
+          <p className="flex items-start gap-1.5 text-xs text-amber-700">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            Tổ trực tại trạm không hiện ở Dispatch Panel. Gắn xe để tổ được điều động tới sự cố.
+          </p>
+        )}
       </FormField>
 
       <FormField
