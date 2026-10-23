@@ -50,6 +50,7 @@ export interface DigitalClosureReport {
   handoverEntity: string;
   handoverContactName: string;
   handoverContactPhone: string;
+  handoverNotes?: string;
   handoverQrData: string;
   signatureDataUrl: string;
   dispatchApprovalStatus: 'submitted' | 'verified';

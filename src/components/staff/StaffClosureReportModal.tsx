@@ -16,6 +16,7 @@ import {
   Phone,
   User,
   FileText,
+  Sparkles,
 } from 'lucide-react';
 import type { DigitalClosureReport, ClosureEvidencePhoto, StaffMission } from '../../types/staff';
 import { StaffSignaturePad } from './StaffSignaturePad';
@@ -27,6 +28,7 @@ interface StaffClosureReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmitReport: (report: DigitalClosureReport) => void;
+  isSubmitting?: boolean;
 }
 
 const CATEGORY_LABELS: Record<ClosureEvidencePhoto['category'], { label: string; color: string }> = {
@@ -41,9 +43,11 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
   isOpen,
   onClose,
   onSubmitReport,
+  isSubmitting = false,
 }) => {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Evidence Photos (starts empty, validated >= 1 per FR-RS-03 / MSG42)
   const [photos, setPhotos] = useState<ClosureEvidencePhoto[]>(
@@ -162,6 +166,21 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
     setResources((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Quick fill valid sample data for rapid testing
+  const handleQuickFillSample = () => {
+    if (photos.length === 0) {
+      handleAddSamplePhoto();
+    }
+    if (!actionSummary || actionSummary.trim().length < 10) {
+      setActionSummary('Đã dập tắt đám cháy hoàn toàn lúc 14:45. Nạn nhân đã được sơ cứu và chuyển viện an toàn, kiểm soát hiện trường.');
+    }
+    if (casualtiesTreated === 0) setCasualtiesTreated(1);
+    if (!handoverEntity) setHandoverEntity('Công an phường & Đội BV sở tại');
+    if (!handoverContactName) setHandoverContactName('Đại úy Trần Văn Nam');
+    if (!handoverContactPhone) setHandoverContactPhone('0908114115');
+    setValidationErrors([]);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -184,6 +203,7 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
 
     if (errors.length > 0) {
       setValidationErrors(errors);
+      formRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -205,6 +225,7 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
       handoverEntity: handoverEntity.trim(),
       handoverContactName: handoverContactName.trim(),
       handoverContactPhone: handoverContactPhone.trim(),
+      handoverNotes: handoverNotes.trim() || undefined,
       handoverQrData: '',
       signatureDataUrl: signatureDataUrl || '',
       dispatchApprovalStatus: 'submitted',
@@ -246,16 +267,33 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
               </div>
             </div>
 
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleQuickFillSample}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-mono font-bold transition-all shadow-xs cursor-pointer"
+                title="Tự động điền đầy đủ thông tin hợp lệ để test nhanh"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>Điền Mẫu Nhanh</span>
+              </button>
+
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Form Body (Scrollable) */}
-          <form id="closure-form" onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1 bg-white">
+          <form
+            id="closure-form"
+            ref={formRef}
+            onSubmit={handleSubmit}
+            className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1 bg-white"
+          >
             {/* Validation Errors Alert */}
             {validationErrors.length > 0 && (
               <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1">
@@ -597,6 +635,23 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
             </div>
           </form>
 
+          {/* Validation Notice right above footer buttons */}
+          {validationErrors.length > 0 && (
+            <div className="px-5 py-3 bg-rose-50 border-t border-rose-200 text-rose-800 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span className="font-semibold">{validationErrors[0]}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleQuickFillSample}
+                className="text-[11px] font-bold text-red-600 hover:text-red-700 underline cursor-pointer shrink-0"
+              >
+                Tự động điền mẫu hợp lệ &rarr;
+              </button>
+            </div>
+          )}
+
           {/* Footer Actions */}
           <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 shrink-0">
             <button
@@ -610,10 +665,11 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
             <button
               type="submit"
               form="closure-form"
-              className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-red-600/20 border border-red-600 flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-bold shadow-md shadow-red-600/20 border border-red-600 flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
             >
-              <CheckCircle2 className="w-4 h-4" />
-              Nghiệm Thu &amp; Nộp Báo Cáo Hoàn Tất
+              <CheckCircle2 className={`w-4 h-4 ${isSubmitting ? 'animate-spin' : ''}`} />
+              {isSubmitting ? 'Đang Nộp Báo Cáo...' : 'Nghiệm Thu & Nộp Báo Cáo Hoàn Tất'}
             </button>
           </div>
         </div>

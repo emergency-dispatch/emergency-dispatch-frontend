@@ -19,7 +19,7 @@ export const mediaService = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await apiClient.post<ApiResponse<MediaUploadResult>>('/Media/upload', formData, {
+    const response = await apiClient.post<ApiResponse<MediaUploadResult>>('/media/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

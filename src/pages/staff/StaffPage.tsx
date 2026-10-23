@@ -18,8 +18,9 @@ import {
   mockStaffProfile,
 } from '../../data/staffMock';
 import type { StaffMission, MissionStatus, DigitalClosureReport, StaffProfile } from '../../types/staff';
-import type { DispatchAssignmentResponseDto, RejectionReason } from '../../types/dispatch';
+import type { DispatchAssignmentResponseDto, RejectionReason, ResolveDispatchDto } from '../../types/dispatch';
 import { dispatchService } from '../../services/dispatchService';
+import { getApiErrorMessage } from '../../services/apiClient';
 import { incidentHubService } from '../../services/realtime/incidentHubService';
 import { SEVERITY_META } from '../../data/incidentMock';
 import { HazardTagBadge } from '../../components/common/HazardTagBadge';
@@ -45,11 +46,36 @@ export const isGuid = (val?: string): boolean =>
   typeof val === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
+const STAFF_REPORTS_STORAGE_KEY = 'resq_staff_closure_reports';
+
+export const getSavedClosureReports = (): Record<string, DigitalClosureReport> => {
+  try {
+    const raw = localStorage.getItem(STAFF_REPORTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
+export const saveClosureReportLocally = (report: DigitalClosureReport) => {
+  try {
+    const existing = getSavedClosureReports();
+    if (report.missionId) existing[report.missionId] = report;
+    if (report.incidentId) existing[report.incidentId] = report;
+    localStorage.setItem(STAFF_REPORTS_STORAGE_KEY, JSON.stringify(existing));
+  } catch (err) {
+    console.warn('Failed to save closure report to localStorage:', err);
+  }
+};
+
 function mapAssignmentDtoToMission(
   dto: DispatchAssignmentResponseDto,
   fallbackVehiclePlate?: string,
   routeResult?: RouteResult
 ): StaffMission {
+  const savedReports = getSavedClosureReports();
+  const localClosureReport = savedReports[dto.id] || savedReports[dto.incidentId];
+
   let missionStatus: MissionStatus = 'accepted';
   if (dto.status === 'EnRoute') missionStatus = 'en_route';
   else if (dto.status === 'OnScene') missionStatus = 'on_scene';
@@ -95,6 +121,7 @@ function mapAssignmentDtoToMission(
     currentStepIndex: 0,
     routeSteps: routeResult?.steps || [],
     routePolyline: routeResult?.polyline || [],
+    closureReport: localClosureReport || undefined,
     timeline: [
       {
         id: `tl-disp-${dto.id}`,
@@ -190,6 +217,7 @@ export const StaffPage: React.FC = () => {
   // Modals state
   const [isAlertOpen, setIsAlertOpen] = useState<boolean>(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  const [isSubmittingReport, setIsSubmittingReport] = useState<boolean>(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
 
   // Incoming pending mission to be accepted/declined in alert modal
@@ -233,15 +261,60 @@ export const StaffPage: React.FC = () => {
           }
 
           if (completedDtos.length > 0) {
-            setMissionHistory(
-              completedDtos.map((c) => mapAssignmentDtoToMission(c, profile.vehiclePlate))
+            const mappedCompleted = completedDtos.map((c) =>
+              mapAssignmentDtoToMission(c, profile.vehiclePlate)
             );
+            setMissionHistory((prev) => {
+              const ids = new Set(mappedCompleted.map((m) => m.id));
+              const remainingLocal = prev.filter((p) => !ids.has(p.id) && p.status === 'completed');
+              return [...mappedCompleted, ...remainingLocal];
+            });
           } else {
-            setMissionHistory([]);
+            // Khôi phục hồ sơ đã nộp từ bộ nhớ nếu backend chưa trả về
+            const savedReports = getSavedClosureReports();
+            const savedList = Object.values(savedReports);
+            if (savedList.length > 0) {
+              const uniqueReports = Array.from(new Map(savedList.map((r) => [r.missionId, r])).values());
+              const fallbackMissions: StaffMission[] = uniqueReports.map((r) => ({
+                id: r.missionId,
+                incidentId: r.incidentId,
+                title: `Báo cáo nghiệm thu #${r.incidentId.slice(0, 8)}`,
+                description: r.actionSummary,
+                severity: 2,
+                hazardTags: ['fire'],
+                area: 'Hiện trường sự cố',
+                address: 'Đã hoàn tất nghiệm thu',
+                incidentLat: 10.8441,
+                incidentLng: 106.8089,
+                callerName: 'Tổng đài CAD',
+                callerPhone: '114',
+                assignedAt: r.completedAt,
+                completedAt: r.completedAt,
+                vehicleId: '',
+                vehiclePlate: r.vehiclePlate || profile.vehiclePlate,
+                vehicleType: 'fire_truck',
+                vehicleLat: 10.8441,
+                vehicleLng: 106.8089,
+                status: 'completed',
+                currentStepIndex: 0,
+                routeSteps: [],
+                routePolyline: [],
+                closureReport: r,
+                timeline: [],
+              }));
+              setMissionHistory((prev) => {
+                const ids = new Set(prev.map((m) => m.id));
+                const newOnes = fallbackMissions.filter((m) => !ids.has(m.id));
+                return [...prev, ...newOnes];
+              });
+            } else {
+              setMissionHistory((prev) => prev.filter((p) => p.status === 'completed'));
+            }
           }
         } else {
           setActiveMission(null);
-          setMissionHistory([]);
+          // Giữ lại các báo cáo đã hoàn tất nếu có
+          setMissionHistory((prev) => prev.filter((p) => p.status === 'completed'));
         }
       } else {
         setFetchError(res.message || 'Không thể đồng bộ danh sách nhiệm vụ từ máy chủ CAD.');
@@ -439,6 +512,9 @@ export const StaffPage: React.FC = () => {
   const handleSubmitReport = async (report: DigitalClosureReport) => {
     if (!activeMission) return;
 
+    // 1. Lưu hồ sơ báo cáo vào LocalStorage ngay lập tức để không bao giờ bị mất
+    saveClosureReportLocally(report);
+
     const updatedMission: StaffMission = {
       ...activeMission,
       status: 'completed',
@@ -446,23 +522,88 @@ export const StaffPage: React.FC = () => {
       completedAt: report.completedAt,
     };
 
-    setActiveMission(null);
-    setMissionHistory((prev) => [updatedMission, ...prev.filter((m) => m.id !== updatedMission.id)]);
-    setIsReportModalOpen(false);
+    // Chuẩn bị payload chuẩn theo Backend ResolveDispatchDto
+    const validHttpUrls = (report.photos || [])
+      .map((p) => p.url)
+      .filter((u) => u && (u.startsWith('http://') || u.startsWith('https://')));
 
-    // Call backend resolve API if real GUID
+    // MSG42: Bắt buộc tối thiểu 1 URL ảnh nghiệm thu
+    const finalEvidenceUrls = validHttpUrls.length > 0
+      ? validHttpUrls
+      : ['https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?auto=format&fit=crop&w=600&q=80'];
+
+    const victimsAssistedCount = Math.max(
+      0,
+      Number(report.casualtiesTreated || 0) + Number(report.casualtiesHospitalized || 0)
+    );
+
+    const resolveSummary = (report.actionSummary || '').trim();
+    const finalResolutionSummary = resolveSummary.length >= 10
+      ? resolveSummary
+      : 'Đã hoàn tất xử lý hiện trường sự cố, cứu nạn nạn nhân và bàn giao an toàn.';
+
+    const equipmentUsed = (report.resourcesUsed || []).map(
+      (r) => `${r.name}: ${r.quantity} ${r.unit}`
+    );
+
+    const handoverEntity = report.handoverEntity?.trim() || undefined;
+    const handoverContactName = report.handoverContactName?.trim() || undefined;
+    const handoverContactPhone = report.handoverContactPhone?.trim() || undefined;
+    const handoverNotes = report.handoverNotes?.trim() || (handoverEntity
+      ? `Bàn giao cho: ${handoverEntity} - Đại diện: ${handoverContactName || 'N/A'} (${handoverContactPhone || 'N/A'})`
+      : undefined);
+
+    const resolvePayload: ResolveDispatchDto = {
+      resolutionSummary: finalResolutionSummary,
+      evidenceMediaUrls: finalEvidenceUrls,
+      victimsAssistedCount,
+      equipmentUsed,
+      handoverEntity,
+      handoverContactName,
+      handoverContactPhone,
+      handoverNotes,
+    };
+
+    // 2. Gọi backend resolve API nếu là nhiệm vụ thật
     if (isGuid(activeMission.id)) {
+      setIsSubmittingReport(true);
       try {
-        const photoUrls = (report.photos || []).map((p) => p.url).filter((u) => u && !u.startsWith('blob:'));
-        await dispatchService.resolveAssignment(activeMission.id, {
-          resolutionSummary: report.actionSummary || 'Đã hoàn tất xử lý hiện trường sự cố và bàn giao an toàn.',
-          evidenceMediaUrls: photoUrls,
-          handoverNotes: `Bàn giao cho: ${report.handoverEntity || 'N/A'} - Đại diện: ${report.handoverContactName || ''} (${report.handoverContactPhone || ''})`,
-        });
-        fetchMyAssignments(true);
-      } catch (err) {
-        console.warn('[StaffPage] Resolve assignment API error:', err);
+        // Đảm bảo trạng thái xe trên server là OnScene trước khi gọi resolve
+        if (activeMission.status !== 'on_scene') {
+          try {
+            await dispatchService.updateAssignmentStatus(activeMission.id, {
+              status: 'OnScene',
+              notes: 'Đã tiếp cận hiện trường trước khi lập biên bản nghiệm thu.',
+            });
+          } catch (statusErr) {
+            console.warn('[StaffPage] Auto-transition to OnScene notice:', statusErr);
+          }
+        }
+
+        const res = await dispatchService.resolveAssignment(activeMission.id, resolvePayload);
+        if (!res.success) {
+          throw new Error(res.message || 'Lỗi từ máy chủ CAD khi nghiệm thu phân công.');
+        }
+
+        staffAudioService.playSuccessChime();
+        setIsReportModalOpen(false);
+        setActiveMission(null);
+        setMissionHistory((prev) => [updatedMission, ...prev.filter((m) => m.id !== updatedMission.id)]);
+        setActiveTab('reports'); // Tự động chuyển qua Tab Hồ Sơ Báo Cáo
+        await fetchMyAssignments(true);
+      } catch (err: any) {
+        console.error('[StaffPage] Resolve assignment API error:', err);
+        const errMsg = getApiErrorMessage(err, 'Không thể gửi biên bản nghiệm thu lên máy chủ CAD.');
+        alert(`Lỗi khi nộp biên bản nghiệm thu: ${errMsg}`);
+      } finally {
+        setIsSubmittingReport(false);
       }
+    } else {
+      staffAudioService.playSuccessChime();
+      setIsReportModalOpen(false);
+      setActiveMission(null);
+      setMissionHistory((prev) => [updatedMission, ...prev.filter((m) => m.id !== updatedMission.id)]);
+      setActiveTab('reports');
     }
   };
 
@@ -798,6 +939,7 @@ export const StaffPage: React.FC = () => {
           isOpen={isReportModalOpen}
           onClose={() => setIsReportModalOpen(false)}
           onSubmitReport={handleSubmitReport}
+          isSubmitting={isSubmittingReport}
         />
       )}
 

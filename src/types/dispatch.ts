@@ -65,8 +65,13 @@ export interface RejectAssignmentDto {
 }
 
 export interface ResolveDispatchDto {
-  resolutionSummary: string; // Min 10 characters
-  evidenceMediaUrls?: string[];
+  resolutionSummary: string; // Min 10 characters (Required)
+  evidenceMediaUrls: string[]; // Min 1 item (Required by backend MSG42)
+  victimsAssistedCount: number; // Required >= 0
+  equipmentUsed?: string[];
+  handoverEntity?: string;
+  handoverContactName?: string;
+  handoverContactPhone?: string;
   handoverNotes?: string;
 }
 

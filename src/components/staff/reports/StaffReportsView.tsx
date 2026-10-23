@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileCheck2,
   Camera,
@@ -29,12 +29,20 @@ export const StaffReportsView: React.FC<StaffReportsViewProps> = ({
     completedMissions[0] || null
   );
 
-  const filtered = completedMissions.filter(
-    (m) =>
-      m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.address.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    if ((!selectedReport || !completedMissions.some((m) => m.id === selectedReport.id)) && completedMissions.length > 0) {
+      setSelectedReport(completedMissions[0]);
+    }
+  }, [completedMissions, selectedReport]);
+
+  const filtered = completedMissions.filter((m) => {
+    if (!m) return false;
+    const term = (searchTerm || '').toLowerCase();
+    const title = (m.title || '').toLowerCase();
+    const id = (m.id || '').toLowerCase();
+    const addr = (m.address || '').toLowerCase();
+    return title.includes(term) || id.includes(term) || addr.includes(term);
+  });
 
   if (completedMissions.length === 0) {
     return (
@@ -114,7 +122,7 @@ export const StaffReportsView: React.FC<StaffReportsViewProps> = ({
                   <div className="text-xs text-slate-500 truncate mb-2">{m.address}</div>
 
                   <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono pt-2 border-t border-slate-100">
-                    <span>{new Date(m.assignedAt).toLocaleDateString('vi-VN')}</span>
+                    <span>{m.assignedAt ? new Date(m.assignedAt).toLocaleDateString('vi-VN') : 'Vừa xong'}</span>
                     <span className="text-emerald-600 font-semibold">Đã nộp báo cáo</span>
                   </div>
                 </div>
@@ -158,26 +166,41 @@ export const StaffReportsView: React.FC<StaffReportsViewProps> = ({
               </div>
 
               {/* Stats: Casualties & Handover */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                  <div className="text-base font-black text-red-600 font-mono">
-                    {selectedReport.closureReport?.casualtiesTreated ?? 0}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col items-center justify-center text-center min-h-[76px]">
+                  <div className="h-7 flex items-center justify-center w-full">
+                    <span className="text-lg font-black text-red-600 font-mono leading-none">
+                      {selectedReport.closureReport?.casualtiesTreated ?? 0}
+                    </span>
                   </div>
-                  <div className="text-slate-500 text-[11px]">Sơ cứu tại chỗ</div>
+                  <div className="text-slate-500 text-[11px] font-medium leading-none mt-1.5 whitespace-nowrap">
+                    Sơ cứu tại chỗ
+                  </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                  <div className="text-base font-black text-emerald-600 font-mono">
-                    {selectedReport.closureReport?.casualtiesHospitalized ?? 0}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col items-center justify-center text-center min-h-[76px]">
+                  <div className="h-7 flex items-center justify-center w-full">
+                    <span className="text-lg font-black text-emerald-600 font-mono leading-none">
+                      {selectedReport.closureReport?.casualtiesHospitalized ?? 0}
+                    </span>
                   </div>
-                  <div className="text-slate-500 text-[11px]">Chuyển viện cấp cứu</div>
+                  <div className="text-slate-500 text-[11px] font-medium leading-none mt-1.5 whitespace-nowrap">
+                    Chuyển viện cấp cứu
+                  </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center col-span-2 sm:col-span-1">
-                  <div className="text-xs font-bold text-slate-800 truncate">
-                    {selectedReport.closureReport?.handoverEntity || 'Chưa ghi nhận'}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col items-center justify-center text-center col-span-2 sm:col-span-1 min-h-[76px]">
+                  <div className="h-7 flex items-center justify-center w-full px-1">
+                    <span
+                      className="text-xs font-bold text-slate-900 truncate max-w-full leading-none block"
+                      title={selectedReport.closureReport?.handoverEntity || 'Chưa ghi nhận'}
+                    >
+                      {selectedReport.closureReport?.handoverEntity || 'Chưa ghi nhận'}
+                    </span>
                   </div>
-                  <div className="text-slate-500 text-[11px]">Đơn vị tiếp nhận</div>
+                  <div className="text-slate-500 text-[11px] font-medium leading-none mt-1.5 whitespace-nowrap">
+                    Đơn vị tiếp nhận
+                  </div>
                 </div>
               </div>
 
