@@ -59,6 +59,11 @@ export interface UpdateAssignmentStatusDto {
   notes?: string;
 }
 
+export interface RejectAssignmentDto {
+  reason: RejectionReason;
+  notes?: string;
+}
+
 export interface ResolveDispatchDto {
   resolutionSummary: string; // Min 10 characters
   evidenceMediaUrls?: string[];

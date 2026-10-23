@@ -1,3 +1,7 @@
+/**
+ * @deprecated Theo SRS FR-RS-04, tính năng bàn giao qua QR Code đã được loại bỏ.
+ * Bàn giao được thực hiện trực tiếp bằng ghi chú text trong biên bản đóng sự cố (Handover Notes).
+ */
 import React, { useState } from 'react';
 import { QrCode, ScanLine, CheckCircle2, Hospital, ShieldCheck, Sparkles, RefreshCw } from 'lucide-react';
 

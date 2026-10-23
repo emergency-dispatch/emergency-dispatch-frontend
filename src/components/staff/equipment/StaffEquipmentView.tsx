@@ -1,130 +1,81 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Wrench,
-  CheckCircle2,
   AlertTriangle,
   Flame,
   Truck,
   Radio,
   HeartPulse,
-  RotateCcw,
-  Plus,
+  PackageOpen,
+  Info,
 } from 'lucide-react';
 import type { EquipmentCheckItem } from '../../../types/staff';
-import { mockEquipmentList } from '../../../data/staffMock';
-import { staffAudioService } from '../../../services/staffAudioService';
-
-const CATEGORY_META = {
-  vehicle: { label: 'Phương tiện & Động cơ', icon: Truck, color: 'text-slate-600' },
-  firefighting: { label: 'Chữa cháy & Khí độc', icon: Flame, color: 'text-red-600' },
-  medical: { label: 'Y tế & Cấp cứu', icon: HeartPulse, color: 'text-emerald-600' },
-  communication: { label: 'Bộ đàm & Định vị', icon: Radio, color: 'text-blue-600' },
-};
 
 export const StaffEquipmentView: React.FC = () => {
-  const [items, setItems] = useState<EquipmentCheckItem[]>(mockEquipmentList);
-  const [toast, setToast] = useState<string | null>(null);
-
-  const toggleStatus = (id: string) => {
-    setItems((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          const nextStatus = item.status === 'operational' ? 'needs_refill' : 'operational';
-          return { ...item, status: nextStatus, lastChecked: 'Vừa xong' };
-        }
-        return item;
-      })
-    );
-    staffAudioService.playSuccessChime();
-    setToast('Đã cập nhật trạng thái thiết bị sẵn sàng chiến đấu!');
-    setTimeout(() => setToast(null), 3000);
-  };
+  // Mock data has been removed per instructions.
+  // Backend currently lacks an Equipment Management API.
+  const items: EquipmentCheckItem[] = [];
 
   return (
-    <div className="space-y-4 p-1">
-      {toast && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2 animate-fadeIn shadow-sm">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>{toast}</span>
+    <div className="space-y-5 p-1 max-w-5xl mx-auto">
+      {/* Alert Banner for Missing Backend API */}
+      <div className="p-4 sm:p-5 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 shadow-xs space-y-2">
+        <div className="flex items-center gap-2.5">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+          <h3 className="text-xs sm:text-sm font-bold uppercase font-mono tracking-wider text-amber-900">
+            CHƯA CÓ API BACKEND: QUẢN LÝ TRANG THIẾT BỊ PHƯƠNG TIỆN
+          </h3>
         </div>
-      )}
+        <p className="text-xs text-amber-800 leading-relaxed pl-7.5">
+          Hệ thống Backend hiện tại chưa có các endpoint quản lý trang thiết bị phương tiện:
+        </p>
+        <div className="pl-7.5 flex flex-wrap gap-2 pt-1 font-mono text-[11px]">
+          <span className="px-2.5 py-1 bg-white border border-amber-300 rounded-lg text-amber-900 font-semibold">
+            GET /api/rescue-units/{'{id}'}/equipment
+          </span>
+          <span className="px-2.5 py-1 bg-white border border-amber-300 rounded-lg text-amber-900 font-semibold">
+            PUT /api/rescue-units/{'{id}'}/equipment/checklist
+          </span>
+        </div>
+        <p className="text-[11px] text-amber-700 italic pl-7.5 pt-1">
+          Toàn bộ Mock Data giả lập trước đây đã được gỡ bỏ để phục vụ đối chiếu chính xác với Backend.
+        </p>
+      </div>
 
       {/* Header Banner */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-red-50 text-red-600 border border-red-200">
             <Wrench className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-xs uppercase font-mono-data font-bold text-red-600">
+            <div className="text-xs uppercase font-mono font-bold text-red-600">
               PRE-SHIFT READINESS CHECKLIST
             </div>
             <h2 className="text-lg font-bold text-slate-900">
-              Bảng Kiểm Tra Trang Thiết Bị & Phương Tiện Xe 51D-123.45
+              Bảng Kiểm Tra Trang Thiết Bị &amp; Phương Tiện Kíp Trực
             </h2>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-mono-data font-bold">
-            96% ĐẠT CHUẨN XUẤT PHÁT
+          <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 text-xs font-mono font-bold">
+            0 THIẾT BỊ ĐỒNG BỘ
           </span>
         </div>
       </div>
 
-      {/* Equipment List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-        {items.map((item) => {
-          const catMeta = CATEGORY_META[item.category];
-          const Icon = catMeta.icon;
-          const isOk = item.status === 'operational';
-
-          return (
-            <div
-              key={item.id}
-              className={`p-4 rounded-xl border transition-all flex flex-col justify-between gap-3 shadow-sm ${
-                isOk
-                  ? 'bg-white border-slate-200 hover:border-slate-300'
-                  : 'bg-amber-50/50 border-amber-300'
-              }`}
-            >
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                    <Icon className={`w-4 h-4 ${catMeta.color}`} />
-                    <span>{catMeta.label}</span>
-                  </div>
-
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono-data font-bold border ${
-                      isOk
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                    }`}
-                  >
-                    {isOk ? 'SẴN SÀNG' : 'CẦN BỔ SUNG'}
-                  </span>
-                </div>
-
-                <h4 className="text-sm font-bold text-slate-900 leading-tight">{item.name}</h4>
-                <p className="text-xs text-slate-500">{item.note}</p>
-              </div>
-
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                <span className="font-mono-data text-red-600 font-bold">
-                  SL: {item.quantity} {item.unit}
-                </span>
-
-                <button
-                  onClick={() => toggleStatus(item.id)}
-                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-mono-data transition-colors font-medium"
-                >
-                  Đổi Trạng Thái
-                </button>
-              </div>
-            </div>
-          );
-        })}
+      {/* Empty State */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 text-center shadow-xs space-y-3">
+        <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 text-slate-400 flex items-center justify-center mx-auto">
+          <PackageOpen className="w-7 h-7 text-slate-500" />
+        </div>
+        <h3 className="text-base font-bold text-slate-900">
+          Chưa Có Danh Mục Thiết Bị Từ Máy Chủ
+        </h3>
+        <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+          Khi Backend bổ sung API kiểm tra trang thiết bị theo xe (<code className="font-mono text-red-600">/api/rescue-units/:id/equipment</code>), danh mục các trang thiết bị chữa cháy, cứu nạn, y tế và phương tiện sẽ tự động hiển thị tại đây để cán bộ kíp trực kiểm tra trước ca.
+        </p>
       </div>
     </div>
   );

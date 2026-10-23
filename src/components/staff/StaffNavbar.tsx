@@ -21,14 +21,12 @@ interface StaffNavbarProps {
   profile: StaffProfile;
   hasActiveMission: boolean;
   onOpenHistory: () => void;
-  onSimulateNewMission: () => void;
 }
 
 export const StaffNavbar: React.FC<StaffNavbarProps> = ({
   profile,
   hasActiveMission,
   onOpenHistory,
-  onSimulateNewMission,
 }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();

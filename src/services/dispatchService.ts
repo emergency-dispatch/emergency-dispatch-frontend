@@ -4,6 +4,7 @@ import type {
   BackendDispatchAlgorithm,
   DispatchAssignmentResponseDto,
   UpdateAssignmentStatusDto,
+  RejectAssignmentDto,
   ResolveDispatchDto,
   AssignDispatchDto,
   RecommendedUnitResponseDto,
@@ -51,6 +52,21 @@ export const dispatchService = {
   ): Promise<ApiResponse<DispatchAssignmentResponseDto>> {
     const response = await apiClient.put<ApiResponse<DispatchAssignmentResponseDto>>(
       `/dispatch/assignments/${id}/status`,
+      dto
+    );
+    return response.data;
+  },
+
+  /**
+   * Đội cứu hộ từ chối lệnh điều phối kèm lý do bắt buộc (FR-RS-01, BR-22)
+   * (POST /api/dispatch/assignments/{id}/reject)
+   */
+  async rejectAssignment(
+    id: string,
+    dto: RejectAssignmentDto
+  ): Promise<ApiResponse<DispatchAssignmentResponseDto>> {
+    const response = await apiClient.post<ApiResponse<DispatchAssignmentResponseDto>>(
+      `/dispatch/assignments/${id}/reject`,
       dto
     );
     return response.data;

@@ -180,12 +180,12 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 space-y-1">
               <span className="text-[11px] font-semibold text-slate-400">Trạm trực thuộc</span>
-              <p className="font-bold text-slate-900 truncate">{profile.stationName || 'Trạm PCCC & CNCH'}</p>
+              <p className="font-bold text-slate-900 truncate">{profile.stationName || 'Chưa phân trạm'}</p>
             </div>
 
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 space-y-1">
               <span className="text-[11px] font-semibold text-slate-400">Phương tiện trực</span>
-              <p className="font-mono font-bold text-red-600 text-sm truncate">{profile.vehiclePlate || '51A-114.99'}</p>
+              <p className="font-mono font-bold text-red-600 text-sm truncate">{profile.vehiclePlate || 'Chưa gán xe'}</p>
             </div>
 
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 space-y-1">
@@ -195,7 +195,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
 
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 space-y-1">
               <span className="text-[11px] font-semibold text-slate-400">Mã số thẻ ngành</span>
-              <p className="font-mono font-bold text-slate-700 truncate">{profile.badgeNumber || 'ED-STAFF'}</p>
+              <p className="font-mono font-bold text-slate-700 truncate">{profile.badgeNumber || 'Chưa cấp'}</p>
             </div>
           </div>
 
