@@ -317,7 +317,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
-  const [tileMode, setTileMode] = useState<MapTileMode>('light');
+  const [tileMode, setTileMode] = useState<MapTileMode>('satellite');
   const appliedTileModeRef = useRef(tileMode);
   const [recenterCount, setRecenterCount] = useState(0);
 
