@@ -507,7 +507,15 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               : u
           );
         });
-        if (unknownUnit) refreshUnits();
+        // Xe mới (tạo / chuyển trạm): chỉ tải lại xe của trạm đó rồi ghép vào danh sách, không tải lại toàn bộ.
+        if (unknownUnit) {
+          liveMapService
+            .getRescueUnits({ stationId: evt.stationId })
+            .then((stationUnits) =>
+              setUnits((prev) => [...prev.filter((u) => u.stationId !== evt.stationId), ...stationUnits])
+            )
+            .catch(() => refreshUnits());
+        }
       }),
       incidentHubService.on<IncidentLockEvent>(HubEvents.ReceiveIncidentLock, (evt) =>
         setIncidentLock(evt.incidentId, {

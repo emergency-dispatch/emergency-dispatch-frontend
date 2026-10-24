@@ -4,6 +4,7 @@ import type {
   BackendIncidentStatus,
   BlockDuration,
   CreateIncidentDto,
+  IncidentAuditEntryDto,
   IncidentResponseDto,
   OperatorCancellationCode,
   PaginatedResultDto,
@@ -186,6 +187,15 @@ export const incidentService = {
       items.push(...res.data.data.items);
       if (!res.data.data.hasNextPage) return items;
     }
+  },
+
+  /** Nhật ký thao tác trên sự cố (Operator trạm phụ trách / Admin). */
+  async getAuditTrail(id: string, pageIndex = 1, pageSize = 50): Promise<PaginatedResultDto<IncidentAuditEntryDto>> {
+    const res = await apiClient.get<ApiResponse<PaginatedResultDto<IncidentAuditEntryDto>>>(`/Incidents/${id}/audit-trail`, {
+      params: { pageIndex, pageSize },
+    });
+    if (!res.data.success) throw new Error(res.data.message || 'Không tải được lịch sử xử lý.');
+    return res.data.data;
   },
 
   /** Giữ / gia hạn khóa mềm 2 phút. Operator khác đang giữ → HTTP 409. */

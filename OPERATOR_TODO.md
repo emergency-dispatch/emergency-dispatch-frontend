@@ -6,9 +6,11 @@
 
 Ký hiệu: 🔴 bắt buộc (không làm sẽ lỗi hoặc sai nghiệp vụ) · 🟡 nên làm · ⚪ dọn dẹp.
 
-> **Trạng thái 24/10 (chưa commit):**
-> - **Đã làm:** F1–F27 và F30.
-> - **Không làm:** F28 (tùy chọn), F29 (chưa có tab "Lịch sử xử lý"), F31 (app chưa đổi ngôn ngữ).
+> **Trạng thái 25/10:**
+> - **Đã làm:** F1–F12, F14–F30.
+>   - F28: lọc `stationId` khi xe mới xuất hiện.
+>   - F29: tab "Lịch sử xử lý" trong Drawer và nút "Lịch sử xử lý" trên Live Map.
+> - **Không làm:** F13 (phải sửa `apiClient.ts` dùng chung), F31 (app chưa có chức năng đổi ngôn ngữ).
 > - **F10:** tên trạm phụ trách hiện trong Drawer. Dòng hàng đợi chỉ hiện nhãn "Ngoài khu vực", vì Operator chỉ thấy sự cố của trạm mình nên hiện tên trạm ở đây là thừa.
 > - **F13 (đọc header `X-Auth-Error` khi gặp 401) đã hoàn lại:** phải sửa `apiClient.ts`, mà file này dùng chung cho mọi role. Operator vẫn được đăng xuất kèm lý do qua `ForceLogout` (SignalR). F5 cũng giữ lại `Level4` / `Level5`, vì trang landing còn dùng.
 > - **B4 đã kiểm tra:** `IncidentResponseDto.eventType` có ở cấp gốc của DTO.

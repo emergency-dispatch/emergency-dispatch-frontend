@@ -84,9 +84,12 @@ export const liveMapService = {
     return unwrapApi(apiClient.get<ApiResponse<StationResponseDto>>(`/stations/${id}`));
   },
 
-  /** Toàn bộ xe chưa xóa (backend không phân trang). */
-  async getRescueUnits(): Promise<RescueUnitResponseDto[]> {
-    return unwrapApi(apiClient.get<ApiResponse<RescueUnitResponseDto[]>>('/rescue-units'));
+  /**
+   * Xe chưa xóa (backend không phân trang). Không lọc → xe mọi trạm (Live Map cần để điều xe hỗ trợ);
+   * `stationId` / `status` → chỉ tải đúng phần cần (VD một trạm vừa có xe mới).
+   */
+  async getRescueUnits(filter: { stationId?: string; status?: string } = {}): Promise<RescueUnitResponseDto[]> {
+    return unwrapApi(apiClient.get<ApiResponse<RescueUnitResponseDto[]>>('/rescue-units', { params: filter }));
   },
 
   /** Operator chỉ đặt thủ công Sẵn sàng ⇄ Bảo trì; các trạng thái khác do luồng điều phối tự đặt. */

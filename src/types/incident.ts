@@ -218,6 +218,43 @@ export interface IncidentResponseDto {
   emergencySmsDispatchLog?: string | null;
 }
 
+/** AuditAction của backend (nhật ký thao tác trên sự cố). */
+export type IncidentAuditAction =
+  | 'Created'
+  | 'AiAnalyzed'
+  | 'Verified'
+  | 'SeverityOverridden'
+  | 'Dispatched'
+  | 'AssignmentAccepted'
+  | 'AssignmentRejected'
+  | 'StatusChanged'
+  | 'Escalated'
+  | 'DeEscalated'
+  | 'Cancelled'
+  | 'Completed'
+  | 'Closed'
+  | 'ReDispatched'
+  | 'PhoneRevealed'
+  | 'ReporterBlocked'
+  | 'TransferredStation'
+  | 'OutOfServiceArea';
+
+/** Mirror AuditTrailEntryDto (GET /api/incidents/{id}/audit-trail). */
+export interface IncidentAuditEntryDto {
+  id: string;
+  incidentId: string;
+  incidentTitle?: string | null;
+  actorId?: string | null;
+  actorName?: string | null;
+  actorRole?: string | null;
+  action: IncidentAuditAction;
+  description?: string | null;
+  /** Chuỗi JSON trạng thái trước / sau thao tác. */
+  oldStateJson?: string | null;
+  newStateJson?: string | null;
+  timestamp: string;
+}
+
 export interface CreateIncidentDto {
   title?: string;
   description: string;

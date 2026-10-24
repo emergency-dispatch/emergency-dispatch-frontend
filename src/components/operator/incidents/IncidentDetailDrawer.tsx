@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { ConfidenceBadge } from './ConfidenceBadge';
+import { IncidentAuditTimeline } from './IncidentAuditTimeline';
 import { IncidentMediaGallery } from './IncidentMediaGallery';
 import { ReporterMedicalCard } from './ReporterMedicalCard';
 import { SeverityBadge } from './SeverityBadge';
@@ -94,6 +95,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const [confirmedCategory, setConfirmedCategory] = useState<IncidentCategory | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
   const [mode, setMode] = useState<DrawerMode>('review');
+  // Tab nội dung: thẩm định (media + AI) hoặc lịch sử xử lý (audit trail).
+  const [tab, setTab] = useState<'review' | 'history'>('review');
   const rejecting = mode === 'reject';
   const [rejectReason, setRejectReason] = useState('');
   const [rejectCode, setRejectCode] = useState<OperatorCancellationCode>('FalseReport');
@@ -118,6 +121,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     setConfirmedCategory(incident.category === 'unknown' ? null : incident.category);
     setOverrideReason('');
     setMode('review');
+    setTab('review');
     setRejectReason('');
     setRejectCode('FalseReport');
     setTransferStationId('');
@@ -274,7 +278,33 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
           </div>
         )}
 
+        <div className="shrink-0 flex gap-1 px-5 pt-3 border-b border-slate-200" role="tablist">
+          {(
+            [
+              ['review', 'Thẩm định'],
+              ['history', 'Lịch sử xử lý'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              className={`px-3 py-2 -mb-px border-b-2 text-sm font-semibold transition-colors ${
+                tab === key ? 'border-red-600 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex-1 overflow-y-auto">
+          {tab === 'history' ? (
+            <div className="p-5 max-w-2xl">
+              <IncidentAuditTimeline key={incident.id} incidentId={incident.id} />
+            </div>
+          ) : (
           <div className="grid md:grid-cols-2 gap-5 p-5">
             {/* Cột trái: media hiện trường + thông tin người báo */}
             <div className="space-y-4 min-w-0">
@@ -613,6 +643,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
               )}
             </div>
           </div>
+          )}
         </div>
 
         {errorMsg && (
