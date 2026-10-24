@@ -17,6 +17,8 @@ import {
 } from './mapIcons';
 import { MapMarker } from './MapMarker';
 import { MapRouteLayer } from './MapRouteLayer';
+import { MapServiceAreaLayer } from './MapServiceAreaLayer';
+import type { ServiceAreaDto } from '../../../services/liveMapService';
 import type { DispatchRoute } from '../../../hooks/useDispatchRoutes';
 import { MapLegend } from './MapLegend';
 import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } from './MapLayerToggle';
@@ -293,6 +295,8 @@ interface LiveMapViewProps {
   routes?: DispatchRoute[];
   vehiclesById?: Map<string, Vehicle>;
   incidentsById?: Map<string, Incident>;
+  /** Khu vực phục vụ (vẽ vòng tròn khi Admin bật). */
+  serviceArea?: ServiceAreaDto | null;
 }
 
 export const LiveMapView: React.FC<LiveMapViewProps> = ({
@@ -306,6 +310,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   trafficJams = [],
   onResolveTrafficJam,
   routes = [],
+  serviceArea = null,
   vehiclesById,
   incidentsById,
 }) => {
@@ -387,6 +392,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
             recenterTrigger={recenterCount}
           />
 
+          <MapServiceAreaLayer map={map} area={serviceArea} />
           <MapRouteLayer map={map} routes={routes} placements={placements} selectedVehicleId={selectedVehicleId} />
 
           {stations.map((station) => {

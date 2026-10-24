@@ -5,6 +5,7 @@ import type {
   BlockDuration,
   CreateIncidentDto,
   IncidentResponseDto,
+  OperatorCancellationCode,
   PaginatedResultDto,
   VerifyIncidentRequestDto,
   MyReportDto,
@@ -19,8 +20,8 @@ const BLOCK_DURATION_TO_BACKEND: Record<BlockDuration, string> = {
 
 // Sự cố đã duyệt còn cần điều phối / theo dõi trên Live Map.
 const DISPATCH_BOARD_STATUSES: BackendIncidentStatus[] = ['Verified', 'Dispatched', 'InProgress', 'Escalated'];
-// Backend tự cắt pageSize về tối đa 50 (PaginationParamsDto) → tải lần lượt từng trang.
-const DISPATCH_BOARD_PAGE_SIZE = 50;
+// Lọc nhiều trạng thái (`statuses=`) cho phép pageSize tối đa 200.
+const DISPATCH_BOARD_PAGE_SIZE = 200;
 
 export interface LockResultDto {
   incidentId: string;
@@ -73,6 +74,8 @@ export interface TrackedUnitDto {
   distanceKm: number;
   estimatedArrivalMinutes: number;
   dispatchStatus: string;
+  /** Máy chủ chỉ đường lỗi → tuyến chỉ là đoạn thẳng 2 điểm (vẽ nét đứt). */
+  isApproximateRoute?: boolean;
 }
 
 export interface RevealPhoneDto {
@@ -134,9 +137,24 @@ export const incidentService = {
     return response.data;
   },
 
-  /** Hủy sự cố (báo sai/trùng lặp). Body: CancelIncidentDto { reason }. */
-  async cancel(id: string, reason: string): Promise<ApiResponse<IncidentResponseDto>> {
-    const response = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/cancel`, { reason });
+  /**
+   * Hủy sự cố. Body: CancelIncidentDto { reason, reasonCode }. `reasonCode` chỉ Operator / Admin gửi;
+   * Citizen tự hủy thì backend tự đặt CitizenCancelled.
+   */
+  async cancel(id: string, reason: string, reasonCode?: OperatorCancellationCode): Promise<ApiResponse<IncidentResponseDto>> {
+    const response = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/cancel`, {
+      reason,
+      ...(reasonCode ? { reasonCode } : {}),
+    });
+    return response.data;
+  },
+
+  /** Chuyển sự cố sang trạm khác phụ trách (lý do ≥ 5 ký tự). Khóa mềm được nhả. */
+  async transfer(id: string, stationId: string, reason: string): Promise<ApiResponse<IncidentResponseDto>> {
+    const response = await apiClient.post<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/transfer`, {
+      stationId,
+      reason,
+    });
     return response.data;
   },
 
@@ -155,22 +173,19 @@ export const incidentService = {
   },
 
   /**
-   * Sự cố đã duyệt còn đang điều phối (Verified/Dispatched/InProgress/Escalated).
-   * Backend chỉ lọc được một trạng thái mỗi lần → gọi song song từng trạng thái.
+   * Sự cố đã duyệt còn đang điều phối (Verified/Dispatched/InProgress/Escalated) của trạm mình —
+   * một request lọc nhiều trạng thái (`statuses=`), tải tiếp trang sau nếu còn.
    */
   async getDispatchBoard(): Promise<IncidentResponseDto[]> {
-    const fetchStatus = async (status: BackendIncidentStatus) => {
-      const items: IncidentResponseDto[] = [];
-      for (let pageIndex = 1; ; pageIndex++) {
-        const res = await apiClient.get<ApiResponse<PaginatedResultDto<IncidentResponseDto>>>('/Incidents', {
-          params: { status, pageIndex, pageSize: DISPATCH_BOARD_PAGE_SIZE },
-        });
-        if (!res.data.success) throw new Error(res.data.message || 'Không thể tải sự cố đang điều phối.');
-        items.push(...res.data.data.items);
-        if (!res.data.data.hasNextPage) return items;
-      }
-    };
-    return (await Promise.all(DISPATCH_BOARD_STATUSES.map(fetchStatus))).flat();
+    const items: IncidentResponseDto[] = [];
+    for (let pageIndex = 1; ; pageIndex++) {
+      const res = await apiClient.get<ApiResponse<PaginatedResultDto<IncidentResponseDto>>>('/Incidents', {
+        params: { statuses: DISPATCH_BOARD_STATUSES.join(','), pageIndex, pageSize: DISPATCH_BOARD_PAGE_SIZE },
+      });
+      if (!res.data.success) throw new Error(res.data.message || 'Không thể tải sự cố đang điều phối.');
+      items.push(...res.data.data.items);
+      if (!res.data.data.hasNextPage) return items;
+    }
   },
 
   /** Giữ / gia hạn khóa mềm 2 phút. Operator khác đang giữ → HTTP 409. */

@@ -6,6 +6,9 @@ import { DispatchIncidentList } from '../../components/operator/livemap/Dispatch
 import { DispatchRecommendPanel } from '../../components/operator/livemap/DispatchRecommendPanel';
 import { LiveMapView } from '../../components/operator/livemap/LiveMapView';
 import { MAX_VEHICLES_BY_LEVEL } from '../../data/dispatchConfig';
+import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
+import type { AssignOptions } from '../../context/DispatchContext';
+import type { OperatorCancellationCode } from '../../types/incident';
 import type { DispatchAlgorithm } from '../../types/vehicle';
 
 /**
@@ -16,7 +19,19 @@ import type { DispatchAlgorithm } from '../../types/vehicle';
  * Panel phải luôn hiện trên desktop.
  */
 export const LiveMapPage: React.FC = () => {
-  const { vehicles, incidents, stations, trafficJams, resolveTrafficJam, assignVehicle, cancelAssignment, rejectIncident, dismissResponseNotice } = useDispatchStore();
+  const {
+    vehicles,
+    incidents,
+    stations,
+    trafficJams,
+    resolveTrafficJam,
+    assignVehicle,
+    cancelAssignment,
+    rejectIncident,
+    dismissResponseNotice,
+    serviceArea,
+    stationNotAssigned,
+  } = useDispatchStore();
 
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
@@ -31,7 +46,7 @@ export const LiveMapPage: React.FC = () => {
   const dispatchIncidents = useMemo(() => incidents.filter((i) => i.status === 'approved'), [incidents]);
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
   const incidentsById = useMemo(() => new Map(incidents.map((i) => [i.id, i])), [incidents]);
-  const routes = useDispatchRoutes(incidents, vehicles, stations);
+  const routes = useDispatchRoutes(incidents, vehicles);
 
   // Auto-select ưu tiên nhất khi chưa chọn
   const userClearedRef = useRef(false);
@@ -70,11 +85,11 @@ export const LiveMapPage: React.FC = () => {
     setSelectedVehicleId((cur) => (cur === id ? null : id));
   };
 
-  const handleAssign = async (vehicleId: string, algorithm: DispatchAlgorithm) => {
+  const handleAssign = async (vehicleId: string, algorithm: DispatchAlgorithm, options?: AssignOptions) => {
     if (!selectedIncidentId) return;
     setAssigningVehicleId(vehicleId);
     setPanelError(null);
-    const result = await assignVehicle(vehicleId, selectedIncidentId, algorithm);
+    const result = await assignVehicle(vehicleId, selectedIncidentId, algorithm, options);
     setAssigningVehicleId(null);
     if (!result.ok) setPanelError(result.message ?? 'Giao xe thất bại.');
   };
@@ -87,17 +102,21 @@ export const LiveMapPage: React.FC = () => {
     if (!result.ok) setPanelError(result.message ?? 'Hủy giao xe thất bại.');
   };
 
-  const handleCancelIncident = async (incidentId: string) => {
+  const handleCancelIncident = async (incidentId: string, reasonCode: OperatorCancellationCode) => {
     setCancellingIncidentId(incidentId);
     setPanelError(null);
     const result = await rejectIncident(
       incidentId,
-      'Điều phối viên hủy sự cố đã duyệt (nghi ngờ AI phân loại sai hoặc báo khống).'
+      'Điều phối viên hủy sự cố đã duyệt trên Live Map.',
+      null,
+      reasonCode
     );
     if (!result.ok) setPanelError(result.message ?? 'Hủy sự cố thất bại.');
     else if (selectedIncidentId === incidentId) setSelectedIncidentId(null);
     setCancellingIncidentId(null);
   };
+
+  if (stationNotAssigned) return <StationNotAssigned message={stationNotAssigned} />;
 
   return (
     <div className="h-full flex overflow-hidden relative">
@@ -133,6 +152,7 @@ export const LiveMapPage: React.FC = () => {
           routes={routes}
           vehiclesById={vehiclesById}
           incidentsById={incidentsById}
+          serviceArea={serviceArea}
         />
       </div>
 

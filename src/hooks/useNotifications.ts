@@ -34,6 +34,15 @@ export function useNotifications() {
         setItems((prev) => [notification, ...prev.filter((n) => n.id !== notification.id)].slice(0, PAGE_SIZE));
         if (!notification.isRead) setUnreadCount((c) => c + 1);
       }),
+      // Đánh dấu đã đọc ở thiết bị / tab khác → đồng bộ badge và danh sách.
+      incidentHubService.on<{ notificationIds: string[]; all: boolean; unreadCount: number }>(
+        HubEvents.ReceiveNotificationRead,
+        (evt) => {
+          setUnreadCount(evt.unreadCount);
+          const ids = new Set(evt.notificationIds);
+          setItems((prev) => prev.map((n) => (evt.all || ids.has(n.id) ? { ...n, isRead: true } : n)));
+        }
+      ),
       incidentHubService.onReconnected(reload),
     ];
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());

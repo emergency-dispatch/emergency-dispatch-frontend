@@ -31,6 +31,15 @@ export interface EscalationSettingsDto {
   maxRadiusKm: number;
 }
 
+/** Khu vực phục vụ (GET /api/settings/service-area — công khai). */
+export interface ServiceAreaDto {
+  enabled: boolean;
+  name: string | null;
+  centerLat: number;
+  centerLng: number;
+  radiusKm: number;
+}
+
 export const DEFAULT_ESCALATION_SETTINGS: EscalationSettingsDto = {
   dayThresholdMinutes: 5,
   nightThresholdMinutes: 2.5,
@@ -92,6 +101,14 @@ export const liveMapService = {
 
   async resolveTrafficJam(id: string): Promise<void> {
     await unwrapApi(apiClient.put<ApiResponse<unknown>>(`/traffic/${id}/resolve`));
+  },
+
+  /** Có thể bọc trong SettingsRecordDto { values } như các cấu hình khác → đọc được cả hai dạng. */
+  async getServiceArea(): Promise<ServiceAreaDto> {
+    const data = await unwrapApi(
+      apiClient.get<ApiResponse<ServiceAreaDto | { values: ServiceAreaDto }>>('/settings/service-area')
+    );
+    return 'values' in data ? data.values : data;
   },
 
   /** Backend bọc cấu hình trong SettingsRecordDto { values, updatedAt, updatedByName }. */

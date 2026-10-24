@@ -59,6 +59,11 @@ export interface DispatchCandidate {
   cost: number;
   /** Tỷ lệ xe đang bận của trạm (0–1). */
   stationLoad: number;
+  /** Quãng đường / ETA là ước lượng (máy chủ chỉ đường lỗi). */
+  isApproximate: boolean;
+  /** Xe của trạm khác (điều hỗ trợ). */
+  isSupportUnit: boolean;
+  stationName: string;
 }
 
 export interface DispatchSuggestion {

@@ -136,6 +136,14 @@ export const MapLegend: React.FC = () => {
           </span>
           <span className="text-xs text-slate-700">Ùn tắc</span>
         </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-4 h-0 border-t-2 border-dashed border-blue-600 shrink-0" />
+          <span className="text-xs text-slate-700">Khu vực phục vụ</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-4 h-0 border-t-2 border-dashed border-slate-500 shrink-0" />
+          <span className="text-xs text-slate-700">Tuyến ước lượng</span>
+        </span>
       </div>
     </div>
   );

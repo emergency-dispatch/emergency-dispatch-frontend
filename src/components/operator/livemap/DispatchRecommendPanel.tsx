@@ -2,13 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   GripVertical,
+  HandHelping,
   Loader2,
+  Plus,
   Radar,
 } from 'lucide-react';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
-import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
+import { INCIDENT_CATEGORY_META, OVERRIDE_REASON_MIN_LENGTH } from '../../../data/incidentMock';
+import { VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { DISPATCH_ALGORITHM_META, MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
-import { useDispatchStore } from '../../../context/DispatchContext';
+import { useDispatchStore, type AssignOptions } from '../../../context/DispatchContext';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { dispatchService } from '../../../services/dispatchService';
@@ -50,10 +53,14 @@ function useRecommendations(
             expanded: first?.radiusExpanded ?? false,
             candidates: res.data.map((u) => ({
               vehicleId: u.rescueUnitId,
-              km: u.distanceKm,
+              // Quãng đường đường bộ (OSRM); thiếu thì dùng đường chim bay và coi là ước lượng.
+              km: u.roadDistanceKm ?? u.distanceKm,
               etaMinutes: Math.max(1, Math.round(u.estimatedEtaMinutes)),
               cost: u.cost,
               stationLoad: u.stationLoad,
+              isApproximate: !!u.isApproximate || u.roadDistanceKm == null,
+              isSupportUnit: !!u.isSupportUnit,
+              stationName: u.stationName,
             })),
           },
         });
@@ -71,8 +78,8 @@ function useRecommendations(
 interface DispatchRecommendPanelProps {
   selectedIncidentId: string | null;
   assigningVehicleId: string | null;
-  /** vehicleId + algorithm đang chọn — để LiveMapPage gọi đúng thuật toán */
-  onAssign: (vehicleId: string, algorithm: DispatchAlgorithm) => void;
+  /** vehicleId + algorithm đang chọn — để LiveMapPage gọi đúng thuật toán; options khi giao thêm tổ cho Cấp 1–2. */
+  onAssign: (vehicleId: string, algorithm: DispatchAlgorithm, options?: AssignOptions) => void;
 }
 
 export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
@@ -82,7 +89,15 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
 }) => {
   const { vehicles, incidents, escalatedIncidentIds } = useDispatchStore();
   const [algorithm, setAlgorithm] = useState<DispatchAlgorithm>('nearest');
+  // Cấp 1–2 đã đủ 1 tổ: backend cho giao thêm khi có lý do ≥ 5 ký tự.
+  const [extraMode, setExtraMode] = useState(false);
+  const [extraReason, setExtraReason] = useState('');
   const teamByVehicle = useTeamByVehicle();
+
+  useEffect(() => {
+    setExtraMode(false);
+    setExtraReason('');
+  }, [selectedIncidentId]);
 
   const selectedIncident = useMemo(
     () => incidents.find((i) => i.id === selectedIncidentId) ?? null,
@@ -96,6 +111,9 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     : 0;
   const isFull = activeCount >= maxVehicles;
   const isCompleted = selectedIncident?.status === 'completed';
+  const canAddExtra = isFull && !isCompleted && !!selectedIncident && selectedIncident.severity !== 3;
+  const extraReasonValid = extraReason.trim().length >= OVERRIDE_REASON_MIN_LENGTH;
+  const showSuggestions = !isCompleted && (!isFull || (canAddExtra && extraMode));
   const isEscalated = selectedIncident ? escalatedIncidentIds.has(selectedIncident.id) : false;
   const category = selectedIncident ? INCIDENT_CATEGORY_META[selectedIncident.category] : null;
 
@@ -105,7 +123,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
 
   const { suggestion, loading: suggestionLoading, error: suggestionError } = useRecommendations(
     selectedIncidentId,
-    !!selectedIncidentId && !isFull && !isCompleted,
+    !!selectedIncidentId && showSuggestions,
     algorithm,
     refreshKey
   );
@@ -113,8 +131,13 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   const readyCandidates = (suggestion?.candidates ?? []).filter(
     (c) => vehiclesById.get(c.vehicleId)?.status === 'available'
   );
-  const candidates = readyCandidates.filter((c) => teamByVehicle.has(c.vehicleId));
+  // Điều phối theo tổ: xe trạm mình phải có tổ. Xe hỗ trợ của trạm khác thì Operator không xem được tổ (403) →
+  // vẫn cho giao, hiện theo xe.
+  const candidates = readyCandidates.filter((c) => teamByVehicle.has(c.vehicleId) || c.isSupportUnit);
   const vehiclesWithoutTeam = readyCandidates.length - candidates.length;
+  const assignOptions: AssignOptions | undefined =
+    isFull && extraMode ? { allowExtraUnits: true, notes: extraReason.trim() } : undefined;
+  const assignBlocked = isFull && extraMode && !extraReasonValid;
 
   // Tổ sẵn sàng để kéo thả
   const readyTeams = useMemo(
@@ -183,13 +206,52 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
               Chọn một sự cố từ bảng bên trái<br />để xem tổ phù hợp
             </p>
           </div>
-        ) : isFull || isCompleted ? (
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 py-2">
-            <CheckCircle2 className="w-4 h-4" />
-            {isCompleted ? 'Sự cố đã đóng' : `Đã đủ ${maxVehicles} tổ tối đa`}
+        ) : !showSuggestions ? (
+          <div className="space-y-2 py-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
+              <CheckCircle2 className="w-4 h-4" />
+              {isCompleted ? 'Sự cố đã đóng' : `Đã đủ ${maxVehicles} tổ tối đa`}
+            </div>
+            {canAddExtra && (
+              <button
+                onClick={() => setExtraMode(true)}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed border-slate-300 text-[11px] font-bold text-slate-600 hover:bg-slate-50"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Giao thêm tổ (cần lý do)
+              </button>
+            )}
           </div>
         ) : (
           <>
+            {isFull && extraMode && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 space-y-1.5 mb-1">
+                <p className="text-[11px] text-amber-800">
+                  Sự cố Cấp {selectedIncident.severity} đã có {activeCount} tổ. Ghi lý do giao thêm (lưu nhật ký):
+                </p>
+                <textarea
+                  value={extraReason}
+                  onChange={(e) => setExtraReason(e.target.value)}
+                  rows={2}
+                  placeholder="Vd: Có nhiều nạn nhân, cần thêm xe cứu thương…"
+                  className="w-full rounded border border-amber-300 bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-300"
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-amber-700">
+                    {extraReasonValid ? '' : `Tối thiểu ${OVERRIDE_REASON_MIN_LENGTH} ký tự`}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setExtraMode(false);
+                      setExtraReason('');
+                    }}
+                    className="text-[10px] font-bold text-slate-500 hover:text-slate-800"
+                  >
+                    Thôi, không giao thêm
+                  </button>
+                </div>
+              </div>
+            )}
             {/* Tiêu đề gợi ý */}
             {(suggestionLoading || suggestion) && (
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -223,8 +285,16 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
 
             {candidates.map((candidate, index) => {
               const vehicle = vehiclesById.get(candidate.vehicleId)!;
-              const team = teamByVehicle.get(vehicle.id)!;
+              const team = teamByVehicle.get(vehicle.id);
               const isAssigning = assigningVehicleId === vehicle.id;
+              const distanceLabel = (
+                <>
+                  {` · ${candidate.km.toFixed(1)} km${candidate.isApproximate ? ' (ước lượng)' : ''} · ETA ${
+                    candidate.etaMinutes
+                  }ph`}
+                  {algorithm === 'load_aware' && ` · ${candidate.cost.toFixed(2)}`}
+                </>
+              );
               return (
                 <div
                   key={vehicle.id}
@@ -239,20 +309,30 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                     {index + 1}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <DispatchTeamLabel
-                      team={team}
-                      vehicle={vehicle}
-                      detail={
-                        <>
-                          {` · ${candidate.km.toFixed(1)} km · ETA ${candidate.etaMinutes}ph`}
-                          {algorithm === 'load_aware' && ` · ${candidate.cost.toFixed(2)}`}
-                        </>
-                      }
-                    />
+                    {candidate.isSupportUnit && (
+                      <span className="inline-flex items-center gap-0.5 mb-0.5 px-1.5 py-px rounded bg-blue-50 border border-blue-200 text-[9px] font-bold text-blue-700">
+                        <HandHelping className="w-2.5 h-2.5" />
+                        Xe hỗ trợ · {candidate.stationName}
+                      </span>
+                    )}
+                    {team ? (
+                      <DispatchTeamLabel team={team} vehicle={vehicle} detail={distanceLabel} />
+                    ) : (
+                      // Xe hỗ trợ trạm khác: không xem được tổ → hiện theo xe.
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 truncate">
+                          {VEHICLE_TYPE_META[vehicle.type].label}
+                        </p>
+                        <p className="text-[10px] text-slate-400 truncate">
+                          <span className="font-mono-data">{vehicle.plate}</span>
+                          {distanceLabel}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <button
-                    onClick={() => onAssign(vehicle.id, algorithm)}
-                    disabled={!!assigningVehicleId}
+                    onClick={() => onAssign(vehicle.id, algorithm, assignOptions)}
+                    disabled={!!assigningVehicleId || assignBlocked}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold shrink-0 transition-colors disabled:opacity-60"
                   >
                     {isAssigning && <Loader2 className="w-3 h-3 animate-spin" />}

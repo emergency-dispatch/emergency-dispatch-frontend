@@ -18,11 +18,19 @@ export type HazardTagKey =
 // Thang cấp độ mới (Cấp 1–3, không có Cấp 0). AI không phân loại được → Cấp 1 + % tin cậy thấp.
 export type SeverityLevel = 1 | 2 | 3;
 
-// Hai nhánh sự kiện có chấm cấp độ.
-export type IncidentCategory = 'fire' | 'accident';
+// Hai nhánh sự kiện có chấm cấp độ; 'unknown' = AI không xác định và không suy được từ loại SOS người dân chọn
+// (Operator phải chọn khi duyệt).
+export type IncidentCategory = 'fire' | 'accident' | 'unknown';
 
 // #Traffic_Jam chỉ là cảnh báo trên bản đồ, không vào hàng đợi / không chấm cấp.
-export type HazardTag = IncidentCategory | 'traffic_jam';
+export type HazardTag = 'fire' | 'accident' | 'traffic_jam';
+
+/** IncidentEventType của backend. */
+export type BackendEventType = 'None' | 'FireExplosion' | 'TrafficAccident';
+
+/** CancellationReason của backend; Operator chỉ gửi được 4 mã đầu. */
+export type CancellationReasonCode = 'FalseReport' | 'Duplicate' | 'TestReport' | 'Other' | 'CitizenCancelled' | 'AutoExpired';
+export type OperatorCancellationCode = 'FalseReport' | 'Duplicate' | 'TestReport' | 'Other';
 
 // Gộp trạng thái backend cho UI Operator: pending = chờ thẩm định (Pending/AiProcessing/AiProcessed),
 // approved = đã xác minh, đang điều phối (Verified/Dispatched/InProgress), completed = đã đóng.
@@ -75,12 +83,19 @@ export interface Incident {
   title: string;
   description: string;
   category: IncidentCategory;
+  /**
+   * Backend chưa có loại sự cố đã xác nhận (eventType = None) → khi duyệt bắt buộc gửi confirmedEventType.
+   * `category` lúc này chỉ là gợi ý suy từ tiêu đề SOS (hoặc 'unknown').
+   */
+  needsEventType: boolean;
   hazardTags: string[];
   severity: SeverityLevel;
   /** % tin cậy của AI (0–100). Vô nghĩa khi aiPending. */
   confidenceScore: number;
   /** AI chưa trả kết quả (sự cố vừa gửi / đang phân tích). */
   aiPending: boolean;
+  /** AI chạy lỗi / quá thời gian chờ (aiClassification.isSuccess = false) — % tin cậy và cấp đề xuất vô nghĩa. */
+  aiFailed: boolean;
   aiSummary: string | null;
   status: IncidentStatus;
   /** Backend đã leo thang (status Escalated): sự cố quá ngưỡng chưa có đội nhận. */
@@ -90,6 +105,12 @@ export interface Incident {
   area: string;
   lat: number;
   lng: number;
+  /** Trạm phụ trách sự cố (vận hành theo trạm). */
+  responsibleStationId: string | null;
+  responsibleStationName: string | null;
+  /** SOS nằm ngoài khu vực phục vụ. */
+  isOutOfServiceArea: boolean;
+  distanceOutsideAreaKm: number | null;
   reporterName: string;
   reporterPhone: string;
   createdAt: string;
@@ -148,7 +169,7 @@ export interface AiClassificationResultDto {
   hazardTags: string[];
   severityScore: number;
   incidentType?: string | null;
-  eventType?: 'None' | 'FireExplosion' | 'TrafficAccident';
+  eventType?: BackendEventType;
   isTrafficJam?: boolean;
   summary?: string;
   confidenceScore?: number;
@@ -180,6 +201,17 @@ export interface IncidentResponseDto {
   lockExpiresAt?: string;
   createdAt: string;
   updatedAt?: string;
+  responsibleStationId?: string | null;
+  responsibleStationName?: string | null;
+  isOutOfServiceArea?: boolean;
+  distanceOutsideAreaKm?: number | null;
+  /** Loại sự cố đã xác nhận (Operator chọn khi verify, hoặc AI xác định); None = chưa rõ. */
+  eventType?: BackendEventType;
+  cancellationReason?: CancellationReasonCode | null;
+  cancelledAt?: string | null;
+  cancelledByUserId?: string | null;
+  cancelledByName?: string | null;
+  cancellationNote?: string | null;
   mediaItems: IncidentMediaDto[];
   aiClassification?: AiClassificationResultDto | null;
   reporterMedicalProfile?: (ReporterMedicalProfile & { userId: string; fullName: string; phoneNumber: string }) | null;
@@ -236,11 +268,14 @@ export interface MyReportDto {
 
 export interface VerifyIncidentRequestDto {
   confirmedSeverity: BackendSeverityLevel;
+  /** Bắt buộc khi sự cố đang có eventType = None. */
+  confirmedEventType?: Exclude<BackendEventType, 'None'>;
   adjustedTitle?: string;
   operatorNotes?: string;
 }
 
-// Unclassified (AI không phân loại được) hiển thị như Cấp 1 + % tin cậy thấp; Level4/5 chỉ còn ở dữ liệu cũ.
+// Unclassified (AI không phân loại được) giữ số 1 cho kiểu dữ liệu, UI hiện "Chưa phân loại" qua Incident.aiUnclassified.
+// Level4/5 chỉ còn ở dữ liệu cũ (trang landing vẫn so sánh hai giá trị này).
 const SEVERITY_FROM_BACKEND: Record<BackendSeverityLevel, SeverityLevel> = {
   Unclassified: 1,
   Level1: 1,
@@ -249,6 +284,27 @@ const SEVERITY_FROM_BACKEND: Record<BackendSeverityLevel, SeverityLevel> = {
   Level4: 3,
   Level5: 3,
 };
+
+const CATEGORY_FROM_EVENT_TYPE: Partial<Record<BackendEventType, Exclude<IncidentCategory, 'unknown'>>> = {
+  FireExplosion: 'fire',
+  TrafficAccident: 'accident',
+};
+
+export const EVENT_TYPE_FROM_CATEGORY: Record<Exclude<IncidentCategory, 'unknown'>, Exclude<BackendEventType, 'None'>> = {
+  fire: 'FireExplosion',
+  accident: 'TrafficAccident',
+};
+
+/**
+ * Loại SOS người dân chọn khi gửi chỉ nằm trong tiêu đề ("Hỏa hoạn & Khói…", "Tai nạn & Va chạm…") →
+ * suy ra để gợi ý khi AI không xác định được. Không suy được → null.
+ */
+export function inferCategoryFromTitle(title: string): Exclude<IncidentCategory, 'unknown'> | null {
+  const t = title.toLowerCase();
+  if (/hỏa hoạn|cháy|khói|nổ|fire|smoke|explosion/.test(t)) return 'fire';
+  if (/tai nạn|va chạm|accident|crash|collision/.test(t)) return 'accident';
+  return null;
+}
 
 const SEVERITY_TO_BACKEND: Record<SeverityLevel, BackendSeverityLevel> = {
   1: 'Level1',
@@ -293,14 +349,11 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto): Inciden
   const firstMedia = dto.mediaItems[0] ?? null;
   const ai = dto.aiClassification;
   const hazardTags = (ai?.hazardTags ?? []).map(normalizeHazardTag);
-  const category: IncidentCategory =
-    ai?.eventType === 'FireExplosion'
-      ? 'fire'
-      : ai?.eventType === 'TrafficAccident'
-        ? 'accident'
-        : hazardTags.includes('fire')
-          ? 'fire'
-          : 'accident';
+  // Loại sự cố: đã xác nhận / AI xác định → dùng luôn; chưa rõ → gợi ý theo loại SOS người dân chọn; không suy được → 'unknown'.
+  const knownCategory =
+    CATEGORY_FROM_EVENT_TYPE[dto.eventType ?? 'None'] ??
+    (ai?.isSuccess !== false ? CATEGORY_FROM_EVENT_TYPE[ai?.eventType ?? 'None'] : undefined);
+  const category: IncidentCategory = knownCategory ?? inferCategoryFromTitle(dto.title) ?? 'unknown';
   const hasActiveLock =
     !!dto.lockedByOperatorId && !!dto.lockExpiresAt && new Date(dto.lockExpiresAt).getTime() > Date.now();
 
@@ -309,10 +362,12 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto): Inciden
     title: dto.title,
     description: dto.description,
     category,
+    needsEventType: !CATEGORY_FROM_EVENT_TYPE[dto.eventType ?? 'None'],
     hazardTags,
     severity: SEVERITY_FROM_BACKEND[dto.severity] ?? 1,
     confidenceScore: Math.round((ai?.confidenceScore ?? 0) * 100),
     aiPending: !ai && (dto.status === 'Pending' || dto.status === 'AiProcessing'),
+    aiFailed: !!ai && ai.isSuccess === false,
     aiSummary: ai?.summary ?? null,
     status: toOperatorStatus(dto) ?? 'pending',
     escalated: dto.status === 'Escalated',
@@ -320,6 +375,10 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto): Inciden
     area: dto.locationAddress,
     lat: dto.latitude,
     lng: dto.longitude,
+    responsibleStationId: dto.responsibleStationId ?? null,
+    responsibleStationName: dto.responsibleStationName ?? null,
+    isOutOfServiceArea: !!dto.isOutOfServiceArea,
+    distanceOutsideAreaKm: dto.distanceOutsideAreaKm ?? null,
     reporterName: dto.reporterName || 'Không rõ danh tính',
     reporterPhone: dto.reporterPhone || '—',
     createdAt: dto.createdAt,

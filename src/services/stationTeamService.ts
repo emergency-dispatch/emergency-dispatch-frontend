@@ -88,10 +88,13 @@ export const stationTeamService = {
 
   getSnapshot: () => snapshot,
 
-  /** Tải tổ của các trạm (Dispatch Panel cần tổ của mọi trạm để hiện kèm xe). */
+  /**
+   * Tải tổ của các trạm (Dispatch Panel hiện tổ kèm xe). Operator chỉ xem được tổ trạm mình — trạm khác trả 403
+   * và được bỏ qua (xe hỗ trợ của trạm khác hiện không kèm tổ).
+   */
   async loadTeams(stationIds: string[]): Promise<void> {
-    const results = await Promise.all(stationIds.map(fetchTeams));
-    teams = results.flat();
+    const results = await Promise.allSettled(stationIds.map(fetchTeams));
+    teams = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
     commit();
   },
 

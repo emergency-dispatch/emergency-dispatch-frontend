@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowRightLeft,
   Ban,
   BrainCircuit,
+  Building2,
   CircleCheck,
   Clock,
   Eye,
@@ -23,6 +25,8 @@ import { ReporterMedicalCard } from './ReporterMedicalCard';
 import { SeverityBadge } from './SeverityBadge';
 import {
   BLOCK_DURATION_OPTIONS,
+  CANCELLATION_REASON_OPTIONS,
+  CONFIRMABLE_CATEGORIES,
   INCIDENT_CATEGORY_META,
   LOW_CONFIDENCE_THRESHOLD,
   OVERRIDE_REASON_MIN_LENGTH,
@@ -30,9 +34,20 @@ import {
 } from '../../../data/incidentMock';
 import { useNow } from '../../../hooks/useNow';
 import { formatCountdown } from '../../../utils/incidentFormat';
-import type { BlockDuration, Incident, SeverityLevel } from '../../../types/incident';
+import type {
+  BlockDuration,
+  Incident,
+  IncidentCategory,
+  OperatorCancellationCode,
+  SeverityLevel,
+} from '../../../types/incident';
+import type { Station } from '../../../types/vehicle';
 
 const CONFIRMABLE_LEVELS: SeverityLevel[] = [1, 2, 3];
+// Lý do chuyển trạm: backend yêu cầu tối thiểu 5 ký tự.
+const TRANSFER_REASON_MIN_LENGTH = 5;
+
+type DrawerMode = 'review' | 'reject' | 'transfer';
 
 interface IncidentDetailDrawerProps {
   incident: Incident | null;
@@ -40,8 +55,18 @@ interface IncidentDetailDrawerProps {
   isEscalated?: boolean;
   isLocking?: boolean;
   onClose: () => void;
-  onApprove: (id: string, confirmedSeverity: SeverityLevel, overrideReason?: string) => void;
-  onReject: (id: string, reason: string, blockDuration: BlockDuration | null) => void;
+  /** `category` gửi kèm khi sự cố chưa có loại đã xác nhận (incident.needsEventType). */
+  onApprove: (
+    id: string,
+    confirmedSeverity: SeverityLevel,
+    overrideReason: string | undefined,
+    category: IncidentCategory | undefined
+  ) => void;
+  onReject: (id: string, reason: string, blockDuration: BlockDuration | null, reasonCode: OperatorCancellationCode) => void;
+  /** Chuyển sự cố sang trạm khác. Không truyền → ẩn nút "Chuyển trạm". */
+  onTransfer?: (id: string, stationId: string, reason: string) => void;
+  /** Trạm có thể chuyển tới (đã bỏ trạm đang phụ trách). */
+  transferStations?: Station[];
   onRelock: (id: string) => void;
   /** Trả số đầy đủ (backend ghi vết Audit Trail), null nếu thất bại. */
   onRevealPhone: (id: string) => Promise<string | null>;
@@ -57,6 +82,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   onClose,
   onApprove,
   onReject,
+  onTransfer,
+  transferStations = [],
   onRelock,
   onRevealPhone,
   isSubmitting = false,
@@ -64,9 +91,14 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
 }) => {
   const now = useNow();
   const [confirmedSeverity, setConfirmedSeverity] = useState<SeverityLevel | null>(null);
+  const [confirmedCategory, setConfirmedCategory] = useState<IncidentCategory | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
-  const [rejecting, setRejecting] = useState(false);
+  const [mode, setMode] = useState<DrawerMode>('review');
+  const rejecting = mode === 'reject';
   const [rejectReason, setRejectReason] = useState('');
+  const [rejectCode, setRejectCode] = useState<OperatorCancellationCode>('FalseReport');
+  const [transferStationId, setTransferStationId] = useState('');
+  const [transferReason, setTransferReason] = useState('');
   const [blockPhone, setBlockPhone] = useState(false);
   const [blockDuration, setBlockDuration] = useState<BlockDuration>('30d');
   // Backend luôn trả số đã che; số đầy đủ chỉ có sau khi bấm "Hiện số".
@@ -81,10 +113,15 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     if (!incident) return;
     // Mở sự cố mới → reset flag và chọn severity theo AI
     operatorOverrodeRef.current = false;
-    setConfirmedSeverity(incident.aiUnclassified ? null : incident.severity);
+    setConfirmedSeverity(incident.aiUnclassified || incident.aiFailed ? null : incident.severity);
+    // Loại sự cố chưa xác nhận → gợi ý sẵn theo loại SOS người dân chọn (nếu suy được), Operator vẫn đổi được.
+    setConfirmedCategory(incident.category === 'unknown' ? null : incident.category);
     setOverrideReason('');
-    setRejecting(false);
+    setMode('review');
     setRejectReason('');
+    setRejectCode('FalseReport');
+    setTransferStationId('');
+    setTransferReason('');
     setBlockPhone(false);
     setBlockDuration('30d');
     setRevealedPhone(null);
@@ -94,8 +131,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   useEffect(() => {
     if (!incident || incident.aiPending) return;
     if (operatorOverrodeRef.current) return; // Operator đã chọn tay → không ghi đè
-    setConfirmedSeverity(incident.aiUnclassified ? null : incident.severity);
-  }, [incident?.aiPending, incident?.severity, incident?.aiUnclassified]);
+    setConfirmedSeverity(incident.aiUnclassified || incident.aiFailed ? null : incident.severity);
+  }, [incident?.aiPending, incident?.severity, incident?.aiUnclassified, incident?.aiFailed]);
 
 
   if (!incident) return null;
@@ -103,7 +140,11 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const waitMinutes = Math.max(0, Math.round((now - new Date(incident.createdAt).getTime()) / 60000));
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
-  const isLowConfidence = !incident.aiPending && incident.confidenceScore < LOW_CONFIDENCE_THRESHOLD;
+  // AI lỗi / quá thời gian chờ: % tin cậy và cấp đề xuất vô nghĩa → báo rõ là AI thất bại, không phải "độ tin cậy thấp".
+  const aiFailed = !incident.aiPending && incident.aiFailed;
+  // Nhãn "AI" chỉ khi AI thực sự đề xuất được cấp 1–3.
+  const hasAiSeverity = !incident.aiPending && !aiFailed && !incident.aiUnclassified;
+  const isLowConfidence = hasAiSeverity && incident.confidenceScore < LOW_CONFIDENCE_THRESHOLD;
   const hasPhone = /\d/.test(incident.reporterPhone);
 
   const lockRemainingMs = incident.lock ? new Date(incident.lock.expiresAt).getTime() - now : 0;
@@ -115,22 +156,39 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   // Backend coi Unclassified → Level 1–3 là ghi đè AI (bắt buộc operatorNotes ≥ 5 ký tự), nên ca AI không phân loại
   // được luôn cần lý do, kể cả khi chọn Cấp 1.
   const isOverride =
-    confirmedSeverity !== null && (incident.aiUnclassified || confirmedSeverity !== incident.severity);
+    confirmedSeverity !== null && (!hasAiSeverity || confirmedSeverity !== incident.severity);
   const overrideReasonLength = overrideReason.trim().length;
   const overrideReasonValid = !isOverride || overrideReasonLength >= OVERRIDE_REASON_MIN_LENGTH;
-  const canApprove = canAct && !isSubmitting && confirmedSeverity !== null && overrideReasonValid;
+  // Backend chưa có loại sự cố (eventType None) → bắt buộc chọn Cháy nổ / Tai nạn.
+  const categoryValid = !incident.needsEventType || (confirmedCategory !== null && confirmedCategory !== 'unknown');
+  const canApprove = canAct && !isSubmitting && confirmedSeverity !== null && overrideReasonValid && categoryValid;
+
+  const transferReasonValid = transferReason.trim().length >= TRANSFER_REASON_MIN_LENGTH;
+  const canTransfer = canAct && !isSubmitting && !!transferStationId && transferReasonValid;
 
   const handleApprove = () => {
     if (!confirmedSeverity) return;
-    onApprove(incident.id, confirmedSeverity, isOverride ? overrideReason.trim() : undefined);
+    onApprove(
+      incident.id,
+      confirmedSeverity,
+      isOverride ? overrideReason.trim() : undefined,
+      incident.needsEventType ? (confirmedCategory ?? undefined) : undefined
+    );
   };
 
   const handleConfirmReject = () => {
+    const label = CANCELLATION_REASON_OPTIONS.find((o) => o.value === rejectCode)?.label ?? '';
     onReject(
       incident.id,
-      rejectReason.trim() || 'Điều phối viên hủy ca báo khống tại Command Center.',
-      hasPhone && blockPhone ? blockDuration : null
+      rejectReason.trim() || `Điều phối viên hủy ca: ${label.toLowerCase()}.`,
+      hasPhone && blockPhone ? blockDuration : null,
+      rejectCode
     );
+  };
+
+  const handleConfirmTransfer = () => {
+    if (!onTransfer || !canTransfer) return;
+    onTransfer(incident.id, transferStationId, transferReason.trim());
   };
 
   const handleRevealPhone = async () => {
@@ -150,6 +208,17 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
             <p className="text-[11px] font-mono-data text-slate-500 uppercase tracking-widest">Chi tiết sự cố</p>
             <h2 className="text-base font-bold text-slate-900 mt-0.5 truncate">{incident.title}</h2>
           </div>
+          {onTransfer && transferStations.length > 0 && mode !== 'transfer' && (
+            <button
+              onClick={() => setMode('transfer')}
+              disabled={!canAct || isSubmitting}
+              title={canAct ? 'Chuyển sự cố sang trạm khác phụ trách' : 'Nhận ca trước khi chuyển trạm'}
+              className="ml-auto mr-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            >
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+              Chuyển trạm
+            </button>
+          )}
           <button
             onClick={onClose}
             className="p-2 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 shrink-0"
@@ -252,6 +321,21 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                   <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span className="truncate">{waitMinutes} phút trước</span>
                 </div>
+                {incident.responsibleStationName && (
+                  <div className="flex items-center gap-2 text-sm text-slate-700 min-w-0">
+                    <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="truncate">Trạm phụ trách: {incident.responsibleStationName}</span>
+                  </div>
+                )}
+                {incident.isOutOfServiceArea && (
+                  <p className="flex items-start gap-1.5 rounded-lg bg-red-50 border border-red-200 px-2.5 py-1.5 text-xs text-red-700">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+                    SOS ngoài khu vực phục vụ
+                    {incident.distanceOutsideAreaKm != null &&
+                      ` (cách ${incident.distanceOutsideAreaKm.toLocaleString('vi-VN', { maximumFractionDigits: 1 })} km)`}
+                    — thời gian tiếp cận có thể lâu hơn.
+                  </p>
+                )}
               </div>
 
               <ReporterMedicalCard profile={incident.reporterMedical} smsLog={incident.emergencySmsLog} />
@@ -259,6 +343,16 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
 
             {/* Cột phải: kết quả AI + thẩm định */}
             <div className="space-y-4 min-w-0">
+              {aiFailed && (
+                <div className="flex items-start gap-2 rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-3 text-xs text-slate-700">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-slate-500" />
+                  <span>
+                    <strong>AI chưa phân tích được</strong> (lỗi hoặc quá thời gian chờ) — vui lòng đánh giá thủ công dựa
+                    trên ảnh/video và mô tả.
+                  </span>
+                </div>
+              )}
+
               {isLowConfidence && (
                 <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3 text-xs text-amber-800">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -290,14 +384,25 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                         <CategoryIcon className="w-3.5 h-3.5" />
                         {category.label}
                       </span>
+                      {incident.needsEventType && incident.category !== 'unknown' && (
+                        <p className="text-[11px] text-slate-400 mt-0.5">Gợi ý theo loại SOS người dân chọn</p>
+                      )}
                     </div>
                     <div>
                       <p className="text-slate-500 mb-1">Độ tin cậy AI</p>
-                      <ConfidenceBadge score={incident.confidenceScore} />
+                      {aiFailed ? (
+                        <span className="text-slate-400">—</span>
+                      ) : (
+                        <ConfidenceBadge score={incident.confidenceScore} />
+                      )}
                     </div>
                     <div>
                       <p className="text-slate-500 mb-1">Cấp độ đề xuất</p>
-                      <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+                      {aiFailed ? (
+                        <span className="text-slate-400">—</span>
+                      ) : (
+                        <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+                      )}
                     </div>
                     {incident.hazardTags.length > 0 && (
                       <div>
@@ -323,10 +428,28 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                   <p className="text-xs font-mono-data uppercase tracking-widest text-red-600 font-bold">
                     Hủy ca báo khống
                   </p>
+                  <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Lý do hủy">
+                    {CANCELLATION_REASON_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={rejectCode === opt.value}
+                        onClick={() => setRejectCode(opt.value)}
+                        className={`px-2.5 py-1.5 rounded-md border text-xs font-semibold transition-colors ${
+                          rejectCode === opt.value
+                            ? 'bg-red-600 border-red-600 text-white'
+                            : 'bg-white border-red-200 text-slate-600 hover:border-red-300'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                   <textarea
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
-                    placeholder="Lý do hủy (không bắt buộc). Vd: Báo khống, trùng lặp với sự cố khác..."
+                    placeholder="Ghi chú thêm (không bắt buộc). Vd: Gọi xác minh không có cháy, trùng sự cố lúc 10:05…"
                     rows={2}
                     className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-300"
                   />
@@ -357,8 +480,75 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                     </div>
                   )}
                 </div>
+              ) : mode === 'transfer' ? (
+                <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 space-y-3">
+                  <p className="text-xs font-mono-data uppercase tracking-widest text-blue-700 font-bold">
+                    Chuyển sang trạm khác
+                  </p>
+                  <select
+                    value={transferStationId}
+                    onChange={(e) => setTransferStationId(e.target.value)}
+                    className="w-full text-sm bg-white border border-blue-200 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  >
+                    <option value="">Chọn trạm nhận…</option>
+                    {transferStations.map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name}
+                      </option>
+                    ))}
+                  </select>
+                  <textarea
+                    value={transferReason}
+                    onChange={(e) => setTransferReason(e.target.value)}
+                    placeholder="Lý do chuyển (bắt buộc). Vd: Hiện trường gần trạm kia hơn, trạm mình hết xe phù hợp…"
+                    rows={2}
+                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  />
+                  {transferReason.length > 0 && !transferReasonValid && (
+                    <p className="text-[11px] text-blue-700">
+                      Cần tối thiểu {TRANSFER_REASON_MIN_LENGTH} ký tự ({transferReason.trim().length}/
+                      {TRANSFER_REASON_MIN_LENGTH}).
+                    </p>
+                  )}
+                  <p className="text-[11px] text-slate-500">
+                    Ca sẽ rời hàng đợi của trạm bạn và chuyển sang Operator trạm nhận; khóa xử lý được nhả.
+                  </p>
+                </div>
               ) : (
                 <div>
+                  {incident.needsEventType && (
+                    <div className="mb-4">
+                      <p className="text-xs font-mono-data uppercase tracking-widest text-slate-400 font-bold mb-2">
+                        Loại sự cố <span className="text-red-600 normal-case tracking-normal">· bắt buộc</span>
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {CONFIRMABLE_CATEGORIES.map((cat) => {
+                          const meta = INCIDENT_CATEGORY_META[cat];
+                          const Icon = meta.icon;
+                          const isActive = confirmedCategory === cat;
+                          return (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => setConfirmedCategory(cat)}
+                              disabled={!canAct}
+                              aria-pressed={isActive}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-bold transition-colors disabled:cursor-not-allowed ${
+                                isActive ? 'text-white' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                              }`}
+                              style={isActive ? { backgroundColor: meta.color, borderColor: meta.color } : undefined}
+                            >
+                              <Icon className="w-3.5 h-3.5" />
+                              {meta.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1.5">
+                        AI chưa xác định được loại sự cố — chọn để hệ thống gợi ý đúng loại xe.
+                      </p>
+                    </div>
+                  )}
                   <p className="text-xs font-mono-data uppercase tracking-widest text-slate-400 font-bold mb-2">
                     Xác nhận mức độ nghiêm trọng
                   </p>
@@ -380,7 +570,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                           }`}
                         >
                           {meta.label}
-                          {level === incident.severity && !incident.aiUnclassified && (
+                          {level === incident.severity && hasAiSeverity && (
                             <span className="px-1 rounded bg-slate-900/10 text-[9px] tracking-wide">AI</span>
                           )}
                         </button>
@@ -391,7 +581,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                   {isOverride && (
                     <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3.5 space-y-2">
                       <p className="text-xs text-amber-800">
-                        {incident.aiUnclassified ? (
+                        {!hasAiSeverity ? (
                           <>
                             AI không phân loại được — bạn tự xác định mức{' '}
                             {SEVERITY_LEVEL_META[confirmedSeverity].label}. Ghi lý do (căn cứ từ ảnh/video, mô tả, gọi xác
@@ -433,10 +623,28 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
         )}
 
         <div className="shrink-0 p-4 border-t border-slate-200 grid grid-cols-2 gap-3">
-          {rejecting ? (
+          {mode === 'transfer' ? (
             <>
               <button
-                onClick={() => setRejecting(false)}
+                onClick={() => setMode('review')}
+                disabled={isSubmitting}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 font-bold text-sm transition-colors disabled:opacity-50"
+              >
+                Quay lại
+              </button>
+              <button
+                onClick={handleConfirmTransfer}
+                disabled={!canTransfer}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
+                Xác nhận chuyển trạm
+              </button>
+            </>
+          ) : rejecting ? (
+            <>
+              <button
+                onClick={() => setMode('review')}
                 disabled={isSubmitting}
                 className="flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 font-bold text-sm transition-colors disabled:opacity-50"
               >
@@ -454,7 +662,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
           ) : (
             <>
               <button
-                onClick={() => setRejecting(true)}
+                onClick={() => setMode('reject')}
                 disabled={isSubmitting || !canAct}
                 className="flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-100 hover:bg-red-50 border border-slate-200 hover:border-red-300 text-slate-600 hover:text-red-600 font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >

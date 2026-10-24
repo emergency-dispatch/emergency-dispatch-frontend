@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { IncidentDetailDrawer } from '../../components/operator/incidents/IncidentDetailDrawer';
 import { IncidentQueueList } from '../../components/operator/incidents/IncidentQueueList';
+import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
 import { useDispatchStore } from '../../context/DispatchContext';
-import type { BlockDuration, SeverityLevel } from '../../types/incident';
+import type { BlockDuration, IncidentCategory, OperatorCancellationCode, SeverityLevel } from '../../types/incident';
 
 // Backend giữ khóa mềm 2 phút; gia hạn mỗi 60 giây khi Operator vẫn đang mở ca.
 const LOCK_RENEW_MS = 60 * 1000;
@@ -18,6 +19,9 @@ export const IncidentQueuePage: React.FC = () => {
     incidentsError,
     approveIncident,
     rejectIncident,
+    transferIncident,
+    stations,
+    stationNotAssigned,
     lockIncident,
     releaseIncident,
     revealReporterPhone,
@@ -82,10 +86,15 @@ export const IncidentQueuePage: React.FC = () => {
     setSelectedId(null);
   };
 
-  const handleApprove = async (id: string, confirmedSeverity: SeverityLevel, overrideReason?: string) => {
+  const handleApprove = async (
+    id: string,
+    confirmedSeverity: SeverityLevel,
+    overrideReason: string | undefined,
+    category: IncidentCategory | undefined
+  ) => {
     setSubmittingId(id);
     setActionError(null);
-    const result = await approveIncident(id, confirmedSeverity, overrideReason);
+    const result = await approveIncident(id, confirmedSeverity, overrideReason, category);
     setSubmittingId(null);
     if (result.ok) {
       setSelectedId(null);
@@ -94,10 +103,15 @@ export const IncidentQueuePage: React.FC = () => {
     }
   };
 
-  const handleReject = async (id: string, reason: string, blockDuration: BlockDuration | null) => {
+  const handleReject = async (
+    id: string,
+    reason: string,
+    blockDuration: BlockDuration | null,
+    reasonCode: OperatorCancellationCode
+  ) => {
     setSubmittingId(id);
     setActionError(null);
-    const result = await rejectIncident(id, reason, blockDuration);
+    const result = await rejectIncident(id, reason, blockDuration, reasonCode);
     setSubmittingId(null);
     if (result.ok) {
       setSelectedId(null);
@@ -105,6 +119,23 @@ export const IncidentQueuePage: React.FC = () => {
       setActionError(result.message ?? 'Hủy ca thất bại. Vui lòng thử lại.');
     }
   };
+
+  const handleTransfer = async (id: string, stationId: string, reason: string) => {
+    setSubmittingId(id);
+    setActionError(null);
+    const result = await transferIncident(id, stationId, reason);
+    setSubmittingId(null);
+    if (result.ok) setSelectedId(null);
+    else setActionError(result.message ?? 'Chuyển trạm thất bại. Vui lòng thử lại.');
+  };
+
+  // Trạm nhận được: mọi trạm đang hoạt động trừ trạm đang phụ trách sự cố.
+  const transferStations = useMemo(
+    () => stations.filter((st) => st.id !== selectedIncident?.responsibleStationId),
+    [stations, selectedIncident?.responsibleStationId]
+  );
+
+  if (stationNotAssigned) return <StationNotAssigned message={stationNotAssigned} />;
 
   return (
     <div className="h-full">
@@ -127,6 +158,8 @@ export const IncidentQueuePage: React.FC = () => {
         onClose={handleClose}
         onApprove={handleApprove}
         onReject={handleReject}
+        onTransfer={handleTransfer}
+        transferStations={transferStations}
         onRelock={(id) => {
           setActionError(null);
           acquireLock(id);

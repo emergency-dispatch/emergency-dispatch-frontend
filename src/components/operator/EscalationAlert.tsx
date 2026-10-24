@@ -11,7 +11,7 @@ import { escalationThresholdMinutes, isNightShift } from '../../utils/escalation
  * Escalated (Cấp 3 chưa có đội nhận quá ngưỡng cấu hình). Tự biến mất khi có đơn vị nhận.
  */
 export const EscalationAlert: React.FC = () => {
-  const { incidents, escalatedIncidentIds, incidentDrawerOpen, escalationSettings } = useDispatchStore();
+  const { incidents, escalatedIncidentIds, incidentDrawerOpen, escalationSettings, escalationTiers } = useDispatchStore();
   const navigate = useNavigate();
   const now = useNow(15000);
   // Thu gọn theo "bộ sự cố" hiện tại — có sự cố mới leo thang thì banner tự mở lại.
@@ -70,7 +70,7 @@ export const EscalationAlert: React.FC = () => {
                 {escalated.length} sự cố quá {thresholdLabel} chưa có đơn vị nhận
               </p>
               <p className="text-[11px] text-red-100 mt-0.5">
-                Đã tự động báo Trưởng trạm &amp; Admin · bán kính tìm xe đã nhân {escalationSettings.radiusMultiplier.toLocaleString('vi-VN')} lần (tối đa {escalationSettings.maxRadiusKm} km)
+                Đã tự động báo Operator phụ trách trạm &amp; Admin (quá gấp đôi ngưỡng thì báo mọi trạm) · bán kính tìm xe đã nhân {escalationSettings.radiusMultiplier.toLocaleString('vi-VN')} lần (tối đa {escalationSettings.maxRadiusKm} km)
               </p>
             </div>
             <button
@@ -90,7 +90,14 @@ export const EscalationAlert: React.FC = () => {
                 <div key={incident.id} className="flex items-center gap-2.5 rounded-lg bg-red-700/60 px-3 py-2">
                   <CategoryIcon className="w-4 h-4 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold truncate">{incident.title}</p>
+                    <p className="text-xs font-semibold truncate">
+                      {(escalationTiers.get(incident.id) ?? 1) >= 2 && (
+                        <span className="mr-1.5 px-1 rounded bg-white text-red-700 text-[9px] font-black uppercase">
+                          Cấp 2 · cần trạm khác hỗ trợ
+                        </span>
+                      )}
+                      {incident.title}
+                    </p>
                     <p className="text-[10px] text-red-100 truncate">
                       {incident.area} · chờ {waitMinutes} phút ·{' '}
                       {incident.status === 'pending' ? 'chưa thẩm định' : 'chưa có đội nhận'}

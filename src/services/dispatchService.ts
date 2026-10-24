@@ -35,6 +35,12 @@ export const dispatchService = {
   /**
    * Lấy danh sách các lượt điều phối của một sự cố (GET /api/dispatch/assignments/incident/{incidentId})
    */
+  /** Mọi lượt Dispatched / Accepted / EnRoute / OnScene của sự cố trạm mình hoặc xe trạm mình (Operator). */
+  async getActiveAssignments(): Promise<ApiResponse<DispatchAssignmentResponseDto[]>> {
+    const response = await apiClient.get<ApiResponse<DispatchAssignmentResponseDto[]>>('/dispatch/assignments/active');
+    return response.data;
+  },
+
   async getAssignmentsByIncident(incidentId: string): Promise<ApiResponse<DispatchAssignmentResponseDto[]>> {
     const response = await apiClient.get<ApiResponse<DispatchAssignmentResponseDto[]>>(
       `/dispatch/assignments/incident/${incidentId}`

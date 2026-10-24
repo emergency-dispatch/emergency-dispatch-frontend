@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Building2,
   CarFront,
+  CircleHelp,
   Droplet,
   Flame,
   HeartPulse,
@@ -12,10 +13,12 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type {
   BlockDuration,
+  CancellationReasonCode,
   HazardTag,
   HazardTagKey,
   IncidentCategory,
   IncidentSeverity,
+  OperatorCancellationCode,
   SeverityLevel,
 } from '../types/incident';
 
@@ -32,6 +35,27 @@ export const UNKNOWN_HAZARD_TAG_META = { label: 'Khác', color: '#64748B', icon:
 export const INCIDENT_CATEGORY_META: Record<IncidentCategory, { label: string; color: string; icon: LucideIcon }> = {
   fire: { label: 'Cháy nổ', color: '#DC2626', icon: Flame },
   accident: { label: 'Tai nạn', color: '#F97316', icon: CarFront },
+  unknown: { label: 'Chưa xác định', color: '#64748B', icon: CircleHelp },
+};
+
+// Hai nhánh Operator chọn được khi duyệt (bắt buộc nếu backend chưa có loại sự cố).
+export const CONFIRMABLE_CATEGORIES: Array<Exclude<IncidentCategory, 'unknown'>> = ['fire', 'accident'];
+
+// Lý do hủy Operator chọn (CancellationReason của backend). Citizen tự hủy / tự hết hạn do backend đặt.
+export const CANCELLATION_REASON_OPTIONS: Array<{ value: OperatorCancellationCode; label: string }> = [
+  { value: 'FalseReport', label: 'Báo khống / báo sai' },
+  { value: 'Duplicate', label: 'Trùng sự cố khác' },
+  { value: 'TestReport', label: 'Báo cáo thử nghiệm' },
+  { value: 'Other', label: 'Lý do khác' },
+];
+
+export const CANCELLATION_REASON_LABEL: Record<CancellationReasonCode, string> = {
+  FalseReport: 'Báo khống / báo sai',
+  Duplicate: 'Trùng sự cố khác',
+  TestReport: 'Báo cáo thử nghiệm',
+  Other: 'Lý do khác',
+  CitizenCancelled: 'Người báo tự hủy',
+  AutoExpired: 'Tự hủy do quá hạn',
 };
 
 // Cấp 1 xanh lục · Cấp 2 hổ phách · Cấp 3 đỏ thẫm (NFR khả dụng).

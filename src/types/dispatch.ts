@@ -106,6 +106,13 @@ export interface RecommendedUnitResponseDto {
   radiusExpanded: boolean;
   algorithmUsed: BackendDispatchAlgorithm;
   recommendationReason: string;
+  /** Quãng đường / thời gian theo đường bộ (OSRM); null nếu máy chủ chỉ đường lỗi. */
+  roadDistanceKm?: number | null;
+  roadDurationMinutes?: number | null;
+  /** Máy chủ chỉ đường lỗi → quãng đường / ETA là ước lượng. */
+  isApproximate?: boolean;
+  /** Xe của trạm khác (điều hỗ trợ). */
+  isSupportUnit?: boolean;
 }
 
 export interface TeamMemberSummaryDto {

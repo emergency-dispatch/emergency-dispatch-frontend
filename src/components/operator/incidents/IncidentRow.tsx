@@ -75,6 +75,11 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
             <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
             <span className="truncate">{incident.area}</span>
           </span>
+          {incident.isOutOfServiceArea && (
+            <span className="inline-flex items-center px-1.5 py-px rounded bg-red-50 border border-red-200 text-[10px] font-bold text-red-700 shrink-0">
+              Ngoài khu vực
+            </span>
+          )}
         </div>
         {visibleTags.length > 0 && (
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">

@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { DispatchProvider } from '../../context/DispatchContext';
 import { EscalationAlert } from './EscalationAlert';
 import { IncomingIncidentToasts } from './IncomingIncidentToasts';
+import { OperatorAlerts } from './OperatorAlerts';
 import { OperatorSidebar } from './OperatorSidebar';
 import { OperatorTopbar } from './OperatorTopbar';
 
@@ -21,6 +22,7 @@ export const OperatorLayout: React.FC = () => {
       </div>
       <EscalationAlert />
       <IncomingIncidentToasts />
+      <OperatorAlerts />
     </DispatchProvider>
   );
 };

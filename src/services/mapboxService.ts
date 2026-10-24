@@ -137,26 +137,6 @@ export const MAPBOX_STYLE: Style = MAPBOX_REALISTIC_STYLE;
 
 export const mapboxService = {
   /**
-   * Lộ trình đường bộ (Mapbox Directions, profile driving) — tọa độ [lng, lat].
-   * Không có token / lỗi mạng → null để nơi gọi tự dùng đường thẳng.
-   */
-  async getDrivingRoute(from: { lat: number; lng: number }, to: { lat: number; lng: number }): Promise<[number, number][] | null> {
-    if (!MAPBOX_ACCESS_TOKEN || MAPBOX_ACCESS_TOKEN.includes('dummy')) return null;
-    try {
-      const url =
-        `https://api.mapbox.com/directions/v5/mapbox/driving/${from.lng},${from.lat};${to.lng},${to.lat}` +
-        `?geometries=geojson&overview=full&access_token=${MAPBOX_ACCESS_TOKEN}`;
-      const res = await fetch(url);
-      if (!res.ok) return null;
-      const data = await res.json();
-      const coords = data.routes?.[0]?.geometry?.coordinates as [number, number][] | undefined;
-      return coords && coords.length >= 2 ? coords : null;
-    } catch {
-      return null;
-    }
-  },
-
-  /**
    * Tra cứu địa chỉ tiếng Việt từ tọa độ GPS (Reverse Geocoding)
    * Tự động thử Mapbox API nếu token hợp lệ, dự phòng OpenStreetMap Nominatim tiếng Việt cực nhạy
    */

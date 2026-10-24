@@ -11,14 +11,14 @@ import {
 } from 'lucide-react';
 import { SeverityBadge } from '../incidents/SeverityBadge';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
-import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
+import { CANCELLATION_REASON_OPTIONS, INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useNow } from '../../../hooks/useNow';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { getApiErrorMessage } from '../../../services/apiClient';
-import type { Incident } from '../../../types/incident';
+import type { Incident, OperatorCancellationCode } from '../../../types/incident';
 import type { StationTeam } from '../../../types/stationTeam';
 import type { Vehicle } from '../../../types/vehicle';
 
@@ -28,12 +28,14 @@ interface IncidentCardProps {
   teamByVehicle: Map<string, StationTeam>;
   isSelected: boolean;
   isEscalated: boolean;
+  /** Leo thang cấp 2: quá gấp đôi ngưỡng, đã báo mọi Operator — cần trạm khác hỗ trợ. */
+  escalationTier: number;
   now: number;
   isCancelling: boolean;
   cancellingVehicleId: string | null;
   onSelect: () => void;
   onCancelVehicle: (vehicleId: string) => void;
-  onCancelIncident: () => void;
+  onCancelIncident: (reasonCode: OperatorCancellationCode) => void;
   onDismissNotice: (noticeId: string) => void;
 }
 
@@ -43,6 +45,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
   teamByVehicle,
   isSelected,
   isEscalated,
+  escalationTier,
   now,
   isCancelling,
   cancellingVehicleId,
@@ -52,6 +55,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
   onDismissNotice,
 }) => {
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelCode, setCancelCode] = useState<OperatorCancellationCode>('FalseReport');
 
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
@@ -93,7 +97,14 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
           <div className="mb-1">
             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white uppercase animate-pulse">
               <Siren className="w-2.5 h-2.5" />
-              Leo thang — chưa có đơn vị nhận
+              {escalationTier >= 2 ? 'Leo thang cấp 2 — cần trạm khác hỗ trợ' : 'Leo thang — chưa có đơn vị nhận'}
+            </span>
+          </div>
+        )}
+        {incident.isOutOfServiceArea && (
+          <div className="mb-1">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-[9px] font-bold text-red-700">
+              Ngoài khu vực phục vụ
             </span>
           </div>
         )}
@@ -130,6 +141,18 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
             <p className="text-[10px] text-red-600 leading-snug">
               Hủy sự cố này? Xe đã giao sẽ trả về sẵn sàng.
             </p>
+            <select
+              value={cancelCode}
+              onChange={(e) => setCancelCode(e.target.value as OperatorCancellationCode)}
+              aria-label="Lý do hủy"
+              className="w-full text-[11px] bg-white border border-red-200 rounded px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-red-300"
+            >
+              {CANCELLATION_REASON_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 onClick={() => setConfirmingCancel(false)}
@@ -139,7 +162,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
                 Quay lại
               </button>
               <button
-                onClick={onCancelIncident}
+                onClick={() => onCancelIncident(cancelCode)}
                 disabled={isCancelling}
                 className="flex items-center justify-center gap-1 py-1 rounded bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold transition-colors disabled:opacity-60"
               >
@@ -245,7 +268,7 @@ interface DispatchIncidentListProps {
   cancellingVehicleId: string | null;
   cancellingIncidentId: string | null;
   onCancelVehicle: (vehicleId: string) => void;
-  onCancelIncident: (incidentId: string) => void;
+  onCancelIncident: (incidentId: string, reasonCode: OperatorCancellationCode) => void;
   onDismissNotice: (incidentId: string, noticeId: string) => void;
 }
 
@@ -260,7 +283,7 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
   onCancelIncident,
   onDismissNotice,
 }) => {
-  const { vehicles, incidents, escalatedIncidentIds } = useDispatchStore();
+  const { vehicles, incidents, escalatedIncidentIds, escalationTiers } = useDispatchStore();
   const now = useNow();
   const teamByVehicle = useTeamByVehicle();
 
@@ -314,12 +337,13 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
               teamByVehicle={teamByVehicle}
               isSelected={incident.id === selectedIncidentId}
               isEscalated={escalatedIncidentIds.has(incident.id)}
+              escalationTier={escalationTiers.get(incident.id) ?? 1}
               now={now}
               isCancelling={cancellingIncidentId === incident.id}
               cancellingVehicleId={cancellingVehicleId}
               onSelect={() => handleToggle(incident.id)}
               onCancelVehicle={onCancelVehicle}
-              onCancelIncident={() => onCancelIncident(incident.id)}
+              onCancelIncident={(reasonCode) => onCancelIncident(incident.id, reasonCode)}
               onDismissNotice={(noticeId) => onDismissNotice(incident.id, noticeId)}
             />
           ))

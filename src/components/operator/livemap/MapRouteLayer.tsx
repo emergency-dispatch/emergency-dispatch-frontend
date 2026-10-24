@@ -8,6 +8,8 @@ import type { VehiclePlacement } from './LiveMapView';
 const SOURCE_ID = 'dispatch-routes';
 const LINE_LAYER_ID = 'dispatch-routes-line';
 const CASING_LAYER_ID = 'dispatch-routes-casing';
+// Tuyến ước lượng (máy chủ chỉ đường lỗi → chỉ là đoạn thẳng) vẽ nét đứt ở lớp riêng: line-dasharray không đổi theo feature.
+const DASHED_LAYER_ID = 'dispatch-routes-dashed';
 
 /**
  * Tọa độ đúng chỗ marker xe đang hiện. Xe đậu được dời theo pixel dưới ghim trạm → đổi pixel đó ra tọa độ ở mức
@@ -35,6 +37,7 @@ const toFeatureCollection = (
       properties: {
         color: VEHICLE_STATUS_META[route.status].color,
         selected: route.vehicleId === selectedVehicleId,
+        approximate: route.approximate,
       },
       geometry: { type: 'LineString' as const, coordinates },
     };
@@ -63,6 +66,7 @@ export const MapRouteLayer: React.FC<MapRouteLayerProps> = ({ map, routes, place
         type: 'line',
         source: SOURCE_ID,
         layout: { 'line-join': 'round', 'line-cap': 'round' },
+        filter: ['!', ['get', 'approximate']],
         paint: { 'line-color': '#FFFFFF', 'line-width': ['case', ['get', 'selected'], 9, 7], 'line-opacity': 0.9 },
       });
       map.addLayer({
@@ -70,10 +74,24 @@ export const MapRouteLayer: React.FC<MapRouteLayerProps> = ({ map, routes, place
         type: 'line',
         source: SOURCE_ID,
         layout: { 'line-join': 'round', 'line-cap': 'round' },
+        filter: ['!', ['get', 'approximate']],
         paint: {
           'line-color': ['get', 'color'],
           'line-width': ['case', ['get', 'selected'], 6, 4],
           'line-opacity': ['case', ['get', 'selected'], 1, 0.75],
+        },
+      });
+      map.addLayer({
+        id: DASHED_LAYER_ID,
+        type: 'line',
+        source: SOURCE_ID,
+        layout: { 'line-join': 'round', 'line-cap': 'butt' },
+        filter: ['==', ['get', 'approximate'], true],
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': ['case', ['get', 'selected'], 5, 3.5],
+          'line-opacity': ['case', ['get', 'selected'], 1, 0.8],
+          'line-dasharray': [2, 1.5],
         },
       });
     };
@@ -104,6 +122,7 @@ export const MapRouteLayer: React.FC<MapRouteLayerProps> = ({ map, routes, place
   useEffect(
     () => () => {
       try {
+        if (map.getLayer(DASHED_LAYER_ID)) map.removeLayer(DASHED_LAYER_ID);
         if (map.getLayer(LINE_LAYER_ID)) map.removeLayer(LINE_LAYER_ID);
         if (map.getLayer(CASING_LAYER_ID)) map.removeLayer(CASING_LAYER_ID);
         if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
