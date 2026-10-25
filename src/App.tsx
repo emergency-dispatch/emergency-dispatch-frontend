@@ -30,6 +30,7 @@ const AdminAuditTrailPage = lazy(() => import('./pages/admin/AuditTrailPage'));
 const AdminEscalationSettingsPage = lazy(() => import('./pages/admin/EscalationSettingsPage'));
 const AdminDispatchSettingsPage = lazy(() => import('./pages/admin/DispatchSettingsPage'));
 const AdminServiceAreaSettingsPage = lazy(() => import('./pages/admin/ServiceAreaSettingsPage'));
+const AdminReportsPage = lazy(() => import('./pages/admin/ReportsPage'));
 
 const App: React.FC = () => {
   return (
@@ -98,6 +99,7 @@ const App: React.FC = () => {
             <Route path="settings/escalation" element={<AdminEscalationSettingsPage />} />
             <Route path="settings/dispatch" element={<AdminDispatchSettingsPage />} />
             <Route path="settings/service-area" element={<AdminServiceAreaSettingsPage />} />
+            <Route path="reports" element={<AdminReportsPage />} />
             <Route path="audit-trail" element={<AdminAuditTrailPage />} />
             <Route path="*" element={<Navigate to="overview" replace />} />
           </Route>

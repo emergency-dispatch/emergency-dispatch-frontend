@@ -132,11 +132,6 @@ export function formatAuditTime(iso: string): string {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-/** yyyy-MM-dd theo giờ địa phương (giá trị của <input type="date">). */
-export function toYmd(date: Date): string {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
 export interface StateChange {
   field: string;
   from: string | null;

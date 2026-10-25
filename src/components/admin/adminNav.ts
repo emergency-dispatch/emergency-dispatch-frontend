@@ -1,6 +1,7 @@
 import {
   Ban,
   CircleDashed,
+  FileBarChart,
   Building2,
   LayoutDashboard,
   ScrollText,
@@ -48,7 +49,10 @@ export const adminNavGroups: DashboardNavGroup[] = [
   {
     id: 'monitoring',
     label: 'Giám sát',
-    items: [{ label: 'Audit Trail', path: '/admin/audit-trail', icon: ScrollText }],
+    items: [
+      { label: 'Báo cáo sự cố', path: '/admin/reports', icon: FileBarChart },
+      { label: 'Audit Trail', path: '/admin/audit-trail', icon: ScrollText },
+    ],
   },
 ];
 

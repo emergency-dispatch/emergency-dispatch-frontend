@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, X } from 'lucide-react';
-import { AuditDateRangeFilter, YMD_PATTERN } from './AuditDateRangeFilter';
+import { DateRangeFilter, YMD_PATTERN } from '../common/DateRangeFilter';
 import { SystemAuditDetailDrawer } from './SystemAuditDetailDrawer';
 import { SystemAuditTable } from './SystemAuditTable';
 import { entityDisplayName, entityTypeMeta, systemActionMeta } from './auditMeta';
@@ -102,7 +102,7 @@ export const SystemAuditTab: React.FC = () => {
           </div>
         </div>
 
-        <AuditDateRangeFilter
+        <DateRangeFilter
           fromDate={fromDate}
           toDate={toDate}
           onChange={(from, to) => {
@@ -121,7 +121,7 @@ export const SystemAuditTab: React.FC = () => {
               Xóa bộ lọc
             </button>
           )}
-        </AuditDateRangeFilter>
+        </DateRangeFilter>
 
         {entity && (
           <div className="flex items-center gap-2 text-xs">

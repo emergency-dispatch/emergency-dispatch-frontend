@@ -1,6 +1,10 @@
 import React from 'react';
-import { inputClass, labelClass } from '../common/styles';
-import { toYmd } from './auditMeta';
+import { inputClass, labelClass } from './styles';
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** yyyy-MM-dd theo giờ địa phương (giá trị của <input type="date">). */
+const toYmd = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
 export const YMD_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -16,7 +20,7 @@ const QUICK_RANGES: { label: string; days: number }[] = [
   { label: '30 ngày', days: 29 },
 ];
 
-interface AuditDateRangeFilterProps {
+interface DateRangeFilterProps {
   fromDate: string;
   toDate: string;
   /** Đổi cả hai đầu cùng lúc (nút khoảng nhanh) hoặc từng đầu. */
@@ -26,7 +30,7 @@ interface AuditDateRangeFilterProps {
 }
 
 /** Khoảng ngày (theo giờ địa phương, tính trọn ngày) + nút chọn nhanh Hôm nay / 7 ngày / 30 ngày. */
-export const AuditDateRangeFilter: React.FC<AuditDateRangeFilterProps> = ({ fromDate, toDate, onChange, children }) => {
+export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ fromDate, toDate, onChange, children }) => {
   const activeQuick = QUICK_RANGES.find((r) => fromDate === daysAgoYmd(r.days) && toDate === daysAgoYmd(0));
 
   return (
