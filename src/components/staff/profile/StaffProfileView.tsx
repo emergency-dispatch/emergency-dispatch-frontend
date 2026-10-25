@@ -93,21 +93,21 @@ export const StaffProfileView: React.FC<StaffProfileViewProps> = ({ profile, onP
     }
   };
 
-  // Combined fallback: BE API data > Auth context user > mockStaffProfile
-  const displayName = userData?.fullName || user?.fullName || profile.name || 'Đ/c Nguyễn Văn An';
+  // Combined fallback: BE API data > Auth context user
+  const displayName = userData?.fullName || user?.fullName || profile.name || 'Cán bộ tác chiến';
   const displayRole =
     userData?.role === 'RescueStaff'
       ? 'Chỉ Huy Xe Phản Ứng Cứu Hộ'
-      : userData?.role || user?.role || profile.role || 'Chỉ Huy Xe Phản Ứng Cứu Hộ';
-  const displayPhone = userData?.phoneNumber || user?.phoneNumber || profile.phone || '0908 774 901';
-  const displayEmail = userData?.email || user?.email || profile.email || 'nguyenvanan.pccc@resq-cad.gov.vn';
-  const displayStation = userData?.stationName || user?.stationName || profile.stationName || 'Trạm PCCC & CNCH Q.1';
+      : userData?.role || user?.role || profile.role || 'Cán bộ cứu hộ';
+  const displayPhone = userData?.phoneNumber || user?.phoneNumber || profile.phone || 'Chưa cập nhật';
+  const displayEmail = userData?.email || user?.email || profile.email || 'Chưa cập nhật';
+  const displayStation = userData?.stationName || user?.stationName || profile.stationName || 'Chưa gán trạm';
   const displayBadge = userData?.citizenIdNumber
     ? `ED-${userData.citizenIdNumber.slice(-4)}`
     : userData?.id
     ? `ED-${userData.id.slice(-4).toUpperCase()}`
-    : profile.badgeNumber || 'ED-7749';
-  const displayVehicle = profile.vehiclePlate || '51D-123.45';
+    : profile.badgeNumber || 'Chưa cấp';
+  const displayVehicle = profile.vehiclePlate || 'Chưa phân xe';
 
   const initials = displayName
     .split(' ')
@@ -274,46 +274,32 @@ export const StaffProfileView: React.FC<StaffProfileViewProps> = ({ profile, onP
 
         {/* Certifications & Licences */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-mono-data font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-            <Award className="w-4 h-4 text-amber-500" />
-            Chứng Chỉ &amp; Giấy Phép Nghiệp Vụ
-          </h3>
-
-          <div className="space-y-2.5">
-            {(profile.certifications || []).map((cert, idx) => (
-              <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900">{cert.name}</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-[9px] font-mono-data font-bold border ${
-                      cert.status === 'active'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border border-amber-200'
-                    }`}
-                  >
-                    {cert.status === 'active' ? 'CÒN HẠN' : 'SẮP HẾT HẠN'}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-500">{cert.issuedBy}</div>
-                <div className="text-[10px] font-mono-data text-slate-400">
-                  Hạn sử dụng: {cert.expiryDate}
-                </div>
-              </div>
-            ))}
-
-            {/* Account Creation Date from Backend */}
-            {userData?.createdAt && (
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
-                <span className="text-slate-500 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                  Ngày kích hoạt tài khoản:
-                </span>
-                <span className="font-mono-data text-slate-900 font-semibold">
-                  {new Date(userData.createdAt).toLocaleDateString('vi-VN')}
-                </span>
-              </div>
-            )}
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+              <Award className="w-4 h-4 text-amber-500" />
+              Chứng Chỉ &amp; Giấy Phép Nghiệp Vụ
+            </h3>
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+              CHƯA CÓ API
+            </span>
           </div>
+
+          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
+            <strong>Lưu ý:</strong> Backend hiện chưa có endpoint lưu trữ danh mục Bằng cấp / Chứng chỉ nghiệp vụ (<code className="font-mono text-red-600 bg-white px-1 py-0.5 rounded">/api/users/me/certifications</code>). Dữ liệu giả lập đã được gỡ bỏ.
+          </div>
+
+          {/* Account Creation Date from Backend */}
+          {userData?.createdAt && (
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
+              <span className="text-slate-500 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                Ngày kích hoạt tài khoản:
+              </span>
+              <span className="font-mono text-slate-900 font-semibold">
+                {new Date(userData.createdAt).toLocaleDateString('vi-VN')}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

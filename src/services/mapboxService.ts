@@ -174,4 +174,55 @@ export const mapboxService = {
 
     return `Tọa độ (${lat.toFixed(4)}, ${lng.toFixed(4)}) - Khu Công nghệ cao, TP. Thủ Đức`;
   },
+
+  /**
+   * Tìm tọa độ từ địa chỉ người dùng nhập vào (Forward Geocoding)
+   * Hỗ trợ Mapbox Geocoding & OpenStreetMap Nominatim chuẩn tiếng Việt
+   */
+  async forwardGeocode(query: string): Promise<{ lat: number; lng: number; address: string } | null> {
+    const trimmed = query.trim();
+    if (!trimmed) return null;
+
+    if (MAPBOX_ACCESS_TOKEN && !MAPBOX_ACCESS_TOKEN.includes('dummy')) {
+      try {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(trimmed)}.json?access_token=${MAPBOX_ACCESS_TOKEN}&country=VN&language=vi`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.features && data.features.length > 0) {
+            const first = data.features[0];
+            const [lng, lat] = first.center;
+            return {
+              lat,
+              lng,
+              address: first.place_name || trimmed,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Mapbox forwardGeocode failed, switching to OSM Nominatim:', err);
+      }
+    }
+
+    try {
+      const osmUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmed)}&format=json&countrycodes=vn&limit=1&accept-language=vi`;
+      const res = await fetch(osmUrl, {
+        headers: { 'User-Agent': 'ResQ-EmergencyDispatchWeb/1.0' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return {
+            lat: parseFloat(data[0].lat),
+            lng: parseFloat(data[0].lon),
+            address: data[0].display_name || trimmed,
+          };
+        }
+      }
+    } catch {
+      // Ignore
+    }
+
+    return null;
+  },
 };

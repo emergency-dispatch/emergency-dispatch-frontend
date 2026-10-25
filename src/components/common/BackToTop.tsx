@@ -35,23 +35,23 @@ export const BackToTop: React.FC = () => {
       <button
         onClick={scrollToTop}
         aria-label="Back to top"
-        className="group relative w-12 h-12 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 hover:border-blue-500 shadow-2xl hover:shadow-glow-blue flex items-center justify-center transition-all duration-300 backdrop-blur-xl active:scale-95"
+        className="group relative w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white border border-red-500 shadow-xl shadow-red-600/30 hover:shadow-2xl hover:shadow-red-600/50 flex items-center justify-center transition-all duration-300 active:scale-95 cursor-pointer"
       >
         {/* Glow pulse behind button */}
-        <span className="absolute inset-0 rounded-xl bg-blue-500/10 group-hover:bg-blue-500/20 transition-all"></span>
+        <span className="absolute inset-0 rounded-xl bg-white/10 group-hover:bg-white/20 transition-all" />
 
         {/* Tactical corner crosshairs */}
-        <div className="absolute top-0.5 left-0.5 w-1.5 h-1.5 border-t border-l border-blue-400 opacity-60 group-hover:opacity-100"></div>
-        <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 border-t border-r border-blue-400 opacity-60 group-hover:opacity-100"></div>
-        <div className="absolute bottom-0.5 left-0.5 w-1.5 h-1.5 border-b border-l border-blue-400 opacity-60 group-hover:opacity-100"></div>
-        <div className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 border-b border-r border-blue-400 opacity-60 group-hover:opacity-100"></div>
+        <div className="absolute top-0.5 left-0.5 w-1.5 h-1.5 border-t border-l border-white/70 group-hover:border-white opacity-80 group-hover:opacity-100" />
+        <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 border-t border-r border-white/70 group-hover:border-white opacity-80 group-hover:opacity-100" />
+        <div className="absolute bottom-0.5 left-0.5 w-1.5 h-1.5 border-b border-l border-white/70 group-hover:border-white opacity-80 group-hover:opacity-100" />
+        <div className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 border-b border-r border-white/70 group-hover:border-white opacity-80 group-hover:opacity-100" />
 
         {/* Icon */}
-        <ChevronUp className="w-5 h-5 text-blue-400 group-hover:text-white group-hover:-translate-y-1 transition-all duration-200" />
+        <ChevronUp className="w-5 h-5 text-white group-hover:-translate-y-1 transition-all duration-200" />
 
         {/* Tooltip on hover */}
-        <span className="absolute -top-9 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-700 text-[10px] font-mono-data text-slate-200 uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg">
-          Top
+        <span className="absolute -top-9 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-700 text-[10px] font-mono-data text-white uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg">
+          Lên đầu trang
         </span>
       </button>
     </div>

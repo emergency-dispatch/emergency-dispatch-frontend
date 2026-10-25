@@ -7,6 +7,14 @@ import type { CrewRole, StationStaff, StationTeam, StationTeamInput } from '../t
 // Tổ: GET/POST/PUT/DELETE /api/stations/{id}/teams. Nhân sự: RescueStaff từ GET /api/users,
 // thêm/gỡ khỏi trạm qua PUT /api/users/{id}/assign-station-team.
 
+export interface CreateStaffInput {
+  fullName: string;
+  email: string;
+  password: string;
+  /** Rỗng = không có số. */
+  phoneNumber: string;
+}
+
 export interface StationTeamsSnapshot {
   staff: StationStaff[];
   teams: StationTeam[];
@@ -88,10 +96,13 @@ export const stationTeamService = {
 
   getSnapshot: () => snapshot,
 
-  /** Tải tổ của các trạm (Dispatch Panel cần tổ của mọi trạm để hiện kèm xe). */
+  /**
+   * Tải tổ của các trạm (Dispatch Panel hiện tổ kèm xe). Operator chỉ xem được tổ trạm mình — trạm khác trả 403
+   * và được bỏ qua (xe hỗ trợ của trạm khác hiện không kèm tổ).
+   */
   async loadTeams(stationIds: string[]): Promise<void> {
-    const results = await Promise.all(stationIds.map(fetchTeams));
-    teams = results.flat();
+    const results = await Promise.allSettled(stationIds.map(fetchTeams));
+    teams = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
     commit();
   },
 
@@ -122,6 +133,24 @@ export const stationTeamService = {
     } finally {
       await stationTeamService.loadStaff();
     }
+  },
+
+  /**
+   * Operator tạo tài khoản RescueStaff (POST /api/users). Backend chỉ cho Operator tạo RescueStaff và tự gán trạm của
+   * Operator (bỏ qua stationId client gửi) nên không gửi trạm.
+   */
+  async createStaff(input: CreateStaffInput): Promise<UserResponseDto> {
+    const created = await unwrapApi(
+      apiClient.post<ApiResponse<UserResponseDto>>('/users', {
+        fullName: input.fullName,
+        email: input.email,
+        password: input.password,
+        phoneNumber: input.phoneNumber || null,
+        role: UserRole.RescueStaff,
+      })
+    );
+    await stationTeamService.loadStaff();
+    return created;
   },
 
   /** Gỡ khỏi trạm → backend đồng thời gỡ khỏi tổ đang thuộc. */

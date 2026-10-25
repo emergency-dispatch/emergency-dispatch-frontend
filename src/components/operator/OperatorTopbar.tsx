@@ -6,37 +6,14 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
 import type { NotificationDto } from '../../services/notificationService';
 import { incidentHubService, type HubStatus } from '../../services/realtime/incidentHubService';
+import { LANGUAGE_OPTIONS, dateLocale, getLanguage, setLanguage, useTranslation } from '../../i18n';
 
-// Chấm trạng thái = kết nối realtime thật. Mất kết nối thì dữ liệu vẫn tự tải lại mỗi 20 giây (poll dự phòng).
-const HUB_STATUS_META: Record<HubStatus, { label: string; dot: string; text: string; ping: boolean; title: string }> = {
-  connected: {
-    label: 'TRỰC TUYẾN',
-    dot: 'bg-emerald-500',
-    text: 'text-emerald-600',
-    ping: true,
-    title: 'Đang nhận dữ liệu realtime',
-  },
-  connecting: {
-    label: 'ĐANG KẾT NỐI',
-    dot: 'bg-slate-400',
-    text: 'text-slate-500',
-    ping: false,
-    title: 'Đang kết nối realtime…',
-  },
-  reconnecting: {
-    label: 'ĐANG NỐI LẠI',
-    dot: 'bg-amber-500',
-    text: 'text-amber-600',
-    ping: true,
-    title: 'Mất kết nối realtime, đang tự nối lại. Dữ liệu vẫn tự tải lại mỗi 20 giây.',
-  },
-  disconnected: {
-    label: 'MẤT KẾT NỐI',
-    dot: 'bg-amber-500',
-    text: 'text-amber-600',
-    ping: false,
-    title: 'Không kết nối được realtime, sẽ tự thử lại. Dữ liệu vẫn tự tải lại mỗi 20 giây.',
-  },
+// Chấm trạng thái = kết nối realtime thật. Mất kết nối thì dữ liệu vẫn tự tải lại định kỳ (poll dự phòng).
+const HUB_STATUS_STYLE: Record<HubStatus, { dot: string; text: string; ping: boolean }> = {
+  connected: { dot: 'bg-emerald-500', text: 'text-emerald-600', ping: true },
+  connecting: { dot: 'bg-slate-400', text: 'text-slate-500', ping: false },
+  reconnecting: { dot: 'bg-amber-500', text: 'text-amber-600', ping: true },
+  disconnected: { dot: 'bg-amber-500', text: 'text-amber-600', ping: false },
 };
 import { UserProfileModal } from '../profile/UserProfileModal';
 
@@ -44,13 +21,14 @@ const formatTime = (iso: string) => {
   const date = new Date(iso);
   const sameDay = date.toDateString() === new Date().toDateString();
   return sameDay
-    ? date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-    : date.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+    ? date.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })
+    : date.toLocaleString(dateLocale(), { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
 };
 
 export const OperatorTopbar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
@@ -63,7 +41,7 @@ export const OperatorTopbar: React.FC = () => {
   const { items: notifications, unreadCount, loading, error, markRead, markAllRead } = useNotifications();
   const hasCriticalAlert = escalatedIncidentIds.size > 0;
   const hubStatus = useSyncExternalStore(incidentHubService.subscribeStatus, incidentHubService.getStatus);
-  const statusMeta = HUB_STATUS_META[hubStatus];
+  const statusStyle = HUB_STATUS_STYLE[hubStatus];
 
   const openNotification = (notification: NotificationDto) => {
     markRead(notification.id);
@@ -87,9 +65,9 @@ export const OperatorTopbar: React.FC = () => {
     await logout('/login');
   };
 
-  const displayName = user?.fullName || 'Điều phối viên';
+  const displayName = user?.fullName || t('layout.topbar.defaultName');
   const displayRole = user?.role || 'Operator';
-  const displayStation = user?.stationName || 'Trung tâm điều phối';
+  const displayStation = user?.stationName || t('layout.topbar.defaultStation');
   const initials = displayName
     .split(' ')
     .map((w) => w[0])
@@ -117,17 +95,17 @@ export const OperatorTopbar: React.FC = () => {
           <span className="text-xs font-semibold text-slate-900 truncate">{displayStation}</span>
           <span
             className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-200 shrink-0"
-            title={statusMeta.title}
+            title={t(`layout.hubStatus.${hubStatus}.title`)}
             role="status"
           >
             <span className="relative flex h-1.5 w-1.5">
-              {statusMeta.ping && (
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${statusMeta.dot}`} />
+              {statusStyle.ping && (
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${statusStyle.dot}`} />
               )}
-              <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${statusMeta.dot}`} />
+              <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${statusStyle.dot}`} />
             </span>
-            <span className={`text-[10px] font-mono-data font-semibold whitespace-nowrap ${statusMeta.text}`}>
-              {statusMeta.label}
+            <span className={`text-[10px] font-mono-data font-semibold whitespace-nowrap ${statusStyle.text}`}>
+              {t(`layout.hubStatus.${hubStatus}.label`)}
             </span>
           </span>
         </div>
@@ -138,7 +116,7 @@ export const OperatorTopbar: React.FC = () => {
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setNotifOpen((v) => !v)}
-            aria-label="Notifications"
+            aria-label={t('layout.topbar.notifications')}
             className={`relative p-2.5 rounded-lg border transition-colors ${
               hasCriticalAlert
                 ? 'bg-red-50 border-red-300 text-red-600 animate-flash-critical'
@@ -157,7 +135,8 @@ export const OperatorTopbar: React.FC = () => {
             <div className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-xl cad-glass overflow-hidden z-[1200]">
               <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
                 <span className="text-xs font-mono-data uppercase tracking-wider text-slate-600 font-bold">
-                  Thông báo{unreadCount > 0 && ` (${unreadCount} chưa đọc)`}
+                  {t('layout.topbar.notifications')}
+                  {unreadCount > 0 && t('layout.topbar.unreadSuffix', { count: unreadCount })}
                 </span>
                 {unreadCount > 0 && (
                   <button
@@ -165,23 +144,23 @@ export const OperatorTopbar: React.FC = () => {
                     className="flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 whitespace-nowrap"
                   >
                     <CheckCheck className="w-3.5 h-3.5" />
-                    Đọc tất cả
+                    {t('layout.topbar.markAllRead')}
                   </button>
                 )}
               </div>
               {hasCriticalAlert && (
                 <div className="px-4 py-2 bg-red-50 border-b border-red-100 flex items-center gap-2 text-[11px] font-semibold text-red-700">
                   <Siren className="w-3.5 h-3.5 shrink-0" />
-                  {escalatedIncidentIds.size} sự cố đang leo thang, chưa có đơn vị nhận
+                  {t('layout.topbar.escalatingBanner', { count: escalatedIncidentIds.size })}
                 </div>
               )}
               <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
                 {loading ? (
-                  <p className="px-4 py-6 text-center text-xs text-slate-500">Đang tải thông báo…</p>
+                  <p className="px-4 py-6 text-center text-xs text-slate-500">{t('layout.topbar.loadingNotifications')}</p>
                 ) : error ? (
                   <p className="px-4 py-6 text-center text-xs text-red-600">{error}</p>
                 ) : notifications.length === 0 ? (
-                  <p className="px-4 py-6 text-center text-xs text-slate-500">Chưa có thông báo nào</p>
+                  <p className="px-4 py-6 text-center text-xs text-slate-500">{t('layout.topbar.noNotifications')}</p>
                 ) : (
                   notifications.map((notification) => (
                     <button
@@ -213,6 +192,25 @@ export const OperatorTopbar: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+
+        <div
+          role="group"
+          aria-label={t('layout.topbar.language')}
+          className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
+        >
+          {LANGUAGE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setLanguage(option.value)}
+              aria-pressed={getLanguage() === option.value}
+              className={`px-2 py-1 rounded-md text-[11px] font-bold font-mono-data transition-colors ${
+                getLanguage() === option.value ? 'bg-white text-red-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
 
         <div className="relative" ref={userRef}>
@@ -270,7 +268,7 @@ export const OperatorTopbar: React.FC = () => {
                   className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                 >
                   <User className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Hồ sơ cá nhân &amp; Y tế</span>
+                  <span>{t('layout.topbar.profile')}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -280,7 +278,7 @@ export const OperatorTopbar: React.FC = () => {
                   className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                 >
                   <Settings className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Đổi mật khẩu &amp; Cài đặt</span>
+                  <span>{t('layout.topbar.settings')}</span>
                 </button>
               </div>
               <div className="py-1.5 border-t border-slate-100">
@@ -289,7 +287,7 @@ export const OperatorTopbar: React.FC = () => {
                   className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors text-left font-semibold"
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  <span>Đăng xuất</span>
+                  <span>{t('layout.topbar.logout')}</span>
                 </button>
               </div>
             </div>

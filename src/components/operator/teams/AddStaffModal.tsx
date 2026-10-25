@@ -4,6 +4,7 @@ import { ConfirmModal } from '../../admin/common/ui';
 import { inputClass } from '../../admin/common/styles';
 import { normalizeText } from '../../../services/admin/adminMock';
 import type { StationStaff } from '../../../types/stationTeam';
+import { useTranslation } from '../../../i18n';
 
 interface AddStaffModalProps {
   stationName: string;
@@ -21,6 +22,7 @@ export const AddStaffModal: React.FC<AddStaffModalProps> = ({
   onCancel,
   onConfirm,
 }) => {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -39,29 +41,29 @@ export const AddStaffModal: React.FC<AddStaffModalProps> = ({
 
   return (
     <ConfirmModal
-      title={`Thêm nhân sự vào ${stationName}`}
-      confirmLabel={selected.size > 0 ? `Thêm ${selected.size} người` : 'Thêm'}
+      title={t('teams.addStaff.title', { station: stationName })}
+      confirmLabel={selected.size > 0 ? t('teams.addStaff.confirmCount', { count: selected.size }) : t('teams.addStaff.confirm')}
       confirmDisabled={selected.size === 0}
       submitting={submitting}
       onCancel={onCancel}
       onConfirm={() => onConfirm([...selected])}
     >
       <p className="text-xs text-slate-500">
-        Chỉ hiện lực lượng cứu hộ chưa thuộc trạm nào. Sau khi thêm, xếp họ vào tổ ở cột "Tổ làm việc".
+        {t('teams.addStaff.help')}
       </p>
       <div className="relative">
         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Tìm theo tên hoặc số điện thoại"
+          placeholder={t('teams.staff.search')}
           className={`${inputClass} pl-9`}
         />
       </div>
       <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
         {visible.length === 0 ? (
           <p className="text-center text-xs text-slate-500 py-6">
-            {candidates.length === 0 ? 'Không còn nhân sự nào chưa thuộc trạm.' : 'Không có nhân sự phù hợp.'}
+            {candidates.length === 0 ? t('teams.addStaff.noneLeft') : t('teams.staff.noMatch')}
           </p>
         ) : (
           visible.map((s) => (

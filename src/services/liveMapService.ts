@@ -1,7 +1,7 @@
 import { apiClient, unwrapApi } from './apiClient';
 import type { ApiResponse } from '../types/auth';
 import type { TrafficJamReport } from '../types/incident';
-import type { RescueUnitResponseDto } from '../types/rescueUnit';
+import type { CreateRescueUnitDto, RescueUnitResponseDto, UpdateRescueUnitDto } from '../types/rescueUnit';
 import type { StationResponseDto } from '../types/station';
 import type { Station } from '../types/vehicle';
 
@@ -29,6 +29,15 @@ export interface EscalationSettingsDto {
   nightEnd: string;
   radiusMultiplier: number;
   maxRadiusKm: number;
+}
+
+/** Khu vực phục vụ (GET /api/settings/service-area — công khai). */
+export interface ServiceAreaDto {
+  enabled: boolean;
+  name: string | null;
+  centerLat: number;
+  centerLng: number;
+  radiusKm: number;
 }
 
 export const DEFAULT_ESCALATION_SETTINGS: EscalationSettingsDto = {
@@ -75,9 +84,34 @@ export const liveMapService = {
     return unwrapApi(apiClient.get<ApiResponse<StationResponseDto>>(`/stations/${id}`));
   },
 
-  /** Toàn bộ xe chưa xóa (backend không phân trang). */
-  async getRescueUnits(): Promise<RescueUnitResponseDto[]> {
-    return unwrapApi(apiClient.get<ApiResponse<RescueUnitResponseDto[]>>('/rescue-units'));
+  /**
+   * Xe chưa xóa (backend không phân trang). Không lọc → xe mọi trạm (Live Map cần để điều xe hỗ trợ);
+   * `stationId` / `status` → chỉ tải đúng phần cần (VD một trạm vừa có xe mới).
+   */
+  async getRescueUnits(filter: { stationId?: string; status?: string } = {}): Promise<RescueUnitResponseDto[]> {
+    return unwrapApi(apiClient.get<ApiResponse<RescueUnitResponseDto[]>>('/rescue-units', { params: filter }));
+  },
+
+  async getRescueUnit(id: string): Promise<RescueUnitResponseDto> {
+    return unwrapApi(apiClient.get<ApiResponse<RescueUnitResponseDto>>(`/rescue-units/${id}`));
+  },
+
+  /** Xe mới ở trạng thái Sẵn sàng, đặt tại tọa độ trạm. Operator chỉ thêm được vào trạm mình (khác → 403). */
+  async createRescueUnit(input: CreateRescueUnitDto): Promise<RescueUnitResponseDto> {
+    return unwrapApi(apiClient.post<ApiResponse<RescueUnitResponseDto>>('/rescue-units', input));
+  },
+
+  /**
+   * PUT bắt buộc gửi đủ trạng thái và trạm. Operator không được đổi trạm (chỉ Admin) nên luôn gửi lại đúng
+   * trạm / trạng thái hiện tại của xe.
+   */
+  async updateRescueUnit(id: string, input: UpdateRescueUnitDto): Promise<RescueUnitResponseDto> {
+    return unwrapApi(apiClient.put<ApiResponse<RescueUnitResponseDto>>(`/rescue-units/${id}`, input));
+  },
+
+  /** Operator chỉ đặt thủ công Sẵn sàng ⇄ Bảo trì; các trạng thái khác do luồng điều phối tự đặt. */
+  async setRescueUnitStatus(id: string, status: 'Available' | 'Maintenance'): Promise<RescueUnitResponseDto> {
+    return unwrapApi(apiClient.put<ApiResponse<RescueUnitResponseDto>>(`/rescue-units/${id}/status`, { status }));
   },
 
   async getActiveTrafficJams(): Promise<TrafficJamReport[]> {
@@ -87,6 +121,14 @@ export const liveMapService = {
 
   async resolveTrafficJam(id: string): Promise<void> {
     await unwrapApi(apiClient.put<ApiResponse<unknown>>(`/traffic/${id}/resolve`));
+  },
+
+  /** Có thể bọc trong SettingsRecordDto { values } như các cấu hình khác → đọc được cả hai dạng. */
+  async getServiceArea(): Promise<ServiceAreaDto> {
+    const data = await unwrapApi(
+      apiClient.get<ApiResponse<ServiceAreaDto | { values: ServiceAreaDto }>>('/settings/service-area')
+    );
+    return 'values' in data ? data.values : data;
   },
 
   /** Backend bọc cấu hình trong SettingsRecordDto { values, updatedAt, updatedByName }. */

@@ -1,94 +1,75 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { ChevronsLeft, ChevronsRight, ShieldAlert } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import { dashboardNavGroups } from '../../data/dashboardMock';
+import { useDispatchStore } from '../../context/DispatchContext';
+import { useTranslation } from '../../i18n';
 
-interface OperatorSidebarProps {
-  collapsed: boolean;
-  onToggle: () => void;
-}
+const QUEUE_PATH = '/dashboard/command-center/incidents';
 
-export const OperatorSidebar: React.FC<OperatorSidebarProps> = ({ collapsed, onToggle }) => {
+const NAV_LABEL_KEY = {
+  '/dashboard/command-center/live-map': 'layout.nav.liveMap',
+  '/dashboard/command-center/incidents': 'layout.nav.incidentQueue',
+  '/dashboard/command-center/station-teams': 'layout.nav.stationTeams',
+  '/dashboard/command-center/vehicles': 'layout.nav.vehicles',
+} as const;
+
+/**
+ * Sidebar luôn thu gọn (64 px, icon-only) theo phong cách Command Center.
+ * Label hiện qua tooltip khi hover.
+ */
+export const OperatorSidebar: React.FC = () => {
+  const { incidents } = useDispatchStore();
+  const { t } = useTranslation();
+  const pendingCount = incidents.filter((i) => i.status === 'pending').length;
+
   return (
-    <aside
-      className={`flex flex-col h-full shrink-0 bg-white border-r border-slate-200 transition-all duration-300 ${
-        collapsed ? 'w-[76px]' : 'w-64'
-      }`}
-    >
-      {/* Brand mark */}
-      <div className="flex items-center h-16 shrink-0 border-b border-slate-200 px-4 gap-2.5 overflow-hidden">
-        <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center shrink-0 shadow-sm">
+    <aside className="flex flex-col h-full w-16 shrink-0 bg-white border-r border-slate-200">
+      {/* Logo */}
+      <div className="flex items-center justify-center h-14 shrink-0 border-b border-slate-200">
+        <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center shadow-sm">
           <ShieldAlert className="w-4 h-4 text-white" />
         </div>
-        {!collapsed && (
-          <span className="text-sm font-black text-slate-900 tracking-wide whitespace-nowrap">
-            CAD<span className="text-red-600"> Console</span>
-          </span>
-        )}
       </div>
 
-      {/* Nav groups */}
-      <nav className="flex-1 overflow-y-auto py-4 space-y-6">
-        {dashboardNavGroups.map((group) => (
-          <div key={group.id} className="px-3">
-            {!collapsed && (
-              <div className="px-2.5 mb-2 text-[10px] font-mono-data uppercase tracking-widest text-slate-400 font-bold">
-                {group.label}
-              </div>
-            )}
-            <div className="space-y-1">
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    title={collapsed ? item.label : undefined}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 rounded-xl text-sm font-medium transition-all border ${
-                        collapsed ? 'justify-center p-3' : 'px-3 py-2.5'
-                      } ${
-                        isActive
-                          ? 'bg-red-50/80 border-red-500 text-slate-900 font-bold shadow-xs'
-                          : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                      }`
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        <div
-                          className={`p-1.5 rounded-lg transition-colors shrink-0 ${
-                            isActive ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-500'
-                          }`}
-                        >
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        {!collapsed && <span className="truncate">{item.label}</span>}
-                      </>
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto py-3 flex flex-col items-center gap-1">
+        {dashboardNavGroups.map((group) =>
+          group.items.map((item) => {
+            const Icon = item.icon;
+            const badge = item.path === QUEUE_PATH && pendingCount > 0 ? pendingCount : 0;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                title={item.path in NAV_LABEL_KEY ? t(NAV_LABEL_KEY[item.path as keyof typeof NAV_LABEL_KEY]) : item.label}
+                className={({ isActive }) =>
+                  `relative flex items-center justify-center w-10 h-10 rounded-xl border transition-all ${
+                    isActive
+                      ? 'bg-red-50 border-red-200 text-red-600 shadow-sm'
+                      : 'border-transparent text-slate-400 hover:text-slate-700 hover:bg-slate-50'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    {/* Active indicator: left border accent */}
+                    {isActive && (
+                      <span className="absolute -left-[17px] top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r bg-red-600" />
                     )}
-                  </NavLink>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </nav>
-
-      {/* Collapse toggle */}
-      <button
-        onClick={onToggle}
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        className="flex items-center gap-2 h-12 shrink-0 border-t border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors justify-center"
-      >
-        {collapsed ? (
-          <ChevronsRight className="w-4 h-4" />
-        ) : (
-          <>
-            <ChevronsLeft className="w-4 h-4" />
-            <span className="text-xs font-mono-data">Collapse</span>
-          </>
+                    <Icon className="w-4.5 h-4.5" />
+                    {badge > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white">
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                  </>
+                )}
+              </NavLink>
+            );
+          })
         )}
-      </button>
+      </nav>
     </aside>
   );
 };

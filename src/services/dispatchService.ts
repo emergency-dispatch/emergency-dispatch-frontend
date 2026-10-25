@@ -4,6 +4,7 @@ import type {
   BackendDispatchAlgorithm,
   DispatchAssignmentResponseDto,
   UpdateAssignmentStatusDto,
+  RejectAssignmentDto,
   ResolveDispatchDto,
   AssignDispatchDto,
   RecommendedUnitResponseDto,
@@ -34,6 +35,12 @@ export const dispatchService = {
   /**
    * Lấy danh sách các lượt điều phối của một sự cố (GET /api/dispatch/assignments/incident/{incidentId})
    */
+  /** Mọi lượt Dispatched / Accepted / EnRoute / OnScene của sự cố trạm mình hoặc xe trạm mình (Operator). */
+  async getActiveAssignments(): Promise<ApiResponse<DispatchAssignmentResponseDto[]>> {
+    const response = await apiClient.get<ApiResponse<DispatchAssignmentResponseDto[]>>('/dispatch/assignments/active');
+    return response.data;
+  },
+
   async getAssignmentsByIncident(incidentId: string): Promise<ApiResponse<DispatchAssignmentResponseDto[]>> {
     const response = await apiClient.get<ApiResponse<DispatchAssignmentResponseDto[]>>(
       `/dispatch/assignments/incident/${incidentId}`
@@ -51,6 +58,21 @@ export const dispatchService = {
   ): Promise<ApiResponse<DispatchAssignmentResponseDto>> {
     const response = await apiClient.put<ApiResponse<DispatchAssignmentResponseDto>>(
       `/dispatch/assignments/${id}/status`,
+      dto
+    );
+    return response.data;
+  },
+
+  /**
+   * Đội cứu hộ từ chối lệnh điều phối kèm lý do bắt buộc (FR-RS-01, BR-22)
+   * (POST /api/dispatch/assignments/{id}/reject)
+   */
+  async rejectAssignment(
+    id: string,
+    dto: RejectAssignmentDto
+  ): Promise<ApiResponse<DispatchAssignmentResponseDto>> {
+    const response = await apiClient.post<ApiResponse<DispatchAssignmentResponseDto>>(
+      `/dispatch/assignments/${id}/reject`,
       dto
     );
     return response.data;

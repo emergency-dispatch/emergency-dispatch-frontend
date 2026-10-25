@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, CirclePlay, ImageOff } from 'lucide-react';
 import type { IncidentMedia } from '../../../types/incident';
+import { useTranslation } from '../../../i18n';
 
 interface IncidentMediaGalleryProps {
   media: IncidentMedia[];
@@ -12,6 +13,7 @@ interface IncidentMediaGalleryProps {
  * Nơi dùng đặt `key` theo id sự cố để mở sự cố khác thì quay về tệp đầu tiên.
  */
 export const IncidentMediaGallery: React.FC<IncidentMediaGalleryProps> = ({ media, title }) => {
+  const { t } = useTranslation();
   const [index, setIndex] = useState(0);
 
   const current = media[Math.min(index, media.length - 1)];
@@ -24,7 +26,7 @@ export const IncidentMediaGallery: React.FC<IncidentMediaGalleryProps> = ({ medi
         {!current ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-slate-400">
             <ImageOff className="w-8 h-8 text-slate-300" />
-            <span className="text-xs">Người báo không gửi kèm hình ảnh</span>
+            <span className="text-xs">{t('incidents.media.none')}</span>
           </div>
         ) : current.type === 'video' ? (
           <video key={current.url} src={current.url} controls className="w-full h-full object-cover bg-black" />
@@ -37,14 +39,14 @@ export const IncidentMediaGallery: React.FC<IncidentMediaGalleryProps> = ({ medi
             <button
               onClick={() => step(-1)}
               className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70"
-              aria-label="Tệp trước"
+              aria-label={t('incidents.media.previous')}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={() => step(1)}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70"
-              aria-label="Tệp sau"
+              aria-label={t('incidents.media.next')}
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -64,7 +66,7 @@ export const IncidentMediaGallery: React.FC<IncidentMediaGalleryProps> = ({ medi
               className={`relative w-16 h-12 shrink-0 rounded-md overflow-hidden border-2 transition-colors ${
                 i === index ? 'border-red-500' : 'border-transparent opacity-70 hover:opacity-100'
               }`}
-              aria-label={`Xem tệp ${i + 1}`}
+              aria-label={t('incidents.media.view', { index: i + 1 })}
             >
               {item.type === 'video' ? (
                 <>

@@ -2,18 +2,17 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
-  Flame,
-  Truck,
-  ShieldCheck,
-  Radio,
   Layers,
   Navigation,
   ChevronRight,
   AlertTriangle,
   Plus,
   Minus,
-  MapPin,
   LocateFixed,
+  Building2,
+  Clock,
+  Car,
+  Activity,
 } from 'lucide-react';
 import {
   MAPBOX_ACCESS_TOKEN,
@@ -22,54 +21,218 @@ import {
   mapboxService,
 } from '../../services/mapboxService';
 import { incidentService, type CitizenTrackingDto } from '../../services/incidentService';
-import type { IncidentResponseDto } from '../../types/incident';
+import { liveMapService } from '../../services/liveMapService';
+import {
+  trackingHubService,
+  incidentHubService,
+  HubEvents,
+} from '../../services/realtime/incidentHubService';
+import {
+  stationMarkerHtml,
+  vehicleMarkerHtml,
+  incidentMarkerHtml,
+} from '../operator/livemap/mapIcons';
+import type { IncidentResponseDto, IncidentCategory, SeverityLevel } from '../../types/incident';
+import type { RescueUnitResponseDto } from '../../types/rescueUnit';
+import type { Station, VehicleStatus, VehicleType } from '../../types/vehicle';
 
 interface HeroRadarMapProps {
   etaTime: number;
   formatEta: (seconds: number) => string;
   onOpenReports?: () => void;
+  onStatsUpdate?: (stats: {
+    stationCount: number;
+    unitCount: number;
+    activeEtaMinutes: number | null;
+  }) => void;
 }
+
+const UNIT_TYPE_MAP: Record<string, VehicleType> = {
+  Ambulance: 'ambulance',
+  FireTruck: 'fire_truck',
+  LadderTruck: 'fire_truck',
+  RescueBoat: 'rescue',
+  HeavyRescueVehicle: 'rescue',
+  PolicePatrol: 'police',
+};
+
+const UNIT_STATUS_MAP: Record<string, VehicleStatus> = {
+  Available: 'available',
+  Dispatched: 'en_route',
+  OnScene: 'on_scene',
+  Returning: 'en_route',
+  CoolDown: 'recovering',
+  Maintenance: 'unavailable',
+  OutOfService: 'unavailable',
+};
+
+const getIncidentCategory = (incident: IncidentResponseDto): IncidentCategory => {
+  if (incident.aiClassification?.eventType === 'TrafficAccident') return 'accident';
+  if (incident.aiClassification?.eventType === 'FireExplosion') return 'fire';
+  const text = `${incident.title || ''} ${incident.description || ''}`.toLowerCase();
+  if (text.includes('tai nạn') || text.includes('traffic') || text.includes('va chạm')) return 'accident';
+  return 'fire';
+};
+
+const getIncidentSeverity = (sev?: string): SeverityLevel => {
+  if (sev === 'Level3' || sev === 'Level4' || sev === 'Level5') return 3;
+  if (sev === 'Level2') return 2;
+  return 1;
+};
+
+// SHTP central default
+const DEFAULT_MAP_CENTER: [number, number] = [106.8035, 10.8405];
 
 export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   etaTime,
   formatEta,
   onOpenReports,
+  onStatsUpdate,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const emsEtaElRef = useRef<HTMLSpanElement | null>(null);
   const [radarLayer, setRadarLayer] = useState<'satellite' | 'dark'>('satellite');
 
-  // Citizen reported incident state
+  // Real entities state
+  const [stations, setStations] = useState<Station[]>([]);
+  const [units, setUnits] = useState<RescueUnitResponseDto[]>([]);
   const [reportedIncident, setReportedIncident] = useState<IncidentResponseDto | null>(null);
   const [trackingData, setTrackingData] = useState<CitizenTrackingDto | null>(null);
-  const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
 
-  // User location status on Radar
+  // Markers references for dynamic updates
+  const stationMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const unitMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const incidentMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const myLocationMarkerRef = useRef<mapboxgl.Marker | null>(null);
+
+  // User location status
   const [locationStatus, setLocationStatus] = useState<'locating' | 'locked' | 'failed'>('locating');
   const [resolvedAddress, setResolvedAddress] = useState<string>('');
   const [isLocatingUser, setIsLocatingUser] = useState<boolean>(false);
-  const myLocationMarkerRef = useRef<mapboxgl.Marker | null>(null);
 
-  // Fetch citizen reported incident from storage & API
-  const checkCitizenReportedIncident = useCallback(async () => {
+  // Tactical route updater on Mapbox canvas
+  const updateRouteTrajectory = useCallback((coords: [number, number][]) => {
+    const map = mapRef.current;
+    if (!map) return;
     try {
-      const storedIds: string[] = JSON.parse(localStorage.getItem('resq_my_reported_incident_ids') || '[]');
-      if (storedIds.length > 0) {
-        const res = await incidentService.getIncidents({ pageSize: 20 });
-        const items = res.data?.items || [];
-        const match = items.find((i) => storedIds.includes(i.id));
-        if (match) {
-          setReportedIncident(match);
-          return;
-        }
+      const source = map.getSource('tactical-routes') as mapboxgl.GeoJSONSource | undefined;
+      if (source) {
+        source.setData({
+          type: 'FeatureCollection',
+          features:
+            coords.length >= 2
+              ? [
+                  {
+                    type: 'Feature',
+                    properties: { color: '#3B82F6' },
+                    geometry: {
+                      type: 'LineString',
+                      coordinates: coords,
+                    },
+                  },
+                ]
+              : [],
+        });
       }
     } catch {
-      // ignore
+      // Layer/source might still be loading
     }
   }, []);
 
+  // Fetch real stations & rescue units
+  const fetchRealEntities = useCallback(async () => {
+    try {
+      const [fetchedStations, fetchedUnits] = await Promise.all([
+        liveMapService.getStations().catch(() => [] as Station[]),
+        liveMapService.getRescueUnits().catch(() => [] as RescueUnitResponseDto[]),
+      ]);
+
+      setStations(fetchedStations);
+      setUnits(fetchedUnits);
+
+      if (onStatsUpdate) {
+        onStatsUpdate({
+          stationCount: fetchedStations.length,
+          unitCount: fetchedUnits.length,
+          activeEtaMinutes: trackingData?.estimatedArrivalMinutes ?? null,
+        });
+      }
+    } catch (err) {
+      console.warn('HeroRadarMap fetch entities notice:', err);
+    }
+  }, [onStatsUpdate, trackingData?.estimatedArrivalMinutes]);
+
+  // Check citizen reported incident (from storage or API)
+  const checkCitizenReportedIncident = useCallback(async () => {
+    try {
+      const storedIds: string[] = JSON.parse(
+        localStorage.getItem('resq_my_reported_incident_ids') || '[]'
+      );
+      if (storedIds.length > 0) {
+        const res = await incidentService.getById(storedIds[0]);
+        if (res.success && res.data) {
+          setReportedIncident(res.data);
+          return;
+        }
+      }
+
+      // Fallback for logged-in citizen without localStorage items
+      const myReportsRes = await incidentService.getMyReports({ pageSize: 1 }).catch(() => null);
+      if (myReportsRes?.success && myReportsRes.data.items.length > 0) {
+        const latest = myReportsRes.data.items[0];
+        const res = await incidentService.getById(latest.id).catch(() => null);
+        if (res?.success && res.data) {
+          setReportedIncident(res.data);
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  // Load tracking data if incident has active dispatch
   useEffect(() => {
+    if (!reportedIncident?.id) {
+      setTrackingData(null);
+      updateRouteTrajectory([]);
+      return;
+    }
+
+    if (reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress') {
+      incidentService
+        .getTracking(reportedIncident.id)
+        .then((res) => {
+          if (res.data) {
+            setTrackingData(res.data);
+            if (res.data.routeTrajectory && res.data.routeTrajectory.length >= 2) {
+              const coords: [number, number][] = res.data.routeTrajectory.map((pt) => [
+                pt.longitude,
+                pt.latitude,
+              ]);
+              updateRouteTrajectory(coords);
+            } else if (
+              res.data.vehicleLat &&
+              res.data.vehicleLng &&
+              reportedIncident.latitude &&
+              reportedIncident.longitude
+            ) {
+              updateRouteTrajectory([
+                [res.data.vehicleLng, res.data.vehicleLat],
+                [reportedIncident.longitude, reportedIncident.latitude],
+              ]);
+            }
+          }
+        })
+        .catch(() => {});
+    } else {
+      setTrackingData(null);
+      updateRouteTrajectory([]);
+    }
+  }, [reportedIncident?.id, reportedIncident?.status, reportedIncident?.latitude, reportedIncident?.longitude, updateRouteTrajectory]);
+
+  // Initial loads & custom events
+  useEffect(() => {
+    fetchRealEntities();
     checkCitizenReportedIncident();
 
     const handleIncidentUpdated = (e: any) => {
@@ -82,11 +245,87 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
     window.addEventListener('resq_incident_updated', handleIncidentUpdated);
     window.addEventListener('storage', checkCitizenReportedIncident);
+
+    // Refresh every 12s as polling fallback
+    const interval = setInterval(() => {
+      fetchRealEntities();
+      checkCitizenReportedIncident();
+    }, 12000);
+
     return () => {
       window.removeEventListener('resq_incident_updated', handleIncidentUpdated);
       window.removeEventListener('storage', checkCitizenReportedIncident);
+      clearInterval(interval);
     };
-  }, [checkCitizenReportedIncident]);
+  }, [fetchRealEntities, checkCitizenReportedIncident]);
+
+  // SignalR Realtime Listeners
+  useEffect(() => {
+    const setupSignalR = async () => {
+      try {
+        await trackingHubService.start();
+        if (reportedIncident?.id) {
+          await trackingHubService.invoke('SubscribeIncident', reportedIncident.id);
+        }
+      } catch {
+        // Fallback to polling
+      }
+
+      try {
+        await incidentHubService.start();
+      } catch {
+        // Fallback to polling
+      }
+    };
+
+    setupSignalR();
+
+    // Listen to real-time rescue unit locations
+    const unsubLocation = trackingHubService.on(
+      HubEvents.ReceiveRescueUnitLocation,
+      (msg: any) => {
+        if (!msg) return;
+        const unitId = msg.rescueUnitId || msg.RescueUnitId;
+        const lat = msg.latitude ?? msg.Latitude;
+        const lng = msg.longitude ?? msg.Longitude;
+
+        if (unitId && typeof lat === 'number' && typeof lng === 'number') {
+          const marker = unitMarkersRef.current.get(unitId);
+          if (marker) {
+            marker.setLngLat([lng, lat]);
+          }
+
+          // If assigned to citizen's incident, update route trajectory live
+          if (
+            trackingData?.rescueUnitId === unitId &&
+            reportedIncident?.latitude &&
+            reportedIncident?.longitude
+          ) {
+            updateRouteTrajectory([
+              [lng, lat],
+              [reportedIncident.longitude, reportedIncident.latitude],
+            ]);
+          }
+        }
+      }
+    );
+
+    // Listen to incident lifecycle updates
+    const unsubIncident = incidentHubService.on(
+      HubEvents.ReceiveIncidentUpdate,
+      (updated: any) => {
+        if (!updated) return;
+        if (reportedIncident?.id && updated.id === reportedIncident.id) {
+          setReportedIncident((prev) => (prev ? { ...prev, ...updated } : updated));
+        }
+      }
+    );
+
+    return () => {
+      unsubLocation();
+      unsubIncident();
+    };
+  }, [reportedIncident?.id, reportedIncident?.latitude, reportedIncident?.longitude, trackingData?.rescueUnitId, updateRouteTrajectory]);
 
   // Determine user GPS / cached location
   useEffect(() => {
@@ -115,7 +354,10 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           try {
             const addr = await mapboxService.reverseGeocode(lng, lat);
             setResolvedAddress(addr);
-            localStorage.setItem('resq_citizen_coords', JSON.stringify({ lat, lng, address: addr, updatedAt: Date.now() }));
+            localStorage.setItem(
+              'resq_citizen_coords',
+              JSON.stringify({ lat, lng, address: addr, updatedAt: Date.now() })
+            );
           } catch {
             setResolvedAddress('Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh');
           }
@@ -133,20 +375,266 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     }
   }, []);
 
-  // Load tracking data if incident is dispatched or in progress
+  // Initialize Mapbox Map
   useEffect(() => {
-    if (!reportedIncident?.id) return;
-    if (reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress') {
-      incidentService
-        .getTracking(reportedIncident.id)
-        .then((res) => {
-          if (res.data) setTrackingData(res.data);
-        })
-        .catch(() => {});
-    } else {
-      setTrackingData(null);
+    if (!mapContainerRef.current) return;
+
+    if (MAPBOX_ACCESS_TOKEN) {
+      mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
     }
-  }, [reportedIncident?.id, reportedIncident?.status]);
+
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: MAPBOX_REALISTIC_STYLE,
+      center: DEFAULT_MAP_CENTER,
+      zoom: 14.5,
+      attributionControl: false,
+      scrollZoom: true,
+      doubleClickZoom: true,
+      dragPan: true,
+      touchZoomRotate: true,
+      pitch: 25,
+    });
+
+    map.on('error', (e) => {
+      console.warn('Hero radar mapbox notice:', e?.error?.message || e);
+    });
+
+    const setupTacticalLayer = () => {
+      try {
+        if (!map.getSource('tactical-routes')) {
+          map.addSource('tactical-routes', {
+            type: 'geojson',
+            data: {
+              type: 'FeatureCollection',
+              features: [],
+            },
+          });
+
+          map.addLayer({
+            id: 'tactical-routes-line',
+            type: 'line',
+            source: 'tactical-routes',
+            paint: {
+              'line-color': ['get', 'color'],
+              'line-width': 3.5,
+              'line-dasharray': [2, 2],
+              'line-opacity': 0.9,
+            },
+          });
+        }
+      } catch (err) {
+        console.warn('Tactical routes setup notice:', err);
+      }
+    };
+
+    map.on('load', () => {
+      map.resize();
+      setupTacticalLayer();
+    });
+
+    map.on('style.load', () => {
+      setupTacticalLayer();
+    });
+
+    const t1 = setTimeout(() => map.resize(), 100);
+    const t2 = setTimeout(() => map.resize(), 400);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
+      ro = new ResizeObserver(() => map.resize());
+      ro.observe(mapContainerRef.current);
+    }
+
+    mapRef.current = map;
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      if (ro) ro.disconnect();
+
+      stationMarkersRef.current.forEach((m) => m.remove());
+      stationMarkersRef.current = [];
+
+      unitMarkersRef.current.forEach((m) => m.remove());
+      unitMarkersRef.current.clear();
+
+      if (incidentMarkerRef.current) {
+        incidentMarkerRef.current.remove();
+        incidentMarkerRef.current = null;
+      }
+      if (myLocationMarkerRef.current) {
+        myLocationMarkerRef.current.remove();
+        myLocationMarkerRef.current = null;
+      }
+
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  // Render Real Station Markers
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || stations.length === 0) return;
+
+    // Clear old station markers
+    stationMarkersRef.current.forEach((m) => m.remove());
+    stationMarkersRef.current = [];
+
+    stations.forEach((station) => {
+      if (!station.lat || !station.lng) return;
+
+      const el = document.createElement('div');
+      el.className = 'cad-station-marker';
+      el.innerHTML = stationMarkerHtml(false);
+
+      const popupHtml = `
+        <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 170px;">
+          <div style="font-size: 12px; font-weight: 700; color: #0F172A;">${station.name}</div>
+          <div style="font-size: 10px; color: #64748B; margin-top: 2px;">📍 ${station.address || 'Khu Công nghệ cao (SHTP)'}</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 10px; font-family: monospace;">
+            <span style="color: #059669; font-weight: 700;">TRỰC CHIẾN 24/7</span>
+            <span style="color: #3B82F6; font-weight: 700;">${station.vehicleIds.length} XE</span>
+          </div>
+        </div>
+      `;
+
+      const popup = new mapboxgl.Popup({ offset: [0, -32], closeButton: false }).setHTML(popupHtml);
+
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([station.lng, station.lat])
+        .setPopup(popup)
+        .addTo(map);
+
+      stationMarkersRef.current.push(marker);
+    });
+  }, [stations]);
+
+  // Render Real Rescue Unit Markers (Vehicles / Staff)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || units.length === 0) return;
+
+    // Map stations for coordinate placement fallback if unit has 0,0
+    const stationMap = new Map<string, Station>();
+    stations.forEach((s) => stationMap.set(s.id, s));
+
+    // Clear removed units
+    const currentUnitIds = new Set(units.map((u) => u.id));
+    unitMarkersRef.current.forEach((marker, id) => {
+      if (!currentUnitIds.has(id)) {
+        marker.remove();
+        unitMarkersRef.current.delete(id);
+      }
+    });
+
+    units.forEach((unit, idx) => {
+      let lat = unit.currentLat;
+      let lng = unit.currentLng;
+
+      // Fallback: if coordinates are (0,0), position neatly near its station
+      if ((!lat || !lng || (lat === 0 && lng === 0)) && unit.stationId) {
+        const station = stationMap.get(unit.stationId);
+        if (station) {
+          const angle = (idx * 45 * Math.PI) / 180;
+          lat = station.lat + Math.sin(angle) * 0.0018;
+          lng = station.lng + Math.cos(angle) * 0.0018;
+        }
+      }
+
+      if (!lat || !lng) return;
+
+      const vType = UNIT_TYPE_MAP[unit.unitType] || 'rescue';
+      const vStatus = UNIT_STATUS_MAP[unit.status] || 'available';
+      const isAssigned = trackingData?.rescueUnitId === unit.id;
+
+      let marker = unitMarkersRef.current.get(unit.id);
+      if (!marker) {
+        const el = document.createElement('div');
+        el.className = 'cad-unit-marker';
+        el.innerHTML = vehicleMarkerHtml(vType, vStatus, isAssigned);
+
+        const popupHtml = `
+          <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 170px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
+              <span style="font-size: 12px; font-weight: 800; font-family: monospace; color: #0F172A;">${unit.plateNumber}</span>
+              <span style="font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 4px; background: ${
+                vStatus === 'en_route' ? '#DBEAFE; color: #1D4ED8;' : vStatus === 'on_scene' ? '#FFEDD5; color: #C2410C;' : '#D1FAE5; color: #047857;'
+              }">${unit.statusName || unit.status}</span>
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #475569; margin-top: 2px;">${unit.unitTypeName}</div>
+            <div style="font-size: 10px; color: #64748B; margin-top: 2px;">🏢 ${unit.stationName || 'Trạm nội khu'}</div>
+          </div>
+        `;
+
+        const popup = new mapboxgl.Popup({ offset: 14, closeButton: false }).setHTML(popupHtml);
+
+        marker = new mapboxgl.Marker({ element: el })
+          .setLngLat([lng, lat])
+          .setPopup(popup)
+          .addTo(map);
+
+        unitMarkersRef.current.set(unit.id, marker);
+      } else {
+        marker.setLngLat([lng, lat]);
+        const el = marker.getElement();
+        el.innerHTML = vehicleMarkerHtml(vType, vStatus, isAssigned);
+      }
+    });
+  }, [units, stations, trackingData?.rescueUnitId]);
+
+  // Render Citizen Reported Incident Marker
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (!reportedIncident?.latitude || !reportedIncident?.longitude) {
+      if (incidentMarkerRef.current) {
+        incidentMarkerRef.current.remove();
+        incidentMarkerRef.current = null;
+      }
+      return;
+    }
+
+    const cat = getIncidentCategory(reportedIncident);
+    const sev = getIncidentSeverity(reportedIncident.severity);
+
+    if (!incidentMarkerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'cad-marker-incident cursor-pointer';
+      el.innerHTML = incidentMarkerHtml(cat, sev, true);
+
+      const popupHtml = `
+        <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 180px;">
+          <div style="font-size: 11px; font-weight: 800; font-family: monospace; color: #DC2626;">SỰ CỐ: INC-${reportedIncident.id.slice(0, 6).toUpperCase()}</div>
+          <div style="font-size: 12px; font-weight: 700; color: #0F172A; margin-top: 2px;">${reportedIncident.title}</div>
+          <div style="font-size: 10px; color: #64748B; margin-top: 2px;">📍 ${reportedIncident.locationAddress}</div>
+          <div style="font-size: 10px; font-weight: 700; color: #B91C1C; margin-top: 4px; padding-top: 4px; border-top: 1px solid #E2E8F0;">
+            TRẠNG THÁI: ${reportedIncident.status}
+          </div>
+        </div>
+      `;
+
+      const popup = new mapboxgl.Popup({ offset: 18, closeButton: false }).setHTML(popupHtml);
+
+      incidentMarkerRef.current = new mapboxgl.Marker({ element: el })
+        .setLngLat([reportedIncident.longitude, reportedIncident.latitude])
+        .setPopup(popup)
+        .addTo(map);
+
+      map.flyTo({
+        center: [reportedIncident.longitude, reportedIncident.latitude],
+        zoom: 15,
+        essential: true,
+        duration: 1200,
+      });
+    } else {
+      incidentMarkerRef.current.setLngLat([reportedIncident.longitude, reportedIncident.latitude]);
+      const el = incidentMarkerRef.current.getElement();
+      el.innerHTML = incidentMarkerHtml(cat, sev, true);
+    }
+  }, [reportedIncident]);
 
   const handleSetRadarLayer = (nextMode: 'satellite' | 'dark') => {
     if (nextMode === radarLayer) return;
@@ -156,13 +644,8 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     }
   };
 
-  const handleZoomIn = () => {
-    mapRef.current?.zoomIn({ duration: 300 });
-  };
-
-  const handleZoomOut = () => {
-    mapRef.current?.zoomOut({ duration: 300 });
-  };
+  const handleZoomIn = () => mapRef.current?.zoomIn({ duration: 300 });
+  const handleZoomOut = () => mapRef.current?.zoomOut({ duration: 300 });
 
   const handleGoToMyLocation = () => {
     if (!navigator.geolocation) {
@@ -205,7 +688,10 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         try {
           const addr = await mapboxService.reverseGeocode(lng, lat);
           setResolvedAddress(addr);
-          localStorage.setItem('resq_citizen_coords', JSON.stringify({ lat, lng, address: addr, updatedAt: Date.now() }));
+          localStorage.setItem(
+            'resq_citizen_coords',
+            JSON.stringify({ lat, lng, address: addr, updatedAt: Date.now() })
+          );
         } catch {
           setResolvedAddress('Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh');
         }
@@ -217,7 +703,12 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           if (cached && mapRef.current) {
             const parsed = JSON.parse(cached);
             if (parsed.lat && parsed.lng) {
-              mapRef.current.flyTo({ center: [parsed.lng, parsed.lat], zoom: 16, essential: true, duration: 1000 });
+              mapRef.current.flyTo({
+                center: [parsed.lng, parsed.lat],
+                zoom: 16,
+                essential: true,
+                duration: 1000,
+              });
               return;
             }
           }
@@ -228,231 +719,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     );
   };
 
-  // Tactical Coordinates in SHTP - TP. Thủ Đức
-  const INCIDENT_COORDS: [number, number] = [106.8035, 10.8405];
-  const EMS_COORDS: [number, number] = [106.7925, 10.8345];
-  const FIRE_COORDS: [number, number] = [106.8165, 10.8325];
-  const PATROL_COORDS: [number, number] = [106.8010, 10.8465];
-
-  useEffect(() => {
-    if (!mapContainerRef.current) return;
-
-    if (MAPBOX_ACCESS_TOKEN) {
-      mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
-    }
-
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: MAPBOX_REALISTIC_STYLE,
-      center: INCIDENT_COORDS,
-      zoom: 14.5,
-      attributionControl: false,
-      scrollZoom: true,
-      doubleClickZoom: true,
-      dragPan: true,
-      touchZoomRotate: true,
-      pitch: 25, // Subtle 2.5D tactical tilt
-    });
-
-    map.on('error', (e) => {
-      console.warn('Hero radar mapbox notice:', e?.error?.message || e);
-    });
-
-    const addTacticalRoutes = () => {
-      try {
-        if (!map.getSource('tactical-routes')) {
-          map.addSource('tactical-routes', {
-            type: 'geojson',
-            data: {
-              type: 'FeatureCollection',
-              features: [
-                {
-                  type: 'Feature',
-                  properties: { color: '#3B82F6' },
-                  geometry: {
-                    type: 'LineString',
-                    coordinates: [EMS_COORDS, [106.798, 10.8375], INCIDENT_COORDS],
-                  },
-                },
-                {
-                  type: 'Feature',
-                  properties: { color: '#DC2626' },
-                  geometry: {
-                    type: 'LineString',
-                    coordinates: [FIRE_COORDS, [106.81, 10.8365], INCIDENT_COORDS],
-                  },
-                },
-              ],
-            },
-          });
-
-          map.addLayer({
-            id: 'tactical-routes-line',
-            type: 'line',
-            source: 'tactical-routes',
-            paint: {
-              'line-color': ['get', 'color'],
-              'line-width': 3,
-              'line-dasharray': [2, 2],
-              'line-opacity': 0.85,
-            },
-          });
-        }
-      } catch (err) {
-        console.warn('Tactical routes notice:', err);
-      }
-    };
-
-    map.on('load', () => {
-      map.resize();
-      addTacticalRoutes();
-    });
-
-    map.on('style.load', () => {
-      addTacticalRoutes();
-    });
-
-    // 1. Incident Marker
-    const incidentEl = document.createElement('div');
-    incidentEl.className = 'cad-marker-incident cursor-pointer';
-    incidentEl.innerHTML = `
-      <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-        <span style="position: absolute; width: 56px; height: 56px; border-radius: 50%; background: rgba(220, 38, 38, 0.45); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
-        <span style="position: absolute; width: 36px; height: 36px; border-radius: 50%; background: rgba(239, 68, 68, 0.35);"></span>
-        <div style="width: 32px; height: 32px; border-radius: 50%; background: #DC2626; border: 2.5px solid #FFFFFF; box-shadow: 0 0 16px rgba(220, 38, 38, 0.8); display: flex; align-items: center; justify-content: center; color: white;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
-          </svg>
-        </div>
-      </div>
-    `;
-    new mapboxgl.Marker({ element: incidentEl }).setLngLat(INCIDENT_COORDS).addTo(map);
-
-    // 2. EMS Ambulance Marker
-    const emsEl = document.createElement('div');
-    emsEl.className = 'cad-marker-ems cursor-pointer';
-    emsEl.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 6px;">
-        <div style="width: 30px; height: 30px; border-radius: 8px; background: #059669; border: 1.5px solid #34D399; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
-            <path d="M15 18H9"/>
-            <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/>
-            <circle cx="17" cy="18" r="2"/>
-            <circle cx="7" cy="18" r="2"/>
-          </svg>
-        </div>
-        <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(16, 185, 129, 0.5); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 10px; color: #6EE7B7; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">
-          EMS AM-02 <span class="ems-eta-span" style="color: #FFFFFF;">(${formatEta(etaTime)})</span>
-        </div>
-      </div>
-    `;
-    emsEtaElRef.current = emsEl.querySelector('.ems-eta-span');
-    new mapboxgl.Marker({ element: emsEl }).setLngLat(EMS_COORDS).addTo(map);
-
-    // 3. Fire Engine Marker
-    const fireEl = document.createElement('div');
-    fireEl.className = 'cad-marker-fire cursor-pointer';
-    fireEl.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 6px;">
-        <div style="width: 30px; height: 30px; border-radius: 8px; background: #DC2626; border: 1.5px solid #F87171; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
-          </svg>
-        </div>
-        <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(239, 68, 68, 0.5); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 10px; color: #FCA5A5; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">
-          FIRE FE-01 <span style="color: #FFFFFF;">(1.4 km)</span>
-        </div>
-      </div>
-    `;
-    new mapboxgl.Marker({ element: fireEl }).setLngLat(FIRE_COORDS).addTo(map);
-
-    // 4. Police Patrol Marker
-    const patrolEl = document.createElement('div');
-    patrolEl.className = 'cad-marker-patrol cursor-pointer';
-    patrolEl.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 5px;">
-        <div style="width: 26px; height: 26px; border-radius: 6px; background: #2563EB; border: 1.5px solid #60A5FA; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
-            <path d="m9 12 2 2 4-4"/>
-          </svg>
-        </div>
-        <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(59, 130, 246, 0.5); padding: 1.5px 5px; border-radius: 4px; font-family: monospace; font-size: 9px; color: #93C5FD; font-weight: 600; white-space: nowrap;">
-          PATROL PC-03 ON SCENE
-        </div>
-      </div>
-    `;
-    new mapboxgl.Marker({ element: patrolEl }).setLngLat(PATROL_COORDS).addTo(map);
-
-    const t1 = setTimeout(() => map.resize(), 100);
-    const t2 = setTimeout(() => map.resize(), 400);
-
-    let ro: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
-      ro = new ResizeObserver(() => map.resize());
-      ro.observe(mapContainerRef.current);
-    }
-
-    mapRef.current = map;
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      if (ro) ro.disconnect();
-      emsEtaElRef.current = null;
-      if (myLocationMarkerRef.current) {
-        myLocationMarkerRef.current.remove();
-        myLocationMarkerRef.current = null;
-      }
-      map.remove();
-      mapRef.current = null;
-    };
-  }, []);
-
-  // Dynamically update ETA countdown text without resetting or re-rendering Mapbox
-  useEffect(() => {
-    if (emsEtaElRef.current) {
-      emsEtaElRef.current.textContent = `(${formatEta(etaTime)})`;
-    }
-  }, [etaTime, formatEta]);
-
-  // Update map marker if citizen reported incident has coords
-  useEffect(() => {
-    if (!mapRef.current || !reportedIncident?.latitude || !reportedIncident?.longitude) return;
-
-    if (userMarkerRef.current) {
-      userMarkerRef.current.remove();
-    }
-
-    const userEl = document.createElement('div');
-    userEl.className = 'cad-marker-user-incident cursor-pointer';
-    userEl.innerHTML = `
-      <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-        <span style="position: absolute; width: 64px; height: 64px; border-radius: 50%; background: rgba(220, 38, 38, 0.45); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
-        <div style="width: 36px; height: 36px; border-radius: 50%; background: #DC2626; border: 2.5px solid #FFFFFF; box-shadow: 0 0 18px rgba(220, 38, 38, 0.85); display: flex; align-items: center; justify-content: center; color: white;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-          </svg>
-        </div>
-      </div>
-    `;
-
-    userMarkerRef.current = new mapboxgl.Marker({ element: userEl })
-      .setLngLat([reportedIncident.longitude, reportedIncident.latitude])
-      .addTo(mapRef.current);
-
-    mapRef.current.flyTo({
-      center: [reportedIncident.longitude, reportedIncident.latitude],
-      zoom: 15,
-      essential: true,
-      duration: 1500,
-    });
-  }, [reportedIncident?.latitude, reportedIncident?.longitude]);
-
   return (
     <div className="relative flex-1 min-h-[160px] rounded-xl bg-slate-950 border border-slate-800 overflow-hidden">
-      {/* Real Interactive Mapbox Dark Canvas */}
+      {/* Real Interactive Mapbox CAD Canvas */}
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
       {/* Rotating Radar Sweep Line Overlay */}
@@ -468,12 +737,12 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       {/* Grid Pattern Overlay */}
       <div className="absolute inset-0 pointer-events-none cad-radar-grid opacity-30" />
 
-      {/* Floating AI Hazard Classification Badge */}
+      {/* Floating HUD Card Top-Left: Shows Reported Incident / Live Tracking or GPS Status */}
       <div className="absolute top-2.5 left-2.5 z-30 animate-float-slow pointer-events-auto">
         {reportedIncident ? (
           <div
             onClick={onOpenReports}
-            className="bg-white/95 backdrop-blur-md border border-slate-200 hover:border-red-400 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[220px] sm:max-w-[270px] text-left cursor-pointer transition-all hover:scale-[1.02]"
+            className="bg-white/95 backdrop-blur-md border border-slate-200 hover:border-red-400 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[220px] sm:max-w-[280px] text-left cursor-pointer transition-all hover:scale-[1.02]"
             title="Bấm để mở lịch sử sự cố và theo dõi xe cứu hộ"
           >
             <div className="flex items-center justify-between gap-1.5 mb-1">
@@ -532,7 +801,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             )}
 
             <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] font-mono-data text-red-600 font-bold">
-              <span>Bấm để theo dõi xe &amp; chi tiết</span>
+              <span>Bấm theo dõi chi tiết</span>
               <ChevronRight className="w-3 h-3 text-red-600" />
             </div>
           </div>
@@ -551,7 +820,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
               Không lấy được vị trí
             </p>
             <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
-              Vui lòng bật định vị GPS hoặc kiểm tra quyền truy cập vị trí trên trình duyệt.
+              Vui lòng bật định vị GPS hoặc cấp quyền truy cập vị trí trên trình duyệt.
             </p>
           </div>
         ) : locationStatus === 'locating' ? (
@@ -569,7 +838,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
               Đang tìm vị trí hiện tại
             </p>
             <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
-              Đang kết nối tín hiệu vệ tinh Mapbox CAD...
+              Đang kết nối tín hiệu vệ tinh CAD...
             </p>
           </div>
         ) : (
@@ -577,7 +846,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             <div className="flex items-center justify-between gap-1.5 mb-1">
               <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-emerald-600 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>VỊ TRÍ HIỆN TRƯỜNG</span>
+                <span>RADAR TÁC CHIẾN</span>
               </span>
               <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] sm:text-[10px] font-bold font-mono-data">
                 SẴN SÀNG
@@ -591,7 +860,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             </p>
             <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] font-mono-data text-slate-500">
               <span>Mạng lưới cứu hộ:</span>
-              <span className="text-emerald-700 font-bold">Trực chiến 24/7</span>
+              <span className="text-emerald-700 font-bold">
+                {stations.length > 0 ? `${stations.length} trạm trực chiến` : 'Trực chiến 24/7'}
+              </span>
             </div>
           </div>
         )}

@@ -4,6 +4,7 @@ import { TEAM_FUNCTION_META } from './teamFunction';
 import { MIN_TEAM_SIZE } from '../../../data/dispatchConfig';
 import type { StationTeam } from '../../../types/stationTeam';
 import type { Vehicle } from '../../../types/vehicle';
+import { useTranslation } from '../../../i18n';
 
 interface DispatchTeamLabelProps {
   team: StationTeam;
@@ -14,6 +15,7 @@ interface DispatchTeamLabelProps {
 
 /** Tổ trong Dispatch Panel: tên tổ + chức năng (theo loại xe), tổ trưởng / số người, biển số xe ghi nhỏ. */
 export const DispatchTeamLabel: React.FC<DispatchTeamLabelProps> = ({ team, vehicle, detail }) => {
+  const { t } = useTranslation();
   const fn = TEAM_FUNCTION_META[vehicle.type];
   const FnIcon = fn.icon;
   const leader = team.members.find((m) => m.crewRole === 'commander');
@@ -28,7 +30,7 @@ export const DispatchTeamLabel: React.FC<DispatchTeamLabelProps> = ({ team, vehi
           className={`inline-flex items-center gap-0.5 px-1.5 py-px rounded border text-[9px] font-bold whitespace-nowrap shrink-0 ${fn.badgeClass}`}
         >
           <FnIcon className="w-2.5 h-2.5" />
-          {fn.label}
+          {t(`enums.teamFunction.${vehicle.type}`)}
         </span>
       </div>
       <p
@@ -43,7 +45,9 @@ export const DispatchTeamLabel: React.FC<DispatchTeamLabelProps> = ({ team, vehi
         )}
         <span className="truncate">
           {leader?.fullName ? `${leader.fullName} · ` : ''}
-          {understaffed ? `thiếu người (${size}/${MIN_TEAM_SIZE})` : `${size} người`}
+          {understaffed
+            ? t('liveMap.teamLabel.understaffed', { size, min: MIN_TEAM_SIZE })
+            : t('liveMap.teamLabel.members', { count: size })}
         </span>
       </p>
       <p className="text-[10px] text-slate-400 truncate">

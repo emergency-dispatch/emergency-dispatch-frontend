@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Building2,
   CarFront,
+  CircleHelp,
   Droplet,
   Flame,
   HeartPulse,
@@ -12,10 +13,12 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type {
   BlockDuration,
+  CancellationReasonCode,
   HazardTag,
   HazardTagKey,
   IncidentCategory,
   IncidentSeverity,
+  OperatorCancellationCode,
   SeverityLevel,
 } from '../types/incident';
 
@@ -32,6 +35,27 @@ export const UNKNOWN_HAZARD_TAG_META = { label: 'Khác', color: '#64748B', icon:
 export const INCIDENT_CATEGORY_META: Record<IncidentCategory, { label: string; color: string; icon: LucideIcon }> = {
   fire: { label: 'Cháy nổ', color: '#DC2626', icon: Flame },
   accident: { label: 'Tai nạn', color: '#F97316', icon: CarFront },
+  unknown: { label: 'Chưa xác định', color: '#64748B', icon: CircleHelp },
+};
+
+// Hai nhánh Operator chọn được khi duyệt (bắt buộc nếu backend chưa có loại sự cố).
+export const CONFIRMABLE_CATEGORIES: Array<Exclude<IncidentCategory, 'unknown'>> = ['fire', 'accident'];
+
+// Lý do hủy Operator chọn (CancellationReason của backend). Citizen tự hủy / tự hết hạn do backend đặt.
+export const CANCELLATION_REASON_OPTIONS: Array<{ value: OperatorCancellationCode; label: string }> = [
+  { value: 'FalseReport', label: 'Báo khống / báo sai' },
+  { value: 'Duplicate', label: 'Trùng sự cố khác' },
+  { value: 'TestReport', label: 'Báo cáo thử nghiệm' },
+  { value: 'Other', label: 'Lý do khác' },
+];
+
+export const CANCELLATION_REASON_LABEL: Record<CancellationReasonCode, string> = {
+  FalseReport: 'Báo khống / báo sai',
+  Duplicate: 'Trùng sự cố khác',
+  TestReport: 'Báo cáo thử nghiệm',
+  Other: 'Lý do khác',
+  CitizenCancelled: 'Người báo tự hủy',
+  AutoExpired: 'Tự hủy do quá hạn',
 };
 
 // Cấp 1 xanh lục · Cấp 2 hổ phách · Cấp 3 đỏ thẫm (NFR khả dụng).
@@ -51,6 +75,14 @@ export const SEVERITY_LEVEL_COLOR: Record<SeverityLevel, string> = {
 
 // Dưới ngưỡng này (%), sự cố được gắn cảnh báo "Độ tin cậy thấp" để Operator xem kỹ media.
 export const LOW_CONFIDENCE_THRESHOLD = 50;
+
+// Từ ngưỡng này (%) trở lên, % tin cậy AI hiện màu xanh.
+export const HIGH_CONFIDENCE_THRESHOLD = 80;
+
+// Vạch màu bên trái dòng hàng đợi khi chưa có cấp độ: AI đang phân tích (xám nhạt) / AI không phân loại được (sọc xám,
+// để không lẫn với Cấp 1 xanh).
+export const AI_PENDING_RAIL_COLOR = '#CBD5E1';
+export const AI_UNCLASSIFIED_RAIL = 'repeating-linear-gradient(135deg, #475569 0 4px, #CBD5E1 4px 8px)';
 
 // Ghi đè cấp độ AI bắt buộc lý do tối thiểu (FR-OP-03, lưu IncidentAuditTrail).
 export const OVERRIDE_REASON_MIN_LENGTH = 5;

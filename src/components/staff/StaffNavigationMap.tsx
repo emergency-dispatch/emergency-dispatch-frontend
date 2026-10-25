@@ -96,7 +96,14 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
   const setupRouteLayers = useCallback((map: mapboxgl.Map, coords: [number, number][]) => {
     const addOrUpdate = () => {
       try {
-        const geojsonData: GeoJSON.Feature<GeoJSON.LineString> = {
+        const geojsonData: {
+          type: 'Feature';
+          properties: Record<string, any>;
+          geometry: {
+            type: 'LineString';
+            coordinates: [number, number][];
+          };
+        } = {
           type: 'Feature',
           properties: {},
           geometry: {
@@ -461,10 +468,22 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     }
   }, [currentStepIndex, mission.routeSteps, is3DMode]);
 
-  // Cập nhật lại đường polyline khi coords thay đổi
+  // Cập nhật lại đường polyline và khung hình bao quát khi coords thay đổi
   useEffect(() => {
-    if (mapRef.current && mapLoaded) {
+    if (mapRef.current && mapLoaded && routeCoordsLngLat.length >= 2) {
       setupRouteLayers(mapRef.current, routeCoordsLngLat);
+
+      try {
+        const bounds = new mapboxgl.LngLatBounds();
+        routeCoordsLngLat.forEach((c) => bounds.extend(c));
+        mapRef.current.fitBounds(bounds, {
+          padding: { top: 70, bottom: 85, left: 60, right: 60 },
+          maxZoom: 16.5,
+          duration: 800,
+        });
+      } catch (err) {
+        console.warn('Mapbox fitBounds warning:', err);
+      }
     }
   }, [routeCoordsLngLat, mapLoaded, setupRouteLayers]);
 

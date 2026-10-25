@@ -59,9 +59,19 @@ export interface UpdateAssignmentStatusDto {
   notes?: string;
 }
 
+export interface RejectAssignmentDto {
+  reason: RejectionReason;
+  notes?: string;
+}
+
 export interface ResolveDispatchDto {
-  resolutionSummary: string; // Min 10 characters
-  evidenceMediaUrls?: string[];
+  resolutionSummary: string; // Min 10 characters (Required)
+  evidenceMediaUrls: string[]; // Min 1 item (Required by backend MSG42)
+  victimsAssistedCount: number; // Required >= 0
+  equipmentUsed?: string[];
+  handoverEntity?: string;
+  handoverContactName?: string;
+  handoverContactPhone?: string;
   handoverNotes?: string;
 }
 
@@ -96,6 +106,13 @@ export interface RecommendedUnitResponseDto {
   radiusExpanded: boolean;
   algorithmUsed: BackendDispatchAlgorithm;
   recommendationReason: string;
+  /** Quãng đường / thời gian theo đường bộ (OSRM); null nếu máy chủ chỉ đường lỗi. */
+  roadDistanceKm?: number | null;
+  roadDurationMinutes?: number | null;
+  /** Máy chủ chỉ đường lỗi → quãng đường / ETA là ước lượng. */
+  isApproximate?: boolean;
+  /** Xe của trạm khác (điều hỗ trợ). */
+  isSupportUnit?: boolean;
 }
 
 export interface TeamMemberSummaryDto {

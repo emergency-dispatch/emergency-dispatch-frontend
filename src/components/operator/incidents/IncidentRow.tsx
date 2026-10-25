@@ -1,12 +1,19 @@
 import React from 'react';
-import { AlertTriangle, Loader2, Lock, Siren } from 'lucide-react';
+import { Loader2, Lock, MapPin, Siren } from 'lucide-react';
 import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { IncidentThumbnail } from './IncidentThumbnail';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { SeverityBadge } from './SeverityBadge';
-import { INCIDENT_CATEGORY_META, LOW_CONFIDENCE_THRESHOLD } from '../../../data/incidentMock';
-import { formatCountdown } from '../../../utils/incidentFormat';
-import type { Incident } from '../../../types/incident';
+import {
+  AI_PENDING_RAIL_COLOR,
+  AI_UNCLASSIFIED_RAIL,
+  INCIDENT_CATEGORY_META,
+  SEVERITY_LEVEL_COLOR,
+} from '../../../data/incidentMock';
+import { QUEUE_COLUMNS } from './queueColumns';
+import { formatCountdown, formatDateTime, formatWaitDuration } from '../../../utils/incidentFormat';
+import { isAiFallbackTag, type Incident } from '../../../types/incident';
+import { useTranslation } from '../../../i18n';
 
 interface IncidentRowProps {
   incident: Incident;
@@ -18,6 +25,7 @@ interface IncidentRowProps {
   onClick: () => void;
 }
 
+
 export const IncidentRow: React.FC<IncidentRowProps> = ({
   incident,
   isNew,
@@ -27,8 +35,8 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
   currentOperatorId,
   onClick,
 }) => {
-  const waitMinutes = Math.max(0, Math.round((now - new Date(incident.createdAt).getTime()) / 60000));
-  const isLowConfidence = !incident.aiPending && incident.confidenceScore < LOW_CONFIDENCE_THRESHOLD;
+  const { t } = useTranslation();
+  const elapsedMs = now - new Date(incident.createdAt).getTime();
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
 
@@ -36,71 +44,99 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
   const activeLock = incident.lock && lockRemainingMs > 0 ? incident.lock : null;
   const lockedByOther = !!activeLock && activeLock.operatorId !== currentOperatorId;
 
+  // Tag hệ thống đã được thể hiện bằng badge "Chưa phân loại" → không lặp lại dưới tiêu đề.
+  const visibleTags = incident.hazardTags.filter((tag) => !isAiFallbackTag(tag));
+  const railStyle: React.CSSProperties =
+    incident.aiPending
+      ? { background: AI_PENDING_RAIL_COLOR }
+      : incident.aiUnclassified
+        ? { background: AI_UNCLASSIFIED_RAIL }
+        : { background: SEVERITY_LEVEL_COLOR[incident.severity] };
+
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-4 px-5 py-3.5 text-left border-b border-slate-100 border-l-2 transition-colors ${
-        isSelected
-          ? 'bg-red-50 border-l-red-500'
-          : isEscalated
-            ? 'bg-red-50/60 border-l-red-600'
-            : 'border-l-transparent hover:bg-slate-50'
+      aria-current={isSelected ? 'true' : undefined}
+      className={`group relative w-full flex items-center gap-4 pl-6 pr-6 py-3.5 text-left border-b border-slate-100 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
+        isSelected ? 'bg-slate-100' : 'bg-white hover:bg-slate-50'
       } ${lockedByOther ? 'opacity-60' : ''} ${isNew ? 'animate-queue-enter' : ''}`}
     >
-      <IncidentThumbnail incident={incident} className="w-14 h-14 shrink-0" />
+      <span aria-hidden className="absolute left-0 top-0 bottom-0 w-1.5" style={railStyle} />
 
+      <IncidentThumbnail incident={incident} className={`${QUEUE_COLUMNS.thumbnail} h-12 shrink-0`} />
+
+      {/* Cái gì, ở đâu */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-          <span
-            className="inline-flex items-center gap-1 text-[11px] font-bold shrink-0"
-            style={{ color: category.color }}
-          >
+        <p className="text-[15px] font-semibold text-slate-900 truncate">{incident.title}</p>
+        <div className="flex items-center gap-3 mt-1 text-xs min-w-0">
+          <span className="inline-flex items-center gap-1 font-semibold shrink-0" style={{ color: category.color }}>
             <CategoryIcon className="w-3.5 h-3.5" />
-            {category.label}
+            {t(`enums.category.${incident.category}`)}
           </span>
-          {incident.aiPending ? (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-600 shrink-0">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              AI đang phân tích
-            </span>
-          ) : (
-            <>
-              <SeverityBadge severity={incident.severity} />
-              <ConfidenceBadge score={incident.confidenceScore} />
-            </>
-          )}
-          {isLowConfidence && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-amber-300 bg-amber-50 text-[10px] font-bold text-amber-700 shrink-0">
-              <AlertTriangle className="w-3 h-3" />
-              Độ tin cậy thấp
-            </span>
-          )}
-          {isEscalated && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-red-600 text-[10px] font-bold text-white uppercase tracking-wide animate-pulse shrink-0">
-              <Siren className="w-3 h-3" />
-              Leo thang
+          <span className="inline-flex items-center gap-1 text-slate-500 min-w-0" title={incident.area}>
+            <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+            <span className="truncate">{incident.area}</span>
+          </span>
+          {incident.isOutOfServiceArea && (
+            <span className="inline-flex items-center px-1.5 py-px rounded bg-red-50 border border-red-200 text-[10px] font-bold text-red-700 shrink-0">
+              {t('incidents.row.outOfArea')}
             </span>
           )}
         </div>
-        <p className="text-sm font-semibold text-slate-900 truncate">{incident.title}</p>
-        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-          {incident.hazardTags.map((tag) => (
-            <HazardTagBadge key={tag} tag={tag} />
-          ))}
-        </div>
+        {visibleTags.length > 0 && (
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            {visibleTags.map((tag) => (
+              <HazardTagBadge key={tag} tag={tag} />
+            ))}
+          </div>
+        )}
+        {/* Màn hẹp: cột đánh giá AI bị ẩn → hiện cấp độ ngay dưới tiêu đề */}
+        {!incident.aiPending && (
+          <div className="md:hidden mt-1.5">
+            <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+          </div>
+        )}
       </div>
 
-      <div className="shrink-0 text-right">
-        <div className="text-[11px] font-mono-data text-slate-500 whitespace-nowrap">{incident.area}</div>
-        <div className="text-[11px] font-mono-data text-slate-400 mt-1 whitespace-nowrap">{waitMinutes} phút trước</div>
+      {/* AI đánh giá thế nào */}
+      <div className={`hidden md:flex ${QUEUE_COLUMNS.ai} shrink-0 items-center gap-3`}>
+        {incident.aiPending ? (
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            {t('incidents.row.aiAnalyzing')}
+          </span>
+        ) : (
+          <>
+            <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+            {!incident.aiUnclassified && <ConfidenceBadge score={incident.confidenceScore} />}
+          </>
+        )}
+      </div>
+
+      {/* Đã chờ bao lâu */}
+      <div className={`${QUEUE_COLUMNS.wait} shrink-0 text-right`}>
+        <div
+          className={`text-sm font-semibold tabular-nums whitespace-nowrap ${isEscalated ? 'text-red-700' : 'text-slate-800'}`}
+          title={t('incidents.row.receivedAt', { time: formatDateTime(incident.createdAt) })}
+        >
+          {formatWaitDuration(elapsedMs)}
+        </div>
+        {isEscalated ? (
+          <div className="inline-flex items-center gap-1 mt-0.5 text-[11px] font-bold text-red-700">
+            <Siren className="w-3 h-3" />
+            {t('incidents.row.escalated')}
+          </div>
+        ) : (
+          <div className="mt-0.5 text-[11px] text-slate-400">{t('incidents.row.waiting')}</div>
+        )}
         {activeLock && (
           <div
-            className={`inline-flex items-center gap-1 mt-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap ${
-              lockedByOther ? 'bg-slate-100 text-slate-600' : 'bg-blue-50 text-blue-700'
+            className={`flex justify-end items-center gap-1 mt-1 text-[11px] font-semibold tabular-nums whitespace-nowrap ${
+              lockedByOther ? 'text-slate-500' : 'text-blue-700'
             }`}
           >
             <Lock className="w-3 h-3" />
-            {lockedByOther ? activeLock.operatorName : 'Bạn đang xử lý'} · {formatCountdown(lockRemainingMs)}
+            {lockedByOther ? activeLock.operatorName : t('incidents.row.youHandling')} {formatCountdown(lockRemainingMs)}
           </div>
         )}
       </div>

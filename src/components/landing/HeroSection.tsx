@@ -20,6 +20,15 @@ interface HeroSectionProps {
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenReports }) => {
   const [etaTime, setEtaTime] = useState(135); // seconds
+  const [radarStats, setRadarStats] = useState<{
+    stationCount: number;
+    unitCount: number;
+    activeEtaMinutes: number | null;
+  }>({
+    stationCount: 0,
+    unitCount: 0,
+    activeEtaMinutes: null,
+  });
 
   // ETA countdown simulator
   useEffect(() => {
@@ -36,25 +45,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
   };
 
   return (
-    <section className="relative h-screen min-h-[620px] max-h-[1080px] pt-16 pb-4 sm:pt-20 sm:pb-5 overflow-hidden bg-slate-50 cad-grid-bg flex flex-col justify-between">
+    <section className="relative min-h-[680px] lg:h-screen pt-20 pb-4 sm:pt-22 sm:pb-5 overflow-hidden bg-slate-50 cad-grid-bg flex flex-col justify-between">
       {/* Subtle Warm Glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-red-100/50 rounded-full blur-[100px] pointer-events-none"></div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full flex-1 flex flex-col justify-between py-1">
-        
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full flex-1 flex flex-col justify-between">
+
         {/* 1. Headline */}
         <div className="text-center pt-1 pb-1 shrink-0">
           <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-black text-slate-900 tracking-tight leading-tight max-w-5xl mx-auto">
             <span className="text-red-600">AI Emergency</span> Dispatch &amp; Real-Time{' '}
             <span className="text-slate-900">Rescue Coordination</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-600 max-w-3xl mx-auto mt-1 line-clamp-1 font-medium">
+          <p className="text-xs sm:text-sm text-slate-600 max-w-4xl mx-auto mt-1.5 font-medium">
             Hệ thống điều phối cứu hộ khẩn cấp thời gian thực ứng dụng AI phân loại mức độ nguy hiểm sự cố · Khu Công nghệ cao &amp; KCN
           </p>
         </div>
 
-        {/* 2. Full-Width Tactical Map Card */}
-        <div className="w-full relative flex-1 flex flex-col my-1 min-h-[220px] max-h-[58vh]">
+        {/* 2. Full-Width Tactical Map Card - Radar Map bự ra thêm */}
+        <div className="w-full relative flex-1 flex flex-col my-2.5 sm:my-3 min-h-[280px] lg:min-h-[360px]">
           <div className="relative rounded-2xl bg-white p-3 sm:p-4 shadow-xl border border-slate-200 overflow-hidden group flex-1 flex flex-col justify-between">
             {/* Top HUD Header Bar */}
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 text-xs font-mono-data shrink-0">
@@ -77,27 +86,39 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
               etaTime={etaTime}
               formatEta={formatEta}
               onOpenReports={onOpenReports}
+              onStatsUpdate={setRadarStats}
             />
 
             {/* Bottom Telemetry Strip */}
             <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-[11px] font-mono-data text-slate-600 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="text-slate-500 font-medium">DISPATCH STATUS:</span>
-                <span className="text-red-600 font-bold">3 ĐỘI TÁC CHIẾN NỘI KHU</span>
+                <span className="text-red-600 font-bold">
+                  {radarStats.stationCount > 0
+                    ? `${radarStats.stationCount} TRẠM · ${radarStats.unitCount} PHƯƠNG TIỆN SẴN SÀNG`
+                    : 'HỆ THỐNG TRỰC CHIẾN NỘI KHU'}
+                </span>
               </div>
               <div className="flex items-center gap-2 text-slate-700">
                 <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-600" />
-                <span>ETA TIẾP CẬN: <strong className="text-slate-900">{formatEta(etaTime)}</strong></span>
+                <span>
+                  ETA TIẾP CẬN:{' '}
+                  <strong className="text-slate-900">
+                    {radarStats.activeEtaMinutes != null
+                      ? `~${radarStats.activeEtaMinutes} PHÚT`
+                      : formatEta(etaTime)}
+                  </strong>
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* 3. Action Area: Left Guide Note + Center SOS Button + Right Guide Note */}
-        <div className="w-full flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 pt-1.5 pb-1 shrink-0">
-          
+        {/* 3. Action Area */}
+        <div className="w-full flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 pt-1.5 pb-1 sm:pb-2 shrink-0">
+
           {/* Left Guide Note: How to Report */}
-          <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-left w-full md:w-auto md:flex-1 max-w-md shadow-sm">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-slate-200 text-left w-full md:w-auto md:flex-1 max-w-md shadow-sm">
             <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center shrink-0 text-red-600">
               <MapPin className="w-4 h-4 animate-pulse" />
             </div>
@@ -115,7 +136,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
           {/* Center Main Action: Emergency SOS Button */}
           <button
             onClick={onOpenSos}
-            className="group relative px-8 py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-sm sm:text-base tracking-wide shadow-lg shadow-red-500/30 hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 border border-red-600 flex items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap shrink-0 w-full sm:w-auto min-w-[220px]"
+            className="group relative px-8 py-3.5 sm:py-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-sm sm:text-base tracking-wide shadow-lg shadow-red-500/30 hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 border border-red-600 flex items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap shrink-0 w-full sm:w-auto min-w-[220px] cursor-pointer"
             id="hero-submit-sos-btn"
           >
             <AlertOctagon className="w-5 h-5 text-white animate-bounce shrink-0" />
@@ -124,7 +145,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
           </button>
 
           {/* Right Guide Note: AI Coordination */}
-          <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-left w-full md:w-auto md:flex-1 max-w-md shadow-sm">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-slate-200 text-left w-full md:w-auto md:flex-1 max-w-md shadow-sm">
             <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center shrink-0 text-red-600">
               <Zap className="w-4 h-4 animate-pulse" />
             </div>

@@ -22,14 +22,14 @@ import { HazardTagBadge } from '../common/HazardTagBadge';
 import { staffAudioService } from '../../services/staffAudioService';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_REALISTIC_STYLE } from '../../services/mapboxService';
 
+import type { RejectionReason } from '../../types/dispatch';
+
 interface StaffMissionAlertModalProps {
   mission: StaffMission;
   isOpen: boolean;
   onAccept: () => void;
-  onDecline: (reason: string) => void;
+  onDecline: (reason: RejectionReason, notes?: string) => void;
 }
-
-const COUNTDOWN_SECONDS = 30;
 
 export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
   mission,
@@ -37,8 +37,11 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
   onAccept,
   onDecline,
 }) => {
-  const [timeLeft, setTimeLeft] = useState<number>(COUNTDOWN_SECONDS);
   const [isMuted, setIsMuted] = useState<boolean>(staffAudioService.getIsMuted());
+  const [isDeclineDialogOpen, setIsDeclineDialogOpen] = useState<boolean>(false);
+  const [declineReason, setDeclineReason] = useState<RejectionReason>('VehicleBreakdown');
+  const [declineNotes, setDeclineNotes] = useState<string>('');
+  const [declineError, setDeclineError] = useState<string | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -46,26 +49,15 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       staffAudioService.stopEmergencySiren();
+      setIsDeclineDialogOpen(false);
+      setDeclineNotes('');
+      setDeclineError(null);
       return;
     }
 
-    setTimeLeft(COUNTDOWN_SECONDS);
     staffAudioService.playEmergencySiren();
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          // Auto accept when countdown hits 0
-          clearInterval(timer);
-          onAccept();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
     return () => {
-      clearInterval(timer);
       staffAudioService.stopEmergencySiren();
     };
   }, [isOpen, mission.id]);
@@ -184,7 +176,6 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
   if (!isOpen) return null;
 
   const severityMeta = SEVERITY_META[mission.severity];
-  const progressPercent = (timeLeft / COUNTDOWN_SECONDS) * 100;
 
   const toggleSound = () => {
     const nextState = !isMuted;
@@ -198,9 +189,14 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
     onAccept();
   };
 
-  const handleDecline = () => {
+  const handleConfirmDecline = () => {
+    if (declineReason === 'Other' && declineNotes.trim().length < 5) {
+      setDeclineError('Khi chọn "Lý do khác", bắt buộc nhập ghi chú tối thiểu 5 ký tự (theo quy định BR-22).');
+      return;
+    }
+    setDeclineError(null);
     staffAudioService.stopEmergencySiren();
-    onDecline('Xe đang bận hỗ trợ hoặc gặp sự cố kỹ thuật');
+    onDecline(declineReason, declineNotes.trim() || undefined);
   };
 
   return createPortal(
@@ -214,15 +210,15 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs uppercase font-mono-data font-black tracking-widest text-red-100">
-                  LỆNH ĐIỀU ĐỘNG KHẨN CẤP
+                <span className="text-xs uppercase font-mono font-black tracking-widest text-red-100">
+                  LỆNH ĐIỀU ĐỘNG TỔNG ĐÀI CAD 114
                 </span>
-                <span className="px-2 py-0.5 rounded bg-black/20 text-[11px] font-mono-data font-bold text-white">
-                  MÃ {mission.id}
+                <span className="px-2 py-0.5 rounded bg-black/20 text-[11px] font-mono font-bold text-white">
+                  #{mission.incidentId}
                 </span>
               </div>
               <h2 className="text-lg sm:text-xl font-black text-white leading-tight">
-                Phân Công Nhiệm Vụ Mới
+                Phân Công Nhiệm Vụ Cứu Nạn
               </h2>
             </div>
           </div>
@@ -230,24 +226,19 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
           <div className="flex items-center gap-2 relative z-10">
             <button
               onClick={toggleSound}
-              className="p-2 rounded-lg bg-black/20 hover:bg-black/30 text-white transition-all"
+              className="p-2 rounded-lg bg-black/20 hover:bg-black/30 text-white transition-all cursor-pointer"
               title={isMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
             >
               {isMuted ? <VolumeX className="w-5 h-5 text-white/70" /> : <Volume2 className="w-5 h-5 text-white animate-pulse" />}
             </button>
-            <div className="px-3 py-1 bg-black/25 rounded-lg text-center font-mono-data">
-              <div className="text-[10px] text-red-100 uppercase font-bold">Tự nhận sau</div>
-              <div className="text-base font-black text-white">{timeLeft}s</div>
+            <div className="px-3 py-1 bg-black/25 rounded-lg text-center font-mono">
+              <div className="text-[10px] text-red-100 uppercase font-bold">Trạng thái</div>
+              <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                Chờ phản hồi
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Progress bar countdown */}
-        <div className="w-full bg-slate-100 h-1.5 overflow-hidden">
-          <div
-            className="h-full bg-red-600 transition-all duration-1000 ease-linear"
-            style={{ width: `${progressPercent}%` }}
-          />
         </div>
 
         {/* Modal Body */}
@@ -329,24 +320,96 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center gap-3">
-          <button
-            onClick={handleDecline}
-            className="w-full sm:w-1/3 py-3 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
-          >
-            <XCircle className="w-4 h-4 text-slate-500" />
-            Từ Chối / Báo Kẹt
-          </button>
+        {/* Action Buttons or Decline Reason Form */}
+        {isDeclineDialogOpen ? (
+          <div className="p-4 bg-amber-50/70 border-t border-amber-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900 uppercase font-mono">
+                Xác Nhận Lý Do Từ Chối Lệnh Điều Phối (Quy định BR-22)
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeclineDialogOpen(false);
+                  setDeclineError(null);
+                }}
+                className="text-xs text-slate-500 hover:text-slate-800 font-bold cursor-pointer"
+              >
+                Hủy
+              </button>
+            </div>
 
-          <button
-            onClick={handleAccept}
-            className="w-full sm:w-2/3 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm sm:text-base font-bold shadow-md shadow-red-600/20 border border-red-600 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
-          >
-            <CheckCircle2 className="w-5 h-5 text-white animate-pulse" />
-            Tiếp Nhận Nhiệm Vụ Ngay
-          </button>
-        </div>
+            {declineError && (
+              <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+                {declineError}
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-700">Lý do từ chối (Bắt buộc):</label>
+              <select
+                value={declineReason}
+                onChange={(e) => setDeclineReason(e.target.value as RejectionReason)}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-red-500 font-medium"
+              >
+                <option value="VehicleBreakdown">Phương tiện gặp sự cố kỹ thuật / hỏng hóc (chuyển sang Bảo trì)</option>
+                <option value="AlreadyOnMission">Đang xử lý nhiệm vụ khẩn cấp khác tại hiện trường</option>
+                <option value="TooFar">Quá xa vùng tiếp cận, thời gian di chuyển vượt ngưỡng</option>
+                <option value="MedicalLeave">Lý do sức khỏe / y tế cán bộ kíp trực</option>
+                <option value="Other">Lý do khác (yêu cầu ghi chú cụ thể tối thiểu 5 ký tự)</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-700">Ghi chú chi tiết cho Tổng đài CAD:</label>
+              <textarea
+                rows={2}
+                value={declineNotes}
+                onChange={(e) => setDeclineNotes(e.target.value)}
+                placeholder="Ghi rõ chi tiết lý do từ chối lệnh để Operator nắm tình hình..."
+                className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-red-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeclineDialogOpen(false);
+                  setDeclineError(null);
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer"
+              >
+                Quay lại
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDecline}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm cursor-pointer"
+              >
+                Xác Nhận Từ Chối Lệnh
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center gap-3">
+            <button
+              onClick={() => setIsDeclineDialogOpen(true)}
+              className="w-full sm:w-1/3 py-3 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
+            >
+              <XCircle className="w-4 h-4 text-slate-500" />
+              Từ Chối Lệnh (BR-22)
+            </button>
+
+            <button
+              onClick={handleAccept}
+              className="w-full sm:w-2/3 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm sm:text-base font-bold shadow-md shadow-red-600/20 border border-red-600 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+            >
+              <CheckCircle2 className="w-5 h-5 text-white animate-pulse" />
+              Tiếp Nhận Nhiệm Vụ Ngay
+            </button>
+          </div>
+        )}
       </div>
     </div>,
     document.body
