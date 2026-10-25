@@ -10,7 +10,7 @@ const CIRCLE_STEPS = 72;
 const EARTH_RADIUS_KM = 6371;
 
 /** Vòng tròn bán kính `radiusKm` quanh tâm, xấp xỉ bằng đa giác (tọa độ [lng, lat]). */
-function circlePolygon(lat: number, lng: number, radiusKm: number): [number, number][] {
+export function circlePolygon(lat: number, lng: number, radiusKm: number): [number, number][] {
   const latRad = (lat * Math.PI) / 180;
   const angular = radiusKm / EARTH_RADIUS_KM;
   const points: [number, number][] = [];
@@ -62,22 +62,25 @@ export const MapServiceAreaLayer: React.FC<MapServiceAreaLayerProps> = ({ map, a
           id: FILL_LAYER_ID,
           type: 'fill',
           source: SOURCE_ID,
-          paint: { 'fill-color': '#2563EB', 'fill-opacity': 0.04 },
+          paint: { 'fill-color': '#2563EB', 'fill-opacity': 0.08 },
         });
         map.addLayer({
           id: LINE_LAYER_ID,
           type: 'line',
           source: SOURCE_ID,
-          paint: { 'line-color': '#2563EB', 'line-width': 2, 'line-opacity': 0.6, 'line-dasharray': [3, 2] },
+          // Nét đứt (khớp chú thích "Khu vực phục vụ"), đậm đủ để thấy rõ trên nền vệ tinh.
+          paint: { 'line-color': '#2563EB', 'line-width': 2.5, 'line-opacity': 1, 'line-dasharray': [3, 2] },
         });
       }
       (map.getSource(SOURCE_ID) as GeoJSONSource).setData(toFeatureCollection(area));
     };
 
+    // isStyleLoaded() còn false trong lúc tile đang tải (kể cả sau sự kiện 'load') → đợi 'idle' (luôn bắn lại),
+    // không đợi 'load' (chỉ bắn một lần, lỡ rồi thì vòng khu vực không bao giờ được vẽ).
     if (map.isStyleLoaded()) update();
-    else map.once('load', update);
+    else map.once('idle', update);
     return () => {
-      map.off('load', update);
+      map.off('idle', update);
     };
   }, [map, area]);
 

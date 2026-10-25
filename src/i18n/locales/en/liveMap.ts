@@ -85,6 +85,9 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     myStation: 'Your station',
     station: 'Rescue station',
     availableVehicles: '{{available}}/{{total}} vehicles available',
+    coverageRadius: 'Coverage radius {{km}} km',
+    showCoverage: 'Show station coverage',
+    hideCoverage: 'Hide station coverage',
     vehicleEta: '{{plate}} · ETA {{eta}} min',
     noVehicle: 'No vehicle assigned',
     recenterSelected: 'Re-center on the selected vehicle',
@@ -110,6 +113,7 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     otherStation: 'Other station',
     trafficJam: 'Traffic jam',
     serviceArea: 'Service area',
+    stationCoverage: 'Station coverage',
     approximateRoute: 'Estimated route',
   },
 };

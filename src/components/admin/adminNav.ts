@@ -1,5 +1,6 @@
 import {
   Ban,
+  CircleDashed,
   Building2,
   LayoutDashboard,
   ScrollText,
@@ -41,6 +42,7 @@ export const adminNavGroups: DashboardNavGroup[] = [
     items: [
       { label: 'Leo thang', path: '/admin/settings/escalation', icon: Siren },
       { label: 'Tham số điều phối', path: '/admin/settings/dispatch', icon: SlidersHorizontal },
+      { label: 'Khu vực phục vụ', path: '/admin/settings/service-area', icon: CircleDashed },
     ],
   },
   {

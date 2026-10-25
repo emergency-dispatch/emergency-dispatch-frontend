@@ -56,6 +56,7 @@ export function mapStation(dto: StationResponseDto): Station {
     address: dto.address,
     lat: dto.latitude,
     lng: dto.longitude,
+    coverageRadiusKm: dto.coverageRadiusKm,
     vehicleIds: dto.rescueUnits.map((u) => u.id),
   };
 }

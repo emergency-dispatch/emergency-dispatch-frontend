@@ -3,7 +3,7 @@ import { Building2, ChevronDown, Info } from 'lucide-react';
 import { HAZARD_TAG_META, INCIDENT_CATEGORY_META, SEVERITY_LEVEL_COLOR } from '../../../data/incidentMock';
 import { DISPATCH_VEHICLE_TYPES, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import type { IncidentCategory } from '../../../types/incident';
-import type { VehicleStatus } from '../../../types/vehicle';
+import { MAP_VISIBLE_VEHICLE_STATUSES } from './mapIcons';
 import { useTranslation } from '../../../i18n';
 
 const SEVERITY_LEGEND = [1, 2, 3] as const;
@@ -105,10 +105,13 @@ export const MapLegend: React.FC = () => {
           })}
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-          {Object.entries(VEHICLE_STATUS_META).map(([status, meta]) => (
+          {MAP_VISIBLE_VEHICLE_STATUSES.map((status) => (
             <div key={status} className="flex items-center gap-1.5 min-w-0">
-              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
-              <span className="text-xs text-slate-700 truncate">{t(`enums.vehicleStatus.${status as VehicleStatus}`)}</span>
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: VEHICLE_STATUS_META[status].color }}
+              />
+              <span className="text-xs text-slate-700 truncate">{t(`enums.vehicleStatus.${status}`)}</span>
             </div>
           ))}
         </div>
@@ -135,6 +138,10 @@ export const MapLegend: React.FC = () => {
             <TrafficIcon className="w-2.5 h-2.5 text-white" />
           </span>
           <span className="text-xs text-slate-700">{t('liveMap.legend.trafficJam')}</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3.5 h-3.5 rounded-full border-[1.5px] border-red-600 bg-red-600/10 shrink-0" />
+          <span className="text-xs text-slate-700">{t('liveMap.legend.stationCoverage')}</span>
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-4 h-0 border-t-2 border-dashed border-blue-600 shrink-0" />

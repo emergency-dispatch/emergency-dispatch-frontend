@@ -4,7 +4,13 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE } from '../../../services/mapboxService';
 
 const COVERAGE_SOURCE_ID = 'station-coverage';
-const COVERAGE_COLOR = '#DC2626';
+const DEFAULT_COVERAGE_COLOR = '#DC2626';
+
+const boundsOfCircle = (lat: number, lng: number, radiusKm: number) =>
+  buildCoveragePolygon(lat, lng, radiusKm, 32).geometry.coordinates[0].reduce(
+    (b, c) => b.extend(c),
+    new mapboxgl.LngLatBounds()
+  );
 
 /** Approximates a geodesic circle as a GeoJSON polygon (Mapbox has no metric-radius circle primitive). */
 const buildCoveragePolygon = (lat: number, lng: number, radiusKm: number, steps = 64) => {
@@ -47,6 +53,10 @@ interface StationMapPickerProps {
   onChange: (lat: number, lng: number) => void;
   /** Đổi giá trị này để bay bản đồ tới vị trí hiện tại (VD sau khi chọn địa chỉ từ ô tìm kiếm). */
   recenterKey?: number;
+  /** Màu vòng tròn (mặc định đỏ). */
+  color?: string;
+  /** Vòng tròn lớn (khu vực phục vụ): mở bản đồ và recenter thì thu vừa cả vòng thay vì zoom sát vào tâm. */
+  fitToRadius?: boolean;
 }
 
 /**
@@ -54,15 +64,23 @@ interface StationMapPickerProps {
  * panning/zooming, only the marker + coverage circle move on click/drag.
  * Re-centering on every position change would be jarring UX.
  */
-export const StationMapPicker: React.FC<StationMapPickerProps> = ({ lat, lng, radiusKm, onChange, recenterKey }) => {
+export const StationMapPicker: React.FC<StationMapPickerProps> = ({
+  lat,
+  lng,
+  radiusKm,
+  onChange,
+  recenterKey,
+  color = DEFAULT_COVERAGE_COLOR,
+  fitToRadius = false,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   // Latest values for the style 'load' callback, which fires after the initial render.
-  const latestRef = useRef({ lat, lng, radiusKm });
-  latestRef.current = { lat, lng, radiusKm };
+  const latestRef = useRef({ lat, lng, radiusKm, color, fitToRadius });
+  latestRef.current = { lat, lng, radiusKm, color, fitToRadius };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -97,7 +115,7 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({ lat, lng, ra
     });
 
     map.on('load', () => {
-      const { lat: cLat, lng: cLng, radiusKm: cRadius } = latestRef.current;
+      const { lat: cLat, lng: cLng, radiusKm: cRadius, color: cColor, fitToRadius: cFit } = latestRef.current;
       if (cRadius === undefined) {
         map.resize();
         return;
@@ -110,15 +128,16 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({ lat, lng, ra
         id: `${COVERAGE_SOURCE_ID}-fill`,
         type: 'fill',
         source: COVERAGE_SOURCE_ID,
-        paint: { 'fill-color': COVERAGE_COLOR, 'fill-opacity': 0.1 },
+        paint: { 'fill-color': cColor, 'fill-opacity': 0.1 },
       });
       map.addLayer({
         id: `${COVERAGE_SOURCE_ID}-line`,
         type: 'line',
         source: COVERAGE_SOURCE_ID,
-        paint: { 'line-color': COVERAGE_COLOR, 'line-width': 1.5 },
+        paint: { 'line-color': cColor, 'line-width': 1.5 },
       });
       map.resize();
+      if (cFit) map.fitBounds(boundsOfCircle(cLat, cLng, cRadius), { padding: 24, duration: 0 });
     });
 
     // The picker lives inside a drawer that animates in, so the canvas must track container size.
@@ -148,7 +167,11 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({ lat, lng, ra
 
   useEffect(() => {
     if (!recenterKey) return;
-    const { lat: cLat, lng: cLng } = latestRef.current;
+    const { lat: cLat, lng: cLng, radiusKm: cRadius, fitToRadius: cFit } = latestRef.current;
+    if (cFit && cRadius !== undefined) {
+      mapRef.current?.fitBounds(boundsOfCircle(cLat, cLng, cRadius), { padding: 24, duration: 800 });
+      return;
+    }
     mapRef.current?.flyTo({ center: [cLng, cLat], zoom: Math.max(mapRef.current.getZoom(), 15), duration: 800 });
   }, [recenterKey]);
 

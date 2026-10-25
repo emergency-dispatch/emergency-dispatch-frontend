@@ -22,6 +22,21 @@ export interface EscalationSettings {
   maxRadiusKm: number;
 }
 
+/**
+ * Khu vực phục vụ (tâm + bán kính). SOS ngoài vùng vẫn được nhận nhưng gắn cờ "ngoài khu vực" và báo realtime cho
+ * Operator / Admin. Tắt (enabled = false) thì backend không kiểm tra.
+ */
+export interface ServiceAreaSettings {
+  enabled: boolean;
+  name: string;
+  centerLat: number;
+  centerLng: number;
+  radiusKm: number;
+}
+
+/** Giới hạn bán kính của StationAssignment.ValidateServiceArea. */
+export const SERVICE_AREA_RADIUS_KM = { min: 1, max: 100 };
+
 export interface SettingsRecord<T> {
   values: T;
   /** null = chưa ai chỉnh, đang dùng giá trị mặc định. */
@@ -87,6 +102,16 @@ export function validateEscalationSettings(
   return stripEmpty(errors);
 }
 
+export function validateServiceArea(s: ServiceAreaSettings): SettingsErrors<ServiceAreaSettings> {
+  const errors: SettingsErrors<ServiceAreaSettings> = {};
+  if (!s.name.trim()) errors.name = 'Vui lòng nhập tên khu vực.';
+  if (s.enabled && s.centerLat === 0 && s.centerLng === 0) errors.centerLat = 'Vui lòng chọn tâm khu vực trên bản đồ.';
+  if (!(s.radiusKm >= SERVICE_AREA_RADIUS_KM.min && s.radiusKm <= SERVICE_AREA_RADIUS_KM.max)) {
+    errors.radiusKm = `Bán kính phải từ ${SERVICE_AREA_RADIUS_KM.min} đến ${SERVICE_AREA_RADIUS_KM.max} km.`;
+  }
+  return stripEmpty(errors);
+}
+
 function stripEmpty<T>(errors: SettingsErrors<T>): SettingsErrors<T> {
   return Object.fromEntries(Object.entries(errors).filter(([, v]) => v)) as SettingsErrors<T>;
 }
@@ -106,6 +131,14 @@ export const adminSettingsService = {
 
   async updateEscalationSettings(values: EscalationSettings): Promise<SettingsRecord<EscalationSettings>> {
     return unwrapApi(apiClient.put<ApiResponse<SettingsRecord<EscalationSettings>>>('/settings/escalation', values));
+  },
+
+  async getServiceArea(): Promise<SettingsRecord<ServiceAreaSettings>> {
+    return unwrapApi(apiClient.get<ApiResponse<SettingsRecord<ServiceAreaSettings>>>('/settings/service-area'));
+  },
+
+  async updateServiceArea(values: ServiceAreaSettings): Promise<SettingsRecord<ServiceAreaSettings>> {
+    return unwrapApi(apiClient.put<ApiResponse<SettingsRecord<ServiceAreaSettings>>>('/settings/service-area', values));
   },
 
   /** Giá trị mặc định theo SRS cho nút "Khôi phục mặc định" (điền vào form, Admin vẫn phải bấm Lưu). */

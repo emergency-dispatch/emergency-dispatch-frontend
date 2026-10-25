@@ -45,6 +45,8 @@ export interface Station {
   address: string;
   lat: number;
   lng: number;
+  /** Bán kính phủ sóng (km) — backend chọn trạm phụ trách SOS theo vòng này. */
+  coverageRadiusKm: number;
   vehicleIds: string[];
 }
 

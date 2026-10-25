@@ -82,6 +82,9 @@ export const liveMapVi = {
     myStation: 'Trạm bạn phụ trách',
     station: 'Trạm cứu hộ',
     availableVehicles: '{{available}}/{{total}} xe sẵn sàng',
+    coverageRadius: 'Bán kính phủ sóng {{km}} km',
+    showCoverage: 'Hiện vòng phủ sóng của trạm',
+    hideCoverage: 'Ẩn vòng phủ sóng của trạm',
     vehicleEta: '{{plate}} · ETA {{eta}} phút',
     noVehicle: 'Chưa giao xe',
     recenterSelected: 'Định vị lại vị trí xe đã chọn',
@@ -107,6 +110,7 @@ export const liveMapVi = {
     otherStation: 'Trạm khác',
     trafficJam: 'Ùn tắc',
     serviceArea: 'Khu vực phục vụ',
+    stationCoverage: 'Phủ sóng trạm',
     approximateRoute: 'Tuyến ước lượng',
   },
 } as const;

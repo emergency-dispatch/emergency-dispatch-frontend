@@ -105,13 +105,15 @@ export const MapRouteLayer: React.FC<MapRouteLayerProps> = ({ map, routes, place
       if (map.getSource(SOURCE_ID)) update();
     };
 
+    // isStyleLoaded() còn false trong lúc tile đang tải (kể cả sau sự kiện 'load') → đợi 'idle' (luôn bắn lại),
+    // không đợi 'load' (chỉ bắn một lần, lỡ rồi thì đường đi không được vẽ tới lần làm mới sau).
     if (map.isStyleLoaded()) update();
-    else map.once('load', update);
+    else map.once('idle', update);
     map.on('zoom', refreshStart);
     map.on('rotate', refreshStart);
     map.on('pitch', refreshStart);
     return () => {
-      map.off('load', update);
+      map.off('idle', update);
       map.off('zoom', refreshStart);
       map.off('rotate', refreshStart);
       map.off('pitch', refreshStart);

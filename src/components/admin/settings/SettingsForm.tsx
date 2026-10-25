@@ -7,8 +7,8 @@ const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
 
 interface SettingsFormProps {
-  /** Ghi chú phạm vi áp dụng, hiện đầu form. */
-  scopeNote: React.ReactNode;
+  /** Ghi chú phạm vi áp dụng, hiện đầu form. Không truyền → không hiện khung ghi chú. */
+  scopeNote?: React.ReactNode;
   updatedAt: string | null;
   updatedByName: string | null;
   notice: NoticeState;
@@ -18,7 +18,8 @@ interface SettingsFormProps {
   saving: boolean;
   onSave: () => void;
   onDiscard: () => void;
-  onRestoreDefaults: () => void;
+  /** Không truyền → ẩn nút "Khôi phục mặc định" (cấu hình không có giá trị mặc định ở backend). */
+  onRestoreDefaults?: () => void;
   children: React.ReactNode;
 }
 
@@ -41,10 +42,12 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl space-y-4">
-      <div className="flex gap-2.5 p-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 text-sm">
-        <Info className="w-4 h-4 shrink-0 mt-0.5" />
-        <div>{scopeNote}</div>
-      </div>
+      {scopeNote && (
+        <div className="flex gap-2.5 p-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 text-sm">
+          <Info className="w-4 h-4 shrink-0 mt-0.5" />
+          <div>{scopeNote}</div>
+        </div>
+      )}
 
       <Notice notice={notice} onClose={onCloseNotice} />
 
@@ -58,14 +61,16 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
         <div className="p-4 sm:p-5 space-y-5">{children}</div>
 
         <div className="p-4 sm:px-5 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setConfirmRestore(true)}
-            className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Khôi phục mặc định
-          </button>
+          {onRestoreDefaults && (
+            <button
+              type="button"
+              onClick={() => setConfirmRestore(true)}
+              className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Khôi phục mặc định
+            </button>
+          )}
           <div className="sm:ml-auto grid grid-cols-2 sm:flex gap-3">
             <button
               type="button"
@@ -93,7 +98,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
           : 'Chưa có ai cập nhật — đang dùng giá trị mặc định.'}
       </p>
 
-      {confirmRestore && (
+      {confirmRestore && onRestoreDefaults && (
         <ConfirmModal
           title="Khôi phục giá trị mặc định?"
           confirmLabel="Khôi phục"
