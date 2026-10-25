@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { VehicleFormDrawer } from '../../components/admin/vehicles/VehicleFormDrawer';
 import { VehiclesTable } from '../../components/admin/vehicles/VehiclesTable';
@@ -9,6 +9,7 @@ import { RESCUE_UNIT_STATUS_META, RESCUE_UNIT_TYPE_META } from '../../components
 import { stationAdminService } from '../../services/admin/stationAdminService';
 import { vehicleAdminService, type VehicleStatusFilter } from '../../services/admin/vehicleAdminService';
 import { getApiErrorMessage } from '../../services/apiClient';
+import { HubEvents, incidentHubService } from '../../services/realtime/incidentHubService';
 import {
   RESCUE_UNIT_STATUSES,
   RESCUE_UNIT_TYPES,
@@ -17,6 +18,8 @@ import {
 } from '../../types/rescueUnit';
 
 const PAGE_SIZE = 10;
+// Gom các sự kiện đổi trạng thái xe đến dồn dập (VD giao nhiều xe cùng lúc) thành một lần tải lại.
+const REALTIME_RELOAD_DELAY_MS = 500;
 const STATUS_FILTERS: VehicleStatusFilter[] = ['on_mission', ...RESCUE_UNIT_STATUSES];
 
 const VehiclesPage: React.FC = () => {
@@ -38,6 +41,30 @@ const VehiclesPage: React.FC = () => {
   };
   const query = useServiceQuery(() => vehicleAdminService.list(params), JSON.stringify(params));
   const stations = useServiceQuery(() => stationAdminService.list({ pageIndex: 1, pageSize: 500 }), 'vehicle-stations');
+
+  // Realtime: xe đổi trạng thái (giao xe, tới nơi, hồi sức, hết hồi sức, Operator đổi tay, thêm / xóa xe) → tải lại
+  // trang hiện tại để giữ đúng bộ lọc và phân trang. Kết nối lại sau khi rớt mạng cũng tải lại vì có thể đã lỡ sự kiện.
+  const reloadRef = useRef(query.reload);
+  useEffect(() => {
+    reloadRef.current = query.reload;
+  });
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleReload = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => reloadRef.current(), REALTIME_RELOAD_DELAY_MS);
+    };
+    const unsubscribers = [
+      incidentHubService.on(HubEvents.ReceiveRescueUnitStatus, scheduleReload),
+      incidentHubService.onReconnected(scheduleReload),
+    ];
+    incidentHubService.start();
+    return () => {
+      if (timer) clearTimeout(timer);
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      incidentHubService.stop();
+    };
+  }, []);
 
   const [formVehicle, setFormVehicle] = useState<RescueUnitResponseDto | 'new' | null>(null);
   const [deletingVehicle, setDeletingVehicle] = useState<RescueUnitResponseDto | null>(null);
