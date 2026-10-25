@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { Building2, CheckCircle2, Clock, Crown, ExternalLink, Loader2, LocateFixed, MapPin, Users } from 'lucide-react';
+import { Building2, CheckCircle2, Clock, Compass, Crown, ExternalLink, Loader2, LocateFixed, MapPin, Users } from 'lucide-react';
 import { MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import { MAPBOX_ACCESS_TOKEN } from '../../../services/mapboxService';
@@ -331,6 +331,15 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   const [tileMode, setTileMode] = useState<MapTileMode>('satellite');
   const appliedTileModeRef = useRef(tileMode);
   const [recenterCount, setRecenterCount] = useState(0);
+  const [is3DMode, setIs3DMode] = useState(true);
+
+  // Góc nghiêng 2D / 3D như bản đồ Staff (45°); các lần bay camera sau đó giữ nguyên góc đang chọn.
+  const handleToggle3D = () => {
+    if (!map) return;
+    const next = !is3DMode;
+    setIs3DMode(next);
+    map.easeTo({ pitch: next ? 45 : 0, duration: 600 });
+  };
 
   // Tọa độ xe đúng như đang hiển thị: xe đậu lấy tọa độ trạm (tọa độ trong DB có thể là vị trí cũ / trạm cũ).
   // Camera, nút định vị và chỉ đường Google Maps đều dùng tọa độ này.
@@ -355,6 +364,8 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
       style: createBaseMapStyle(appliedTileModeRef.current),
       center: [MAP_CENTER[1], MAP_CENTER[0]],
       zoom: 14,
+      // Mở ở góc nhìn 3D (khớp is3DMode mặc định).
+      pitch: 45,
       maxZoom: MAX_ZOOM,
       attributionControl: false,
     });
@@ -500,6 +511,10 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
 
       <MapLegend />
 
+      <div className="absolute top-4 left-4 z-[1000]">
+        <MapLayerToggle mode={tileMode} onChange={setTileMode} />
+      </div>
+
       {/* Camera / layer / external navigation controls — mirrors the Staff field map's control set. */}
       <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
         <button
@@ -511,7 +526,19 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
           <LocateFixed className="w-5 h-5" />
         </button>
 
-        <MapLayerToggle mode={tileMode} onChange={setTileMode} />
+        <button
+          onClick={handleToggle3D}
+          aria-pressed={is3DMode}
+          className={`p-2.5 rounded-xl border shadow-md transition-all active:scale-95 ${
+            is3DMode
+              ? 'bg-red-600 text-white border-red-600'
+              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+          }`}
+          title={is3DMode ? t('liveMap.layers.view2d') : t('liveMap.layers.view3d')}
+          aria-label={is3DMode ? t('liveMap.layers.view2d') : t('liveMap.layers.view3d')}
+        >
+          <Compass className={`w-5 h-5 transition-transform ${is3DMode ? 'rotate-45' : ''}`} />
+        </button>
 
         <button
           onClick={handleOpenDirections}

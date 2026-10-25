@@ -94,11 +94,12 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     directionsNeedVehicle: 'Select a vehicle first to open directions',
   },
   layers: {
-    light: 'Light',
-    dark: 'Dark',
+    light: 'Streets',
+    dark: 'CAD dark',
     satellite: 'Satellite',
-    toggle: 'Change map layer',
-    current: 'Change map layer (current: {{mode}})',
+    toggle: 'Map layer',
+    view3d: 'Switch to 3D view',
+    view2d: 'Switch to 2D view',
   },
   legend: {
     open: 'Legend',

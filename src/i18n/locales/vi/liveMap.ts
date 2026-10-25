@@ -91,11 +91,12 @@ export const liveMapVi = {
     directionsNeedVehicle: 'Chọn 1 xe trước để mở chỉ đường',
   },
   layers: {
-    light: 'Sáng',
-    dark: 'Tối',
+    light: 'Đường phố',
+    dark: 'CAD tối',
     satellite: 'Vệ tinh',
-    toggle: 'Đổi lớp bản đồ',
-    current: 'Đổi lớp bản đồ (Hiện tại: {{mode}})',
+    toggle: 'Lớp bản đồ',
+    view3d: 'Chuyển sang góc nhìn 3D',
+    view2d: 'Chuyển sang góc nhìn 2D',
   },
   legend: {
     open: 'Chú thích',
