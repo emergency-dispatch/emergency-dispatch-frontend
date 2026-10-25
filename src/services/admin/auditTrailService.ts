@@ -1,13 +1,29 @@
 import { apiClient, unwrapApi } from '../apiClient';
 import type { ApiResponse } from '../../types/auth';
 import type { PaginatedResultDto } from '../../types/incident';
-import type { AuditAction, AuditTrailEntryDto } from '../../types/auditTrail';
+import type {
+  AuditAction,
+  AuditTrailEntryDto,
+  SystemAuditAction,
+  SystemAuditEntityType,
+  SystemAuditLogDto,
+} from '../../types/auditTrail';
 import type { PageParams } from './listUtils';
 
 export interface AuditTrailFilter {
   /** Mã sự cố đầy đủ (GUID) — backend lọc khớp chính xác. */
   incidentId?: string;
   action?: AuditAction;
+  /** "yyyy-MM-dd" theo giờ địa phương, tính trọn ngày. */
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface SystemAuditFilter {
+  entityType?: SystemAuditEntityType;
+  /** Mọi bản ghi của một đối tượng (mở từ drawer chi tiết). */
+  entityId?: string;
+  action?: SystemAuditAction;
   /** "yyyy-MM-dd" theo giờ địa phương, tính trọn ngày. */
   fromDate?: string;
   toDate?: string;
@@ -32,6 +48,26 @@ export const auditTrailService = {
       apiClient.get<ApiResponse<PaginatedResultDto<AuditTrailEntryDto>>>('/audit-trail', {
         params: {
           incidentId: filter.incidentId || undefined,
+          action: filter.action,
+          from: filter.fromDate ? startOfDay(filter.fromDate) : undefined,
+          to: filter.toDate ? endOfDay(filter.toDate) : undefined,
+          pageIndex: page.pageIndex ?? 1,
+          pageSize: page.pageSize ?? 20,
+        },
+      })
+    );
+  },
+
+  /** Nhật ký thao tác quản trị (backend tự ghi khi thao tác thành công). Backend giới hạn 100 dòng / trang. */
+  async listSystem(filter: SystemAuditFilter = {}, page: PageParams = {}): Promise<PaginatedResultDto<SystemAuditLogDto>> {
+    if (filter.fromDate && filter.toDate && filter.fromDate > filter.toDate) {
+      throw new Error('Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.');
+    }
+    return unwrapApi(
+      apiClient.get<ApiResponse<PaginatedResultDto<SystemAuditLogDto>>>('/audit-trail/system', {
+        params: {
+          entityType: filter.entityType,
+          entityId: filter.entityId,
           action: filter.action,
           from: filter.fromDate ? startOfDay(filter.fromDate) : undefined,
           to: filter.toDate ? endOfDay(filter.toDate) : undefined,
