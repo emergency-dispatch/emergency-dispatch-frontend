@@ -4,6 +4,7 @@ import { LockableButton } from '../../admin/common/ui';
 import { iconButtonClass, inputClass } from '../../admin/common/styles';
 import { normalizeText } from '../../../services/admin/adminMock';
 import type { StationStaff, StationTeam } from '../../../types/stationTeam';
+import { useTranslation } from '../../../i18n';
 
 interface StationStaffListProps {
   staff: StationStaff[];
@@ -29,6 +30,7 @@ export const StationStaffList: React.FC<StationStaffListProps> = ({
   onAdd,
   onRemove,
 }) => {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [onlyWithoutTeam, setOnlyWithoutTeam] = useState(false);
 
@@ -47,14 +49,14 @@ export const StationStaffList: React.FC<StationStaffListProps> = ({
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
             <Users className="w-4 h-4 text-red-600 shrink-0" />
-            Nhân sự trạm ({staff.length})
+            {t('teams.staff.title', { count: staff.length })}
           </h2>
           <button
             onClick={onAdd}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors"
           >
             <UserPlus className="w-3.5 h-3.5" />
-            Thêm nhân sự
+            {t('teams.staff.add')}
           </button>
         </div>
         <div className="relative">
@@ -62,7 +64,7 @@ export const StationStaffList: React.FC<StationStaffListProps> = ({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo tên hoặc số điện thoại"
+            placeholder={t('teams.staff.search')}
             className={`${inputClass} pl-9`}
           />
         </div>
@@ -73,14 +75,14 @@ export const StationStaffList: React.FC<StationStaffListProps> = ({
             onChange={(e) => setOnlyWithoutTeam(e.target.checked)}
             className="accent-red-600"
           />
-          Chỉ hiện người chưa vào tổ ({withoutTeamCount})
+          {t('teams.staff.onlyWithoutTeam', { count: withoutTeamCount })}
         </label>
       </div>
 
       <div className="flex-1 overflow-y-auto divide-y divide-slate-100 min-h-0">
         {visible.length === 0 ? (
           <p className="text-center text-xs text-slate-500 py-8">
-            {staff.length === 0 ? 'Trạm chưa có nhân sự — bấm "Thêm nhân sự".' : 'Không có nhân sự phù hợp.'}
+            {staff.length === 0 ? t('teams.staff.emptyStation') : t('teams.staff.noMatch')}
           </p>
         ) : (
           visible.map((s) => {
@@ -96,7 +98,7 @@ export const StationStaffList: React.FC<StationStaffListProps> = ({
                     {s.isLocked && (
                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-[9px] font-bold text-slate-500 uppercase">
                         <Lock className="w-2.5 h-2.5" />
-                        Đã khóa
+                        {t('teams.staff.locked')}
                       </span>
                     )}
                   </p>
@@ -111,14 +113,14 @@ export const StationStaffList: React.FC<StationStaffListProps> = ({
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-700 whitespace-nowrap">
-                    Chưa vào tổ
+                    {t('teams.staff.noTeam')}
                   </span>
                 )}
                 <LockableButton
                   onClick={() => onRemove(s)}
                   lockedReason={removeLockedReason(s)}
-                  title="Gỡ khỏi trạm"
-                  aria-label={`Gỡ ${s.fullName} khỏi trạm`}
+                  title={t('teams.staff.remove')}
+                  aria-label={t('teams.staff.removeLabel', { name: s.fullName })}
                   className={iconButtonClass}
                 >
                   <UserMinus className="w-4 h-4" />

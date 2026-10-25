@@ -2,22 +2,23 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRightLeft, HandHelping, MapPinOff, X } from 'lucide-react';
 import { useDispatchStore, type OperatorAlert } from '../../context/DispatchContext';
+import { useTranslation } from '../../i18n';
 
 const KIND_META: Record<
   OperatorAlert['kind'],
-  { icon: React.ElementType; className: string; iconClassName: string; action?: string }
+  { icon: React.ElementType; className: string; iconClassName: string; action?: 'verify' | 'viewOnMap' }
 > = {
   out_of_area: {
     icon: MapPinOff,
     className: 'border-red-300 bg-red-600 text-white',
     iconClassName: 'text-white',
-    action: 'Thẩm định',
+    action: 'verify',
   },
   support_dispatched: {
     icon: HandHelping,
     className: 'border-blue-200 bg-white text-slate-800',
     iconClassName: 'text-blue-600',
-    action: 'Xem trên bản đồ',
+    action: 'viewOnMap',
   },
   transferred: {
     icon: ArrowRightLeft,
@@ -33,6 +34,7 @@ const KIND_META: Record<
 export const OperatorAlerts: React.FC = () => {
   const { operatorAlerts, dismissOperatorAlert, incidents } = useDispatchStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   if (operatorAlerts.length === 0) return null;
 
@@ -70,13 +72,13 @@ export const OperatorAlerts: React.FC = () => {
                       isDanger ? 'bg-white text-red-700 hover:bg-red-50' : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                   >
-                    {meta.action}
+                    {t(`layout.operatorAlerts.${meta.action}`)}
                   </button>
                 )}
               </div>
               <button
                 onClick={() => dismissOperatorAlert(alert.id)}
-                aria-label="Đóng thông báo"
+                aria-label={t('layout.operatorAlerts.dismiss')}
                 className={`p-1 rounded-md shrink-0 ${isDanger ? 'hover:bg-red-500' : 'text-slate-400 hover:bg-slate-100'}`}
               >
                 <X className="w-3.5 h-3.5" />

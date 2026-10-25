@@ -1,0 +1,70 @@
+// Nhãn enum cho giao diện Operator. Bản tiếng Việt giữ đúng nhãn trong data/*Meta (dùng chung với Staff / Admin —
+// các file đó không đổi).
+export const enumsVi = {
+  severity: { level1: 'Cấp 1 · Nhẹ', level2: 'Cấp 2 · Trung bình', level3: 'Cấp 3 · Nghiêm trọng' },
+  severityShort: { level1: 'Cấp 1', level2: 'Cấp 2', level3: 'Cấp 3' },
+  category: { fire: 'Cháy nổ', accident: 'Tai nạn', unknown: 'Chưa xác định' },
+  hazardTag: { fire: '#Fire', accident: '#Accident', traffic_jam: '#Traffic_Jam', other: 'Khác' },
+  vehicleStatus: {
+    available: 'Sẵn sàng',
+    awaiting_ack: 'Chờ đội xác nhận',
+    accepted: 'Đã nhận',
+    en_route: 'Đang di chuyển',
+    on_scene: 'Tại hiện trường',
+    recovering: 'Hồi sức',
+    unavailable: 'Bảo trì',
+    outOfService: 'Ngừng hoạt động',
+  },
+  vehicleType: {
+    ambulance: 'Xe cứu thương',
+    fire_truck: 'Xe cứu hỏa',
+    police: 'Xe cảnh sát',
+    rescue: 'Xe cứu hộ',
+  },
+  unitType: {
+    FireTruck: 'Xe chữa cháy',
+    LadderTruck: 'Xe thang',
+    Ambulance: 'Xe cứu thương',
+    HeavyRescueVehicle: 'Xe cứu hộ',
+    RescueBoat: 'Cano cứu nạn',
+    PolicePatrol: 'Xe tuần tra',
+  },
+  unitStatus: {
+    Available: 'Sẵn sàng',
+    Dispatched: 'Đã điều động',
+    OnScene: 'Tại hiện trường',
+    Returning: 'Đang quay về',
+    CoolDown: 'Hồi sức',
+    Maintenance: 'Bảo trì',
+    OutOfService: 'Ngừng hoạt động',
+  },
+  teamFunction: {
+    fire_truck: 'Chữa cháy',
+    ambulance: 'Cấp cứu tai nạn',
+    rescue: 'Cứu hộ (cháy & tai nạn)',
+  },
+  algorithm: {
+    nearest: { label: 'Gần nhất', description: 'Nearest-Available — xếp theo khoảng cách' },
+    load_aware: {
+      label: 'Cân bằng tải',
+      description: 'Load-Aware — cân nhắc khoảng cách, tải trạm và nhiệm vụ đang chạy',
+    },
+  },
+  cancellationReason: {
+    FalseReport: 'Báo khống / báo sai',
+    Duplicate: 'Trùng sự cố khác',
+    TestReport: 'Báo cáo thử nghiệm',
+    Other: 'Lý do khác',
+    CitizenCancelled: 'Người báo tự hủy',
+    AutoExpired: 'Tự hủy do quá hạn',
+  },
+  blockDuration: { '7d': '7 ngày', '30d': '30 ngày', '1y': '1 năm', permanent: 'Vĩnh viễn' },
+  rejectionReason: {
+    VehicleBreakdown: 'Xe/phương tiện hỏng hóc',
+    AlreadyOnMission: 'Đang bận nhiệm vụ khác',
+    TooFar: 'Quá xa vùng tiếp cận',
+    MedicalLeave: 'Lý do sức khỏe',
+    NoResponse: 'Quá thời gian không phản hồi',
+    Other: 'Lý do khác',
+  },
+} as const;

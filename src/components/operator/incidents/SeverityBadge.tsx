@@ -2,6 +2,7 @@ import React from 'react';
 import { CircleHelp } from 'lucide-react';
 import { SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import type { SeverityLevel } from '../../../types/incident';
+import { useTranslation } from '../../../i18n';
 
 interface SeverityBadgeProps {
   severity: SeverityLevel;
@@ -13,11 +14,12 @@ interface SeverityBadgeProps {
 }
 
 export const SeverityBadge: React.FC<SeverityBadgeProps> = ({ severity, unclassified = false }) => {
+  const { t } = useTranslation();
   if (unclassified) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-dashed border-slate-400 bg-white text-[11px] font-bold text-slate-700 whitespace-nowrap shrink-0">
         <CircleHelp className="w-3.5 h-3.5" />
-        Chưa phân loại
+        {t('incidents.badge.unclassified')}
       </span>
     );
   }
@@ -28,7 +30,7 @@ export const SeverityBadge: React.FC<SeverityBadgeProps> = ({ severity, unclassi
     <span
       className={`inline-flex items-center px-2 py-1 rounded-md border text-[11px] font-bold whitespace-nowrap shrink-0 ${meta.badgeClass}`}
     >
-      {meta.label}
+      {t(`enums.severity.level${severity}`)}
     </span>
   );
 };

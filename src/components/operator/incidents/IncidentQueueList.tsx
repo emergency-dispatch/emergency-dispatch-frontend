@@ -4,6 +4,7 @@ import { IncidentRow } from './IncidentRow';
 import { QUEUE_COLUMNS } from './queueColumns';
 import { useNow } from '../../../hooks/useNow';
 import type { Incident } from '../../../types/incident';
+import { Trans, useTranslation } from '../../../i18n';
 
 interface IncidentQueueListProps {
   incidents: Incident[];
@@ -45,6 +46,7 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
   loadError = null,
 }) => {
   const now = useNow();
+  const { t } = useTranslation();
 
   // Giữ nguyên thứ tự ưu tiên từ store, chỉ tách ca leo thang lên nhóm riêng.
   const [escalated, waiting] = useMemo(() => {
@@ -72,15 +74,23 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
       <div className="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
         <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2.5">
           <ListChecks className="w-5 h-5 text-red-600" />
-          Incident Queue
+          {t('incidents.queue.title')}
         </h1>
         <div className="flex items-center gap-4 text-sm whitespace-nowrap">
           <span className="text-slate-600">
-            <span className="font-bold text-slate-900 tabular-nums">{incidents.length}</span> đang chờ
+            <Trans
+              i18nKey="incidents.queue.waitingCount"
+              values={{ count: incidents.length }}
+              components={{ b: <span className="font-bold text-slate-900 tabular-nums" /> }}
+            />
           </span>
           {escalated.length > 0 && (
             <span className="text-red-700">
-              <span className="font-bold tabular-nums">{escalated.length}</span> leo thang
+              <Trans
+                i18nKey="incidents.queue.escalatedCount"
+                values={{ count: escalated.length }}
+                components={{ b: <span className="font-bold tabular-nums" /> }}
+              />
             </span>
           )}
         </div>
@@ -96,9 +106,9 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
       {!isLoading && incidents.length > 0 && (
         <div className="shrink-0 hidden md:flex items-center gap-4 pl-6 pr-6 py-2 border-b border-slate-200 text-[11px] font-semibold text-slate-500">
           <span className={`${QUEUE_COLUMNS.thumbnail} shrink-0`} />
-          <span className="flex-1">Sự cố</span>
-          <span className={`${QUEUE_COLUMNS.ai} shrink-0`}>Đánh giá AI</span>
-          <span className={`${QUEUE_COLUMNS.wait} shrink-0 text-right`}>Thời gian chờ</span>
+          <span className="flex-1">{t('incidents.queue.columnIncident')}</span>
+          <span className={`${QUEUE_COLUMNS.ai} shrink-0`}>{t('incidents.queue.columnAi')}</span>
+          <span className={`${QUEUE_COLUMNS.wait} shrink-0 text-right`}>{t('incidents.queue.columnWait')}</span>
         </div>
       )}
 
@@ -106,24 +116,24 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
         {isLoading ? (
           <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-300">
             <Loader2 className="w-6 h-6 animate-spin" />
-            <p className="text-sm text-slate-500">Đang tải hàng đợi sự cố...</p>
+            <p className="text-sm text-slate-500">{t('incidents.queue.loading')}</p>
           </div>
         ) : incidents.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-300">
             <Inbox className="w-8 h-8" />
-            <p className="text-sm text-slate-500">Không có sự cố nào đang chờ xử lý</p>
+            <p className="text-sm text-slate-500">{t('incidents.queue.empty')}</p>
           </div>
         ) : escalated.length === 0 ? (
           waiting.map(renderRow)
         ) : (
           <>
-            <section aria-label="Sự cố leo thang">
-              <GroupHeader label="Leo thang, cần thẩm định ngay" count={escalated.length} tone="alert" />
+            <section aria-label={t('incidents.queue.escalatedSection')}>
+              <GroupHeader label={t('incidents.queue.escalatedGroup')} count={escalated.length} tone="alert" />
               {escalated.map(renderRow)}
             </section>
             {waiting.length > 0 && (
-              <section aria-label="Sự cố đang chờ">
-                <GroupHeader label="Đang chờ thẩm định" count={waiting.length} tone="neutral" />
+              <section aria-label={t('incidents.queue.waitingSection')}>
+                <GroupHeader label={t('incidents.queue.waitingGroup')} count={waiting.length} tone="neutral" />
                 {waiting.map(renderRow)}
               </section>
             )}

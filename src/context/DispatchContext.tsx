@@ -17,6 +17,7 @@ import { HubEvents, incidentHubService, trackingHubService } from '../services/r
 import { useNavigate } from 'react-router-dom';
 import { getApiErrorMessage } from '../services/apiClient';
 import { useAuth } from '../hooks/useAuth';
+import i18n, { dateLocale, getLanguage, useTranslation } from '../i18n';
 import {
   EVENT_TYPE_FROM_CATEGORY,
   mapIncidentResponseToIncident,
@@ -31,7 +32,7 @@ import {
   type SeverityLevel,
   type TrafficJamReport,
 } from '../types/incident';
-import type { BackendDispatchStatus, DispatchAssignmentResponseDto, RejectionReason } from '../types/dispatch';
+import type { BackendDispatchStatus, DispatchAssignmentResponseDto } from '../types/dispatch';
 import type { RescueUnitResponseDto, RescueUnitType } from '../types/rescueUnit';
 import type { DispatchAlgorithm, DispatchVehicleType, Station, Vehicle, VehicleStatus } from '../types/vehicle';
 
@@ -70,14 +71,6 @@ const UNIT_TYPE_TO_VEHICLE_TYPE: Record<string, DispatchVehicleType | undefined>
 };
 const BACKEND_ALGORITHM = { nearest: 'NearestAvailable', load_aware: 'LoadAware' } as const;
 
-const REJECTION_REASON_LABEL: Record<RejectionReason, string> = {
-  VehicleBreakdown: 'Xe/phương tiện hỏng hóc',
-  AlreadyOnMission: 'Đang bận nhiệm vụ khác',
-  TooFar: 'Quá xa vùng tiếp cận',
-  MedicalLeave: 'Lý do sức khỏe',
-  NoResponse: 'Quá thời gian không phản hồi',
-  Other: 'Lý do khác',
-};
 
 interface LivePosition {
   lat: number;
@@ -275,7 +268,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Đăng xuất như bình thường rồi đưa lý do sang trang đăng nhập (LoginPage sẵn hiện `state.message`).
     logout('/login').finally(() => navigate('/login', { replace: true, state: { message: reason } }));
   };
-  const operator = { id: user?.id ?? '', name: user?.fullName ?? 'Bạn' };
+  // Đổi ngôn ngữ → tính lại các nhãn dựng sẵn trong view model (VD lý do đội từ chối).
+  const { t } = useTranslation();
+  const operator = { id: user?.id ?? '', name: user?.fullName ?? t('common.you') };
 
   const [incidentDtos, setIncidentDtos] = useState<Map<string, IncidentResponseDto>>(new Map());
   const [assignments, setAssignments] = useState<Map<string, DispatchAssignmentResponseDto>>(new Map());
@@ -368,7 +363,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const refreshBoard = useCallback(async () => {
     try {
       const [queueRes, board] = await Promise.all([incidentService.getQueue(), incidentService.getDispatchBoard()]);
-      if (!queueRes.success) throw new Error(queueRes.message || 'Không thể tải hàng đợi sự cố.');
+      if (!queueRes.success) throw new Error(queueRes.message || i18n.t('context.loadQueueFailed'));
 
       const fresh = [...queueRes.data, ...board];
       const freshIds = new Set(fresh.map((dto) => dto.id));
@@ -429,10 +424,10 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (err) {
       // Vận hành theo trạm: tài khoản chưa được gán trạm → 403 kèm hướng dẫn, không phải lỗi tải.
       if (isAxiosError(err) && err.response?.status === 403) {
-        setStationNotAssigned(getApiErrorMessage(err, 'Bạn chưa được Admin phân công trạm phụ trách.'));
+        setStationNotAssigned(getApiErrorMessage(err, i18n.t('context.stationNotAssigned')));
         setIncidentsError(null);
       } else {
-        setIncidentsError(getApiErrorMessage(err, 'Không thể tải hàng đợi sự cố.'));
+        setIncidentsError(getApiErrorMessage(err, i18n.t('context.loadQueueFailed')));
       }
     } finally {
       setIncidentsLoading(false);
@@ -472,6 +467,13 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const interval = setInterval(refreshAll, POLL_MS);
     return () => clearInterval(interval);
   }, [refreshAll]);
+
+  // Ngôn ngữ lỗi của hub (?culture=). Effect này chạy trước effect mở kết nối bên dưới; đổi ngôn ngữ → nối lại.
+  const language = getLanguage();
+  useEffect(() => {
+    incidentHubService.setCulture(language);
+    trackingHubService.setCulture(language);
+  }, [language]);
 
   // Realtime
   useEffect(() => {
@@ -550,10 +552,15 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         pushOperatorAlert({
           kind: 'out_of_area',
           incidentId: evt.incidentId,
-          title: 'SOS ngoài khu vực phục vụ',
-          message: `${evt.incidentTitle} — ${evt.locationAddress} (cách ${
-            evt.serviceAreaName ? `khu vực ${evt.serviceAreaName}` : 'khu vực phục vụ'
-          } ${evt.distanceOutsideAreaKm.toLocaleString('vi-VN', { maximumFractionDigits: 1 })} km).`,
+          title: i18n.t('layout.operatorAlerts.outOfAreaTitle'),
+          message: i18n.t('layout.operatorAlerts.outOfAreaMessage', {
+            title: evt.incidentTitle,
+            address: evt.locationAddress,
+            area: evt.serviceAreaName
+              ? i18n.t('layout.operatorAlerts.namedArea', { name: evt.serviceAreaName })
+              : i18n.t('layout.operatorAlerts.defaultArea'),
+            km: evt.distanceOutsideAreaKm.toLocaleString(dateLocale(), { maximumFractionDigits: 1 }),
+          }),
         });
       }),
       incidentHubService.on<DispatchAssignmentResponseDto>(HubEvents.ReceiveSupportDispatched, (a) => {
@@ -562,8 +569,11 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           {
             kind: 'support_dispatched',
             incidentId: a.incidentId,
-            title: 'Xe trạm bạn được điều hỗ trợ',
-            message: `Xe ${a.rescueUnit?.plateNumber ?? ''} được điều hỗ trợ sự cố ${a.incidentTitle}.`,
+            title: i18n.t('layout.operatorAlerts.supportTitle'),
+            message: i18n.t('layout.operatorAlerts.supportMessage', {
+              plate: a.rescueUnit?.plateNumber ?? '',
+              incident: a.incidentTitle,
+            }),
           },
           INFO_ALERT_MS
         );
@@ -576,10 +586,13 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           {
             kind: 'transferred',
             incidentId: evt.incidentId,
-            title: 'Sự cố đã chuyển trạm',
-            message: `${evt.incidentTitle} → ${evt.toStationName ?? 'trạm khác'}${
-              evt.transferredByName ? ` (bởi ${evt.transferredByName})` : ''
-            }: ${evt.reason}`,
+            title: i18n.t('layout.operatorAlerts.transferredTitle'),
+            message: i18n.t('layout.operatorAlerts.transferredMessage', {
+              incident: evt.incidentTitle,
+              station: evt.toStationName ?? i18n.t('layout.operatorAlerts.otherStation'),
+              by: evt.transferredByName ? i18n.t('layout.operatorAlerts.transferredBy', { name: evt.transferredByName }) : '',
+              reason: evt.reason,
+            }),
           },
           INFO_ALERT_MS
         );
@@ -588,7 +601,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       incidentHubService.on<{ reason?: string }>(HubEvents.ForceLogout, (evt) => {
         incidentHubService.stop();
         trackingHubService.stop();
-        forceLogoutRef.current(evt.reason || 'Phiên đăng nhập đã kết thúc.');
+        forceLogoutRef.current(evt.reason || i18n.t('context.sessionEnded'));
       }),
       incidentHubService.on<DispatchAssignmentResponseDto>(HubEvents.ReceiveJobAssigned, (a) =>
         setAssignments((prev) => upsert(prev, [a]))
@@ -700,7 +713,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           vehicleId: a.rescueUnitId,
           plate: a.rescueUnit?.plateNumber ?? '—',
           kind: a.rejectionReason === 'NoResponse' ? 'timeout' : 'rejected',
-          reason: [a.rejectionReason ? REJECTION_REASON_LABEL[a.rejectionReason] : null, a.rejectionNotes]
+          reason: [a.rejectionReason ? t(`enums.rejectionReason.${a.rejectionReason}`) : null, a.rejectionNotes]
             .filter(Boolean)
             .join(' — '),
           at: a.rejectedAt ?? a.dispatchedAt,
@@ -717,7 +730,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       };
     });
     return sortByPriority(list);
-  }, [incidentDtos, assignments, dismissedNoticeIds]);
+  }, [incidentDtos, assignments, dismissedNoticeIds, t]);
 
   // Thông báo tự biến mất khi sự cố không còn chờ duyệt (đã duyệt / bị hủy, kể cả bởi Operator khác).
   const incomingIncidents = useMemo(() => {
@@ -750,12 +763,12 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         confirmedEventType: category && category !== 'unknown' ? EVENT_TYPE_FROM_CATEGORY[category] : undefined,
         operatorNotes,
       });
-      if (!res.success) return { ok: false, message: res.message || 'Xác minh sự cố thất bại.' };
+      if (!res.success) return { ok: false, message: res.message || i18n.t('context.verifyFailed') };
       // Không tự gán xe: sự cố đã duyệt chờ Operator chọn xe từ gợi ý điều phối trên Live Map.
       upsertIncidents([res.data]);
       return { ok: true };
     } catch (err) {
-      return { ok: false, message: getApiErrorMessage(err, 'Xác minh sự cố thất bại.') };
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('context.verifyFailed')) };
     }
   };
 
@@ -767,22 +780,22 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   ) => {
     try {
       const res = await incidentService.cancel(id, reason, reasonCode);
-      if (!res.success) return { ok: false, message: res.message || 'Hủy sự cố thất bại.' };
+      if (!res.success) return { ok: false, message: res.message || i18n.t('context.cancelFailed') };
       removeIncident(id);
       // Backend trả các xe đang giao về Sẵn sàng.
       refreshUnits();
     } catch (err) {
-      return { ok: false, message: getApiErrorMessage(err, 'Hủy sự cố thất bại.') };
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('context.cancelFailed')) };
     }
 
     if (!blockDuration) return { ok: true };
     try {
       const blockRes = await incidentService.blockReporterPhone(id, blockDuration, reason);
       if (!blockRes.success) {
-        setIncidentsError(`Đã hủy ca nhưng chặn số điện thoại thất bại: ${blockRes.message}`);
+        setIncidentsError(i18n.t('context.blockAfterCancelFailed', { message: blockRes.message }));
       }
     } catch (err) {
-      setIncidentsError(`Đã hủy ca nhưng chặn số điện thoại thất bại: ${getApiErrorMessage(err)}`);
+      setIncidentsError(i18n.t('context.blockAfterCancelFailed', { message: getApiErrorMessage(err) }));
     }
     return { ok: true };
   };
@@ -790,18 +803,18 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const transferIncident = async (id: string, stationId: string, reason: string): Promise<ActionResult> => {
     try {
       const res = await incidentService.transfer(id, stationId, reason);
-      if (!res.success) return { ok: false, message: res.message || 'Chuyển trạm thất bại.' };
+      if (!res.success) return { ok: false, message: res.message || i18n.t('context.transferFailed') };
       removeIncident(id);
       return { ok: true };
     } catch (err) {
-      return { ok: false, message: getApiErrorMessage(err, 'Chuyển trạm thất bại.') };
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('context.transferFailed')) };
     }
   };
 
   const lockIncident = async (id: string): Promise<ActionResult> => {
     try {
       const res = await incidentService.lock(id);
-      if (!res.success) return { ok: false, message: res.message || 'Ca đang được điều phối viên khác xử lý.' };
+      if (!res.success) return { ok: false, message: res.message || i18n.t('context.lockedByOther') };
       setIncidentLock(id, {
         lockedByOperatorId: res.data.lockedByOperatorId,
         lockedByOperatorName: res.data.lockedByOperatorName,
@@ -811,7 +824,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (err) {
       // 409: người khác đang giữ — tải lại để hiện đúng tên người giữ khóa.
       refreshBoard();
-      return { ok: false, message: getApiErrorMessage(err, 'Không thể nhận ca xử lý.') };
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('context.lockFailed')) };
     }
   };
 
@@ -839,8 +852,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   ): Promise<ActionResult> => {
     const incident = incidents.find((i) => i.id === incidentId);
     const vehicle = vehicles.find((v) => v.id === vehicleId);
-    if (!incident || !vehicle) return { ok: false, message: 'Không tìm thấy sự cố hoặc xe.' };
-    if (vehicle.status !== 'available') return { ok: false, message: `Xe ${vehicle.plate} không còn sẵn sàng.` };
+    if (!incident || !vehicle) return { ok: false, message: i18n.t('context.incidentOrVehicleNotFound') };
+    if (vehicle.status !== 'available') return { ok: false, message: i18n.t('context.vehicleNotAvailable', { plate: vehicle.plate }) };
 
     const maxVehicles = MAX_VEHICLES_BY_LEVEL[incident.severity];
     const activeCount = incident.assignedVehicleIds.length - incident.reportedVehicleIds.length;
@@ -850,7 +863,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return {
         ok: false,
         message:
-          maxVehicles === 1 ? 'Sự cố Cấp 1–2 chỉ được giao 1 xe.' : `Sự cố Cấp 3 được giao tối đa ${maxVehicles} xe.`,
+          maxVehicles === 1 ? i18n.t('context.singleVehicleOnly') : i18n.t('context.maxVehicles', { max: maxVehicles }),
       };
     }
 
@@ -861,31 +874,31 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         algorithm: BACKEND_ALGORITHM[algorithm],
         ...(extraAllowed ? { allowExtraUnits: true, notes: options.notes?.trim() } : {}),
       });
-      if (!res.success) return { ok: false, message: `${res.message || 'Giao xe thất bại.'} (${vehicle.plate})` };
+      if (!res.success) return { ok: false, message: `${res.message || i18n.t('context.assignFailed')} (${vehicle.plate})` };
       setAssignments((prev) => upsert(prev, res.data));
       return { ok: true };
     } catch (err) {
       // HTTP 409: xe vừa bị Operator khác giao trước → tải lại trạng thái xe để không gợi ý lại.
       refreshUnits();
-      return { ok: false, message: `${getApiErrorMessage(err, 'Giao xe thất bại.')} (${vehicle.plate})` };
+      return { ok: false, message: `${getApiErrorMessage(err, i18n.t('context.assignFailed'))} (${vehicle.plate})` };
     }
   };
 
   // Hủy lệnh điều phối của một xe — không tự gán xe thay thế, Operator chọn lại từ gợi ý.
   const cancelAssignment = async (vehicleId: string): Promise<ActionResult> => {
     const vehicle = vehicles.find((v) => v.id === vehicleId);
-    if (!vehicle?.assignmentId) return { ok: false, message: 'Xe không có lượt điều phối đang chạy.' };
+    if (!vehicle?.assignmentId) return { ok: false, message: i18n.t('context.noActiveAssignment') };
     try {
       const res = await dispatchService.updateAssignmentStatus(vehicle.assignmentId, {
         status: 'Cancelled',
         notes: 'Điều phối viên hủy giao xe.',
       });
-      if (!res.success) return { ok: false, message: res.message || 'Hủy giao xe thất bại.' };
+      if (!res.success) return { ok: false, message: res.message || i18n.t('context.unassignFailed') };
       setAssignments((prev) => upsert(prev, [res.data]));
       refreshUnits();
       return { ok: true };
     } catch (err) {
-      return { ok: false, message: getApiErrorMessage(err, 'Hủy giao xe thất bại.') };
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('context.unassignFailed')) };
     }
   };
 
@@ -896,7 +909,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { ok: true };
     } catch (err) {
       refreshUnits();
-      return { ok: false, message: getApiErrorMessage(err, 'Không đổi được trạng thái xe.') };
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('context.vehicleStatusFailed')) };
     }
   };
 
@@ -921,7 +934,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       );
       return { ok: true };
     } catch (err) {
-      return { ok: false, message: getApiErrorMessage(err, id ? 'Không cập nhật được xe.' : 'Không thêm được xe.') };
+      return { ok: false, message: getApiErrorMessage(err, i18n.t(id ? 'context.vehicleUpdateFailed' : 'context.vehicleCreateFailed')) };
     }
   };
 
@@ -931,7 +944,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setTrafficJams((prev) => prev.filter((j) => j.id !== id));
       return { ok: true };
     } catch (err) {
-      return { ok: false, message: getApiErrorMessage(err, 'Không thể giải tỏa điểm ùn tắc.') };
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('context.resolveTrafficFailed')) };
     }
   };
 

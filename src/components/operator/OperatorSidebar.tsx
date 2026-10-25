@@ -3,8 +3,16 @@ import { NavLink } from 'react-router-dom';
 import { ShieldAlert } from 'lucide-react';
 import { dashboardNavGroups } from '../../data/dashboardMock';
 import { useDispatchStore } from '../../context/DispatchContext';
+import { useTranslation } from '../../i18n';
 
 const QUEUE_PATH = '/dashboard/command-center/incidents';
+
+const NAV_LABEL_KEY = {
+  '/dashboard/command-center/live-map': 'layout.nav.liveMap',
+  '/dashboard/command-center/incidents': 'layout.nav.incidentQueue',
+  '/dashboard/command-center/station-teams': 'layout.nav.stationTeams',
+  '/dashboard/command-center/vehicles': 'layout.nav.vehicles',
+} as const;
 
 /**
  * Sidebar luôn thu gọn (64 px, icon-only) theo phong cách Command Center.
@@ -12,6 +20,7 @@ const QUEUE_PATH = '/dashboard/command-center/incidents';
  */
 export const OperatorSidebar: React.FC = () => {
   const { incidents } = useDispatchStore();
+  const { t } = useTranslation();
   const pendingCount = incidents.filter((i) => i.status === 'pending').length;
 
   return (
@@ -33,7 +42,7 @@ export const OperatorSidebar: React.FC = () => {
               <NavLink
                 key={item.path}
                 to={item.path}
-                title={item.label}
+                title={item.path in NAV_LABEL_KEY ? t(NAV_LABEL_KEY[item.path as keyof typeof NAV_LABEL_KEY]) : item.label}
                 className={({ isActive }) =>
                   `relative flex items-center justify-center w-10 h-10 rounded-xl border transition-all ${
                     isActive

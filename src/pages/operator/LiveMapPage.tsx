@@ -10,6 +10,7 @@ import { StationNotAssigned } from '../../components/operator/StationNotAssigned
 import type { AssignOptions } from '../../context/DispatchContext';
 import type { OperatorCancellationCode } from '../../types/incident';
 import type { DispatchAlgorithm } from '../../types/vehicle';
+import { useTranslation } from '../../i18n';
 
 /**
  * Live Map — bố cục 3 cột:
@@ -32,6 +33,7 @@ export const LiveMapPage: React.FC = () => {
     serviceArea,
     stationNotAssigned,
   } = useDispatchStore();
+  const { t } = useTranslation();
 
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export const LiveMapPage: React.FC = () => {
     setPanelError(null);
     const result = await assignVehicle(vehicleId, selectedIncidentId, algorithm, options);
     setAssigningVehicleId(null);
-    if (!result.ok) setPanelError(result.message ?? 'Giao xe thất bại.');
+    if (!result.ok) setPanelError(result.message ?? t('context.assignFailed'));
   };
 
   const handleCancelVehicle = async (vehicleId: string) => {
@@ -99,7 +101,7 @@ export const LiveMapPage: React.FC = () => {
     setPanelError(null);
     const result = await cancelAssignment(vehicleId);
     setCancellingVehicleId(null);
-    if (!result.ok) setPanelError(result.message ?? 'Hủy giao xe thất bại.');
+    if (!result.ok) setPanelError(result.message ?? t('context.unassignFailed'));
   };
 
   const handleCancelIncident = async (incidentId: string, reasonCode: OperatorCancellationCode) => {
@@ -111,7 +113,7 @@ export const LiveMapPage: React.FC = () => {
       null,
       reasonCode
     );
-    if (!result.ok) setPanelError(result.message ?? 'Hủy sự cố thất bại.');
+    if (!result.ok) setPanelError(result.message ?? t('context.cancelFailed'));
     else if (selectedIncidentId === incidentId) setSelectedIncidentId(null);
     setCancellingIncidentId(null);
   };
@@ -174,10 +176,10 @@ export const LiveMapPage: React.FC = () => {
         <button
           onClick={() => setSheetOpen((v) => !v)}
           className="shrink-0 h-11 flex items-center justify-center gap-2 border-b border-slate-200 text-xs font-bold text-slate-600"
-          aria-label={sheetOpen ? 'Thu gọn' : 'Mở bảng điều phối'}
+          aria-label={sheetOpen ? t('liveMap.page.collapse') : t('liveMap.page.openPanel')}
         >
           <span className="w-10 h-1 rounded-full bg-slate-300" />
-          Điều phối sự cố
+          {t('liveMap.page.panelTitle')}
         </button>
         {sheetOpen && (
           <div className="flex-1 min-h-0">

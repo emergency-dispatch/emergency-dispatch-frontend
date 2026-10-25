@@ -6,7 +6,6 @@ import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } from '../../../data/incid
 import { MAPBOX_ACCESS_TOKEN } from '../../../services/mapboxService';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { useAuth } from '../../../hooks/useAuth';
-import { TEAM_FUNCTION_META } from '../teams/teamFunction';
 import type { Station, Vehicle } from '../../../types/vehicle';
 import type { Incident, TrafficJamReport } from '../../../types/incident';
 import {
@@ -22,6 +21,7 @@ import type { ServiceAreaDto } from '../../../services/liveMapService';
 import type { DispatchRoute } from '../../../hooks/useDispatchRoutes';
 import { MapLegend } from './MapLegend';
 import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } from './MapLayerToggle';
+import { dateLocale, useTranslation } from '../../../i18n';
 
 // Bán kính gom cụm (px trên màn hình) — các xe nằm gần nhau hơn mức này ở zoom hiện tại sẽ gộp lại.
 const MAX_ZOOM = 18;
@@ -84,18 +84,20 @@ const PopupRow: React.FC<{ icon: React.ElementType; children: React.ReactNode }>
 
 /** Popup xe (RescueUnit): biển số, loại xe, trạng thái, trạm, tổ phụ trách, nhiệm vụ đang chạy, lần cập nhật vị trí. */
 const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident }> = ({ vehicle, incident }) => {
+  const { t } = useTranslation();
   const team = useTeamByVehicle().get(vehicle.id);
   const statusMeta =
-    vehicle.unitStatus === 'OutOfService' ? { label: 'Ngừng hoạt động', color: '#64748B' } : VEHICLE_STATUS_META[vehicle.status];
+    vehicle.unitStatus === 'OutOfService'
+      ? { label: t('enums.vehicleStatus.outOfService'), color: '#64748B' }
+      : { label: t(`enums.vehicleStatus.${vehicle.status}`), color: VEHICLE_STATUS_META[vehicle.status].color };
   const typeMeta = VEHICLE_TYPE_META[vehicle.type];
   const TypeIcon = typeMeta.icon;
-  const fn = TEAM_FUNCTION_META[vehicle.type];
   const leader = team?.members.find((m) => m.crewRole === 'commander');
 
   return (
     <div className="min-w-[220px] space-y-2">
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Phương tiện cứu hộ</p>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{t('liveMap.map.vehicle')}</p>
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <span className="text-sm font-bold text-slate-900 font-mono-data">{vehicle.plate}</span>
           <span
@@ -107,7 +109,7 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident }> = ({ veh
         </div>
         <p className="flex items-center gap-1 text-xs text-slate-600 mt-0.5">
           <TypeIcon className="w-3.5 h-3.5 shrink-0" />
-          {typeMeta.label} · {fn.label}
+          {t(`enums.vehicleType.${vehicle.type}`)} · {t(`enums.teamFunction.${vehicle.type}`)}
         </p>
       </div>
 
@@ -119,27 +121,32 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident }> = ({ veh
               <span className="font-semibold text-slate-800">{team.name}</span>
               {' · '}
               {leader?.fullName ? `${leader.fullName} · ` : ''}
-              {team.members.length} người
+              {t('liveMap.map.teamMembers', { count: team.members.length })}
             </>
           ) : (
-            <span className="text-amber-700">Chưa có tổ phụ trách — chưa điều động được</span>
+            <span className="text-amber-700">{t('liveMap.map.noTeam')}</span>
           )}
         </PopupRow>
         {incident && (
           <PopupRow icon={MapPin}>
-            Nhiệm vụ: <span className="font-semibold text-slate-800">{incident.title}</span>
-            {vehicle.etaMinutes !== null && <span className="text-red-600 font-semibold"> · ETA {vehicle.etaMinutes} phút</span>}
+            {t('liveMap.map.mission')}
+            <span className="font-semibold text-slate-800">{incident.title}</span>
+            {vehicle.etaMinutes !== null && (
+              <span className="text-red-600 font-semibold">{t('liveMap.map.etaMinutes', { count: vehicle.etaMinutes })}</span>
+            )}
           </PopupRow>
         )}
         <PopupRow icon={Clock}>
           {vehicle.incidentId && !vehicle.hasLiveGps
-            ? 'Chưa nhận GPS từ đội — đang hiển thị tại trạm'
-            : `Cập nhật vị trí ${new Date(vehicle.lastUpdated).toLocaleString('vi-VN', {
-                hour: '2-digit',
-                minute: '2-digit',
-                day: '2-digit',
-                month: '2-digit',
-              })}`}
+            ? t('liveMap.map.noGps')
+            : t('liveMap.map.locationUpdated', {
+                time: new Date(vehicle.lastUpdated).toLocaleString(dateLocale(), {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  day: '2-digit',
+                  month: '2-digit',
+                }),
+              })}
         </PopupRow>
       </div>
     </div>
@@ -150,6 +157,7 @@ const TrafficJamPopup: React.FC<{
   jam: TrafficJamReport;
   onResolve?: (id: string) => Promise<{ ok: boolean; message?: string }>;
 }> = ({ jam, onResolve }) => {
+  const { t } = useTranslation();
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -161,17 +169,19 @@ const TrafficJamPopup: React.FC<{
     // Thành công → điểm ùn tắc bị gỡ khỏi bản đồ cùng popup này.
     if (!result.ok) {
       setResolving(false);
-      setError(result.message ?? 'Không thể giải tỏa điểm ùn tắc.');
+      setError(result.message ?? t('liveMap.map.resolveFailed'));
     }
   };
 
   return (
     <div className="min-w-[200px] space-y-1">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600">Ùn tắc giao thông</p>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600">{t('liveMap.map.trafficJam')}</p>
       <p className="text-sm font-bold text-slate-900">{jam.area}</p>
       <p className="text-xs text-slate-600">{jam.note}</p>
       <p className="text-[11px] text-slate-400">
-        Báo lúc {new Date(jam.reportedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+        {t('liveMap.map.reportedAt', {
+          time: new Date(jam.reportedAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' }),
+        })}
       </p>
       {onResolve && (
         <button
@@ -180,7 +190,7 @@ const TrafficJamPopup: React.FC<{
           className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-colors disabled:opacity-60"
         >
           {resolving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-          Đánh dấu đã giải tỏa
+          {t('liveMap.map.markResolved')}
         </button>
       )}
       {error && <p className="text-[11px] text-red-600">{error}</p>}
@@ -316,6 +326,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
   const [tileMode, setTileMode] = useState<MapTileMode>('satellite');
   const appliedTileModeRef = useRef(tileMode);
@@ -411,12 +422,15 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
               >
                 <div className="min-w-[200px] space-y-1">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                    {isMine ? 'Trạm bạn phụ trách' : 'Trạm cứu hộ'}
+                    {isMine ? t('liveMap.map.myStation') : t('liveMap.map.station')}
                   </p>
                   <p className="text-sm font-bold text-slate-900">{station.name}</p>
                   <p className="text-[11px] text-slate-500">{station.address}</p>
                   <p className="text-[11px] text-slate-600 pt-1">
-                    {stationVehicles.filter((v) => v.status === 'available').length}/{stationVehicles.length} xe sẵn sàng
+                    {t('liveMap.map.availableVehicles', {
+                      available: stationVehicles.filter((v) => v.status === 'available').length,
+                      total: stationVehicles.length,
+                    })}
                   </p>
                 </div>
               </MapMarker>
@@ -459,23 +473,23 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
               >
                 <div className="min-w-[200px] space-y-1.5">
                   <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: category.color }}>
-                    {category.label}
+                    {t(`enums.category.${incident.category}`)}
                   </span>
                   <p className="text-sm font-bold text-slate-900">{incident.title}</p>
                   <span
                     className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${severityMeta.badgeClass}`}
                   >
-                    {severityMeta.label}
+                    {t(`enums.severity.level${incident.severity}`)}
                   </span>
                   <p className="text-xs text-slate-600">{incident.area}</p>
                   {assigned.length > 0 ? (
                     assigned.map((v) => (
                       <p key={v.id} className="text-xs text-red-600 font-semibold">
-                        {v.plate} · ETA {v.etaMinutes ?? '--'} phút
+                        {t('liveMap.map.vehicleEta', { plate: v.plate, eta: v.etaMinutes ?? '--' })}
                       </p>
                     ))
                   ) : (
-                    <p className="text-xs text-amber-600 font-semibold">Chưa giao xe</p>
+                    <p className="text-xs text-amber-600 font-semibold">{t('liveMap.map.noVehicle')}</p>
                   )}
                 </div>
               </MapMarker>
@@ -491,8 +505,8 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
         <button
           onClick={() => setRecenterCount((v) => v + 1)}
           className="p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-red-600 shadow-md transition-all active:scale-95"
-          title={selectedVehicle ? 'Định vị lại vị trí xe đã chọn' : 'Định vị tất cả xe trong khung nhìn'}
-          aria-label="Định vị vị trí xe"
+          title={selectedVehicle ? t('liveMap.map.recenterSelected') : t('liveMap.map.recenterAll')}
+          aria-label={t('liveMap.map.recenter')}
         >
           <LocateFixed className="w-5 h-5" />
         </button>
@@ -503,8 +517,8 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
           onClick={handleOpenDirections}
           disabled={!selectedVehicle}
           className="p-2.5 rounded-xl bg-red-600 hover:bg-red-700 disabled:bg-slate-200 disabled:text-slate-400 border border-red-600 disabled:border-slate-200 text-white shadow-md transition-all active:scale-95 disabled:cursor-not-allowed disabled:active:scale-100"
-          title={selectedVehicle ? 'Mở chỉ đường Google Maps' : 'Chọn 1 xe trước để mở chỉ đường'}
-          aria-label="Mở chỉ đường Google Maps"
+          title={selectedVehicle ? t('liveMap.map.directions') : t('liveMap.map.directionsNeedVehicle')}
+          aria-label={t('liveMap.map.directions')}
         >
           <ExternalLink className="w-5 h-5" />
         </button>

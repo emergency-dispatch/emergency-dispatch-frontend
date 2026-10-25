@@ -23,44 +23,42 @@ import {
   Truck,
   type LucideIcon,
 } from 'lucide-react';
-import { CANCELLATION_REASON_LABEL } from '../../../data/incidentMock';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { incidentService } from '../../../services/incidentService';
 import type { CancellationReasonCode, IncidentAuditAction, IncidentAuditEntryDto } from '../../../types/incident';
+import i18n, { dateLocale, useTranslation } from '../../../i18n';
 
-const ACTION_META: Record<IncidentAuditAction, { label: string; icon: LucideIcon; color: string }> = {
-  Created: { label: 'Tiếp nhận tin báo', icon: FilePlus2, color: '#64748B' },
-  AiAnalyzed: { label: 'AI phân tích xong', icon: BrainCircuit, color: '#7C3AED' },
-  Verified: { label: 'Operator xác minh', icon: ShieldCheck, color: '#059669' },
-  SeverityOverridden: { label: 'Ghi đè đánh giá AI', icon: SlidersHorizontal, color: '#D97706' },
-  Dispatched: { label: 'Giao tổ / xe', icon: Truck, color: '#2563EB' },
-  AssignmentAccepted: { label: 'Đội nhận nhiệm vụ', icon: ThumbsUp, color: '#0EA5E9' },
-  AssignmentRejected: { label: 'Đội từ chối nhiệm vụ', icon: ThumbsDown, color: '#D97706' },
-  StatusChanged: { label: 'Đổi trạng thái', icon: CircleDot, color: '#64748B' },
-  Escalated: { label: 'Leo thang', icon: Siren, color: '#DC2626' },
-  DeEscalated: { label: 'Hạ leo thang', icon: CheckCircle2, color: '#059669' },
-  Cancelled: { label: 'Hủy sự cố', icon: Ban, color: '#DC2626' },
-  Completed: { label: 'Hoàn tất xử lý', icon: CheckCircle2, color: '#059669' },
-  Closed: { label: 'Đóng hồ sơ', icon: Flag, color: '#059669' },
-  ReDispatched: { label: 'Điều phối lại', icon: Repeat, color: '#2563EB' },
-  PhoneRevealed: { label: 'Xem số điện thoại người báo', icon: Eye, color: '#64748B' },
-  ReporterBlocked: { label: 'Chặn số người báo', icon: PhoneOff, color: '#DC2626' },
-  TransferredStation: { label: 'Chuyển trạm phụ trách', icon: ArrowRightLeft, color: '#2563EB' },
-  OutOfServiceArea: { label: 'SOS ngoài khu vực phục vụ', icon: MapPinOff, color: '#DC2626' },
+// Nhãn: incidents.audit.actions.<action> trong từ điển.
+const ACTION_META: Record<IncidentAuditAction, { icon: LucideIcon; color: string }> = {
+  Created: { icon: FilePlus2, color: '#64748B' },
+  AiAnalyzed: { icon: BrainCircuit, color: '#7C3AED' },
+  Verified: { icon: ShieldCheck, color: '#059669' },
+  SeverityOverridden: { icon: SlidersHorizontal, color: '#D97706' },
+  Dispatched: { icon: Truck, color: '#2563EB' },
+  AssignmentAccepted: { icon: ThumbsUp, color: '#0EA5E9' },
+  AssignmentRejected: { icon: ThumbsDown, color: '#D97706' },
+  StatusChanged: { icon: CircleDot, color: '#64748B' },
+  Escalated: { icon: Siren, color: '#DC2626' },
+  DeEscalated: { icon: CheckCircle2, color: '#059669' },
+  Cancelled: { icon: Ban, color: '#DC2626' },
+  Completed: { icon: CheckCircle2, color: '#059669' },
+  Closed: { icon: Flag, color: '#059669' },
+  ReDispatched: { icon: Repeat, color: '#2563EB' },
+  PhoneRevealed: { icon: Eye, color: '#64748B' },
+  ReporterBlocked: { icon: PhoneOff, color: '#DC2626' },
+  TransferredStation: { icon: ArrowRightLeft, color: '#2563EB' },
+  OutOfServiceArea: { icon: MapPinOff, color: '#DC2626' },
 };
 
-const UNKNOWN_ACTION = { label: 'Thao tác khác', icon: CircleDot, color: '#64748B' };
+const UNKNOWN_ACTION = { icon: CircleDot, color: '#64748B' };
 
-const ROLE_LABEL: Record<string, string> = {
-  Operator: 'Điều phối viên',
-  Admin: 'Quản trị viên',
-  RescueStaff: 'Đội cứu hộ',
-  Citizen: 'Người dân',
-  System: 'Hệ thống',
-};
+const KNOWN_ROLES = ['Operator', 'Admin', 'RescueStaff', 'Citizen', 'System'] as const;
+type KnownRole = (typeof KNOWN_ROLES)[number];
+const isKnownRole = (role: string): role is KnownRole => (KNOWN_ROLES as readonly string[]).includes(role);
+const CANCELLATION_CODES: CancellationReasonCode[] = ['FalseReport', 'Duplicate', 'TestReport', 'Other', 'CitizenCancelled', 'AutoExpired'];
 
 const formatTime = (iso: string) =>
-  new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit' });
+  new Date(iso).toLocaleString(dateLocale(), { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit' });
 
 function parseState(json?: string | null): Record<string, unknown> | null {
   if (!json) return null;
@@ -75,7 +73,9 @@ function parseState(json?: string | null): Record<string, unknown> | null {
 const formatValue = (key: string, value: unknown): string => {
   if (value === null || value === undefined || value === '') return '—';
   if (/cancellationReason|reasonCode/i.test(key) && typeof value === 'string') {
-    return CANCELLATION_REASON_LABEL[value as CancellationReasonCode] ?? value;
+    return CANCELLATION_CODES.includes(value as CancellationReasonCode)
+      ? i18n.t(`enums.cancellationReason.${value as CancellationReasonCode}`)
+      : value;
   }
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
@@ -117,11 +117,17 @@ const StateDiff: React.FC<{ entry: IncidentAuditEntryDto }> = ({ entry }) => {
 };
 
 const TimelineItem: React.FC<{ entry: IncidentAuditEntryDto; isLast: boolean }> = ({ entry, isLast }) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const meta = ACTION_META[entry.action] ?? UNKNOWN_ACTION;
+  const label = entry.action in ACTION_META ? t(`incidents.audit.actions.${entry.action}`) : t('incidents.audit.unknownAction');
   const Icon = meta.icon;
   const hasState = !!(entry.oldStateJson || entry.newStateJson);
-  const role = entry.actorRole ? (ROLE_LABEL[entry.actorRole] ?? entry.actorRole) : null;
+  const role = entry.actorRole
+    ? isKnownRole(entry.actorRole)
+      ? t(`incidents.audit.roles.${entry.actorRole}`)
+      : entry.actorRole
+    : null;
 
   return (
     <li className="relative flex gap-3 pb-4">
@@ -134,14 +140,14 @@ const TimelineItem: React.FC<{ entry: IncidentAuditEntryDto; isLast: boolean }> 
       </span>
       <div className="flex-1 min-w-0 pt-0.5">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-semibold text-slate-900">{meta.label}</p>
+          <p className="text-sm font-semibold text-slate-900">{label}</p>
           <span className="text-[11px] font-mono-data text-slate-400 whitespace-nowrap shrink-0">
             {formatTime(entry.timestamp)}
           </span>
         </div>
         {(entry.actorName || role) && (
           <p className="text-xs text-slate-500 mt-0.5">
-            {entry.actorName ?? 'Hệ thống'}
+            {entry.actorName ?? t('incidents.audit.system')}
             {role && <span className="text-slate-400"> · {role}</span>}
           </p>
         )}
@@ -152,7 +158,7 @@ const TimelineItem: React.FC<{ entry: IncidentAuditEntryDto; isLast: boolean }> 
             className="mt-1 inline-flex items-center gap-0.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800"
             aria-expanded={open}
           >
-            {open ? 'Ẩn chi tiết' : 'Xem chi tiết'}
+            {open ? t('incidents.audit.hideDetails') : t('incidents.audit.showDetails')}
             <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
           </button>
         )}
@@ -171,6 +177,7 @@ interface IncidentAuditTimelineProps {
  * giao tổ, đội nhận / từ chối, leo thang, chuyển trạm, hủy (kèm lý do)… Mới nhất ở trên.
  */
 export const IncidentAuditTimeline: React.FC<IncidentAuditTimelineProps> = ({ incidentId }) => {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<IncidentAuditEntryDto[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -186,7 +193,7 @@ export const IncidentAuditTimeline: React.FC<IncidentAuditTimelineProps> = ({ in
       );
       setTotal(page.totalCount);
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Không tải được lịch sử xử lý.'));
+      setError(getApiErrorMessage(err, i18n.t('incidents.audit.loadFailed')));
     } finally {
       setLoading(false);
     }
@@ -200,7 +207,10 @@ export const IncidentAuditTimeline: React.FC<IncidentAuditTimelineProps> = ({ in
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-slate-500">
-          {loading ? 'Đang tải…' : `${total} thao tác${total > entries.length ? ` · hiện ${entries.length} gần nhất` : ''}`}
+          {loading
+            ? t('common.loading')
+            : t('incidents.audit.count', { count: total }) +
+              (total > entries.length ? t('incidents.audit.showingLatest', { count: entries.length }) : '')}
         </p>
         <button
           onClick={load}
@@ -208,7 +218,7 @@ export const IncidentAuditTimeline: React.FC<IncidentAuditTimelineProps> = ({ in
           className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
         >
           <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-          Tải lại
+          {t('incidents.audit.reload')}
         </button>
       </div>
 
@@ -220,10 +230,10 @@ export const IncidentAuditTimeline: React.FC<IncidentAuditTimelineProps> = ({ in
       ) : loading && entries.length === 0 ? (
         <p className="flex items-center gap-1.5 text-xs text-slate-500 py-4">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          Đang tải lịch sử xử lý…
+          {t('incidents.audit.loading')}
         </p>
       ) : entries.length === 0 ? (
-        <p className="text-xs text-slate-500 py-4 text-center">Chưa có thao tác nào được ghi nhận.</p>
+        <p className="text-xs text-slate-500 py-4 text-center">{t('incidents.audit.empty')}</p>
       ) : (
         <ol>
           {entries.map((entry, index) => (

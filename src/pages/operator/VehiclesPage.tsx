@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Building2, Crown, Pencil, Plus, Search, ShieldCheck, Truck, Users, Wrench } from 'lucide-react';
 import { ConfirmModal, LockableButton, Notice, VehicleStatusBadge, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass, thClass } from '../../components/admin/common/styles';
-import { TEAM_FUNCTION_META } from '../../components/operator/teams/teamFunction';
 import { VehicleFormDrawer } from '../../components/operator/vehicles/VehicleFormDrawer';
 import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../data/liveMapMeta';
 import { useDispatchStore } from '../../context/DispatchContext';
@@ -11,31 +10,27 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTeamByVehicle } from '../../hooks/useStationTeams';
 import { normalizeText } from '../../services/admin/listUtils';
 import type { Vehicle } from '../../types/vehicle';
+import i18n, { dateLocale, useTranslation } from '../../i18n';
 
 type StatusFilter = 'all' | 'available' | 'on_mission' | 'recovering' | 'unavailable' | 'no_team';
 
-const STATUS_FILTERS: Array<{ key: StatusFilter; label: string }> = [
-  { key: 'all', label: 'Tất cả' },
-  { key: 'available', label: 'Sẵn sàng' },
-  { key: 'on_mission', label: 'Đang nhiệm vụ' },
-  { key: 'recovering', label: 'Hồi sức' },
-  { key: 'unavailable', label: 'Bảo trì' },
-  { key: 'no_team', label: 'Chưa có tổ' },
-];
+const STATUS_FILTERS: StatusFilter[] = ['all', 'available', 'on_mission', 'recovering', 'unavailable', 'no_team'];
 
 const isOnMission = (v: Vehicle) => !!v.assignmentId || ['awaiting_ack', 'accepted', 'en_route', 'on_scene'].includes(v.status);
 
 const statusLabel = (v: Vehicle) =>
-  v.unitStatus === 'OutOfService' ? { label: 'Ngừng hoạt động', color: '#64748B' } : VEHICLE_STATUS_META[v.status];
+  v.unitStatus === 'OutOfService'
+    ? { label: i18n.t('enums.vehicleStatus.outOfService'), color: '#64748B' }
+    : { label: i18n.t(`enums.vehicleStatus.${v.status}`), color: VEHICLE_STATUS_META[v.status].color };
 
 /** Hành động Operator được làm với một xe (chỉ Sẵn sàng ⇄ Bảo trì) hoặc lý do bị khóa. */
 function vehicleAction(v: Vehicle): { next: 'Available' | 'Maintenance' | null; lockedReason: string | null } {
-  if (isOnMission(v)) return { next: null, lockedReason: 'Xe đang làm nhiệm vụ — trạng thái tự cập nhật theo tiến độ.' };
-  if (v.status === 'recovering') return { next: null, lockedReason: 'Xe đang hồi sức sau nhiệm vụ, sẽ tự về Sẵn sàng.' };
-  if (v.unitStatus === 'OutOfService') return { next: null, lockedReason: 'Xe ngừng hoạt động — liên hệ Admin.' };
+  if (isOnMission(v)) return { next: null, lockedReason: i18n.t('vehicles.locked.onMission') };
+  if (v.status === 'recovering') return { next: null, lockedReason: i18n.t('vehicles.locked.recovering') };
+  if (v.unitStatus === 'OutOfService') return { next: null, lockedReason: i18n.t('vehicles.locked.outOfService') };
   if (v.unitStatus === 'Maintenance') return { next: 'Available', lockedReason: null };
   if (v.status === 'available') return { next: 'Maintenance', lockedReason: null };
-  return { next: null, lockedReason: 'Không đổi được trạng thái lúc này.' };
+  return { next: null, lockedReason: i18n.t('vehicles.locked.other') };
 }
 
 /**
@@ -47,6 +42,7 @@ export const VehiclesPage: React.FC = () => {
   const { vehicles, stations, incidents, setVehicleStatus } = useDispatchStore();
   const teamByVehicle = useTeamByVehicle();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [target, setTarget] = useState<Vehicle | null>(null);
@@ -106,9 +102,12 @@ export const VehiclesPage: React.FC = () => {
       result.ok
         ? {
             kind: 'success',
-            message: next === 'Maintenance' ? `Đã đặt xe ${target.plate} sang Bảo trì.` : `Xe ${target.plate} đã Sẵn sàng.`,
+            message:
+              next === 'Maintenance'
+                ? t('vehicles.page.setMaintenanceDone', { plate: target.plate })
+                : t('vehicles.page.setAvailableDone', { plate: target.plate }),
           }
-        : { kind: 'error', message: result.message ?? 'Không đổi được trạng thái xe.' }
+        : { kind: 'error', message: result.message ?? t('vehicles.page.statusFailed') }
     );
     setTarget(null);
   };
@@ -116,16 +115,20 @@ export const VehiclesPage: React.FC = () => {
   if (!stationId) {
     return (
       <div className="h-full flex items-center justify-center p-6 text-sm text-slate-500">
-        Bạn chưa được phân công trạm — liên hệ Admin để được gán trạm.
+        {t('vehicles.page.noStation')}
       </div>
     );
   }
 
   const stats = [
-    { label: 'Tổng xe', value: stationVehicles.length },
-    { label: 'Sẵn sàng', value: stationVehicles.filter((v) => v.status === 'available').length },
-    { label: 'Đang nhiệm vụ', value: stationVehicles.filter(isOnMission).length },
-    { label: 'Chưa có tổ', value: stationVehicles.filter((v) => !teamByVehicle.has(v.id)).length, warn: true },
+    { label: t('vehicles.page.statTotal'), value: stationVehicles.length },
+    { label: t('vehicles.page.statAvailable'), value: stationVehicles.filter((v) => v.status === 'available').length },
+    { label: t('vehicles.page.statOnMission'), value: stationVehicles.filter(isOnMission).length },
+    {
+      label: t('vehicles.page.statNoTeam'),
+      value: stationVehicles.filter((v) => !teamByVehicle.has(v.id)).length,
+      warn: true,
+    },
   ];
 
   return (
@@ -134,22 +137,21 @@ export const VehiclesPage: React.FC = () => {
         <div className="min-w-0">
           <p className="text-[11px] font-mono-data uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-red-600" />
-            Đội xe của trạm
+            {t('vehicles.page.kicker')}
           </p>
           <h1 className="text-lg font-black text-slate-900 mt-1 flex items-center gap-2">
             <Building2 className="w-5 h-5 text-red-600 shrink-0" />
-            {station?.name ?? user?.stationName ?? 'Trạm của bạn'}
+            {station?.name ?? user?.stationName ?? t('vehicles.page.myStation')}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Đặt xe Bảo trì khi hỏng hóc để không được gợi ý điều phối. Xóa xe và chuyển xe sang trạm khác do Admin thực
-            hiện.
+            {t('vehicles.page.description')}
           </p>
           <button
             onClick={() => setEditing(null)}
             className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Thêm xe
+            {t('vehicles.page.add')}
           </button>
         </div>
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
@@ -173,24 +175,24 @@ export const VehiclesPage: React.FC = () => {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm biển số hoặc tên tổ"
+              placeholder={t('vehicles.page.search')}
               className={`${inputClass} pl-9`}
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {STATUS_FILTERS.map((f) => {
-              const count = stationVehicles.filter((v) => matches(v, f.key)).length;
+            {STATUS_FILTERS.map((key) => {
+              const count = stationVehicles.filter((v) => matches(v, key)).length;
               return (
                 <button
-                  key={f.key}
-                  onClick={() => setFilter(f.key)}
+                  key={key}
+                  onClick={() => setFilter(key)}
                   className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-                    filter === f.key
+                    filter === key
                       ? 'bg-red-600 border-red-600 text-white'
                       : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                   }`}
                 >
-                  {f.label} <span className="opacity-70">({count})</span>
+                  {t(`vehicles.filters.${key}`)} <span className="opacity-70">({count})</span>
                 </button>
               );
             })}
@@ -201,27 +203,26 @@ export const VehiclesPage: React.FC = () => {
           {stationVehicles.length === 0 ? (
             <div className="p-10 text-center text-sm text-slate-500 space-y-1">
               <Truck className="w-8 h-8 text-slate-300 mx-auto" />
-              <p>Trạm chưa có xe nào — bấm "Thêm xe" để thêm xe cho trạm.</p>
+              <p>{t('vehicles.page.empty')}</p>
             </div>
           ) : visible.length === 0 ? (
-            <p className="p-10 text-center text-sm text-slate-500">Không có xe khớp bộ lọc.</p>
+            <p className="p-10 text-center text-sm text-slate-500">{t('vehicles.page.noMatch')}</p>
           ) : (
             <table className="w-full text-sm min-w-[760px]">
               <thead className="bg-slate-50 sticky top-0 z-10">
                 <tr className="text-left">
-                  <th className={thClass}>Xe</th>
-                  <th className={thClass}>Trạng thái</th>
-                  <th className={thClass}>Tổ phụ trách</th>
-                  <th className={thClass}>Nhiệm vụ</th>
-                  <th className={thClass}>Cập nhật vị trí</th>
-                  <th className={`${thClass} text-right`}>Thao tác</th>
+                  <th className={thClass}>{t('vehicles.page.columnVehicle')}</th>
+                  <th className={thClass}>{t('vehicles.page.columnStatus')}</th>
+                  <th className={thClass}>{t('vehicles.page.columnTeam')}</th>
+                  <th className={thClass}>{t('vehicles.page.columnMission')}</th>
+                  <th className={thClass}>{t('vehicles.page.columnLocation')}</th>
+                  <th className={`${thClass} text-right`}>{t('vehicles.page.columnActions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {visible.map((v) => {
                   const team = teamByVehicle.get(v.id);
                   const leader = team?.members.find((m) => m.crewRole === 'commander');
-                  const fn = TEAM_FUNCTION_META[v.type];
                   const TypeIcon = VEHICLE_TYPE_META[v.type].icon;
                   const status = statusLabel(v);
                   const incident = v.incidentId ? incidentsById.get(v.incidentId) : undefined;
@@ -234,7 +235,7 @@ export const VehiclesPage: React.FC = () => {
                           <div className="min-w-0">
                             <p className="font-mono-data font-bold text-slate-900">{v.plate}</p>
                             <p className="text-[11px] text-slate-500">
-                              {VEHICLE_TYPE_META[v.type].label} · {fn.label}
+                              {t(`enums.vehicleType.${v.type}`)} · {t(`enums.teamFunction.${v.type}`)}
                             </p>
                           </div>
                         </div>
@@ -249,7 +250,7 @@ export const VehiclesPage: React.FC = () => {
                             <p className="text-[11px] text-slate-500 flex items-center gap-1">
                               {leader ? <Crown className="w-3 h-3 text-amber-500" /> : <Users className="w-3 h-3" />}
                               {leader?.fullName ? `${leader.fullName} · ` : ''}
-                              {team.members.length} người
+                              {t('vehicles.page.members', { count: team.members.length })}
                             </p>
                           </div>
                         ) : (
@@ -258,7 +259,7 @@ export const VehiclesPage: React.FC = () => {
                             className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 hover:underline"
                           >
                             <AlertTriangle className="w-3.5 h-3.5" />
-                            Chưa có tổ — không điều động được
+                            {t('vehicles.page.noTeam')}
                           </Link>
                         )}
                       </td>
@@ -278,7 +279,7 @@ export const VehiclesPage: React.FC = () => {
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-500 font-mono-data whitespace-nowrap">
-                        {new Date(v.lastUpdated).toLocaleString('vi-VN', {
+                        {new Date(v.lastUpdated).toLocaleString(dateLocale(), {
                           hour: '2-digit',
                           minute: '2-digit',
                           day: '2-digit',
@@ -289,8 +290,8 @@ export const VehiclesPage: React.FC = () => {
                         <div className="inline-flex items-center gap-1.5">
                           <button
                             onClick={() => setEditing(v)}
-                            title="Sửa biển số / chủng loại"
-                            aria-label={`Sửa xe ${v.plate}`}
+                            title={t('vehicles.page.edit')}
+                            aria-label={t('vehicles.page.editLabel', { plate: v.plate })}
                             className="inline-flex items-center px-2 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
                           >
                             <Pencil className="w-3.5 h-3.5" />
@@ -298,7 +299,7 @@ export const VehiclesPage: React.FC = () => {
                           <LockableButton
                             onClick={() => setTarget(v)}
                             lockedReason={action.lockedReason}
-                            title={action.next === 'Maintenance' ? 'Đặt bảo trì' : 'Đưa vào hoạt động'}
+                            title={action.next === 'Maintenance' ? t('vehicles.page.setMaintenance') : t('vehicles.page.setAvailable')}
                             className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                               action.next === 'Available'
                                 ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
@@ -306,7 +307,7 @@ export const VehiclesPage: React.FC = () => {
                             }`}
                           >
                             <Wrench className="w-3.5 h-3.5" />
-                            {action.next === 'Available' ? 'Đưa vào hoạt động' : 'Đặt bảo trì'}
+                            {action.next === 'Available' ? t('vehicles.page.setAvailable') : t('vehicles.page.setMaintenance')}
                           </LockableButton>
                         </div>
                       </td>
@@ -323,13 +324,13 @@ export const VehiclesPage: React.FC = () => {
         <VehicleFormDrawer
           vehicle={editing}
           stationId={stationId}
-          stationName={station?.name ?? user?.stationName ?? 'Trạm của bạn'}
+          stationName={station?.name ?? user?.stationName ?? t('vehicles.page.myStation')}
           onClose={() => setEditing(undefined)}
           onSaved={(plate, created) => {
             setEditing(undefined);
             setNotice({
               kind: 'success',
-              message: created ? `Đã thêm xe ${plate} vào trạm.` : `Đã cập nhật xe ${plate}.`,
+              message: created ? t('vehicles.page.created', { plate }) : t('vehicles.page.updated', { plate }),
             });
           }}
         />
@@ -337,19 +338,27 @@ export const VehiclesPage: React.FC = () => {
 
       {target && (
         <ConfirmModal
-          title={vehicleAction(target).next === 'Maintenance' ? `Đặt xe ${target.plate} sang Bảo trì?` : `Đưa xe ${target.plate} vào hoạt động?`}
-          confirmLabel={vehicleAction(target).next === 'Maintenance' ? 'Đặt bảo trì' : 'Đưa vào hoạt động'}
+          title={
+            vehicleAction(target).next === 'Maintenance'
+              ? t('vehicles.page.confirmMaintenance', { plate: target.plate })
+              : t('vehicles.page.confirmAvailable', { plate: target.plate })
+          }
+          confirmLabel={
+            vehicleAction(target).next === 'Maintenance' ? t('vehicles.page.setMaintenance') : t('vehicles.page.setAvailable')
+          }
           submitting={submitting}
           onCancel={() => setTarget(null)}
           onConfirm={handleConfirm}
         >
           {vehicleAction(target).next === 'Maintenance' ? (
             <p>
-              Xe sẽ không được gợi ý điều phối cho tới khi đưa trở lại hoạt động
-              {teamByVehicle.get(target.id) && <> — tổ {teamByVehicle.get(target.id)!.name} cũng tạm không điều động được</>}.
+              {t('vehicles.page.maintenanceBody')}
+              {teamByVehicle.get(target.id) &&
+                t('vehicles.page.maintenanceTeam', { team: teamByVehicle.get(target.id)!.name })}
+              .
             </p>
           ) : (
-            <p>Xe sẽ chuyển sang Sẵn sàng và được gợi ý điều phối trở lại.</p>
+            <p>{t('vehicles.page.availableBody')}</p>
           )}
         </ConfirmModal>
       )}

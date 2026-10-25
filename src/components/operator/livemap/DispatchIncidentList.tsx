@@ -21,6 +21,7 @@ import { getApiErrorMessage } from '../../../services/apiClient';
 import type { Incident, OperatorCancellationCode } from '../../../types/incident';
 import type { StationTeam } from '../../../types/stationTeam';
 import type { Vehicle } from '../../../types/vehicle';
+import { useTranslation } from '../../../i18n';
 
 interface IncidentCardProps {
   incident: Incident;
@@ -54,6 +55,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
   onCancelIncident,
   onDismissNotice,
 }) => {
+  const { t } = useTranslation();
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelCode, setCancelCode] = useState<OperatorCancellationCode>('FalseReport');
 
@@ -84,27 +86,27 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
           <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
             <span className="inline-flex items-center gap-1 text-[10px] font-bold shrink-0" style={{ color: category.color }}>
               <CategoryIcon className="w-3 h-3" />
-              {category.label}
+              {t(`enums.category.${incident.category}`)}
             </span>
             <div className="min-w-0 overflow-hidden">
               <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
             </div>
           </div>
-          <span className="text-[10px] font-mono-data text-slate-400 whitespace-nowrap shrink-0">{waitMinutes}ph</span>
+          <span className="text-[10px] font-mono-data text-slate-400 whitespace-nowrap shrink-0">{t('liveMap.incidentList.minutesShort', { count: waitMinutes })}</span>
         </div>
         {/* Dòng 2: badge leo thang (chỉ hiện khi cần, không làm tràn) */}
         {isEscalated && (
           <div className="mb-1">
             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white uppercase animate-pulse">
               <Siren className="w-2.5 h-2.5" />
-              {escalationTier >= 2 ? 'Leo thang cấp 2 — cần trạm khác hỗ trợ' : 'Leo thang — chưa có đơn vị nhận'}
+              {escalationTier >= 2 ? t('liveMap.incidentList.escalatedTier2') : t('liveMap.incidentList.escalated')}
             </span>
           </div>
         )}
         {incident.isOutOfServiceArea && (
           <div className="mb-1">
             <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-[9px] font-bold text-red-700">
-              Ngoài khu vực phục vụ
+              {t('liveMap.incidentList.outOfArea')}
             </span>
           </div>
         )}
@@ -123,7 +125,8 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
             <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
             <span className="flex-1 leading-snug">
               <strong className="font-mono-data">{notice.plate}</strong>{' '}
-              {notice.kind === 'rejected' ? 'từ chối' : 'không phản hồi'} — giao xe khác.
+              {notice.kind === 'rejected' ? t('liveMap.incidentList.noticeRejected') : t('liveMap.incidentList.noticeTimeout')}
+              {t('liveMap.incidentList.noticeSuffix')}
             </span>
             <button onClick={() => onDismissNotice(notice.id)} className="shrink-0 text-amber-400 hover:text-amber-600">
               <X className="w-3 h-3" />
@@ -134,22 +137,22 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
         {isCompleted ? (
           <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            Đã đóng — {incident.reportedVehicleIds.length} xe nộp báo cáo
+            {t('liveMap.incidentList.closed', { count: incident.reportedVehicleIds.length })}
           </div>
         ) : confirmingCancel ? (
           <div className="space-y-2">
             <p className="text-[10px] text-red-600 leading-snug">
-              Hủy sự cố này? Xe đã giao sẽ trả về sẵn sàng.
+              {t('liveMap.incidentList.confirmCancel')}
             </p>
             <select
               value={cancelCode}
               onChange={(e) => setCancelCode(e.target.value as OperatorCancellationCode)}
-              aria-label="Lý do hủy"
+              aria-label={t('liveMap.incidentList.cancelReason')}
               className="w-full text-[11px] bg-white border border-red-200 rounded px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-red-300"
             >
               {CANCELLATION_REASON_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {t(`enums.cancellationReason.${opt.value}`)}
                 </option>
               ))}
             </select>
@@ -159,7 +162,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
                 disabled={isCancelling}
                 className="py-1 rounded border border-slate-200 text-slate-600 text-[10px] font-bold hover:bg-slate-50 transition-colors disabled:opacity-50"
               >
-                Quay lại
+                {t('liveMap.incidentList.back')}
               </button>
               <button
                 onClick={() => onCancelIncident(cancelCode)}
@@ -167,7 +170,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
                 className="flex items-center justify-center gap-1 py-1 rounded bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold transition-colors disabled:opacity-60"
               >
                 {isCancelling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Ban className="w-3 h-3" />}
-                Xác nhận hủy
+                {t('liveMap.incidentList.confirm')}
               </button>
             </div>
           </div>
@@ -176,13 +179,13 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
             {/* Header xe đã giao */}
             <div className="flex items-center justify-between">
               <span className="text-[9px] font-mono-data uppercase tracking-wider text-slate-400 font-bold">
-                Tổ đã giao ({activeCount}/{maxVehicles})
+                {t('liveMap.incidentList.assignedTeams', { active: activeCount, max: maxVehicles })}
               </span>
               <button
                 onClick={() => setConfirmingCancel(true)}
                 disabled={isCancelling}
                 className="p-0.5 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
-                title="Hủy sự cố — AI phân loại sai / báo khống"
+                title={t('liveMap.incidentList.cancelIncidentTitle')}
               >
                 <Ban className="w-3 h-3" />
               </button>
@@ -195,7 +198,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
                 </span>
-                <span className="text-[10px] font-semibold">Chưa giao tổ</span>
+                <span className="text-[10px] font-semibold">{t('liveMap.incidentList.noTeamAssigned')}</span>
               </div>
             ) : (
               assigned.map((vehicle) => {
@@ -209,15 +212,15 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
                     {hasReported ? (
                       <span className="inline-flex items-center gap-0.5 text-emerald-600 font-semibold">
                         <FileCheck2 className="w-2.5 h-2.5" />
-                        Đã nộp
+                        {t('liveMap.incidentList.reported')}
                       </span>
                     ) : (
                       <span style={{ color: statusMeta.color }} className="font-semibold">
-                        {statusMeta.label}
+                        {t(`enums.vehicleStatus.${vehicle.status}`)}
                       </span>
                     )}
                     {!hasReported && vehicle.etaMinutes !== null && vehicle.status !== 'awaiting_ack' &&
-                      ` · ETA ${vehicle.etaMinutes}ph`}
+                      t('liveMap.incidentList.eta', { count: vehicle.etaMinutes })}
                   </>
                 );
 
@@ -230,7 +233,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
                       <DispatchTeamLabel team={team} vehicle={vehicle} detail={progressEl} />
                     ) : (
                       <div className="min-w-0">
-                        <p className="text-[10px] font-bold text-amber-700 truncate">Xe chưa có tổ</p>
+                        <p className="text-[10px] font-bold text-amber-700 truncate">{t('liveMap.incidentList.vehicleNoTeam')}</p>
                         <p className="text-[9px] text-slate-400 truncate">
                           <span className="font-mono-data">{vehicle.plate}</span>
                           {progressEl}
@@ -242,7 +245,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
                         onClick={() => onCancelVehicle(vehicle.id)}
                         disabled={!!cancellingVehicleId}
                         className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0 transition-colors disabled:opacity-40"
-                        title="Hủy giao tổ"
+                        title={t('liveMap.incidentList.recallTitle')}
                       >
                         {cancellingVehicleId === vehicle.id
                           ? <Loader2 className="w-3 h-3 animate-spin" />
@@ -286,6 +289,7 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
   const { vehicles, incidents, escalatedIncidentIds, escalationTiers } = useDispatchStore();
   const now = useNow();
   const teamByVehicle = useTeamByVehicle();
+  const { t } = useTranslation();
 
   const dispatchIncidents = useMemo(
     () =>
@@ -306,10 +310,10 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
       <div className="shrink-0 px-4 py-3.5 border-b border-slate-200">
         <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
           <Route className="w-4 h-4 text-red-600 shrink-0" />
-          Điều phối sự cố
+          {t('liveMap.incidentList.title')}
         </h2>
         <p className="text-[10px] text-slate-500 mt-0.5">
-          Chọn sự cố để xem gợi ý tổ phù hợp
+          {t('liveMap.incidentList.subtitle')}
         </p>
       </div>
 
@@ -318,7 +322,7 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
         <div className="shrink-0 mx-3 mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-600">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span className="flex-1">{panelError}</span>
-          <button onClick={onClearError} className="shrink-0">
+          <button onClick={onClearError} className="shrink-0" aria-label={t('liveMap.incidentList.dismissError')}>
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -327,7 +331,7 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
       {/* Incident cards */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
         {dispatchIncidents.length === 0 ? (
-          <div className="text-center text-xs text-slate-400 py-10">Chưa có sự cố nào được duyệt</div>
+          <div className="text-center text-xs text-slate-400 py-10">{t('liveMap.incidentList.empty')}</div>
         ) : (
           dispatchIncidents.map((incident) => (
             <IncidentCard

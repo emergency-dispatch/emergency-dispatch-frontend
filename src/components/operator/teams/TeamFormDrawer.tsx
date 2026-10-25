@@ -1,21 +1,19 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Crown, Lock } from 'lucide-react';
-import { TEAM_FUNCTION_META } from './teamFunction';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../../admin/common/ui';
 import { inputClass } from '../../admin/common/styles';
 import { MAX_TEAM_SIZE, MIN_TEAM_SIZE } from '../../../data/dispatchConfig';
-import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { stationTeamService } from '../../../services/stationTeamService';
 import {
   CREW_ROLES,
-  CREW_ROLE_LABEL,
   type CrewRole,
   type StationStaff,
   type StationTeam,
   type TeamMember,
 } from '../../../types/stationTeam';
 import type { DispatchVehicleType, Vehicle } from '../../../types/vehicle';
+import { useTranslation } from '../../../i18n';
 
 // Vai trò gợi ý khi tick chọn thành viên, theo loại xe tổ phụ trách.
 const DEFAULT_ROLE_BY_VEHICLE: Record<DispatchVehicleType, CrewRole> = {
@@ -44,14 +42,15 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
   onClose,
   onSaved,
 }) => {
-  const [name, setName] = useState(team?.name ?? `Tổ ${stationTeams.length + 1}`);
+  const { t } = useTranslation();
+  const [name, setName] = useState(team?.name ?? t('teams.form.defaultName', { index: stationTeams.length + 1 }));
   const [vehicleId, setVehicleId] = useState<string | null>(team?.vehicleId ?? null);
   const [members, setMembers] = useState<TeamMember[]>(team?.members ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const vehicleOfOtherTeam = new Map(
-    stationTeams.filter((t) => t.id !== team?.id && t.vehicleId).map((t) => [t.vehicleId!, t.name])
+    stationTeams.filter((other) => other.id !== team?.id && other.vehicleId).map((other) => [other.vehicleId!, other.name])
   );
   // Người đã thuộc tổ khác không chọn được; người bị khóa chỉ hiện nếu đang là thành viên (để gỡ ra).
   const memberIds = new Set(members.map((m) => m.staffId));
@@ -75,11 +74,11 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
 
   const validationError =
     name.trim().length === 0
-      ? 'Vui lòng nhập tên tổ.'
+      ? t('teams.form.nameRequired')
       : members.length > MAX_TEAM_SIZE
-        ? `Mỗi tổ tối đa ${MAX_TEAM_SIZE} người.`
+        ? t('teams.form.maxSize', { max: MAX_TEAM_SIZE })
         : commanderCount > 1
-          ? 'Mỗi tổ chỉ có 1 tổ trưởng (Chỉ huy kíp).'
+          ? t('teams.form.oneLeader')
           : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,36 +97,40 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
 
   return (
     <DrawerShell
-      title={team ? `Sửa ${team.name}` : 'Tạo tổ làm việc'}
+      title={team ? t('teams.form.editTitle', { name: team.name }) : t('teams.form.createTitle')}
       onClose={onClose}
       onSubmit={handleSubmit}
       footer={
-        <DrawerFooter onCancel={onClose} submitLabel="Lưu tổ" submitting={submitting} canSubmit={!validationError} />
+        <DrawerFooter onCancel={onClose} submitLabel={t('teams.form.save')} submitting={submitting} canSubmit={!validationError} />
       }
     >
       <Notice notice={error ? { kind: 'error', message: error } : null} onClose={() => setError(null)} />
 
-      <FormField label="Tên tổ" required>
+      <FormField label={t('teams.form.name')} required>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} className={inputClass} />
       </FormField>
 
       <FormField
-        label="Xe phụ trách"
-        hint="Loại xe quyết định chức năng của tổ và loại sự cố tổ được điều động. Mỗi xe chỉ có 1 tổ."
+        label={t('teams.form.vehicle')}
+        hint={t('teams.form.vehicleHint')}
       >
         <select
           value={vehicleId ?? ''}
           onChange={(e) => setVehicleId(e.target.value || null)}
           className={inputClass}
         >
-          <option value="">Trực tại trạm (không theo xe — không điều động được)</option>
+          <option value="">{t('teams.form.atStationOption')}</option>
           {stationVehicles.map((v) => {
             const otherTeam = vehicleOfOtherTeam.get(v.id);
             const busy = v.status !== 'available' && v.id !== team?.vehicleId;
-            const suffix = otherTeam ? ` — đã có ${otherTeam}` : busy ? ` — ${VEHICLE_STATUS_META[v.status].label}` : '';
+            const suffix = otherTeam
+              ? t('teams.form.hasTeam', { team: otherTeam })
+              : busy
+                ? ` — ${t(`enums.vehicleStatus.${v.status}`)}`
+                : '';
             return (
               <option key={v.id} value={v.id} disabled={!!otherTeam || busy}>
-                {v.plate} · {VEHICLE_TYPE_META[v.type].label}
+                {v.plate} · {t(`enums.vehicleType.${v.type}`)}
                 {suffix}
               </option>
             );
@@ -135,29 +138,29 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
         </select>
         {selectedVehicle ? (
           <p className="text-xs text-slate-600">
-            Chức năng của tổ:{' '}
-            <span className="font-bold text-slate-900">{TEAM_FUNCTION_META[selectedVehicle.type].label}</span>
+            {t('teams.form.function')}{' '}
+            <span className="font-bold text-slate-900">{t(`enums.teamFunction.${selectedVehicle.type}`)}</span>
           </p>
         ) : (
           <p className="flex items-start gap-1.5 text-xs text-amber-700">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-            Tổ trực tại trạm không hiện ở Dispatch Panel. Gắn xe để tổ được điều động tới sự cố.
+            {t('teams.form.atStationWarning')}
           </p>
         )}
       </FormField>
 
       <FormField
-        label={`Thành viên (${members.length}/${MAX_TEAM_SIZE})`}
+        label={t('teams.form.members', { count: members.length, max: MAX_TEAM_SIZE })}
         hint={
           members.length < MIN_TEAM_SIZE
-            ? `Tổ dưới ${MIN_TEAM_SIZE} người vẫn lưu được nhưng sẽ bị cảnh báo "thiếu người" khi giao xe.`
-            : 'Chọn "Chỉ huy kíp" để đặt làm tổ trưởng (tối đa 1 người).'
+            ? t('teams.form.understaffedHint', { min: MIN_TEAM_SIZE })
+            : t('teams.form.leaderHint')
         }
       >
         <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
           {selectableStaff.length === 0 ? (
             <p className="text-center text-xs text-slate-500 py-6">
-              Không còn nhân sự trống — thêm nhân sự vào trạm hoặc gỡ họ khỏi tổ khác.
+              {t('teams.form.noStaff')}
             </p>
           ) : (
             selectableStaff.map((s) => {
@@ -174,19 +177,19 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
                     <span className="text-sm text-slate-900 truncate flex items-center gap-1.5">
                       {member?.crewRole === 'commander' && <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
                       {s.fullName}
-                      {s.isLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0" aria-label="Tài khoản đã khóa" />}
+                      {s.isLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0" aria-label={t('teams.form.locked')} />}
                     </span>
                   </label>
                   {member && (
                     <select
                       value={member.crewRole}
                       onChange={(e) => setRole(s.id, e.target.value as CrewRole)}
-                      aria-label={`Vai trò của ${s.fullName}`}
+                      aria-label={t('teams.form.roleOf', { name: s.fullName })}
                       className="text-xs bg-white border border-slate-300 rounded-md px-2 py-1.5 text-slate-700 focus:outline-none focus:border-red-500"
                     >
                       {CREW_ROLES.map((r) => (
                         <option key={r} value={r}>
-                          {r === 'commander' ? 'Tổ trưởng (Chỉ huy kíp)' : CREW_ROLE_LABEL[r]}
+                          {r === 'commander' ? t('teams.form.leaderOption') : t(`teams.crewRole.${r}`)}
                         </option>
                       ))}
                     </select>
@@ -199,7 +202,7 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
       </FormField>
 
       {otherTeamCount > 0 && (
-        <p className="text-[11px] text-slate-500">{otherTeamCount} nhân sự khác của trạm đang thuộc tổ khác.</p>
+        <p className="text-[11px] text-slate-500">{t('teams.form.otherTeams', { count: otherTeamCount })}</p>
       )}
       {validationError && members.length > 0 && <p className="text-xs text-red-600">{validationError}</p>}
     </DrawerShell>

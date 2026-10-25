@@ -1,3 +1,5 @@
+import i18n, { dateLocale } from '../i18n';
+
 /** 0981234456 → 098***456 (FR-OP-03: che số điện thoại người báo). */
 export function maskPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
@@ -17,23 +19,27 @@ export function formatCountdown(remainingMs: number): string {
  */
 export function formatWaitDuration(elapsedMs: number): string {
   const minutes = Math.max(0, Math.floor(elapsedMs / 60000));
-  if (minutes < 1) return 'Vừa xong';
-  if (minutes < 60) return `${minutes} phút`;
+  if (minutes < 1) return i18n.t('common.duration.justNow');
+  if (minutes < 60) return i18n.t('common.duration.minutes', { m: minutes });
 
   const hours = Math.floor(minutes / 60);
   if (hours < 24) {
     const restMinutes = minutes % 60;
-    return restMinutes ? `${hours} giờ ${restMinutes} phút` : `${hours} giờ`;
+    return restMinutes
+      ? i18n.t('common.duration.hoursMinutes', { h: hours, m: restMinutes })
+      : i18n.t('common.duration.hours', { h: hours });
   }
 
   const days = Math.floor(hours / 24);
   const restHours = hours % 24;
-  return restHours ? `${days} ngày ${restHours} giờ` : `${days} ngày`;
+  return restHours
+    ? i18n.t('common.duration.daysHours', { d: days, h: restHours })
+    : i18n.t('common.duration.days', { d: days });
 }
 
 /** Thời điểm tuyệt đối cho tooltip: "22/10/2026 23:41". */
 export function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('vi-VN', {
+  return new Date(iso).toLocaleString(dateLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

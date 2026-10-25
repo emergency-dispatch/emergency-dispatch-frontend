@@ -50,11 +50,22 @@ class HubClient {
   private hasConnected = false;
   private statusListeners = new Set<() => void>();
 
+  /** Ngôn ngữ thông báo lỗi của hub (?culture=). null = không gửi (mặc định của server). */
+  private culture: string | null = null;
+
   constructor(private readonly hubPath: string) {}
 
   private getHubUrl(): string {
     const baseUrl = API_CONFIG.BASE_URL.replace(/\/api\/?$/, '');
-    return `${baseUrl}${this.hubPath}`;
+    const query = this.culture ? `?culture=${encodeURIComponent(this.culture)}` : '';
+    return `${baseUrl}${this.hubPath}${query}`;
+  }
+
+  /** Đổi ngôn ngữ khi đang kết nối → nối lại để server nhận culture mới. Không gọi thì URL giữ như cũ. */
+  public setCulture(culture: string | null) {
+    if (culture === this.culture) return;
+    this.culture = culture;
+    if (this.connection) this.stop().then(() => this.start());
   }
 
   private register(event: string) {

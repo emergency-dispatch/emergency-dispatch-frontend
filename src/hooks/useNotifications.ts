@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { notificationService, type NotificationDto } from '../services/notificationService';
 import { HubEvents, incidentHubService } from '../services/realtime/incidentHubService';
+import i18n from '../i18n';
 
 const PAGE_SIZE = 20;
 
@@ -21,7 +22,7 @@ export function useNotifications() {
       setUnreadCount(count);
       setError(null);
     } catch {
-      setError('Không tải được thông báo.');
+      setError(i18n.t('context.loadNotificationsFailed'));
     } finally {
       setLoading(false);
     }

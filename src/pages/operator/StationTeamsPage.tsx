@@ -6,7 +6,6 @@ import { StationStaffList } from '../../components/operator/teams/StationStaffLi
 import { TeamCard } from '../../components/operator/teams/TeamCard';
 import { TeamFormDrawer } from '../../components/operator/teams/TeamFormDrawer';
 import { useDispatchStore } from '../../context/DispatchContext';
-import { VEHICLE_STATUS_META } from '../../data/liveMapMeta';
 import { useAuth } from '../../hooks/useAuth';
 import { useStationTeams } from '../../hooks/useStationTeams';
 import { getApiErrorMessage } from '../../services/apiClient';
@@ -14,6 +13,7 @@ import { liveMapService } from '../../services/liveMapService';
 import { stationTeamService } from '../../services/stationTeamService';
 import type { StationResponseDto } from '../../types/station';
 import type { StationStaff, StationTeam } from '../../types/stationTeam';
+import i18n, { useTranslation } from '../../i18n';
 
 type TeamDrawerState = { mode: 'create' } | { mode: 'edit'; team: StationTeam } | null;
 
@@ -26,6 +26,7 @@ export const StationTeamsPage: React.FC = () => {
   const { user, refreshProfile } = useAuth();
   const { vehicles } = useDispatchStore();
   const { staff, teams } = useStationTeams();
+  const { t } = useTranslation();
   const [station, setStation] = useState<StationResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export const StationTeamsPage: React.FC = () => {
       stationTeamService.reloadStationTeams(myStationId),
     ])
       .then(([dto]) => !cancelled && setStation(dto))
-      .catch((err) => !cancelled && setLoadError(getApiErrorMessage(err, 'Không tải được thông tin trạm.')))
+      .catch((err) => !cancelled && setLoadError(getApiErrorMessage(err, i18n.t('teams.page.loadFailed'))))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -67,19 +68,19 @@ export const StationTeamsPage: React.FC = () => {
 
   const stationId = station?.id ?? '';
   const stationStaff = useMemo(() => staff.filter((s) => s.stationId === stationId), [staff, stationId]);
-  const stationTeams = useMemo(() => teams.filter((t) => t.stationId === stationId), [teams, stationId]);
+  const stationTeams = useMemo(() => teams.filter((team) => team.stationId === stationId), [teams, stationId]);
   const stationVehicles = useMemo(() => vehicles.filter((v) => v.stationId === stationId), [vehicles, stationId]);
   const candidates = useMemo(() => staff.filter((s) => !s.stationId && !s.isLocked), [staff]);
   const staffById = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
-  const teamsById = useMemo(() => new Map(stationTeams.map((t) => [t.id, t])), [stationTeams]);
+  const teamsById = useMemo(() => new Map(stationTeams.map((team) => [team.id, team])), [stationTeams]);
   const vehiclesById = useMemo(() => new Map(stationVehicles.map((v) => [v.id, v])), [stationVehicles]);
-  const vehiclesWithoutTeam = stationVehicles.filter((v) => !stationTeams.some((t) => t.vehicleId === v.id));
+  const vehiclesWithoutTeam = stationVehicles.filter((v) => !stationTeams.some((team) => team.vehicleId === v.id));
 
   // Xe của tổ đang làm nhiệm vụ / hồi sức → khóa sửa tổ và gỡ thành viên cho tới khi xe về Sẵn sàng.
   const teamLockedReason = (team: StationTeam): string | null => {
     const vehicle = team.vehicleId ? vehiclesById.get(team.vehicleId) : undefined;
     if (!vehicle || vehicle.status === 'available') return null;
-    return `Xe ${vehicle.plate} đang ở trạng thái "${VEHICLE_STATUS_META[vehicle.status].label}" — chỉ sửa được khi xe sẵn sàng.`;
+    return t('teams.page.vehicleBusy', { plate: vehicle.plate, status: t(`enums.vehicleStatus.${vehicle.status}`) });
   };
   const staffLockedReason = (s: StationStaff) => {
     const team = s.teamId ? teamsById.get(s.teamId) : undefined;
@@ -104,7 +105,7 @@ export const StationTeamsPage: React.FC = () => {
     return (
       <div className="h-full flex items-center justify-center gap-2 p-6 text-sm text-slate-500">
         <Loader2 className="w-4 h-4 animate-spin" />
-        Đang tải thông tin trạm…
+        {t('teams.page.loading')}
       </div>
     );
   }
@@ -121,7 +122,7 @@ export const StationTeamsPage: React.FC = () => {
   if (!station) {
     return (
       <div className="h-full flex items-center justify-center p-6 text-sm text-slate-500">
-        Bạn chưa được phân công làm Trưởng trạm — liên hệ Admin để được gán trạm.
+        {t('teams.page.notHead')}
       </div>
     );
   }
@@ -132,7 +133,7 @@ export const StationTeamsPage: React.FC = () => {
         <div className="min-w-0">
           <p className="text-[11px] font-mono-data uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-red-600" />
-            Trạm bạn phụ trách
+            {t('teams.page.kicker')}
           </p>
           <h1 className="text-lg font-black text-slate-900 mt-1 flex items-center gap-2">
             <Building2 className="w-5 h-5 text-red-600 shrink-0" />
@@ -153,9 +154,13 @@ export const StationTeamsPage: React.FC = () => {
         </div>
         <dl className="grid grid-cols-3 gap-3 text-center">
           {[
-            { label: 'Nhân sự', value: stationStaff.length },
-            { label: 'Tổ', value: stationTeams.length },
-            { label: 'Xe chưa có tổ', value: vehiclesWithoutTeam.length, warn: vehiclesWithoutTeam.length > 0 },
+            { label: t('teams.page.statStaff'), value: stationStaff.length },
+            { label: t('teams.page.statTeams'), value: stationTeams.length },
+            {
+              label: t('teams.page.statVehiclesWithoutTeam'),
+              value: vehiclesWithoutTeam.length,
+              warn: vehiclesWithoutTeam.length > 0,
+            },
           ].map((stat) => (
             <div key={stat.label} className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 min-w-[88px]">
               <dt className="text-[10px] font-mono-data uppercase tracking-wider text-slate-500">{stat.label}</dt>
@@ -179,15 +184,15 @@ export const StationTeamsPage: React.FC = () => {
         <section className="flex flex-col min-h-0 rounded-2xl border border-slate-200 bg-slate-50/60">
           <div className="shrink-0 px-4 py-3.5 border-b border-slate-200 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold text-slate-900">Tổ làm việc ({stationTeams.length})</h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">Tổ cố định của trạm, đi kèm xe khi Command Center giao xe</p>
+              <h2 className="text-sm font-bold text-slate-900">{t('teams.page.teamsTitle', { count: stationTeams.length })}</h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">{t('teams.page.teamsSubtitle')}</p>
             </div>
             <button
               onClick={() => setTeamDrawer({ mode: 'create' })}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
-              Tạo tổ
+              {t('teams.page.createTeam')}
             </button>
           </div>
 
@@ -196,13 +201,13 @@ export const StationTeamsPage: React.FC = () => {
               <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <span>
-                  Xe chưa có tổ phụ trách:{' '}
+                  {t('teams.page.vehiclesWithoutTeam')}{' '}
                   <strong className="font-mono-data">{vehiclesWithoutTeam.map((v) => v.plate).join(', ')}</strong>
                 </span>
               </div>
             )}
             {stationTeams.length === 0 ? (
-              <p className="text-center text-xs text-slate-500 py-10">Trạm chưa có tổ nào — bấm "Tạo tổ".</p>
+              <p className="text-center text-xs text-slate-500 py-10">{t('teams.page.noTeams')}</p>
             ) : (
               <div className="grid gap-3 xl:grid-cols-2">
                 {stationTeams.map((team) => (
@@ -229,7 +234,7 @@ export const StationTeamsPage: React.FC = () => {
           submitting={submitting}
           onCancel={() => setAddingStaff(false)}
           onConfirm={async (ids) => {
-            if (await run(() => stationTeamService.addStaff(station.id, ids), `Đã thêm ${ids.length} nhân sự vào trạm.`)) {
+            if (await run(() => stationTeamService.addStaff(station.id, ids), t('teams.page.staffAdded', { count: ids.length }))) {
               setAddingStaff(false);
             }
           }}
@@ -238,21 +243,23 @@ export const StationTeamsPage: React.FC = () => {
 
       {removingStaff && (
         <ConfirmModal
-          title={`Gỡ ${removingStaff.fullName} khỏi trạm?`}
-          confirmLabel="Gỡ khỏi trạm"
+          title={t('teams.page.removeTitle', { name: removingStaff.fullName })}
+          confirmLabel={t('teams.page.removeConfirm')}
           submitting={submitting}
           onCancel={() => setRemovingStaff(null)}
           onConfirm={async () => {
             const target = removingStaff;
-            if (await run(() => stationTeamService.removeStaff(station.id, target.id), `Đã gỡ ${target.fullName} khỏi trạm.`)) {
+            if (await run(() => stationTeamService.removeStaff(station.id, target.id), t('teams.page.staffRemoved', { name: target.fullName }))) {
               setRemovingStaff(null);
             }
           }}
         >
-          <p>Nhân sự sẽ trở về danh sách chưa thuộc trạm và có thể được trạm khác thêm vào.</p>
+          <p>{t('teams.page.removeBody')}</p>
           {removingStaff.teamId && (
             <p className="text-amber-700">
-              Người này cũng sẽ bị gỡ khỏi <strong>{teamsById.get(removingStaff.teamId)?.name}</strong>.
+              {t('teams.page.removeTeamBefore')}
+              <strong>{teamsById.get(removingStaff.teamId)?.name}</strong>
+              {t('teams.page.removeTeamAfter')}
             </p>
           )}
         </ConfirmModal>
@@ -260,20 +267,20 @@ export const StationTeamsPage: React.FC = () => {
 
       {deletingTeam && (
         <ConfirmModal
-          title={`Xóa ${deletingTeam.name}?`}
-          confirmLabel="Xóa tổ"
+          title={t('teams.page.deleteTitle', { name: deletingTeam.name })}
+          confirmLabel={t('teams.page.deleteConfirm')}
           submitting={submitting}
           onCancel={() => setDeletingTeam(null)}
           onConfirm={async () => {
             const target = deletingTeam;
-            if (await run(() => stationTeamService.deleteTeam(station.id, target.id), `Đã xóa ${target.name}.`)) {
+            if (await run(() => stationTeamService.deleteTeam(station.id, target.id), t('teams.page.teamDeleted', { name: target.name }))) {
               setDeletingTeam(null);
             }
           }}
         >
           <p>
-            {deletingTeam.members.length} thành viên vẫn thuộc trạm và chuyển thành "chưa vào tổ".
-            {deletingTeam.vehicleId && ' Xe của tổ sẽ bị cảnh báo "chưa có tổ" khi giao xe.'}
+            {t('teams.page.deleteBody', { count: deletingTeam.members.length })}
+            {deletingTeam.vehicleId && t('teams.page.deleteBodyVehicle')}
           </p>
         </ConfirmModal>
       )}
@@ -289,7 +296,9 @@ export const StationTeamsPage: React.FC = () => {
           onSaved={(saved) => {
             setNotice({
               kind: 'success',
-              message: teamDrawer.mode === 'edit' ? `Đã cập nhật ${saved.name}.` : `Đã tạo ${saved.name}.`,
+              message: teamDrawer.mode === 'edit'
+                  ? t('teams.page.teamUpdated', { name: saved.name })
+                  : t('teams.page.teamCreated', { name: saved.name }),
             });
             setTeamDrawer(null);
           }}

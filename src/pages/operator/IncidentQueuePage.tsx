@@ -5,6 +5,7 @@ import { IncidentQueueList } from '../../components/operator/incidents/IncidentQ
 import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
 import { useDispatchStore } from '../../context/DispatchContext';
 import type { BlockDuration, IncidentCategory, OperatorCancellationCode, SeverityLevel } from '../../types/incident';
+import { useTranslation } from '../../i18n';
 
 // Backend giữ khóa mềm 2 phút; gia hạn mỗi 60 giây khi Operator vẫn đang mở ca.
 const LOCK_RENEW_MS = 60 * 1000;
@@ -27,6 +28,7 @@ export const IncidentQueuePage: React.FC = () => {
     revealReporterPhone,
     setIncidentDrawerOpen,
   } = useDispatchStore();
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [lockingId, setLockingId] = useState<string | null>(null);
@@ -99,7 +101,7 @@ export const IncidentQueuePage: React.FC = () => {
     if (result.ok) {
       setSelectedId(null);
     } else {
-      setActionError(result.message ?? 'Duyệt sự cố thất bại. Vui lòng thử lại.');
+      setActionError(result.message ?? t('incidents.page.approveFailed'));
     }
   };
 
@@ -116,7 +118,7 @@ export const IncidentQueuePage: React.FC = () => {
     if (result.ok) {
       setSelectedId(null);
     } else {
-      setActionError(result.message ?? 'Hủy ca thất bại. Vui lòng thử lại.');
+      setActionError(result.message ?? t('incidents.page.rejectFailed'));
     }
   };
 
@@ -126,7 +128,7 @@ export const IncidentQueuePage: React.FC = () => {
     const result = await transferIncident(id, stationId, reason);
     setSubmittingId(null);
     if (result.ok) setSelectedId(null);
-    else setActionError(result.message ?? 'Chuyển trạm thất bại. Vui lòng thử lại.');
+    else setActionError(result.message ?? t('incidents.page.transferFailed'));
   };
 
   // Trạm nhận được: mọi trạm đang hoạt động trừ trạm đang phụ trách sự cố.
