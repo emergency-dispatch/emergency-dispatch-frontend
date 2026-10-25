@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
+import { Info } from 'lucide-react';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../common/ui';
 import { inputClass } from '../common/styles';
+import { useServiceQuery } from '../common/hooks';
 import { NOTIFY_ROLE_LABEL, escalationSeverityMeta } from './escalationMeta';
 import {
   DESCRIPTION_MAX_LENGTH,
   escalationService,
   validateEscalationRule,
 } from '../../../services/admin/escalationService';
+import { adminSettingsService } from '../../../services/admin/adminSettingsService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import {
   ESCALATION_NOTIFY_ROLES,
@@ -24,6 +27,9 @@ interface EscalationRuleFormDrawerProps {
 }
 
 export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> = ({ initialRule, onClose, onSaved }) => {
+  // Ngưỡng chờ và bán kính không thuộc quy tắc mà là cấu hình chung (PUT /api/settings/escalation) — chỉ hiện để tham khảo.
+  const settings = useServiceQuery(() => adminSettingsService.getEscalationSettings(), 'escalation-rule-effective');
+  const effective = settings.data?.values;
   const [minSeverityLevel, setMinSeverityLevel] = useState<EscalationSeverity>(initialRule?.minSeverityLevel ?? 'Level3');
   const [notifyRoles, setNotifyRoles] = useState<EscalationNotifyRole[]>(
     initialRule ? parseNotifyRoles(initialRule.notifyRoles) : ['Operator', 'Admin']
@@ -69,6 +75,25 @@ export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> =
       footer={<DrawerFooter onCancel={onClose} submitLabel="Lưu quy tắc" submitting={submitting} canSubmit={canSubmit} />}
     >
       <Notice notice={error ? { kind: 'error', message: error } : null} />
+
+      <div className="flex gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600">
+        <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400" />
+        <span>
+          {effective ? (
+            <>
+              <strong className="text-slate-800">Đang áp dụng:</strong> ban ngày {effective.dayThresholdMinutes} phút · ban
+              đêm {effective.nightThresholdMinutes} phút ({effective.nightStart}–{effective.nightEnd}) · bán kính tìm xe ×
+              {effective.radiusMultiplier} (tối đa {effective.maxRadiusKm} km).
+            </>
+          ) : settings.error ? (
+            'Không tải được ngưỡng đang áp dụng.'
+          ) : (
+            'Đang tải ngưỡng đang áp dụng...'
+          )}{' '}
+          Các giá trị này dùng chung cho mọi quy tắc, chỉnh ở phần <strong>Ngưỡng chờ đội nhận</strong> và{' '}
+          <strong>Mở rộng bán kính khi leo thang</strong> đầu trang này.
+        </span>
+      </div>
 
       <FormField
         label="Áp dụng cho sự cố từ"
