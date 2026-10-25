@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { AddressSearchField } from './AddressSearchField';
+import { HeadOperatorField } from './HeadOperatorField';
 import { StationMapPicker } from './StationMapPicker';
 import { StationStaffSection, type StationMemberDraft } from './StationStaffSection';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../common/ui';
@@ -9,6 +10,7 @@ import { MAP_CENTER } from '../fleetMeta';
 import { HOTLINE_PATTERN, stationAdminService } from '../../../services/admin/stationAdminService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { mapboxService } from '../../../services/mapboxService';
+import { UserRole } from '../../../types/auth';
 import { COVERAGE_RADIUS_KM, type StationResponseDto, type StationUpsertDto } from '../../../types/station';
 
 interface StationFormDrawerProps {
@@ -41,7 +43,11 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
     // Ô số giữ dạng chuỗi để gõ dở không bị nhảy.
     coverageRadiusKm: String(initialStation?.coverageRadiusKm ?? COVERAGE_RADIUS_KM.default),
   });
-  const [initialMembers] = useState<StationMemberDraft[]>(() => (initialStation?.staffMembers ?? []).map(toDraft));
+  const [headOperatorId, setHeadOperatorId] = useState<string | null>(initialStation?.headOperatorId ?? null);
+  // Operator gắn với trạm qua ô "Operator phụ trách" (headOperatorId); danh sách nhân sự chỉ quản lý đội cứu hộ.
+  const [initialMembers] = useState<StationMemberDraft[]>(() =>
+    (initialStation?.staffMembers ?? []).filter((m) => m.role !== UserRole.Operator).map(toDraft)
+  );
   const [members, setMembers] = useState<StationMemberDraft[]>(initialMembers);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +91,7 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
       phoneNumber: hotline,
       isActive: form.isActive,
       coverageRadiusKm: radiusKm,
+      headOperatorId,
     };
     let saved: StationResponseDto;
     try {
@@ -211,6 +218,8 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
         />
         Trạm đang hoạt động
       </label>
+
+      <HeadOperatorField station={initialStation} value={headOperatorId} onChange={setHeadOperatorId} />
 
       <StationStaffSection stationId={initialStation?.id ?? null} members={members} onChange={setMembers} />
 

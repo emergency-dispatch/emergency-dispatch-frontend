@@ -6,7 +6,7 @@ import { useServiceQuery } from '../common/hooks';
 import { ROLE_META } from '../accounts/accountMeta';
 import { accountAdminService } from '../../../services/admin/accountAdminService';
 import { normalizeText } from '../../../services/admin/listUtils';
-import { UserStatus } from '../../../types/auth';
+import { UserRole, UserStatus } from '../../../types/auth';
 import type { InternalRole } from '../../../types/internalAccount';
 
 /** Một nhân sự trong danh sách gán vào trạm (đang thuộc trạm hoặc vừa chọn thêm). */
@@ -31,7 +31,11 @@ const roleLabel = (role: string) => ROLE_META[role as InternalRole]?.label ?? ro
 const roleBadgeClass = (role: string) =>
   ROLE_META[role as InternalRole]?.badgeClass ?? 'bg-slate-100 text-slate-600 border-slate-300';
 
-/** Chọn Điều phối viên / Đội cứu hộ gắn vào trạm. Chia tổ và chức vụ trong tổ do Operator làm ở Trạm & Tổ. */
+/**
+ * Chọn đội cứu hộ gắn vào trạm. Operator không có ở đây: Operator thuộc trạm qua ô "Operator phụ trách"
+ * (assign-station-team không cập nhật headOperatorId nên gán Operator ở đây sẽ làm lệch dữ liệu).
+ * Chia tổ và chức vụ trong tổ do Operator làm ở Trạm & Tổ.
+ */
 export const StationStaffSection: React.FC<StationStaffSectionProps> = ({ stationId, members, onChange }) => {
   const accounts = useServiceQuery(
     () => accountAdminService.listAccounts({ pageIndex: 1, pageSize: 1000 }),
@@ -43,7 +47,7 @@ export const StationStaffSection: React.FC<StationStaffSectionProps> = ({ statio
     const memberIds = new Set(members.map((m) => m.id));
     const q = normalizeText(search);
     return (accounts.data?.items ?? [])
-      .filter((a) => !memberIds.has(a.id))
+      .filter((a) => a.role === UserRole.RescueStaff && !memberIds.has(a.id))
       .filter((a) => !q || normalizeText(`${a.fullName} ${a.email}`).includes(q))
       .sort(
         // Người chưa thuộc trạm nào lên trước.
@@ -68,7 +72,7 @@ export const StationStaffSection: React.FC<StationStaffSectionProps> = ({ statio
 
   return (
     <FormField
-      label={`Nhân sự của trạm (${members.length})`}
+      label={`Đội cứu hộ của trạm (${members.length})`}
       hint="Gỡ khỏi trạm thì người đó cũng rời tổ làm việc. Chia tổ và chức vụ trong tổ do Operator làm ở màn Trạm & Tổ."
     >
       <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
@@ -111,7 +115,7 @@ export const StationStaffSection: React.FC<StationStaffSectionProps> = ({ statio
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm điều phối viên / đội cứu hộ để thêm..."
+            placeholder="Tìm đội cứu hộ để thêm..."
             className={`${inputClass} pl-9`}
           />
         </div>

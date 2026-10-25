@@ -17,10 +17,11 @@ export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading,
         loading ? 'opacity-60' : ''
       }`}
     >
-      <table className="w-full text-sm min-w-[840px]">
+      <table className="w-full text-sm min-w-[980px]">
         <thead>
           <tr className="bg-slate-50 border-b border-slate-200 text-left">
             <th className={thClass}>Tên trạm</th>
+            <th className={thClass}>Operator phụ trách</th>
             <th className={thClass}>Hotline</th>
             <th className={thClass}>Bán kính</th>
             <th className={thClass}>Trạng thái</th>
@@ -32,7 +33,7 @@ export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading,
         <tbody className="divide-y divide-slate-100">
           {stations.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-sm">
+              <td colSpan={8} className="px-4 py-10 text-center text-slate-400 text-sm">
                 {loading ? 'Đang tải...' : 'Không có trạm nào phù hợp.'}
               </td>
             </tr>
@@ -42,6 +43,20 @@ export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading,
               <td className="px-4 py-3">
                 <div className="font-semibold text-slate-900">{station.name}</div>
                 <div className="text-xs text-slate-500 mt-0.5">{station.address}</div>
+              </td>
+              <td className="px-4 py-3 whitespace-nowrap">
+                {station.headOperatorName ? (
+                  <>
+                    <div className="text-slate-800 font-medium">{station.headOperatorName}</div>
+                    {station.headOperatorPhone && (
+                      <div className="text-xs text-slate-500 font-mono-data mt-0.5">{station.headOperatorPhone}</div>
+                    )}
+                  </>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-md border border-amber-200 bg-amber-50 text-amber-700 text-[10px] font-bold font-mono-data">
+                    Chưa có
+                  </span>
+                )}
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className="inline-flex items-center gap-1.5 font-mono-data text-slate-600">
