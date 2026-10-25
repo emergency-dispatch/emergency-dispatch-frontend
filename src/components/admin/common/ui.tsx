@@ -3,19 +3,27 @@ import { ChevronLeft, ChevronRight, CircleCheck, CircleAlert, X } from 'lucide-r
 import { labelClass } from './styles';
 import { useTranslation } from '../../../i18n';
 
-export const FormField: React.FC<{ label: string; required?: boolean; hint?: string; children: React.ReactNode }> = ({
-  label,
-  required,
-  hint,
-  children,
-}) => (
+export const FormField: React.FC<{
+  label: string;
+  required?: boolean;
+  hint?: string;
+  /** Lỗi kiểm tra của trường — hiện chữ đỏ thay cho hint. */
+  error?: string | null;
+  children: React.ReactNode;
+}> = ({ label, required, hint, error, children }) => (
   <div className="space-y-1.5">
     <label className={labelClass}>
       {label}
       {required && ' *'}
     </label>
     {children}
-    {hint && <p className="text-[11px] text-slate-500">{hint}</p>}
+    {error ? (
+      <p role="alert" className="text-[11px] font-medium text-red-600">
+        {error}
+      </p>
+    ) : (
+      hint && <p className="text-[11px] text-slate-500">{hint}</p>
+    )}
   </div>
 );
 

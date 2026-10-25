@@ -60,6 +60,8 @@ export const vehiclesEn: Messages<typeof vehiclesVi> = {
     createTitle: 'Add vehicle to station',
     save: 'Save vehicle',
     plate: 'Plate / unit code',
+    plateRequired: 'Please enter a plate / unit code.',
+    plateDuplicate: 'Plate / unit code "{{plate}}" already exists in the system.',
     platePlaceholder: 'E.g. 51D-123.45',
     type: 'Vehicle type',
     station: 'Home station',

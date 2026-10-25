@@ -7,6 +7,14 @@ import type { CrewRole, StationStaff, StationTeam, StationTeamInput } from '../t
 // Tổ: GET/POST/PUT/DELETE /api/stations/{id}/teams. Nhân sự: RescueStaff từ GET /api/users,
 // thêm/gỡ khỏi trạm qua PUT /api/users/{id}/assign-station-team.
 
+export interface CreateStaffInput {
+  fullName: string;
+  email: string;
+  password: string;
+  /** Rỗng = không có số. */
+  phoneNumber: string;
+}
+
 export interface StationTeamsSnapshot {
   staff: StationStaff[];
   teams: StationTeam[];
@@ -125,6 +133,24 @@ export const stationTeamService = {
     } finally {
       await stationTeamService.loadStaff();
     }
+  },
+
+  /**
+   * Operator tạo tài khoản RescueStaff (POST /api/users). Backend chỉ cho Operator tạo RescueStaff và tự gán trạm của
+   * Operator (bỏ qua stationId client gửi) nên không gửi trạm.
+   */
+  async createStaff(input: CreateStaffInput): Promise<UserResponseDto> {
+    const created = await unwrapApi(
+      apiClient.post<ApiResponse<UserResponseDto>>('/users', {
+        fullName: input.fullName,
+        email: input.email,
+        password: input.password,
+        phoneNumber: input.phoneNumber || null,
+        role: UserRole.RescueStaff,
+      })
+    );
+    await stationTeamService.loadStaff();
+    return created;
   },
 
   /** Gỡ khỏi trạm → backend đồng thời gỡ khỏi tổ đang thuộc. */

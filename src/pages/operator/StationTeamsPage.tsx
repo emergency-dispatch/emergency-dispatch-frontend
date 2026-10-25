@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Building2, Loader2, MapPin, Phone, Plus, ShieldCheck } from 'lucide-react';
 import { ConfirmModal, Notice, type NoticeState } from '../../components/admin/common/ui';
 import { AddStaffModal } from '../../components/operator/teams/AddStaffModal';
+import { CreateStaffDrawer } from '../../components/operator/teams/CreateStaffDrawer';
 import { StationStaffList } from '../../components/operator/teams/StationStaffList';
 import { TeamCard } from '../../components/operator/teams/TeamCard';
 import { TeamFormDrawer } from '../../components/operator/teams/TeamFormDrawer';
@@ -61,6 +62,7 @@ export const StationTeamsPage: React.FC = () => {
 
   const [notice, setNotice] = useState<NoticeState>(null);
   const [addingStaff, setAddingStaff] = useState(false);
+  const [creatingStaff, setCreatingStaff] = useState(false);
   const [removingStaff, setRemovingStaff] = useState<StationStaff | null>(null);
   const [teamDrawer, setTeamDrawer] = useState<TeamDrawerState>(null);
   const [deletingTeam, setDeletingTeam] = useState<StationTeam | null>(null);
@@ -177,7 +179,8 @@ export const StationTeamsPage: React.FC = () => {
           staff={stationStaff}
           teamsById={teamsById}
           removeLockedReason={staffLockedReason}
-          onAdd={() => setAddingStaff(true)}
+          onCreate={() => setCreatingStaff(true)}
+          onAdd={candidates.length > 0 ? () => setAddingStaff(true) : undefined}
           onRemove={setRemovingStaff}
         />
 
@@ -226,6 +229,17 @@ export const StationTeamsPage: React.FC = () => {
           </div>
         </section>
       </div>
+
+      {creatingStaff && (
+        <CreateStaffDrawer
+          stationName={station.name}
+          onClose={() => setCreatingStaff(false)}
+          onCreated={(created) => {
+            setCreatingStaff(false);
+            setNotice({ kind: 'success', message: t('teams.createStaff.created', { name: created.fullName }) });
+          }}
+        />
+      )}
 
       {addingStaff && (
         <AddStaffModal

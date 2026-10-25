@@ -11,7 +11,10 @@ interface StationStaffListProps {
   teamsById: Map<string, StationTeam>;
   /** Lý do không gỡ được (tổ đang làm nhiệm vụ), null = gỡ được. */
   removeLockedReason: (staff: StationStaff) => string | null;
-  onAdd: () => void;
+  /** Tạo tài khoản RescueStaff mới cho trạm. */
+  onCreate: () => void;
+  /** Thêm người chưa thuộc trạm nào; không truyền → ẩn nút (backend không trả danh sách này cho Operator). */
+  onAdd?: () => void;
   onRemove: (staff: StationStaff) => void;
 }
 
@@ -27,6 +30,7 @@ export const StationStaffList: React.FC<StationStaffListProps> = ({
   staff,
   teamsById,
   removeLockedReason,
+  onCreate,
   onAdd,
   onRemove,
 }) => {
@@ -52,13 +56,21 @@ export const StationStaffList: React.FC<StationStaffListProps> = ({
             {t('teams.staff.title', { count: staff.length })}
           </h2>
           <button
-            onClick={onAdd}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors"
+            onClick={onCreate}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shrink-0"
           >
             <UserPlus className="w-3.5 h-3.5" />
-            {t('teams.staff.add')}
+            {t('teams.staff.create')}
           </button>
         </div>
+        {onAdd && (
+          <button
+            onClick={onAdd}
+            className="text-xs font-semibold text-red-600 hover:text-red-700 hover:underline"
+          >
+            {t('teams.staff.add')}
+          </button>
+        )}
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input

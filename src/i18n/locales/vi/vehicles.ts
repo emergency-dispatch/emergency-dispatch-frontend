@@ -56,6 +56,8 @@ export const vehiclesVi = {
     createTitle: 'Thêm xe vào trạm',
     save: 'Lưu xe',
     plate: 'Biển số / Mã hiệu',
+    plateRequired: 'Vui lòng nhập biển số / mã hiệu.',
+    plateDuplicate: 'Biển số / mã hiệu "{{plate}}" đã có trên hệ thống.',
     platePlaceholder: 'VD: 51D-123.45',
     type: 'Chủng loại',
     station: 'Trạm trực thuộc',

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../../admin/common/ui';
-import { inputClass } from '../../admin/common/styles';
+import { inputClass, validatedInputClass } from '../../admin/common/styles';
 import { RESCUE_UNIT_TYPE_META } from '../../admin/fleetMeta';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { liveMapService } from '../../../services/liveMapService';
@@ -30,6 +30,9 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ vehicle, s
   const { t } = useTranslation();
   const [plateNumber, setPlateNumber] = useState(vehicle?.plate ?? '');
   const [unitType, setUnitType] = useState<RescueUnitType | null>(vehicle ? null : 'FireTruck');
+  const [plateTouched, setPlateTouched] = useState(false);
+  // Biển số backend báo trùng — hiện dưới ô biển số cho tới khi người dùng sửa thành giá trị khác.
+  const [duplicatePlate, setDuplicatePlate] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,19 +51,32 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ vehicle, s
   }, [vehicleId]);
 
   const plate = plateNumber.trim();
-  const canSubmit = plate.length > 0 && plate.length <= PLATE_MAX_LENGTH && !!unitType;
+  // Không ép định dạng (backend nhận cả mã hiệu nội bộ): chỉ bắt buộc nhập; độ dài đã giới hạn bằng maxLength.
+  const plateError = !plate
+    ? t('vehicles.form.plateRequired')
+    : duplicatePlate && plate.toUpperCase() === duplicatePlate
+      ? t('vehicles.form.plateDuplicate', { plate: duplicatePlate })
+      : null;
+  const shownPlateError = plateTouched ? plateError : null;
+  const canSubmit = !!unitType;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit || !unitType) return;
+    setPlateTouched(true);
+    if (plateError || !unitType) return;
     setSubmitting(true);
     setError(null);
     const result = await saveVehicle({ plateNumber: plate, unitType, stationId }, vehicle?.id);
     if (result.ok) {
       onSaved(plate.toUpperCase(), !vehicle);
+      return;
+    }
+    setSubmitting(false);
+    // Backend báo trùng kèm biển số trong nháy đơn ('51C-001.11') ở cả vi / en → đưa lỗi xuống dưới ô biển số.
+    if (result.message?.toUpperCase().includes(`'${plate.toUpperCase()}'`)) {
+      setDuplicatePlate(plate.toUpperCase());
     } else {
       setError(result.message ?? t('vehicles.form.saveFailed'));
-      setSubmitting(false);
     }
   };
 
@@ -73,14 +89,15 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ vehicle, s
     >
       <Notice notice={error ? { kind: 'error', message: error } : null} />
 
-      <FormField label={t('vehicles.form.plate')} required>
+      <FormField label={t('vehicles.form.plate')} required error={shownPlateError}>
         <input
           value={plateNumber}
           onChange={(e) => setPlateNumber(e.target.value)}
+          onBlur={() => setPlateTouched(true)}
           placeholder={t('vehicles.form.platePlaceholder')}
           maxLength={PLATE_MAX_LENGTH}
-          required
-          className={`${inputClass} font-mono-data uppercase`}
+          aria-invalid={!!shownPlateError}
+          className={`${validatedInputClass(!!shownPlateError)} font-mono-data uppercase`}
         />
       </FormField>
 
