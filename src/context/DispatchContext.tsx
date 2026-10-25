@@ -32,7 +32,7 @@ import {
   type TrafficJamReport,
 } from '../types/incident';
 import type { BackendDispatchStatus, DispatchAssignmentResponseDto, RejectionReason } from '../types/dispatch';
-import type { RescueUnitResponseDto } from '../types/rescueUnit';
+import type { RescueUnitResponseDto, RescueUnitType } from '../types/rescueUnit';
 import type { DispatchAlgorithm, DispatchVehicleType, Station, Vehicle, VehicleStatus } from '../types/vehicle';
 
 // Poll dự phòng: sự cố, lượt phân công, trạng thái xe, khóa mềm đều có sự kiện SignalR — poll chỉ để bù khi mất kết nối.
@@ -160,6 +160,13 @@ export interface AssignOptions {
 
 type ActionResult = { ok: boolean; message?: string };
 
+/** Body thêm / sửa xe từ màn Đội xe. Khi sửa, `stationId` bị bỏ qua (giữ trạm hiện tại của xe). */
+export interface VehicleSaveInput {
+  plateNumber: string;
+  unitType: RescueUnitType;
+  stationId: string;
+}
+
 // Hàng đợi chờ duyệt: đúng quy tắc của GET /api/incidents/queue (FR-OP-02) — Cấp 3 và sự cố AI không
 // phân loại được cùng nhóm đầu, rồi Cấp 2, Cấp 1; cùng nhóm thì FIFO. Áp lại ở client chỉ để chèn đúng
 // chỗ các sự cố mới nhận qua SignalR, không đổi thứ tự backend trả về.
@@ -192,6 +199,11 @@ interface DispatchContextValue {
   resolveTrafficJam: (id: string) => Promise<ActionResult>;
   /** Màn Đội xe: đặt xe Bảo trì / đưa trở lại Sẵn sàng (xe đang làm nhiệm vụ bị backend chặn). */
   setVehicleStatus: (id: string, status: 'Available' | 'Maintenance') => Promise<ActionResult>;
+  /**
+   * Màn Đội xe: thêm xe vào trạm mình (không truyền `id`) hoặc sửa biển số / chủng loại.
+   * Xóa xe và chuyển trạm chỉ Admin làm.
+   */
+  saveVehicle: (input: VehicleSaveInput, id?: string) => Promise<ActionResult>;
   escalationSettings: EscalationSettingsDto;
   incidents: Incident[];
   highlightIncidentIds: Set<string>;
@@ -888,6 +900,31 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const saveVehicle = async (input: VehicleSaveInput, id?: string): Promise<ActionResult> => {
+    try {
+      let saved: RescueUnitResponseDto;
+      if (id) {
+        // Đọc lại xe ngay trước khi lưu: gửi lại đúng trạm / trạng thái hiện tại để không ghi đè trạng thái
+        // luồng điều phối vừa đặt (Operator không được đổi trạm).
+        const current = await liveMapService.getRescueUnit(id);
+        saved = await liveMapService.updateRescueUnit(id, {
+          plateNumber: input.plateNumber,
+          unitType: input.unitType,
+          status: current.status,
+          stationId: current.stationId,
+        });
+      } else {
+        saved = await liveMapService.createRescueUnit(input);
+      }
+      setUnits((prev) =>
+        prev.some((u) => u.id === saved.id) ? prev.map((u) => (u.id === saved.id ? saved : u)) : [...prev, saved]
+      );
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: getApiErrorMessage(err, id ? 'Không cập nhật được xe.' : 'Không thêm được xe.') };
+    }
+  };
+
   const resolveTrafficJam = async (id: string): Promise<ActionResult> => {
     try {
       await liveMapService.resolveTrafficJam(id);
@@ -915,6 +952,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         trafficJams,
         resolveTrafficJam,
         setVehicleStatus,
+        saveVehicle,
         escalationSettings,
         incidents,
         highlightIncidentIds,

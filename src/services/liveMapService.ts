@@ -1,7 +1,7 @@
 import { apiClient, unwrapApi } from './apiClient';
 import type { ApiResponse } from '../types/auth';
 import type { TrafficJamReport } from '../types/incident';
-import type { RescueUnitResponseDto } from '../types/rescueUnit';
+import type { CreateRescueUnitDto, RescueUnitResponseDto, UpdateRescueUnitDto } from '../types/rescueUnit';
 import type { StationResponseDto } from '../types/station';
 import type { Station } from '../types/vehicle';
 
@@ -90,6 +90,23 @@ export const liveMapService = {
    */
   async getRescueUnits(filter: { stationId?: string; status?: string } = {}): Promise<RescueUnitResponseDto[]> {
     return unwrapApi(apiClient.get<ApiResponse<RescueUnitResponseDto[]>>('/rescue-units', { params: filter }));
+  },
+
+  async getRescueUnit(id: string): Promise<RescueUnitResponseDto> {
+    return unwrapApi(apiClient.get<ApiResponse<RescueUnitResponseDto>>(`/rescue-units/${id}`));
+  },
+
+  /** Xe mới ở trạng thái Sẵn sàng, đặt tại tọa độ trạm. Operator chỉ thêm được vào trạm mình (khác → 403). */
+  async createRescueUnit(input: CreateRescueUnitDto): Promise<RescueUnitResponseDto> {
+    return unwrapApi(apiClient.post<ApiResponse<RescueUnitResponseDto>>('/rescue-units', input));
+  },
+
+  /**
+   * PUT bắt buộc gửi đủ trạng thái và trạm. Operator không được đổi trạm (chỉ Admin) nên luôn gửi lại đúng
+   * trạm / trạng thái hiện tại của xe.
+   */
+  async updateRescueUnit(id: string, input: UpdateRescueUnitDto): Promise<RescueUnitResponseDto> {
+    return unwrapApi(apiClient.put<ApiResponse<RescueUnitResponseDto>>(`/rescue-units/${id}`, input));
   },
 
   /** Operator chỉ đặt thủ công Sẵn sàng ⇄ Bảo trì; các trạng thái khác do luồng điều phối tự đặt. */

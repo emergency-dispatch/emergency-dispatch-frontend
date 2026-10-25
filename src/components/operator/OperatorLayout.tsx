@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { DispatchProvider } from '../../context/DispatchContext';
+import '../../services/operatorAdminLanguage';
 import { EscalationAlert } from './EscalationAlert';
 import { IncomingIncidentToasts } from './IncomingIncidentToasts';
 import { OperatorAlerts } from './OperatorAlerts';

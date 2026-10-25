@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Building2, Crown, Search, ShieldCheck, Truck, Users, Wrench } from 'lucide-react';
+import { AlertTriangle, Building2, Crown, Pencil, Plus, Search, ShieldCheck, Truck, Users, Wrench } from 'lucide-react';
 import { ConfirmModal, LockableButton, Notice, VehicleStatusBadge, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass, thClass } from '../../components/admin/common/styles';
 import { TEAM_FUNCTION_META } from '../../components/operator/teams/teamFunction';
+import { VehicleFormDrawer } from '../../components/operator/vehicles/VehicleFormDrawer';
 import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../data/liveMapMeta';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useAuth } from '../../hooks/useAuth';
@@ -39,7 +40,7 @@ function vehicleAction(v: Vehicle): { next: 'Available' | 'Maintenance' | null; 
 
 /**
  * Đội xe của trạm Operator phụ trách: xem trạng thái, tổ phụ trách, nhiệm vụ đang chạy;
- * chỉ đặt xe Bảo trì / đưa trở lại Sẵn sàng. Thêm / sửa / xóa xe do Admin làm.
+ * thêm xe, sửa biển số / chủng loại, đặt xe Bảo trì / đưa trở lại Sẵn sàng. Xóa xe và chuyển trạm do Admin làm.
  */
 export const VehiclesPage: React.FC = () => {
   const { user, refreshProfile } = useAuth();
@@ -51,6 +52,8 @@ export const VehiclesPage: React.FC = () => {
   const [target, setTarget] = useState<Vehicle | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<NoticeState>(null);
+  /** undefined = đóng form · null = thêm xe mới · Vehicle = sửa xe đó. */
+  const [editing, setEditing] = useState<Vehicle | null | undefined>(undefined);
 
   // Lấy lại hồ sơ để nhận trạm Admin vừa gán.
   useEffect(() => {
@@ -138,8 +141,16 @@ export const VehiclesPage: React.FC = () => {
             {station?.name ?? user?.stationName ?? 'Trạm của bạn'}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Đặt xe Bảo trì khi hỏng hóc để không được gợi ý điều phối. Thêm / sửa / xóa xe do Admin thực hiện.
+            Đặt xe Bảo trì khi hỏng hóc để không được gợi ý điều phối. Xóa xe và chuyển xe sang trạm khác do Admin thực
+            hiện.
           </p>
+          <button
+            onClick={() => setEditing(null)}
+            className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Thêm xe
+          </button>
         </div>
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
           {stats.map((stat) => (
@@ -190,7 +201,7 @@ export const VehiclesPage: React.FC = () => {
           {stationVehicles.length === 0 ? (
             <div className="p-10 text-center text-sm text-slate-500 space-y-1">
               <Truck className="w-8 h-8 text-slate-300 mx-auto" />
-              <p>Trạm chưa có xe nào — nhờ Admin thêm xe cho trạm.</p>
+              <p>Trạm chưa có xe nào — bấm "Thêm xe" để thêm xe cho trạm.</p>
             </div>
           ) : visible.length === 0 ? (
             <p className="p-10 text-center text-sm text-slate-500">Không có xe khớp bộ lọc.</p>
@@ -275,19 +286,29 @@ export const VehiclesPage: React.FC = () => {
                         })}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <LockableButton
-                          onClick={() => setTarget(v)}
-                          lockedReason={action.lockedReason}
-                          title={action.next === 'Maintenance' ? 'Đặt bảo trì' : 'Đưa vào hoạt động'}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                            action.next === 'Available'
-                              ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-                              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                          }`}
-                        >
-                          <Wrench className="w-3.5 h-3.5" />
-                          {action.next === 'Available' ? 'Đưa vào hoạt động' : 'Đặt bảo trì'}
-                        </LockableButton>
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            onClick={() => setEditing(v)}
+                            title="Sửa biển số / chủng loại"
+                            aria-label={`Sửa xe ${v.plate}`}
+                            className="inline-flex items-center px-2 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <LockableButton
+                            onClick={() => setTarget(v)}
+                            lockedReason={action.lockedReason}
+                            title={action.next === 'Maintenance' ? 'Đặt bảo trì' : 'Đưa vào hoạt động'}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                              action.next === 'Available'
+                                ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            <Wrench className="w-3.5 h-3.5" />
+                            {action.next === 'Available' ? 'Đưa vào hoạt động' : 'Đặt bảo trì'}
+                          </LockableButton>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -297,6 +318,22 @@ export const VehiclesPage: React.FC = () => {
           )}
         </div>
       </section>
+
+      {editing !== undefined && (
+        <VehicleFormDrawer
+          vehicle={editing}
+          stationId={stationId}
+          stationName={station?.name ?? user?.stationName ?? 'Trạm của bạn'}
+          onClose={() => setEditing(undefined)}
+          onSaved={(plate, created) => {
+            setEditing(undefined);
+            setNotice({
+              kind: 'success',
+              message: created ? `Đã thêm xe ${plate} vào trạm.` : `Đã cập nhật xe ${plate}.`,
+            });
+          }}
+        />
+      )}
 
       {target && (
         <ConfirmModal

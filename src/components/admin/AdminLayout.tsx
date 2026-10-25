@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminTopbar } from './AdminTopbar';
+import '../../services/operatorAdminLanguage';
 
 const PageLoading: React.FC = () => (
   <div className="h-full flex items-center justify-center">
