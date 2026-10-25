@@ -3,6 +3,7 @@ import { Plus, Search } from 'lucide-react';
 import { AccountFormDrawer } from '../../components/admin/accounts/AccountFormDrawer';
 import { AccountsTable } from '../../components/admin/accounts/AccountsTable';
 import { AccountActionDialog } from '../../components/admin/accounts/AccountActionDialog';
+import { TransferStationDialog } from '../../components/admin/accounts/TransferStationDialog';
 import { ACCOUNT_STATUSES, ACCOUNT_STATUS_META, INTERNAL_ROLES, ROLE_META } from '../../components/admin/accounts/accountMeta';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass } from '../../components/admin/common/styles';
@@ -41,6 +42,7 @@ const AccountsPage: React.FC = () => {
     account: UserResponseDto;
     mode: 'lock' | 'unlock' | 'delete';
   } | null>(null);
+  const [transferAccount, setTransferAccount] = useState<UserResponseDto | null>(null);
   const [notice, setNotice] = useState<NoticeState>(null);
 
   const withPageReset =
@@ -109,6 +111,7 @@ const AccountsPage: React.FC = () => {
         onLock={(account) => setActionTarget({ account, mode: 'lock' })}
         onUnlock={(account) => setActionTarget({ account, mode: 'unlock' })}
         onDelete={(account) => setActionTarget({ account, mode: 'delete' })}
+        onTransfer={setTransferAccount}
       />
 
       {query.data && (
@@ -133,6 +136,23 @@ const AccountsPage: React.FC = () => {
                   : `Đã cập nhật tài khoản ${saved.fullName}.`,
             });
             setFormAccount(null);
+            query.reload();
+          }}
+        />
+      )}
+
+      {transferAccount && (
+        <TransferStationDialog
+          account={transferAccount}
+          onCancel={() => setTransferAccount(null)}
+          onDone={(stationName) => {
+            setNotice({
+              kind: 'success',
+              message: stationName
+                ? `Đã chuyển ${transferAccount.fullName} sang trạm ${stationName}.`
+                : `Đã gỡ ${transferAccount.fullName} khỏi trạm.`,
+            });
+            setTransferAccount(null);
             query.reload();
           }}
         />

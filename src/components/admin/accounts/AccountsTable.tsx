@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Lock, LockOpen, Pencil, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Building2, Lock, LockOpen, Pencil, Trash2 } from 'lucide-react';
 import { iconButtonClass, thClass } from '../common/styles';
 import { AccountStatusCell } from './AccountStatusCell';
 import { ROLE_META, canUnlockUser } from './accountMeta';
@@ -13,11 +13,21 @@ interface AccountsTableProps {
   onLock: (account: UserResponseDto) => void;
   onUnlock: (account: UserResponseDto) => void;
   onDelete: (account: UserResponseDto) => void;
+  /** Điều chuyển đội cứu hộ sang trạm khác (Operator thuộc trạm qua ô "Operator phụ trách" của trạm). */
+  onTransfer: (account: UserResponseDto) => void;
 }
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('vi-VN');
 
-export const AccountsTable: React.FC<AccountsTableProps> = ({ accounts, loading, onEdit, onLock, onUnlock, onDelete }) => {
+export const AccountsTable: React.FC<AccountsTableProps> = ({
+  accounts,
+  loading,
+  onEdit,
+  onLock,
+  onUnlock,
+  onDelete,
+  onTransfer,
+}) => {
   return (
     <div
       className={`rounded-xl border border-slate-200 overflow-x-auto bg-white shadow-xs transition-opacity ${
@@ -96,6 +106,16 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({ accounts, loading,
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
+                    {account.role === UserRole.RescueStaff && (
+                      <button
+                        onClick={() => onTransfer(account)}
+                        className={iconButtonClass}
+                        aria-label="Chuyển trạm"
+                        title="Chuyển trạm"
+                      >
+                        <ArrowRightLeft className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     {canUnlockUser(account) ? (
                       <button
                         onClick={() => onUnlock(account)}

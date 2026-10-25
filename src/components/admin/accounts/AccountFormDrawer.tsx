@@ -149,8 +149,8 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
 
       <p className="text-xs text-slate-500">
         {initialAccount?.stationName ? `Đang thuộc trạm ${initialAccount.stationName}. ` : ''}
-        Gán vào trạm ở tab Trạm cứu hộ (Thêm / Sửa trạm): Operator ở ô "Operator phụ trách trạm", đội cứu hộ ở mục
-        "Đội cứu hộ của trạm".
+        Operator được gán trạm ở tab Trạm cứu hộ (ô "Operator phụ trách trạm"); đội cứu hộ đổi trạm bằng nút "Chuyển
+        trạm" trong bảng tài khoản.
       </p>
     </DrawerShell>
   );

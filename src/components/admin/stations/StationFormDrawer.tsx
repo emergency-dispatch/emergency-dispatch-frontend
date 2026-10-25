@@ -3,30 +3,19 @@ import { Loader2 } from 'lucide-react';
 import { AddressSearchField } from './AddressSearchField';
 import { HeadOperatorField } from './HeadOperatorField';
 import { StationMapPicker } from './StationMapPicker';
-import { StationStaffSection, type StationMemberDraft } from './StationStaffSection';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../common/ui';
 import { inputClass } from '../common/styles';
 import { MAP_CENTER } from '../fleetMeta';
 import { HOTLINE_PATTERN, stationAdminService } from '../../../services/admin/stationAdminService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { mapboxService } from '../../../services/mapboxService';
-import { UserRole } from '../../../types/auth';
 import { COVERAGE_RADIUS_KM, type StationResponseDto, type StationUpsertDto } from '../../../types/station';
 
 interface StationFormDrawerProps {
   initialStation: StationResponseDto | null;
   onClose: () => void;
-  /** `staffWarning`: trạm đã lưu nhưng còn nhân sự chưa gán / gỡ được. */
-  onSaved: (station: StationResponseDto, staffWarning: string | null) => void;
+  onSaved: (station: StationResponseDto) => void;
 }
-
-const toDraft = (m: StationResponseDto['staffMembers'][number]): StationMemberDraft => ({
-  id: m.id,
-  fullName: m.fullName,
-  email: m.email,
-  role: m.role,
-  movingFromStation: null,
-});
 
 // Giới hạn độ dài khớp validation của CreateStationDto / UpdateStationDto.
 const NAME_MAX = 200;
@@ -44,11 +33,6 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
     coverageRadiusKm: String(initialStation?.coverageRadiusKm ?? COVERAGE_RADIUS_KM.default),
   });
   const [headOperatorId, setHeadOperatorId] = useState<string | null>(initialStation?.headOperatorId ?? null);
-  // Operator gắn với trạm qua ô "Operator phụ trách" (headOperatorId); danh sách nhân sự chỉ quản lý đội cứu hộ.
-  const [initialMembers] = useState<StationMemberDraft[]>(() =>
-    (initialStation?.staffMembers ?? []).filter((m) => m.role !== UserRole.Operator).map(toDraft)
-  );
-  const [members, setMembers] = useState<StationMemberDraft[]>(initialMembers);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [geocoding, setGeocoding] = useState(false);
@@ -93,32 +77,16 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
       coverageRadiusKm: radiusKm,
       headOperatorId,
     };
-    let saved: StationResponseDto;
     try {
-      saved = initialStation
-        ? await stationAdminService.update(initialStation.id, body)
-        : await stationAdminService.create(body);
+      onSaved(
+        initialStation
+          ? await stationAdminService.update(initialStation.id, body)
+          : await stationAdminService.create(body)
+      );
     } catch (err) {
       setError(getApiErrorMessage(err));
       setSubmitting(false);
-      return;
     }
-
-    // Trạm đã lưu → gán người mới thêm, gỡ người bị bỏ ra. Lỗi từng người không hoàn tác trạm đã lưu.
-    const memberIds = new Set(members.map((m) => m.id));
-    const initialIds = new Set(initialMembers.map((m) => m.id));
-    const changes = [
-      ...members.filter((m) => !initialIds.has(m.id)).map((m) => ({ member: m, stationId: saved.id as string | null })),
-      ...initialMembers.filter((m) => !memberIds.has(m.id)).map((m) => ({ member: m, stationId: null })),
-    ];
-    const results = await Promise.allSettled(
-      changes.map((c) => stationAdminService.assignStaff(c.member.id, c.stationId))
-    );
-    const failed = changes.filter((_, i) => results[i].status === 'rejected').map((c) => c.member.fullName);
-    onSaved(
-      saved,
-      failed.length > 0 ? `Chưa cập nhật được nhân sự: ${failed.join(', ')}. Mở Sửa trạm để thử lại.` : null
-    );
   };
 
   return (
@@ -220,8 +188,6 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
       </label>
 
       <HeadOperatorField station={initialStation} value={headOperatorId} onChange={setHeadOperatorId} />
-
-      <StationStaffSection stationId={initialStation?.id ?? null} members={members} onChange={setMembers} />
 
       <FormField
         label="Vị trí trên bản đồ"
