@@ -16,18 +16,15 @@ import {
   EyeOff,
   Building2,
   Camera,
+  Loader2,
   Users,
   Trash2,
-  Plus,
-  Loader2,
-  Radio,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { authService } from '../../services/authService';
-import { userService } from '../../services/userService';
 import { mediaService } from '../../services/mediaService';
 import { getApiErrorMessage } from '../../services/apiClient';
-import { BloodType, Gender, UserRole, UserResponseDto, IceContactDto } from '../../types/auth';
+import { BloodType, Gender, UserRole, UserResponseDto } from '../../types/auth';
 import { getAvatarUrl, DEFAULT_AVATAR } from '../../utils/avatar';
 
 interface UserProfileModalProps {
@@ -59,16 +56,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
   const [currentMedications, setCurrentMedications] = useState('');
   const [mobilityLimitations, setMobilityLimitations] = useState('');
 
-  // ICE state
-  const [autoSendSmsOnSos, setAutoSendSmsOnSos] = useState<boolean>(true);
-  const [smsTemplate, setSmsTemplate] = useState<string>('');
-  const [iceContacts, setIceContacts] = useState<IceContactDto[]>([]);
-  const [isLoadingIce, setIsLoadingIce] = useState<boolean>(false);
-  const [newContactName, setNewContactName] = useState('');
-  const [newContactPhone, setNewContactPhone] = useState('');
-  const [newContactRel, setNewContactRel] = useState('');
-  const [newContactPrimary, setNewContactPrimary] = useState(false);
-  const [isAddingContact, setIsAddingContact] = useState(false);
+  // Emergency contact (ICE) state
+  const [emergencyContactName, setEmergencyContactName] = useState('');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
+  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState('');
+
+  // Special Info & Personal state
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [preferredLanguage, setPreferredLanguage] = useState('Tiếng Việt');
+  const [householdMembersCount, setHouseholdMembersCount] = useState('');
+  const [dependentsNote, setDependentsNote] = useState('');
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -81,20 +78,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-
-  const loadIceContacts = async () => {
-    try {
-      setIsLoadingIce(true);
-      const res = await userService.getIceContacts();
-      if (res.success && res.data) {
-        setIceContacts(res.data);
-      }
-    } catch {
-      // Ignore
-    } finally {
-      setIsLoadingIce(false);
-    }
-  };
 
   useEffect(() => {
     if (isOpen) {
@@ -111,16 +94,23 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         setAddress(fullUser.address || '');
         setCitizenIdNumber(fullUser.citizenIdNumber || '');
         setGender(fullUser.gender || Gender.Male);
+        setDateOfBirth(fullUser.dateOfBirth ? fullUser.dateOfBirth.split('T')[0] : '');
         setMedicalNotes(fullUser.medicalNotes || '');
         setChronicConditions((fullUser.chronicConditions || []).join(', '));
         setAllergies((fullUser.allergies || []).join(', '));
         setCurrentMedications((fullUser.currentMedications || []).join(', '));
         setMobilityLimitations((fullUser.mobilityLimitations || []).join(', '));
-        setAutoSendSmsOnSos(fullUser.autoSendSmsOnSos ?? true);
-        setSmsTemplate(fullUser.smsTemplate || 'CẤP CỨU: Tôi vừa bấm SOS tại tọa độ {lat},{lng}. Cần hỗ trợ khẩn cấp!');
+        setEmergencyContactName(fullUser.emergencyContactName || '');
+        setEmergencyContactPhone(fullUser.emergencyContactPhone || '');
+        setEmergencyContactRelationship(fullUser.emergencyContactRelationship || '');
+        setPreferredLanguage(fullUser.preferredLanguage || 'Tiếng Việt');
+        setHouseholdMembersCount(
+          fullUser.householdMembersCount !== undefined && fullUser.householdMembersCount !== null
+            ? String(fullUser.householdMembersCount)
+            : ''
+        );
+        setDependentsNote(fullUser.dependentsNote || '');
       }
-
-      loadIceContacts();
     } else {
       document.body.style.overflow = '';
     }
@@ -168,7 +158,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
       const cleanPhone = phoneNumber.trim();
       if (cleanPhone && !/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(cleanPhone)) {
-        setErrorMsg('Số điện thoại không đúng định dạng Việt Nam (ví dụ: 0912345678).');
+        setErrorMsg('Số điện thoại cá nhân không đúng định dạng Việt Nam (ví dụ: 0912345678).');
+        setIsLoading(false);
+        return;
+      }
+
+      const cleanIcePhone = emergencyContactPhone.trim();
+      if (cleanIcePhone && !/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(cleanIcePhone)) {
+        setErrorMsg('Số điện thoại người thân không đúng định dạng Việt Nam (ví dụ: 0912345678).');
         setIsLoading(false);
         return;
       }
@@ -177,6 +174,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         fullName: fullName.trim(),
         phoneNumber: cleanPhone ? cleanPhone : null,
         avatarUrl: avatarUrl.trim() || undefined,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString() : undefined,
         address: address.trim() || undefined,
         citizenIdNumber: citizenIdNumber.trim() || undefined,
         gender,
@@ -186,63 +184,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         allergies: splitClean(allergies),
         currentMedications: splitClean(currentMedications),
         mobilityLimitations: splitClean(mobilityLimitations),
-        autoSendSmsOnSos,
-        smsTemplate: smsTemplate.trim() || undefined,
+        preferredLanguage: preferredLanguage.trim() || undefined,
+        dependentsNote: dependentsNote.trim() || undefined,
+        householdMembersCount: householdMembersCount ? parseInt(householdMembersCount, 10) : undefined,
+        emergencyContactName: emergencyContactName.trim() || undefined,
+        emergencyContactPhone: cleanIcePhone ? cleanIcePhone : undefined,
+        emergencyContactRelationship: emergencyContactRelationship.trim() || undefined,
       });
 
       setSuccessMsg('Cập nhật thông tin hồ sơ thành công!');
       setTimeout(() => setSuccessMsg(''), 3500);
     } catch (err) {
       setErrorMsg(getApiErrorMessage(err, 'Không thể cập nhật hồ sơ. Vui lòng thử lại.'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAddIceContact = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newContactName.trim() || !newContactPhone.trim() || !newContactRel.trim()) {
-      setErrorMsg('Vui lòng điền đầy đủ tên, số điện thoại và mối quan hệ của người thân.');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setErrorMsg('');
-      const res = await userService.createIceContact({
-        name: newContactName.trim(),
-        phoneNumber: newContactPhone.trim(),
-        relationship: newContactRel.trim(),
-        isPrimary: newContactPrimary,
-      });
-
-      if (res.success && res.data) {
-        setIceContacts((prev) => [...prev, res.data]);
-        setNewContactName('');
-        setNewContactPhone('');
-        setNewContactRel('');
-        setNewContactPrimary(false);
-        setIsAddingContact(false);
-        setSuccessMsg('Thêm người thân khẩn cấp thành công!');
-        setTimeout(() => setSuccessMsg(''), 3000);
-      }
-    } catch (err) {
-      setErrorMsg(getApiErrorMessage(err, 'Không thể thêm người thân khẩn cấp.'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDeleteIceContact = async (id: string) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa người thân này khỏi danh bạ khẩn cấp?')) return;
-    try {
-      setIsLoading(true);
-      await userService.deleteIceContact(id);
-      setIceContacts((prev) => prev.filter((c) => c.id !== id));
-      setSuccessMsg('Xóa người thân khẩn cấp thành công!');
-      setTimeout(() => setSuccessMsg(''), 3000);
-    } catch (err) {
-      setErrorMsg(getApiErrorMessage(err, 'Không thể xóa người thân.'));
     } finally {
       setIsLoading(false);
     }
@@ -523,6 +476,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                    Ngày sinh
+                  </label>
+                  <input
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                     Giới tính
                   </label>
                   <select
@@ -538,6 +503,34 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                    Ngôn ngữ ưu tiên giao tiếp
+                  </label>
+                  <input
+                    type="text"
+                    value={preferredLanguage}
+                    onChange={(e) => setPreferredLanguage(e.target.value)}
+                    placeholder="VD: Tiếng Việt, Tiếng Anh..."
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                    Số thành viên hộ gia đình
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={householdMembersCount}
+                    onChange={(e) => setHouseholdMembersCount(e.target.value)}
+                    placeholder="VD: 4"
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
+                  />
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                     Đơn vị / Trạm trực
                   </label>
                   <div className="relative">
@@ -550,6 +543,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     />
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                  Ghi chú người phụ thuộc (trẻ nhỏ, người già, người khuyết tật)
+                </label>
+                <textarea
+                  rows={2}
+                  value={dependentsNote}
+                  onChange={(e) => setDependentsNote(e.target.value)}
+                  placeholder="VD: Gia đình có 1 bé sơ sinh 6 tháng và người già 80 tuổi đi lại khó khăn..."
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data resize-none"
+                />
               </div>
 
               <div className="space-y-1.5">
@@ -685,185 +691,71 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
             </form>
           )}
 
-          {/* TAB 3: ICE Contacts & SOS SMS */}
+          {/* TAB 3: Emergency Contact (ICE) */}
           {activeTab === 'ice' && (
-            <div className="space-y-6">
-              {/* SMS SOS Automated Notification Config */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 font-mono-data">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Radio className="w-4 h-4 text-red-600" />
-                    <span className="text-xs font-bold text-slate-800">Tự động gửi SMS toạ độ khi nhấn SOS</span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={autoSendSmsOnSos}
-                      onChange={(e) => setAutoSendSmsOnSos(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
-                  </label>
-                </div>
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 leading-relaxed font-mono-data">
+                Thông tin người thân khẩn cấp (In Case of Emergency) giúp tổng đài và đội cứu hộ liên hệ trực tiếp người nhà của bạn khi bạn gặp nạn hoặc bất tỉnh tại hiện trường.
+              </div>
 
-                {autoSendSmsOnSos && (
-                  <div className="space-y-1.5 pt-1">
-                    <label className="block text-[11px] uppercase text-slate-500 font-bold">
-                      Mẫu tin nhắn SMS khẩn cấp gửi người thân:
-                    </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                    Họ và tên người thân
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                     <input
                       type="text"
-                      value={smsTemplate}
-                      onChange={(e) => setSmsTemplate(e.target.value)}
-                      placeholder="CẤP CỨU: Tôi vừa bấm SOS tại tọa độ {lat},{lng}. Cần hỗ trợ khẩn cấp!"
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-red-500 font-mono"
+                      value={emergencyContactName}
+                      onChange={(e) => setEmergencyContactName(e.target.value)}
+                      placeholder="VD: Nguyễn Văn B"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                     />
-                    <p className="text-[10px] text-slate-400">
-                      Toạ độ thực tế sẽ được tự động điền vào tham số {'{lat}'} và {'{lng}'}.
-                    </p>
                   </div>
-                )}
-              </div>
-
-              {/* Contacts List */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-mono-data uppercase font-bold text-slate-700 flex items-center gap-2">
-                    <Users className="w-4 h-4 text-red-600" />
-                    <span>Danh bạ người thân khẩn cấp (ICE) ({iceContacts.length})</span>
-                  </h3>
-                  {!isAddingContact && (
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingContact(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-mono-data font-bold cursor-pointer transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Thêm người thân</span>
-                    </button>
-                  )}
                 </div>
 
-                {/* Add new contact form */}
-                {isAddingContact && (
-                  <form onSubmit={handleAddIceContact} className="p-4 rounded-xl border border-red-200 bg-red-50/40 space-y-3">
-                    <h4 className="text-xs font-bold text-red-700 font-mono-data uppercase">
-                      Thêm người liên hệ khẩn cấp mới
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      <input
-                        type="text"
-                        required
-                        value={newContactName}
-                        onChange={(e) => setNewContactName(e.target.value)}
-                        placeholder="Họ tên người thân"
-                        className="px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-red-500 font-mono"
-                      />
-                      <input
-                        type="tel"
-                        required
-                        value={newContactPhone}
-                        onChange={(e) => setNewContactPhone(e.target.value)}
-                        placeholder="Số điện thoại"
-                        className="px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-red-500 font-mono"
-                      />
-                      <input
-                        type="text"
-                        required
-                        value={newContactRel}
-                        onChange={(e) => setNewContactRel(e.target.value)}
-                        placeholder="Mối quan hệ (Bố/Mẹ/Vợ...)"
-                        className="px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-red-500 font-mono"
-                      />
-                    </div>
-                    <div className="flex items-center justify-between pt-1">
-                      <label className="flex items-center gap-2 text-xs text-slate-600 font-mono cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={newContactPrimary}
-                          onChange={(e) => setNewContactPrimary(e.target.checked)}
-                          className="rounded text-red-600 focus:ring-red-500"
-                        />
-                        <span>Đặt làm người liên hệ ưu tiên hàng đầu</span>
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setIsAddingContact(false)}
-                          className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800"
-                        >
-                          Hủy
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={isLoading}
-                          className="px-4 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold font-mono hover:bg-red-700"
-                        >
-                          Lưu người thân
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-                )}
-
-                {/* List items */}
-                {isLoadingIce ? (
-                  <div className="py-6 text-center text-xs text-slate-400 font-mono">Đang tải danh bạ ICE...</div>
-                ) : iceContacts.length === 0 ? (
-                  <div className="p-4 rounded-xl border border-dashed border-slate-300 text-center text-xs text-slate-500 font-mono">
-                    Chưa có người thân nào trong danh bạ ICE. Hãy thêm người thân để hệ thống tự động thông báo khi có sự cố.
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                    Số điện thoại người thân
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                    <input
+                      type="tel"
+                      value={emergencyContactPhone}
+                      onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                      placeholder="0912345678"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
+                    />
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {iceContacts.map((contact) => (
-                      <div
-                        key={contact.id}
-                        className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between font-mono-data text-xs hover:border-slate-300 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center font-bold">
-                            {contact.name.substring(0, 1)}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-900">{contact.name}</span>
-                              <span className="text-[10px] text-slate-500">({contact.relationship})</span>
-                              {contact.isPrimary && (
-                                <span className="px-1.5 py-0.2 rounded bg-red-100 text-red-700 text-[9px] font-bold">
-                                  Chính
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-slate-500 text-[11px]">{contact.phoneNumber}</span>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteIceContact(contact.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                          title="Xóa người thân"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                </div>
               </div>
 
-              <div className="pt-2 flex justify-end">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                  Mối quan hệ với bạn
+                </label>
+                <input
+                  type="text"
+                  value={emergencyContactRelationship}
+                  onChange={(e) => setEmergencyContactRelationship(e.target.value)}
+                  placeholder="VD: Bố, Mẹ, Vợ, Chồng, Anh/Chị/Em, Bạn thân..."
+                  className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
+                />
+              </div>
+
+              <div className="pt-3 flex justify-end">
                 <button
-                  type="button"
-                  onClick={handleUpdateProfile}
+                  type="submit"
                   disabled={isLoading}
                   className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-sm transition-all disabled:opacity-50 flex items-center gap-2 border border-red-600 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{isLoading ? 'Đang lưu...' : 'Lưu cấu hình SMS SOS'}</span>
+                  <span>{isLoading ? 'Đang lưu...' : 'Lưu người thân khẩn cấp'}</span>
                 </button>
               </div>
-            </div>
+            </form>
           )}
 
           {/* TAB 4: Change Password */}

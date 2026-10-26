@@ -75,7 +75,7 @@ const getIncidentCategory = (incident: IncidentResponseDto): IncidentCategory =>
 };
 
 const getIncidentSeverity = (sev?: string): SeverityLevel => {
-  if (sev === 'Level3' || sev === 'Level4' || sev === 'Level5') return 3;
+  if (sev === 'Level3') return 3;
   if (sev === 'Level2') return 2;
   return 1;
 };

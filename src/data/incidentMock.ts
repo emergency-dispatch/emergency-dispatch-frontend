@@ -102,9 +102,7 @@ export const SEVERITY_META: Record<IncidentSeverity, { label: string; badgeClass
   0: { label: 'Chưa phân loại', badgeClass: 'bg-slate-100 text-slate-500 border-slate-300' },
   1: { label: 'Cấp 1 · Thấp', badgeClass: 'bg-severity-1-bg text-severity-1-text border-severity-1-border' },
   2: { label: 'Cấp 2 · Trung bình', badgeClass: 'bg-severity-2-bg text-severity-2-text border-severity-2-border' },
-  3: { label: 'Cấp 3 · Cao', badgeClass: 'bg-severity-3-bg text-severity-3-text border-severity-3-border' },
-  4: { label: 'Cấp 4 · Nghiêm trọng', badgeClass: 'bg-severity-4-bg text-severity-4-text border-severity-4-border' },
-  5: { label: 'Cấp 5 · Nguy kịch', badgeClass: 'bg-severity-5-bg text-severity-5-text border-severity-5-border' },
+  3: { label: 'Cấp 3 · Cao / Nghiêm trọng', badgeClass: 'bg-severity-3-bg text-severity-3-text border-severity-3-border' },
 };
 
 // Tag cũ mà dữ liệu Staff portal vẫn dùng — HazardTagBadge tra ở đây khi tag không thuộc bộ mới.
@@ -124,7 +122,6 @@ export const SEVERITY_COLOR: Record<IncidentSeverity, string> = {
   0: '#64748B',
   1: '#10B981',
   2: '#F59E0B',
-  3: '#F97316',
-  4: '#DC2626',
-  5: '#8B5CF6',
+  3: '#DC2626',
 };
+
