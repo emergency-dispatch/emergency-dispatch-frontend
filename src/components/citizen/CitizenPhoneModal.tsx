@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Phone, PhoneCall, AlertCircle, CheckCircle2, Loader2, ShieldAlert, Trash2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { getApiErrorMessage } from '../../services/apiClient';
+import { useTranslation } from '../../i18n';
 
 interface CitizenPhoneModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { t } = useTranslation();
   const { user, updateProfile } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +50,7 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
         medicalNotes: u?.medicalNotes,
       });
 
-      setSuccessMsg('Đã xóa số điện thoại khỏi hồ sơ thành công!');
+      setSuccessMsg(t('citizen.sos.phoneModalDeleteSuccess'));
       onSuccess?.('');
       setTimeout(() => {
         onClose();
@@ -73,7 +75,7 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
     }
 
     if (!/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(cleanPhone)) {
-      setErrorMsg('Số điện thoại không đúng định dạng Việt Nam (ví dụ: 0912345678).');
+      setErrorMsg(t('citizen.sos.phoneModalInvalidError'));
       return;
     }
 
@@ -91,7 +93,7 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
         medicalNotes: u?.medicalNotes,
       });
 
-      setSuccessMsg('Đã lưu số điện thoại vào hồ sơ của bạn thành công!');
+      setSuccessMsg(t('citizen.sos.phoneModalSaveSuccess'));
       onSuccess?.(cleanPhone);
       setTimeout(() => {
         onClose();
@@ -110,7 +112,7 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
         <button
           onClick={onClose}
           className="absolute top-3 right-3 sm:top-4 sm:right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-          title="Đóng"
+          title={t('citizen.sos.btnDismiss')}
         >
           <X className="w-5 h-5" />
         </button>
@@ -122,10 +124,10 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
           </div>
           <div>
             <h3 className="text-lg font-bold text-slate-900">
-              Bổ sung số điện thoại liên lạc
+              {t('citizen.sos.phoneModalTitle')}
             </h3>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-              Lực lượng cứu hộ và y tế cần số điện thoại để liên hệ xác minh hiện trường, hướng dẫn sơ cứu ngay lập tức khi bạn phát tín hiệu SOS hoặc gặp nạn.
+              {t('citizen.sos.phoneModalDesc')}
             </p>
           </div>
         </div>
@@ -150,7 +152,7 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-mono font-bold uppercase text-slate-700 mb-1.5">
-              Số điện thoại của bạn
+              {t('citizen.sos.phoneModalFieldLabel')}
             </label>
             <div className="relative">
               <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
@@ -158,7 +160,7 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
                 type="tel"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="Ví dụ: 0912345678 (để trống để xóa)"
+                placeholder={t('citizen.sos.phoneModalPlaceholder')}
                 className="w-full pl-9 pr-9 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:border-red-500 font-mono shadow-xs"
                 autoFocus
                 disabled={isLoading}
@@ -168,14 +170,14 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
                   type="button"
                   onClick={() => setPhoneNumber('')}
                   className="absolute right-2.5 top-2.5 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                  title="Xóa trắng ô nhập"
+                  title="Clear"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              Số điện thoại này sẽ được lưu trực tiếp vào hồ sơ và tự động điền khi bạn bấm SOS. Có thể xóa hoặc đổi bất cứ lúc nào.
+              {t('citizen.sos.phoneModalHint')}
             </p>
           </div>
 
@@ -186,10 +188,10 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
                 onClick={handleClearPhone}
                 disabled={isLoading}
                 className="py-2.5 px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                title="Xóa số điện thoại khỏi hồ sơ"
+                title={t('citizen.sos.phoneModalBtnDelete')}
               >
                 <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                <span>Xóa SĐT</span>
+                <span>{t('citizen.sos.phoneModalBtnDelete')}</span>
               </button>
             )}
             <button
@@ -198,7 +200,7 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
               disabled={isLoading}
               className="flex-1 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
             >
-              Để sau
+              {t('citizen.sos.phoneModalBtnLater')}
             </button>
             <button
               type="submit"
@@ -208,12 +210,12 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Đang xử lý...</span>
+                  <span>{t('citizen.sos.phoneModalProcessing')}</span>
                 </>
               ) : (
                 <>
                   <PhoneCall className="w-4 h-4" />
-                  <span>{phoneNumber.trim() ? 'Lưu vào hồ sơ' : 'Xóa SĐT khỏi hồ sơ'}</span>
+                  <span>{phoneNumber.trim() ? t('citizen.sos.phoneModalBtnSave') : t('citizen.sos.phoneModalBtnRemove')}</span>
                 </>
               )}
             </button>
@@ -224,3 +226,4 @@ export const CitizenPhoneModal: React.FC<CitizenPhoneModalProps> = ({
     document.body
   );
 };
+

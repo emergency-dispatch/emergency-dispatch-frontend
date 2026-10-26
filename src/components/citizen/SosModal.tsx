@@ -33,7 +33,7 @@ import { UserRole } from '../../types/auth';
 import type { CreateIncidentDto, IncidentResponseDto } from '../../types/incident';
 import { CitizenPhoneModal } from './CitizenPhoneModal';
 import { formatCitizenIncidentStatus } from '../../utils/incidentFormat';
-import { useTranslation } from '../../i18n';
+import { useTranslation, dateLocale } from '../../i18n';
 
 interface SosModalProps {
   isOpen: boolean;
@@ -74,7 +74,7 @@ function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
 }
 
 export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenReports }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, isAuthenticated, updateProfile } = useAuth();
   const { isCooldown, cooldownLabel, triggerCooldown, clearCooldown } = useSosCooldown();
 
@@ -214,13 +214,13 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
       }
     } catch (err: any) {
       console.warn('Lỗi mở camera:', err);
-      let msg = 'Không thể bật camera. Vui lòng cấp quyền camera trong cài đặt trình duyệt.';
+      let msg: string = t('citizen.sos.cameraGenericError');
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        msg = 'Bạn đã từ chối cấp quyền camera. Vui lòng cho phép truy cập camera để chụp ảnh hiện trường.';
+        msg = t('citizen.sos.cameraDeniedError');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        msg = 'Không tìm thấy thiết bị camera trên máy này.';
+        msg = t('citizen.sos.cameraNotFoundError');
       } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        msg = 'Camera đang bị ứng dụng khác chiếm dụng.';
+        msg = t('citizen.sos.cameraBusyError');
       }
       setCameraError(msg);
       setIsCameraActive(false);
@@ -419,20 +419,20 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
 
     // Cooldown validation
     if (isCooldown) {
-      setErrorMsg(`Bạn vừa gửi một yêu cầu cứu hộ đang được xử lý. Vui lòng chờ ${cooldownLabel} trước khi gửi lại hoặc gọi trực tiếp 114 / 115.`);
+      setErrorMsg(t('citizen.sos.cooldownWaitError', { time: cooldownLabel }));
       return;
     }
 
     // Location validation
-    if (!locationAddress || locationAddress.startsWith('Không lấy được vị trí')) {
-      setErrorMsg('Chưa xác định được vị trí. Vui lòng nhập địa chỉ hoặc click chọn trên bản đồ.');
+    if (!locationAddress || locationAddress.startsWith('Không lấy được vị trí') || locationAddress.startsWith('Unable to determine')) {
+      setErrorMsg(t('citizen.sos.locationRequiredError'));
       return;
     }
 
     // Phone validation if provided
     const cleanPhone = reporterPhone.trim();
     if (cleanPhone && !/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(cleanPhone)) {
-      setErrorMsg('Số điện thoại liên lạc không đúng định dạng Việt Nam (ví dụ: 0912345678).');
+      setErrorMsg(t('citizen.sos.invalidPhoneError'));
       return;
     }
 
@@ -484,20 +484,26 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
         outsideKm: finalOutsideKm,
       });
       setShowOutOfAreaModal(true);
-      setErrorMsg(`Toạ độ đã chọn (${finalLat.toFixed(4)}, ${finalLng.toFixed(4)}) nằm ngoài phạm vi hoạt động của hệ thống ResQ (+${finalOutsideKm} km). Không thể gửi tín hiệu SOS.`);
+      setErrorMsg(
+        t('citizen.sos.outsideAreaCoordsError', {
+          lat: finalLat.toFixed(4),
+          lng: finalLng.toFixed(4),
+          km: finalOutsideKm,
+        })
+      );
       return;
     }
 
     // Camera photo requirement for SOS
     if (!photoFile) {
       if (!cameraError) {
-        setErrorMsg('Yêu cầu bắt buộc: Vui lòng chụp ảnh hiện trường từ camera trước khi gửi tín hiệu SOS.');
+        setErrorMsg(t('citizen.sos.photoRequiredError'));
         if (!isCameraActive) {
           startCamera();
         }
         return;
-      } else if (!cameraError.includes('Không tìm thấy thiết bị')) {
-        setErrorMsg('Yêu cầu bật camera chụp ảnh hiện trường. Vui lòng cho phép quyền camera hoặc tải ảnh hiện trường.');
+      } else if (!cameraError.includes('Không tìm thấy thiết bị') && !cameraError.includes('No camera device')) {
+        setErrorMsg(t('citizen.sos.camPermissionError'));
         return;
       }
     }
@@ -550,7 +556,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
       }
     } catch (err) {
       setSubmittingState('idle');
-      setErrorMsg(getApiErrorMessage(err, 'Gửi tín hiệu cứu nạn thất bại. Vui lòng thử lại hoặc gọi ngay 114/115.'));
+      setErrorMsg(getApiErrorMessage(err, t('citizen.sos.createError')));
     }
   };
 
@@ -567,14 +573,17 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     if (!createdIncident?.id) return;
     try {
       setIsCancelling(true);
-      await incidentService.cancel(createdIncident.id, 'Người dân bấm nhầm nút SOS trên Web');
+      await incidentService.cancel(
+        createdIncident.id,
+        i18n.language === 'en' ? 'Citizen cancelled accidental SOS press on Web' : 'Người dân bấm nhầm nút SOS trên Web'
+      );
       clearCooldown();
       const updated = { ...createdIncident, status: 'Cancelled' as const };
       setCreatedIncident(updated);
       window.dispatchEvent(new CustomEvent('resq_incident_updated', { detail: updated }));
       setShowCancelConfirm(false);
     } catch (err) {
-      setErrorMsg(getApiErrorMessage(err, 'Không thể hủy sự cố lúc này.'));
+      setErrorMsg(getApiErrorMessage(err, t('citizen.sos.cancelError')));
     } finally {
       setIsCancelling(false);
     }
@@ -1020,7 +1029,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 </div>
                 <div className="text-red-600 font-bold flex items-center gap-2">
                   <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
-                  <span>Connecting to CAD dispatch server...</span>
+                  <span>{t('citizen.sos.connectingCad')}</span>
                 </div>
               </div>
             </div>
@@ -1035,17 +1044,17 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
 
               <div className="space-y-1">
                 <span className="text-xs font-mono text-emerald-600 font-bold tracking-widest uppercase">
-                  TÍN HIỆU CỨU NẠN ĐÃ ĐƯỢC TIẾP NHẬN THÀNH CÔNG
+                  {t('citizen.sos.dispatchedBadge')}
                 </span>
                 <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-                  Trung tâm đang điều phối lực lượng
+                  {t('citizen.sos.dispatchedTitle')}
                 </h3>
                 <p className="text-sm text-slate-600">
-                  Mã sự cố:{' '}
+                  {t('citizen.sos.incidentCode')}{' '}
                   <strong className="text-red-600 font-mono text-base">
                     INC-{createdIncident.id.substring(0, 8).toUpperCase()}
                   </strong>{' '}
-                  — Trạng thái:{' '}
+                  — {t('citizen.sos.statusLabel')}{' '}
                   <strong className="text-slate-900 font-mono">
                     {formatIncidentStatus(createdIncident.status)}
                   </strong>
@@ -1057,16 +1066,18 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 <div className="space-y-1.5 pb-2.5 border-b border-slate-200">
                   <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px] uppercase tracking-wide">
                     <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                    <span>HIỆN TRƯỜNG:</span>
+                    <span>{t('citizen.sos.sceneLocationLabel')}</span>
                   </div>
                   <p className="text-slate-900 font-bold text-xs leading-relaxed break-words text-left pl-5">
                     {createdIncident.locationAddress}
                   </p>
                 </div>
                 <div className="flex items-center justify-between pt-0.5">
-                  <span className="text-slate-500 font-bold shrink-0 text-[11px] uppercase tracking-wide">THỜI GIAN TIẾP NHẬN:</span>
+                  <span className="text-slate-500 font-bold shrink-0 text-[11px] uppercase tracking-wide">
+                    {t('citizen.sos.timeReceivedLabel')}
+                  </span>
                   <span className="text-slate-900 font-bold">
-                    {new Date(createdIncident.createdAt).toLocaleTimeString('vi-VN')}
+                    {new Date(createdIncident.createdAt).toLocaleTimeString(dateLocale())}
                   </span>
                 </div>
               </div>
@@ -1075,13 +1086,13 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
               {createdIncident.status === 'Cancelled' ? (
                 <div className="p-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 text-xs font-mono font-bold flex items-center justify-center gap-2 max-w-xl mx-auto">
                   <XCircle className="w-4 h-4 text-slate-500" />
-                  <span>Sự cố này đã được hủy bỏ thành công</span>
+                  <span>{t('citizen.sos.cancelSuccessNotice')}</span>
                 </div>
               ) : showCancelConfirm ? (
                 <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-center space-y-2.5 animate-fadeIn max-w-xl mx-auto">
                   <div className="flex items-center justify-center gap-2 text-red-700 font-bold text-xs">
                     <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
-                    <span>Bạn có chắc chắn muốn hủy yêu cầu cứu hộ này (do bấm nhầm)?</span>
+                    <span>{t('citizen.sos.cancelConfirmPrompt')}</span>
                   </div>
                   <div className="flex items-center justify-center gap-2">
                     <button
@@ -1089,7 +1100,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                       onClick={() => setShowCancelConfirm(false)}
                       className="px-4 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all cursor-pointer"
                     >
-                      Không, giữ lại
+                      {t('citizen.sos.cancelConfirmKeep')}
                     </button>
                     <button
                       type="button"
@@ -1098,7 +1109,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                       className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
                     >
                       {isCancelling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
-                      <span>Xác nhận hủy yêu cầu</span>
+                      <span>{t('citizen.sos.cancelConfirmAction')}</span>
                     </button>
                   </div>
                 </div>
@@ -1110,7 +1121,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                     className="w-full py-2.5 rounded-xl border border-red-200 bg-red-50/70 hover:bg-red-100 text-red-600 font-bold text-xs uppercase tracking-wider font-mono transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <XCircle className="w-4 h-4 text-red-600" />
-                    <span>Hủy yêu cầu cứu hộ (Bấm nhầm)</span>
+                    <span>{t('citizen.sos.cancelAccidentalBtn')}</span>
                   </button>
                 </div>
               )}
@@ -1126,7 +1137,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                     className="w-full py-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs uppercase tracking-wider font-mono border border-slate-300 transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
                     <Clock className="w-4 h-4 text-red-600" />
-                    <span>Xem lịch sử báo cáo của bạn</span>
+                    <span>{t('citizen.sos.viewHistoryBtn')}</span>
                   </button>
                 )}
                 <button
@@ -1134,7 +1145,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                   onClick={handleReset}
                   className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider font-mono shadow-sm transition-all cursor-pointer"
                 >
-                  Đóng thông báo &amp; Giữ an toàn
+                  {t('citizen.sos.closeKeepSafeBtn')}
                 </button>
               </div>
             </div>
@@ -1169,7 +1180,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
               onClick={() => setShowOutOfAreaModal(false)}
               className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
             >
-              Đã hiểu &amp; Đóng
+              {t('citizen.sos.understoodCloseBtn')}
             </button>
           </div>
         </div>

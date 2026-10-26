@@ -53,4 +53,50 @@ export const citizenSosVi = {
   submittingTitle: 'Đang gửi tín hiệu cứu nạn SOS...',
   submittingDesc: 'Hệ thống đang truyền toạ độ hiện trường về máy chủ trung tâm và kích hoạt chuông báo động cứu hộ.',
   sceneLocated: 'Đã xác định vị trí hiện trường',
+  connectingCad: 'Đang kết nối đến máy chủ điều phối CAD...',
+
+  // Validation & Submit errors
+  photoRequiredError: 'Yêu cầu bắt buộc: Vui lòng chụp ảnh hiện trường từ camera trước khi gửi tín hiệu SOS.',
+  camPermissionError: 'Yêu cầu bật camera chụp ảnh hiện trường. Vui lòng cho phép quyền camera hoặc tải ảnh hiện trường.',
+  cooldownWaitError: 'Bạn vừa gửi một yêu cầu cứu hộ đang được xử lý. Vui lòng chờ {{time}} trước khi gửi lại hoặc gọi trực tiếp 114 / 115.',
+  locationRequiredError: 'Chưa xác định được vị trí. Vui lòng nhập địa chỉ hoặc click chọn trên bản đồ.',
+  invalidPhoneError: 'Số điện thoại liên lạc không đúng định dạng Việt Nam (ví dụ: 0912345678).',
+  outsideAreaCoordsError: 'Toạ độ đã chọn ({{lat}}, {{lng}}) nằm ngoài phạm vi hoạt động của hệ thống ResQ (+{{km}} km). Không thể gửi tín hiệu SOS.',
+  createError: 'Gửi tín hiệu cứu nạn thất bại. Vui lòng thử lại hoặc gọi ngay 114/115.',
+  cancelError: 'Không thể hủy sự cố lúc này.',
+
+  // Camera errors
+  cameraGenericError: 'Không thể bật camera. Vui lòng cấp quyền camera trong cài đặt trình duyệt.',
+  cameraDeniedError: 'Bạn đã từ chối cấp quyền camera. Vui lòng cho phép truy cập camera để chụp ảnh hiện trường.',
+  cameraNotFoundError: 'Không tìm thấy thiết bị camera trên máy này.',
+  cameraBusyError: 'Camera đang bị ứng dụng khác chiếm dụng.',
+
+  // Dispatched screen
+  dispatchedBadge: 'TÍN HIỆU CỨU NẠN ĐÃ ĐƯỢC TIẾP NHẬN THÀNH CÔNG',
+  dispatchedTitle: 'Trung tâm đang điều phối lực lượng',
+  sceneLocationLabel: 'HIỆN TRƯỜNG:',
+  timeReceivedLabel: 'THỜI GIAN TIẾP NHẬN:',
+  cancelSuccessNotice: 'Sự cố này đã được hủy bỏ thành công',
+  cancelConfirmPrompt: 'Bạn có chắc chắn muốn hủy yêu cầu cứu hộ này (do bấm nhầm)?',
+  cancelConfirmKeep: 'Không, giữ lại',
+  cancelConfirmAction: 'Xác nhận hủy yêu cầu',
+  cancelAccidentalBtn: 'HỦY YÊU CẦU CỨU HỘ (BẤM NHẦM)',
+  viewHistoryBtn: 'Xem lịch sử báo cáo của bạn',
+  closeKeepSafeBtn: 'Đóng thông báo & Giữ an toàn',
+  understoodCloseBtn: 'Đã hiểu & Đóng',
+
+  // Phone modal
+  phoneModalTitle: 'Bổ sung số điện thoại liên lạc',
+  phoneModalDesc: 'Lực lượng cứu hộ và y tế cần số điện thoại để liên hệ xác minh hiện trường, hướng dẫn sơ cứu ngay lập tức khi bạn phát tín hiệu SOS hoặc gặp nạn.',
+  phoneModalFieldLabel: 'Số điện thoại của bạn',
+  phoneModalPlaceholder: 'Ví dụ: 0912345678 (để trống để xóa)',
+  phoneModalHint: 'Số điện thoại này sẽ được lưu trực tiếp vào hồ sơ và tự động điền khi bạn bấm SOS. Có thể xóa hoặc đổi bất cứ lúc nào.',
+  phoneModalBtnDelete: 'Xóa SĐT',
+  phoneModalBtnLater: 'Để sau',
+  phoneModalBtnSave: 'Lưu vào hồ sơ',
+  phoneModalBtnRemove: 'Xóa SĐT khỏi hồ sơ',
+  phoneModalDeleteSuccess: 'Đã xóa số điện thoại khỏi hồ sơ thành công!',
+  phoneModalSaveSuccess: 'Đã lưu số điện thoại vào hồ sơ của bạn thành công!',
+  phoneModalProcessing: 'Đang xử lý...',
+  phoneModalInvalidError: 'Số điện thoại không đúng định dạng Việt Nam (ví dụ: 0912345678).',
 } as const;

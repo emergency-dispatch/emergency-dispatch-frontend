@@ -56,4 +56,51 @@ export const citizenSosEn: Messages<typeof citizenSosVi> = {
   submittingTitle: 'Sending Emergency SOS Signal...',
   submittingDesc: 'Transmitting scene coordinates to central server and activating emergency alarms.',
   sceneLocated: 'Scene location identified',
+  connectingCad: 'Connecting to CAD dispatch server...',
+
+  // Validation & Submit errors
+  photoRequiredError: 'Mandatory: Please capture a scene photo with the camera before transmitting SOS signal.',
+  camPermissionError: 'Camera scene photo required. Please allow camera permissions or upload a scene photo.',
+  cooldownWaitError: 'You recently submitted a rescue request that is being handled. Please wait {{time}} before resending or call 114 / 115 directly.',
+  locationRequiredError: 'Location not determined. Please enter an address or click on the map.',
+  invalidPhoneError: 'Emergency contact phone number is not valid in Vietnam format (e.g., 0912345678).',
+  outsideAreaCoordsError: 'Selected coordinates ({{lat}}, {{lng}}) are outside the ResQ service radius (+{{km}} km). Cannot transmit SOS.',
+  createError: 'Failed to transmit SOS signal. Please try again or call 114/115 immediately.',
+  cancelError: 'Unable to cancel this incident at this time.',
+
+  // Camera errors
+  cameraGenericError: 'Cannot open camera. Please grant camera permission in browser settings.',
+  cameraDeniedError: 'Camera permission was denied. Please allow camera access to take scene photos.',
+  cameraNotFoundError: 'No camera device found on this system.',
+  cameraBusyError: 'Camera is currently in use by another application.',
+
+  // Dispatched screen
+  dispatchedBadge: 'EMERGENCY RESCUE SIGNAL RECEIVED SUCCESSFULLY',
+  dispatchedTitle: 'Dispatch center is allocating emergency forces',
+  sceneLocationLabel: 'SCENE LOCATION:',
+  timeReceivedLabel: 'TIME RECEIVED:',
+  cancelSuccessNotice: 'This incident has been cancelled successfully',
+  cancelConfirmPrompt: 'Are you sure you want to cancel this rescue request (accidental press)?',
+  cancelConfirmKeep: 'No, keep it',
+  cancelConfirmAction: 'Confirm Cancellation',
+  cancelAccidentalBtn: 'CANCEL RESCUE REQUEST (ACCIDENTAL)',
+  viewHistoryBtn: 'View your report history',
+  closeKeepSafeBtn: 'Close & Stay Safe',
+  understoodCloseBtn: 'Understood & Close',
+
+  // Phone modal
+  phoneModalTitle: 'Add Emergency Contact Phone',
+  phoneModalDesc: 'Rescue and medical teams need your phone number to verify the scene and provide immediate first-aid instructions when you transmit SOS or encounter danger.',
+  phoneModalFieldLabel: 'Your phone number',
+  phoneModalPlaceholder: 'e.g., 0912345678 (leave empty to remove)',
+  phoneModalHint: 'This phone number will be saved to your profile and autofilled when pressing SOS. Can be modified or removed at any time.',
+  phoneModalBtnDelete: 'Delete Phone',
+  phoneModalBtnLater: 'Later',
+  phoneModalBtnSave: 'Save to profile',
+  phoneModalBtnRemove: 'Remove phone from profile',
+  phoneModalDeleteSuccess: 'Phone number removed from profile successfully!',
+  phoneModalSaveSuccess: 'Phone number saved to your profile successfully!',
+  phoneModalProcessing: 'Processing...',
+  phoneModalInvalidError: 'Emergency contact phone number is not valid in Vietnam format (e.g., 0912345678).',
 };
+
