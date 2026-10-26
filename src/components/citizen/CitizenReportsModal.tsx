@@ -26,7 +26,9 @@ import { UserRole } from '../../types/auth';
 import { incidentService, type CitizenTrackingDto } from '../../services/incidentService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { IncidentResponseDto } from '../../types/incident';
+import { getIncidentVisualMeta } from '../../utils/incidentFormat';
 import { CitizenLiveTrackingMapModal } from './CitizenLiveTrackingMapModal';
+import { useTranslation } from '../../i18n';
 
 interface CitizenReportsModalProps {
   isOpen: boolean;
@@ -39,6 +41,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
   onClose,
   onSelectIncident,
 }) => {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [incidents, setIncidents] = useState<IncidentResponseDto[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -50,13 +53,6 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
   const [trackingData, setTrackingData] = useState<CitizenTrackingDto | null>(null);
   const [isTrackingLoading, setIsTrackingLoading] = useState<boolean>(false);
   const [trackingError, setTrackingError] = useState<string>('');
-
-  // Cancel incident modal state for Citizen
-  const [cancellingIncident, setCancellingIncident] = useState<IncidentResponseDto | null>(null);
-  const [cancelReason, setCancelReason] = useState<string>('Bấm nhầm SOS / Thử nghiệm');
-  const [customReason, setCustomReason] = useState<string>('');
-  const [isCancelling, setIsCancelling] = useState<boolean>(false);
-  const [cancelError, setCancelError] = useState<string>('');
 
   const fetchReports = useCallback(async () => {
     try {
@@ -146,7 +142,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Đã xử lý xong</span>
+            <span>{t('citizen.reports.status.completed')}</span>
           </span>
         );
       case 'Dispatched':
@@ -154,27 +150,27 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold font-mono bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
             <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Đang điều phối ứng cứu</span>
+            <span>{status === 'Dispatched' ? t('citizen.reports.status.dispatched') : t('citizen.reports.status.inProgress')}</span>
           </span>
         );
       case 'Verified':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200">
-            <span>Đã xác minh</span>
+            <span>{t('citizen.reports.status.verified')}</span>
           </span>
         );
       case 'Cancelled':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold font-mono bg-slate-100 text-slate-500 border border-slate-200">
             <Ban className="w-3.5 h-3.5" />
-            <span>Đã hủy / Báo sai</span>
+            <span>{t('citizen.reports.status.cancelled')}</span>
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold font-mono bg-red-50 text-red-600 border border-red-200">
             <Clock className="w-3.5 h-3.5" />
-            <span>Chờ tiếp nhận</span>
+            <span>{t('citizen.reports.status.pending')}</span>
           </span>
         );
     }
@@ -189,74 +185,40 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
     setTrackingIncident(null);
   };
 
-  const handleOpenCancelModal = (incident: IncidentResponseDto) => {
-    setCancellingIncident(incident);
-    setCancelReason('Bấm nhầm SOS / Thử nghiệm');
-    setCustomReason('');
-    setCancelError('');
-  };
-
-  const handleCloseCancelModal = () => {
-    if (isCancelling) return;
-    setCancellingIncident(null);
-    setCancelError('');
-  };
-
-  const handleConfirmCancel = async () => {
-    if (!cancellingIncident) return;
-    const finalReason = cancelReason === 'Khác' ? customReason.trim() : cancelReason;
-    if (!finalReason) {
-      setCancelError('Vui lòng chọn hoặc nhập lý do hủy báo cáo.');
-      return;
-    }
-
-    try {
-      setIsCancelling(true);
-      setCancelError('');
-      await incidentService.cancel(cancellingIncident.id, finalReason);
-      await fetchReports();
-      setCancellingIncident(null);
-    } catch (err) {
-      setCancelError(getApiErrorMessage(err, 'Không thể hủy sự cố lúc này.'));
-    } finally {
-      setIsCancelling(false);
-    }
-  };
-
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-3xl max-h-[90vh] rounded-2xl bg-white border border-slate-200 shadow-2xl text-slate-900 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 bg-slate-950/40 backdrop-blur-sm animate-fadeIn">
+      <div className="relative w-full max-w-3xl h-full sm:h-auto max-h-[100dvh] sm:max-h-[90vh] rounded-none sm:rounded-2xl bg-white border-0 sm:border border-slate-200 shadow-2xl text-slate-900 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 text-red-600 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-200 bg-white shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-50 border border-red-200 text-red-600 flex items-center justify-center shrink-0">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>Lịch sử báo cáo sự cố &amp; SOS</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold border border-slate-200">
-                  {incidents.length} sự cố
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-1.5 sm:gap-2">
+                <span>{t('citizen.reports.modalTitle')}</span>
+                <span className="text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold border border-slate-200">
+                  {incidents.length}
                 </span>
               </h2>
-              <p className="text-xs text-slate-500 font-mono">
-                Các tín hiệu SOS và thông báo cứu nạn đã gửi đến Trung tâm Điều phối CAD
+              <p className="text-[10px] sm:text-xs text-slate-500 font-mono line-clamp-1">
+                {t('citizen.reports.modalSubtitle')}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={fetchReports}
               disabled={isLoading}
-              className="p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
-              title="Làm mới"
+              className="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              title={t('citizen.reports.refresh')}
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-red-600' : ''}`} />
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -265,7 +227,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
 
         {/* Error Alert */}
         {errorMsg && (
-          <div className="px-6 pt-3 shrink-0">
+          <div className="px-4 pt-2.5 sm:px-6 sm:pt-3 shrink-0">
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
               <span>{errorMsg}</span>
@@ -274,44 +236,61 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
         )}
 
         {/* Body List */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4">
           {isLoading && incidents.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-500 font-mono space-y-2">
               <RefreshCw className="w-6 h-6 animate-spin text-red-600 mx-auto" />
-              <p>Đang tải danh sách lịch sử sự cố từ máy chủ...</p>
+              <p>{t('citizen.reports.loading')}</p>
             </div>
           ) : incidents.length === 0 ? (
             <div className="py-12 text-center space-y-3 font-mono">
               <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                 <ShieldCheck className="w-6 h-6" />
               </div>
-              <p className="text-sm font-bold text-slate-700">Bạn chưa có báo cáo sự cố nào</p>
+              <p className="text-sm font-bold text-slate-700">{t('citizen.reports.emptyTitle')}</p>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Khi bạn bấm nút "Phát tín hiệu cứu nạn SOS", thông tin sự cố và tiến trình xử lý của lực lượng cứu hộ sẽ được lưu lại tại đây.
+                {t('citizen.reports.emptyDesc')}
               </p>
             </div>
           ) : (
             incidents.map((incident) => {
-              const dateFormatted = new Date(incident.createdAt).toLocaleString('vi-VN', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              });
+              const visual = getIncidentVisualMeta(incident);
+              const isTypeKnown = visual.category === 'fire' || visual.category === 'accident';
+              const displayTitle = isTypeKnown
+                ? visual.label
+                : incident.title && !incident.title.includes('Tín hiệu') && !incident.title.includes('SOS')
+                ? incident.title
+                : t('citizen.reports.incidentTypes.sosSignal');
+              const dateFormatted = new Date(incident.createdAt).toLocaleString(
+                i18n.language === 'en' ? 'en-US' : 'vi-VN',
+                {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                }
+              );
+              const displayDesc = i18n.language === 'en' && incident.description?.startsWith('Tín hiệu cứu nạn SOS từ người dân tại')
+                ? incident.description.replace('Tín hiệu cứu nạn SOS từ người dân tại', 'Emergency SOS signal from citizen at')
+                : incident.description;
 
               return (
                 <div
                   key={incident.id}
                   className="p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-all shadow-xs space-y-3"
                 >
-                  {/* Item Top */}
+                  {/* Item Top: Category, Code, Status & Date */}
                   <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-xs font-extrabold text-red-600">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold border ${visual.badgeClass}`}>
+                          <span>{visual.icon}</span>
+                          <span>{visual.label}</span>
+                        </span>
+                        <span className="font-mono text-xs font-extrabold text-slate-500">
                           INC-{incident.id.substring(0, 8).toUpperCase()}
                         </span>
                         {getStatusBadge(incident.status)}
                       </div>
-                      <h3 className="text-sm font-bold text-slate-900">{incident.title}</h3>
+                      <h3 className="text-sm font-bold text-slate-900">{displayTitle}</h3>
                     </div>
 
                     <div className="text-right text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
@@ -327,33 +306,45 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                       <span className="truncate">{incident.locationAddress}</span>
                     </div>
 
-                    {incident.description && (
+                    {displayDesc && (
                       <p className="text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-[11px] leading-relaxed">
-                        {incident.description}
+                        {displayDesc}
                       </p>
                     )}
 
-                    {incident.aiClassification && (
-                      <div className="p-2.5 rounded-lg bg-red-50/50 border border-red-100 text-[11px] flex items-start gap-2">
-                        <Sparkles className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
-                        <div>
-                          <span className="font-bold text-red-700">Đánh giá AI: </span>
-                          <span className="text-slate-700">{incident.aiClassification.summary}</span>
-                          {incident.aiClassification.hazardTags && incident.aiClassification.hazardTags.length > 0 && (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              {incident.aiClassification.hazardTags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="px-1.5 py-0.2 rounded bg-white text-red-600 border border-red-200 text-[10px] font-bold"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                    {(() => {
+                      const isAiKnown = incident.aiClassification?.isSuccess === true &&
+                        incident.aiClassification?.eventType !== 'None' &&
+                        Boolean(incident.aiClassification?.summary) &&
+                        !/không thể phân loại|cần operator|đánh giá thủ công|unclassified|needshumanreview/i.test(incident.aiClassification?.summary || '');
+                      if (!isAiKnown || !incident.aiClassification) return null;
+                      const cleanSummary = incident.aiClassification.summary?.replace(/^\[.*?\]\s*/, '');
+                      const filteredTags = (incident.aiClassification.hazardTags || []).filter(
+                        (tag) => !/unclassified|needshumanreview/i.test(tag)
+                      );
+
+                      return (
+                        <div className="p-2.5 rounded-lg bg-red-50/50 border border-red-100 text-[11px] flex items-start gap-2">
+                          <Sparkles className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-bold text-red-700">{t('citizen.reports.sceneAssessment')} </span>
+                            <span className="text-slate-700">{cleanSummary}</span>
+                            {filteredTags.length > 0 && (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                {filteredTags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="px-1.5 py-0.2 rounded bg-white text-red-600 border border-red-200 text-[10px] font-bold"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
 
                   {/* Attached Media Photos */}
@@ -369,7 +360,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                         >
                           <img
                             src={media.mediaUrl}
-                            alt="Hiện trường"
+                            alt="Media"
                             className="w-14 h-14 object-cover rounded-lg border border-slate-200 group-hover:opacity-85 transition-opacity"
                           />
                           <div className="absolute inset-0 bg-black/30 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
@@ -381,7 +372,6 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                   )}
 
                   {/* Item Actions */}
-                  {/* Item Actions */}
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-end flex-wrap gap-2">
                     <div className="flex items-center gap-2">
                       {incident.status === 'Dispatched' || incident.status === 'InProgress' ? (
@@ -391,17 +381,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-mono font-bold transition-all shadow-xs cursor-pointer"
                         >
                           <Navigation className="w-3.5 h-3.5 animate-pulse" />
-                          <span>Theo dõi xe cứu hộ</span>
-                        </button>
-                      ) : null}
-
-                      {incident.status === 'Pending' || incident.status === 'AiProcessed' ? (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCancelModal(incident)}
-                          className="text-[11px] font-mono text-slate-500 hover:text-red-600 font-bold transition-colors cursor-pointer"
-                        >
-                          Hủy báo cáo này
+                          <span>{t('citizen.reports.trackRescueUnit')}</span>
                         </button>
                       ) : null}
                     </div>
@@ -424,7 +404,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900">
-                    Theo dõi xe cứu hộ
+                    {t('citizen.reports.trackRescueUnit')}
                   </h3>
                   <p className="text-xs font-mono text-red-600 font-bold">
                     #INC-{trackingIncident.id.substring(0, 8).toUpperCase()}
@@ -443,13 +423,13 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
             {isTrackingLoading ? (
               <div className="py-8 text-center space-y-2">
                 <RefreshCw className="w-6 h-6 animate-spin text-red-600 mx-auto" />
-                <p className="text-xs font-mono text-slate-500">Đang đồng bộ tọa độ GPS xe cứu hộ realtime...</p>
+                <p className="text-xs font-mono text-slate-500">{t('citizen.reports.connectingToRescueUnit')}</p>
               </div>
             ) : trackingError ? (
               <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 space-y-2">
                 <div className="flex items-center gap-2 font-bold">
                   <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-                  <span>Chưa thể kết nối xe cứu hộ</span>
+                  <span>{t('citizen.reports.cannotConnectRescueUnit')}</span>
                 </div>
                 <p>{trackingError}</p>
               </div>
@@ -458,25 +438,25 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                 {/* Status Hero Box */}
                 <div className="p-4 rounded-xl bg-slate-900 text-white space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">TRẠNG THÁI XE:</span>
+                    <span className="text-slate-400">{t('citizen.reports.vehicleStatus')}</span>
                     <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
                       {trackingData.dispatchStatus === 'EnRoute'
-                        ? 'ĐANG DI CHUYỂN ĐẾN'
+                        ? t('citizen.reports.statusEnRoute')
                         : trackingData.dispatchStatus === 'OnScene'
-                          ? 'ĐÃ ĐẾN HIỆN TRƯỜNG'
+                          ? t('citizen.reports.statusOnScene')
                           : trackingData.dispatchStatus}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
                     <div>
-                      <div className="text-[10px] text-slate-400">DỰ KIẾN ĐẾN (ETA):</div>
+                      <div className="text-[10px] text-slate-400">{t('citizen.reports.etaTitle')}</div>
                       <div className="text-lg font-extrabold text-amber-400">
-                        ~{trackingData.estimatedArrivalMinutes || 3} phút
+                        ~{trackingData.estimatedArrivalMinutes || 3} {t('citizen.reports.minutes')}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-slate-400">KHOẢNG CÁCH:</div>
+                      <div className="text-[10px] text-slate-400">{t('citizen.reports.distanceTitle')}</div>
                       <div className="text-lg font-extrabold text-white">
                         {trackingData.distanceKm ? trackingData.distanceKm.toFixed(1) : '1.2'} km
                       </div>
@@ -487,16 +467,16 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                 {/* Vehicle Details */}
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-slate-700">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">BIỂN SỐ XE:</span>
-                    <span className="font-bold text-slate-900">{trackingData.plateNumber || 'Chưa định danh'}</span>
+                    <span className="text-slate-500">{t('citizen.reports.plateNumberTitle')}</span>
+                    <span className="font-bold text-slate-900">{trackingData.plateNumber || t('citizen.reports.unidentified')}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">CHỦNG LOẠI:</span>
-                    <span className="font-bold text-slate-900">{trackingData.unitTypeName || 'Xe Cứu Hộ'}</span>
+                    <span className="text-slate-500">{t('citizen.reports.unitTypeTitle')}</span>
+                    <span className="font-bold text-slate-900">{trackingData.unitTypeName || t('citizen.reports.rescueUnitDefault')}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">ĐƠN VỊ TRỰC:</span>
-                    <span className="font-bold text-slate-900">{trackingData.stationName || 'Trạm CAD'}</span>
+                    <span className="text-slate-500">{t('citizen.reports.stationTitle')}</span>
+                    <span className="font-bold text-slate-900">{trackingData.stationName || t('citizen.reports.cadStationDefault')}</span>
                   </div>
                 </div>
 
@@ -507,7 +487,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                     className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-sm"
                   >
                     <PhoneCall className="w-4 h-4" />
-                    <span>Gọi tổng đài trạm ({trackingData.stationPhoneNumber})</span>
+                    <span>{t('citizen.reports.callStation')} ({trackingData.stationPhoneNumber})</span>
                   </a>
                 )}
               </div>
@@ -518,119 +498,8 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
               onClick={handleCloseTracking}
               className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono font-bold text-xs transition-colors cursor-pointer"
             >
-              Đóng cửa sổ
+              {t('citizen.reports.closeWindow')}
             </button>
-          </div>
-        </div>
-      )}
-      {/* Citizen Cancel Incident Confirmation Modal */}
-      {cancellingIncident && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-red-50 text-red-600 border border-red-200">
-                  <AlertTriangle className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">
-                    Hủy Báo Cáo Sự Cố
-                  </h3>
-                  <p className="text-xs font-mono text-red-600 font-bold">
-                    #INC-{cancellingIncident.id.substring(0, 8).toUpperCase()}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseCancelModal}
-                disabled={isCancelling}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {cancelError && (
-              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
-                <span>{cancelError}</span>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Bạn có chắc chắn muốn hủy yêu cầu cứu hộ này? Vui lòng chọn hoặc ghi rõ lý do để trung tâm CAD nắm thông tin:
-              </p>
-
-              <div className="space-y-2">
-                {[
-                  'Bấm nhầm nút SOS / Thử nghiệm',
-                  'Tình huống đã được tự xử lý an toàn',
-                  'Đã có người khác gọi cứu hộ hỗ trợ',
-                  'Khác',
-                ].map((reason) => (
-                  <label
-                    key={reason}
-                    onClick={() => setCancelReason(reason)}
-                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all ${
-                      cancelReason === reason
-                        ? 'bg-red-50/80 border-red-500 text-red-700 font-bold'
-                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="cancelReason"
-                      checked={cancelReason === reason}
-                      onChange={() => setCancelReason(reason)}
-                      className="accent-red-600"
-                    />
-                    <span>{reason === 'Khác' ? 'Lý do khác...' : reason}</span>
-                  </label>
-                ))}
-              </div>
-
-              {cancelReason === 'Khác' && (
-                <textarea
-                  value={customReason}
-                  onChange={(e) => setCustomReason(e.target.value)}
-                  placeholder="Nhập chi tiết lý do hủy báo cáo..."
-                  rows={2}
-                  className="w-full p-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500 font-sans"
-                  autoFocus
-                />
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={handleCloseCancelModal}
-                disabled={isCancelling}
-                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono font-bold text-xs transition-colors cursor-pointer"
-              >
-                Quay lại
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmCancel}
-                disabled={isCancelling}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-mono font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-              >
-                {isCancelling ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Đang hủy...</span>
-                  </>
-                ) : (
-                  <>
-                    <Ban className="w-3.5 h-3.5" />
-                    <span>Xác nhận hủy</span>
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </div>
       )}

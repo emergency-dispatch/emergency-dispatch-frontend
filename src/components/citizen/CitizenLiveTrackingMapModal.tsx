@@ -291,12 +291,24 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
     if (!mapRef.current || !mapLoaded) return;
     const map = mapRef.current;
 
+    if (incident.status === 'Cancelled' || incident.status === 'Completed') {
+      if (incidentMarkerRef.current) {
+        incidentMarkerRef.current.remove();
+        incidentMarkerRef.current = null;
+      }
+      return;
+    }
+
     if (!incidentMarkerRef.current && incident.latitude && incident.longitude) {
       const el = document.createElement('div');
       const isFire =
         incident.title?.toLowerCase().includes('cháy') ||
         incident.description?.toLowerCase().includes('cháy');
-      const category: IncidentCategory = isFire ? 'fire' : 'accident';
+      const isAccident =
+        incident.title?.toLowerCase().includes('tai nạn') ||
+        incident.description?.toLowerCase().includes('tai nạn') ||
+        incident.title?.toLowerCase().includes('va chạm');
+      const category: IncidentCategory = isFire ? 'fire' : isAccident ? 'accident' : 'unknown';
       const severity: SeverityLevel =
         incident.severity === 'Level3' ? 3 : incident.severity === 'Level2' ? 2 : 1;
 
@@ -459,14 +471,14 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
   const isOnScene = dispatchStatus === 'OnScene';
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-4xl h-[92vh] sm:h-[86vh] max-h-[850px] rounded-3xl bg-white border border-slate-200 shadow-2xl flex flex-col overflow-hidden text-slate-900">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-0 sm:p-5 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
+      <div className="relative w-full max-w-4xl h-full sm:h-[86vh] max-h-[100dvh] sm:max-h-[850px] rounded-none sm:rounded-3xl bg-white border-0 sm:border border-slate-200 shadow-2xl flex flex-col overflow-hidden text-slate-900">
         
         {/* Top Header */}
-        <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="relative p-2 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30">
-              <Truck className="w-5 h-5 text-blue-400" />
+        <div className="px-4 py-3 sm:px-5 sm:py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0 border-b border-slate-800">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="relative p-1.5 sm:p-2 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30">
+              <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
@@ -474,14 +486,14 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm sm:text-base font-bold text-white tracking-wide">
+                <h3 className="text-xs sm:text-base font-bold text-white tracking-wide">
                   Theo dõi lực lượng ứng cứu Realtime
                 </h3>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                <span className="px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
                   GPS LIVE
                 </span>
               </div>
-              <p className="text-[11px] font-mono text-slate-400">
+              <p className="text-[10px] sm:text-[11px] font-mono text-slate-400 line-clamp-1">
                 Mã sự cố: <span className="text-amber-400 font-bold">#INC-{incident.id.substring(0, 8).toUpperCase()}</span> · {incident.title || 'Sự cố khẩn cấp'}
               </p>
             </div>
@@ -490,17 +502,17 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content Body: Map + Info Sidebar */}
-        <div className="flex-1 min-h-0 flex flex-col lg:flex-row relative">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row relative overflow-y-auto lg:overflow-hidden">
           
           {/* Map View Area */}
-          <div className="flex-1 relative h-full w-full min-h-[320px] bg-slate-100">
+          <div className="relative h-[280px] sm:h-[360px] lg:h-full w-full bg-slate-100 shrink-0 lg:shrink lg:flex-1">
             <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
             {/* Floating Top Controls inside Map */}
