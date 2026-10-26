@@ -13,8 +13,10 @@ import { BackToTop } from '../components/common/BackToTop';
 import { useAuth } from '../hooks/useAuth';
 import { UserRole } from '../types/auth';
 import { mapboxService } from '../services/mapboxService';
+import { useTranslation } from '../i18n';
 
 export const HomePage: React.FC = () => {
+  const { t } = useTranslation();
   const { user, isAuthenticated } = useAuth();
   const [sosModalOpen, setSosModalOpen] = useState(false);
   const [reportsModalOpen, setReportsModalOpen] = useState(false);
@@ -67,7 +69,7 @@ export const HomePage: React.FC = () => {
       {isCitizenWithoutPhone && (
         <aside
           aria-label="Cảnh báo bổ sung số điện thoại"
-          className="fixed top-[74px] right-3 sm:right-6 z-40 sm:max-w-md w-auto animate-fadeIn"
+          className="fixed top-[74px] left-3 right-3 sm:left-auto sm:right-6 z-40 sm:max-w-md w-auto animate-fadeIn"
         >
           <div className="relative bg-white/95 backdrop-blur-md border border-amber-300 rounded-2xl shadow-xl hover:shadow-2xl hover:border-amber-400 p-3 sm:p-3.5 text-slate-900 transition-all duration-300">
             <div className="flex items-center gap-3">
@@ -84,11 +86,11 @@ export const HomePage: React.FC = () => {
               <div className="flex-1 min-w-0 pr-1">
                 <div className="flex items-center gap-2">
                   <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                    Chưa có số điện thoại
+                    {t('citizen.landing.phoneMissingTitle')}
                   </h4>
                 </div>
                 <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed text-pretty">
-                  Bổ sung SĐT để lực lượng cứu hộ liên hệ xác minh hiện trường khi&nbsp;gửi&nbsp;SOS.
+                  {t('citizen.landing.phoneMissingDesc')}
                 </p>
               </div>
 
@@ -99,7 +101,7 @@ export const HomePage: React.FC = () => {
                 className="shrink-0 py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-slate-950 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all cursor-pointer whitespace-nowrap"
               >
                 <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                <span>Cập nhật</span>
+                <span>{t('citizen.landing.phoneMissingBtn')}</span>
               </button>
             </div>
           </div>
@@ -132,6 +134,18 @@ export const HomePage: React.FC = () => {
 
       {/* Footer */}
       <Footer onOpenSos={() => setSosModalOpen(true)} />
+
+      {/* Mobile Floating Sticky SOS Action Bar for Citizen Web */}
+      <div className="fixed bottom-3 left-3 right-3 z-40 sm:hidden animate-fadeIn">
+        <button
+          type="button"
+          onClick={() => setSosModalOpen(true)}
+          className="w-full py-3 px-4 rounded-2xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs uppercase tracking-wider shadow-xl shadow-red-600/40 border border-red-500 flex items-center justify-center gap-2 transition-all cursor-pointer"
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
+          <span>{t('citizen.landing.mobileSosBtn')}</span>
+        </button>
+      </div>
 
       {/* Emergency SOS Modal with Mapbox */}
       <SosModal

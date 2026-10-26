@@ -1,0 +1,15 @@
+export const citizenLayoutVi = {
+  features: 'Tính năng & Giải pháp',
+  hotlines: 'Đường dây nóng',
+  reportSos: 'Báo Cứu Nạn SOS',
+  cooldownLabel: 'Chờ gửi lại ({{time}})',
+  signIn: 'Đăng nhập',
+  signOut: 'Đăng xuất',
+  profile: 'Hồ sơ cá nhân',
+  settings: 'Đổi mật khẩu & Cài đặt',
+  myReports: 'Lịch sử báo sự cố',
+  staffPortal: 'Tác chiến Cứu hộ',
+  cadPortal: 'Trung tâm CAD',
+  language: 'Ngôn ngữ',
+  menu: 'Menu điều hướng',
+} as const;

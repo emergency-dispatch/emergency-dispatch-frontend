@@ -5,12 +5,15 @@ import {
   ShieldCheck, 
   Lock
 } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 interface FooterProps {
   onOpenSos: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ onOpenSos }) => {
+  const { t } = useTranslation();
+
   return (
     <footer className="bg-slate-50 border-t border-slate-200 text-slate-600 font-sans relative overflow-hidden">
       
@@ -32,7 +35,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenSos }) => {
             </div>
 
             <p className="text-sm text-slate-600 leading-relaxed max-w-sm">
-              Hệ thống điều phối cứu hộ khẩn cấp thời gian thực Khu Công nghệ cao / KCN ứng dụng AI phân loại mức độ nguy hiểm sự cố (Cháy nổ, Tai nạn, Ùn tắc nội khu).
+              {t('citizen.landing.footerDesc')}
             </p>
 
             <div className="pt-2 flex flex-wrap items-center gap-3 text-xs font-mono text-slate-600">
@@ -49,7 +52,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenSos }) => {
           {/* Col 2: Quick Role Portals (2 cols) */}
           <div className="lg:col-span-2 space-y-4">
             <h4 className="text-xs font-mono uppercase tracking-widest text-slate-900 font-bold">
-              Cổng tương tác
+              {t('citizen.landing.footerPortals')}
             </h4>
             <ul className="space-y-2.5 text-sm">
               <li>
@@ -57,28 +60,28 @@ export const Footer: React.FC<FooterProps> = ({ onOpenSos }) => {
                   onClick={onOpenSos}
                   className="text-slate-600 hover:text-red-600 transition-colors flex items-center gap-2 cursor-pointer"
                 >
-                  <span>Báo cáo SOS trực tuyến</span>
-                  <span className="text-[10px] font-mono bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-bold shrink-0">1-CHẠM</span>
+                  <span>{t('citizen.landing.footerOnlineSos')}</span>
+                  <span className="text-[10px] font-mono bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-bold shrink-0">{t('citizen.landing.footer1Touch')}</span>
                 </button>
               </li>
               <li>
                 <Link to="/login" className="text-slate-600 hover:text-red-600 transition-colors">
-                  Cổng điều phối viên
+                  {t('citizen.landing.footerOperatorPortal')}
                 </Link>
               </li>
               <li>
                 <Link to="/login" className="text-slate-600 hover:text-red-600 transition-colors">
-                  Cổng đội phản ứng
+                  {t('citizen.landing.footerStaffPortal')}
                 </Link>
               </li>
               <li>
                 <Link to="/register" className="text-slate-600 hover:text-red-600 transition-colors">
-                  Đăng ký tài khoản
+                  {t('citizen.landing.footerRegister')}
                 </Link>
               </li>
               <li>
                 <Link to="/forgot-password" className="text-slate-600 hover:text-red-600 transition-colors">
-                  Quên mật khẩu
+                  {t('citizen.landing.footerForgotPass')}
                 </Link>
               </li>
             </ul>
@@ -87,25 +90,25 @@ export const Footer: React.FC<FooterProps> = ({ onOpenSos }) => {
           {/* Col 3: National & Park Hotlines (3 cols) */}
           <div className="lg:col-span-3 space-y-4">
             <h4 className="text-xs font-mono uppercase tracking-widest text-slate-900 font-bold">
-              Đầu số khẩn cấp
+              {t('citizen.landing.footerHotlinesTitle')}
             </h4>
             <ul className="space-y-2 text-sm font-mono">
               <li>
                 <a href="tel:02837360000" className="text-slate-700 hover:text-red-600 transition-colors flex items-center justify-between gap-3 p-1.5 rounded hover:bg-white">
-                  <span>028.3736 - An ninh KCN</span>
-                  <span className="text-xs text-red-600 font-bold shrink-0">Nội khu 24/7</span>
+                  <span>{t('citizen.landing.footerParkSecurity')}</span>
+                  <span className="text-xs text-red-600 font-bold shrink-0">{t('citizen.landing.footerParkSecurityNote')}</span>
                 </a>
               </li>
               <li>
                 <a href="tel:114" className="text-slate-700 hover:text-red-600 transition-colors flex items-center justify-between gap-3 p-1.5 rounded hover:bg-white">
-                  <span>114 - Cứu hỏa &amp; Cứu nạn</span>
-                  <span className="text-xs text-red-600 font-bold shrink-0">PCCC KCN</span>
+                  <span>{t('citizen.landing.footerFire114')}</span>
+                  <span className="text-xs text-red-600 font-bold shrink-0">{t('citizen.landing.footerFire114Note')}</span>
                 </a>
               </li>
               <li>
                 <a href="tel:115" className="text-slate-700 hover:text-red-600 transition-colors flex items-center justify-between gap-3 p-1.5 rounded hover:bg-white">
-                  <span>115 - Cấp cứu Y tế</span>
-                  <span className="text-xs text-red-600 font-bold shrink-0">Y tế</span>
+                  <span>{t('citizen.landing.footerAmbulance115')}</span>
+                  <span className="text-xs text-red-600 font-bold shrink-0">{t('citizen.landing.footerAmbulance115Note')}</span>
                 </a>
               </li>
             </ul>
@@ -114,16 +117,16 @@ export const Footer: React.FC<FooterProps> = ({ onOpenSos }) => {
           {/* Col 4: Standards & Security (3 cols) */}
           <div className="lg:col-span-3 space-y-4">
             <h4 className="text-xs font-mono uppercase tracking-widest text-slate-900 font-bold">
-              Tiêu chuẩn &amp; Bảo mật
+              {t('citizen.landing.footerSecurityTitle')}
             </h4>
             <div className="space-y-2.5 text-xs text-slate-600 font-mono">
               <div className="p-3 rounded-lg bg-white border border-slate-200 flex items-center gap-2.5 shadow-xs">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Tiêu chuẩn điều hành CAD khẩn cấp</span>
+                <span>{t('citizen.landing.footerCadStandard')}</span>
               </div>
               <div className="p-3 rounded-lg bg-white border border-slate-200 flex items-center gap-2.5 shadow-xs">
                 <Lock className="w-4 h-4 text-red-600 shrink-0" />
-                <span>Mã hóa đường truyền an toàn (TLS / AES)</span>
+                <span>{t('citizen.landing.footerTlsAes')}</span>
               </div>
             </div>
           </div>
@@ -136,9 +139,9 @@ export const Footer: React.FC<FooterProps> = ({ onOpenSos }) => {
             © 2026 <strong className="text-slate-700">ResQ-AI</strong> Emergency Dispatch Platform.
           </div>
           <div className="flex items-center gap-4">
-            <span>Dự án Khóa luận tốt nghiệp</span>
+            <span>{t('citizen.landing.footerThesisProject')}</span>
             <span>•</span>
-            <span className="text-slate-600 font-semibold">CAD System Design</span>
+            <span className="text-slate-600 font-semibold">{t('citizen.landing.footerCadDesign')}</span>
           </div>
         </div>
 

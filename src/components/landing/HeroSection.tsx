@@ -12,6 +12,8 @@ import {
   Zap
 } from 'lucide-react';
 import { HeroRadarMap } from './HeroRadarMap';
+import { useSosCooldown } from '../../hooks/useSosCooldown';
+import { useTranslation } from '../../i18n';
 
 interface HeroSectionProps {
   onOpenSos: () => void;
@@ -19,6 +21,8 @@ interface HeroSectionProps {
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenReports }) => {
+  const { t } = useTranslation();
+  const { isCooldown, cooldownLabel } = useSosCooldown();
   const [etaTime, setEtaTime] = useState(135); // seconds
   const [radarStats, setRadarStats] = useState<{
     stationCount: number;
@@ -58,7 +62,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
             <span className="text-slate-900">Rescue Coordination</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 max-w-4xl mx-auto mt-1.5 font-medium">
-            Hệ thống điều phối cứu hộ khẩn cấp thời gian thực ứng dụng AI phân loại mức độ nguy hiểm sự cố · Khu Công nghệ cao &amp; KCN
+            {t('citizen.landing.heroSubtitle')}
           </p>
         </div>
 
@@ -95,17 +99,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
                 <span className="text-slate-500 font-medium">DISPATCH STATUS:</span>
                 <span className="text-red-600 font-bold">
                   {radarStats.stationCount > 0
-                    ? `${radarStats.stationCount} TRẠM · ${radarStats.unitCount} PHƯƠNG TIỆN SẴN SÀNG`
-                    : 'HỆ THỐNG TRỰC CHIẾN NỘI KHU'}
+                    ? t('citizen.landing.dispatchUnitsReady', { stations: radarStats.stationCount, units: radarStats.unitCount })
+                    : t('citizen.landing.dispatchStatusReady')}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-slate-700">
                 <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-600" />
                 <span>
-                  ETA TIẾP CẬN:{' '}
+                  {t('citizen.landing.etaApproach')}{' '}
                   <strong className="text-slate-900">
                     {radarStats.activeEtaMinutes != null
-                      ? `~${radarStats.activeEtaMinutes} PHÚT`
+                      ? `~${radarStats.activeEtaMinutes}m`
                       : formatEta(etaTime)}
                   </strong>
                 </span>
@@ -124,11 +128,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-900">Báo nạn 1-Chạm</span>
-                <span className="text-[9px] font-mono-data px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 font-bold">Công nhân KCN</span>
+                <span className="text-xs font-bold text-slate-900">{t('citizen.landing.guideOneTouchTitle')}</span>
+                <span className="text-[9px] font-mono-data px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 font-bold">{t('citizen.landing.guideOneTouchTag')}</span>
               </div>
               <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
-                Bấm SOS gửi tọa độ GPS nhà xưởng &amp; ảnh hiện trường tức thì
+                {t('citizen.landing.guideOneTouchDesc')}
               </p>
             </div>
           </div>
@@ -136,12 +140,16 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
           {/* Center Main Action: Emergency SOS Button */}
           <button
             onClick={onOpenSos}
-            className="group relative px-8 py-3.5 sm:py-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-sm sm:text-base tracking-wide shadow-lg shadow-red-500/30 hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 border border-red-600 flex items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap shrink-0 w-full sm:w-auto min-w-[220px] cursor-pointer"
+            disabled={isCooldown}
+            className={`group relative px-8 py-3.5 sm:py-4 rounded-xl text-white font-black text-sm sm:text-base tracking-wide transition-all duration-300 border flex items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap shrink-0 w-full sm:w-auto min-w-[220px] ${isCooldown
+                ? 'bg-slate-400 border-slate-400 opacity-60 cursor-not-allowed shadow-none'
+                : 'bg-red-600 hover:bg-red-700 border-red-600 shadow-lg shadow-red-500/30 hover:scale-[1.03] active:scale-[0.98] cursor-pointer'
+              }`}
             id="hero-submit-sos-btn"
           >
-            <AlertOctagon className="w-5 h-5 text-white animate-bounce shrink-0" />
-            <span>Gửi Báo Cứu Nạn SOS</span>
-            <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform shrink-0" />
+            <AlertOctagon className={`w-5 h-5 text-white shrink-0 ${isCooldown ? '' : 'animate-bounce'}`} />
+            <span>{isCooldown ? t('citizen.layout.cooldownLabel', { time: cooldownLabel }) : t('citizen.layout.reportSos')}</span>
+            {!isCooldown && <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform shrink-0" />}
           </button>
 
           {/* Right Guide Note: AI Coordination */}
@@ -151,11 +159,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-900">AI Phân loại sự cố</span>
-                <span className="text-[9px] font-mono-data px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 font-bold">Tự động</span>
+                <span className="text-xs font-bold text-slate-900">{t('citizen.landing.guideAiTitle')}</span>
+                <span className="text-[9px] font-mono-data px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 font-bold">{t('citizen.landing.guideAiTag')}</span>
               </div>
               <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
-                Tự động nhận diện hỏa hoạn, tai nạn, ùn tắc &amp; đề xuất lực lượng cứu hộ gần nhất
+                {t('citizen.landing.guideAiDesc')}
               </p>
             </div>
           </div>
