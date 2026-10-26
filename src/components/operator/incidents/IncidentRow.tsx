@@ -13,6 +13,7 @@ import {
 import { QUEUE_COLUMNS } from './queueColumns';
 import { formatCountdown, formatDateTime, formatWaitDuration } from '../../../utils/incidentFormat';
 import { isAiFallbackTag, type Incident } from '../../../types/incident';
+import { useTranslation } from '../../../i18n';
 
 interface IncidentRowProps {
   incident: Incident;
@@ -34,6 +35,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
   currentOperatorId,
   onClick,
 }) => {
+  const { t } = useTranslation();
   const elapsedMs = now - new Date(incident.createdAt).getTime();
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
@@ -69,12 +71,17 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
         <div className="flex items-center gap-3 mt-1 text-xs min-w-0">
           <span className="inline-flex items-center gap-1 font-semibold shrink-0" style={{ color: category.color }}>
             <CategoryIcon className="w-3.5 h-3.5" />
-            {category.label}
+            {t(`enums.category.${incident.category}`)}
           </span>
           <span className="inline-flex items-center gap-1 text-slate-500 min-w-0" title={incident.area}>
             <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
             <span className="truncate">{incident.area}</span>
           </span>
+          {incident.isOutOfServiceArea && (
+            <span className="inline-flex items-center px-1.5 py-px rounded bg-red-50 border border-red-200 text-[10px] font-bold text-red-700 shrink-0">
+              {t('incidents.row.outOfArea')}
+            </span>
+          )}
         </div>
         {visibleTags.length > 0 && (
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -96,7 +103,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
         {incident.aiPending ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            AI đang phân tích
+            {t('incidents.row.aiAnalyzing')}
           </span>
         ) : (
           <>
@@ -110,17 +117,17 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
       <div className={`${QUEUE_COLUMNS.wait} shrink-0 text-right`}>
         <div
           className={`text-sm font-semibold tabular-nums whitespace-nowrap ${isEscalated ? 'text-red-700' : 'text-slate-800'}`}
-          title={`Tiếp nhận lúc ${formatDateTime(incident.createdAt)}`}
+          title={t('incidents.row.receivedAt', { time: formatDateTime(incident.createdAt) })}
         >
           {formatWaitDuration(elapsedMs)}
         </div>
         {isEscalated ? (
           <div className="inline-flex items-center gap-1 mt-0.5 text-[11px] font-bold text-red-700">
             <Siren className="w-3 h-3" />
-            Leo thang
+            {t('incidents.row.escalated')}
           </div>
         ) : (
-          <div className="mt-0.5 text-[11px] text-slate-400">đang chờ</div>
+          <div className="mt-0.5 text-[11px] text-slate-400">{t('incidents.row.waiting')}</div>
         )}
         {activeLock && (
           <div
@@ -129,7 +136,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
             }`}
           >
             <Lock className="w-3 h-3" />
-            {lockedByOther ? activeLock.operatorName : 'Bạn đang xử lý'} {formatCountdown(lockRemainingMs)}
+            {lockedByOther ? activeLock.operatorName : t('incidents.row.youHandling')} {formatCountdown(lockRemainingMs)}
           </div>
         )}
       </div>

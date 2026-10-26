@@ -1,196 +1,50 @@
-import React, { useState } from 'react';
-import { Lock, Search, X } from 'lucide-react';
-import { AuditDetailDrawer } from '../../components/admin/audit/AuditDetailDrawer';
-import { AuditTrailTable } from '../../components/admin/audit/AuditTrailTable';
-import { auditActionMeta, toYmd } from '../../components/admin/audit/auditMeta';
-import { Notice, Pagination } from '../../components/admin/common/ui';
-import { inputClass, labelClass } from '../../components/admin/common/styles';
-import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
-import { GUID_PATTERN, auditTrailService } from '../../services/admin/auditTrailService';
-import { AUDIT_ACTIONS, type AuditAction, type AuditTrailEntryDto } from '../../types/auditTrail';
+import React from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Settings, Siren } from 'lucide-react';
+import { IncidentAuditTab } from '../../components/admin/audit/IncidentAuditTab';
+import { SystemAuditTab } from '../../components/admin/audit/SystemAuditTab';
+import { useTranslation } from '../../i18n';
 
-const PAGE_SIZE = 20;
-const YMD_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+type AuditTab = 'incident' | 'system';
 
-const daysAgoYmd = (days: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return toYmd(d);
-};
-
-const QUICK_RANGES: { label: string; days: number }[] = [
-  { label: 'Hôm nay', days: 0 },
-  { label: '7 ngày', days: 6 },
-  { label: '30 ngày', days: 29 },
+const TABS: { key: AuditTab; icon: React.ElementType }[] = [
+  { key: 'incident', icon: Siren },
+  { key: 'system', icon: Settings },
 ];
 
+/** Audit Trail: nhật ký thao tác trên sự cố và nhật ký thao tác quản trị — cả hai chỉ đọc. Tab lưu ở ?tab=. */
 const AuditTrailPage: React.FC = () => {
-  const initial = useInitialQueryParams();
-  const dateParam = (key: string) => (YMD_PATTERN.test(initial.text(key)) ? initial.text(key) : '');
+  const { t } = useTranslation();
+  const [params, setParams] = useSearchParams();
+  const tab: AuditTab = params.get('tab') === 'system' ? 'system' : 'incident';
 
-  const [incidentId, setIncidentId] = useState(() => initial.text('incident'));
-  const [action, setAction] = useState<AuditAction | ''>(() => initial.oneOf('action', AUDIT_ACTIONS));
-  const [fromDate, setFromDate] = useState(() => dateParam('from'));
-  const [toDate, setToDate] = useState(() => dateParam('to'));
-  const [pageIndex, setPageIndex] = useState(1);
-  const debouncedIncident = useDebouncedValue(incidentId.trim());
-  const [selected, setSelected] = useState<AuditTrailEntryDto | null>(null);
-
-  // Backend chỉ lọc theo mã sự cố đầy đủ → mã gõ dở thì chưa lọc, chỉ nhắc.
-  const incidentValid = !debouncedIncident || GUID_PATTERN.test(debouncedIncident);
-  const filter = {
-    incidentId: incidentValid ? debouncedIncident || undefined : undefined,
-    action: action || undefined,
-    fromDate: fromDate || undefined,
-    toDate: toDate || undefined,
-  };
-  const query = useServiceQuery(
-    () => auditTrailService.list(filter, { pageIndex, pageSize: PAGE_SIZE }),
-    JSON.stringify({ filter, pageIndex })
-  );
-
-  const withPageReset =
-    <T,>(setter: (v: T) => void) =>
-    (v: T) => {
-      setter(v);
-      setPageIndex(1);
-    };
-
-  const activeQuick = QUICK_RANGES.find((r) => fromDate === daysAgoYmd(r.days) && toDate === daysAgoYmd(0));
-  const hasFilter = !!(incidentId || action || fromDate || toDate);
-
-  const clearFilters = () => {
-    setIncidentId('');
-    setAction('');
-    setFromDate('');
-    setToDate('');
-    setPageIndex(1);
+  const selectTab = (key: AuditTab) => {
+    if (key === tab) return;
+    // Đổi tab thì bỏ bộ lọc của tab cũ trên URL (hai tab dùng tham số khác nhau).
+    setParams(key === 'system' ? { tab: 'system' } : {}, { replace: true });
   };
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <label className={labelClass}>Mã sự cố</label>
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                value={incidentId}
-                onChange={(e) => withPageReset(setIncidentId)(e.target.value)}
-                placeholder="Dán mã sự cố đầy đủ (GUID)"
-                className={`${inputClass} pl-9 font-mono-data ${incidentValid ? '' : 'border-amber-400'}`}
-              />
-            </div>
-            {!incidentValid && (
-              <p className="text-[11px] text-amber-700">Cần mã đầy đủ dạng 3fa85f64-5717-4562-b3fc-2c963f66afa6.</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <label className={labelClass}>Hành động</label>
-            <select
-              value={action}
-              onChange={(e) => withPageReset(setAction)(e.target.value as AuditAction | '')}
-              className={inputClass}
-            >
-              <option value="">Tất cả hành động</option>
-              {AUDIT_ACTIONS.map((a) => (
-                <option key={a} value={a}>
-                  {auditActionMeta(a).label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="flex flex-col lg:flex-row lg:items-end gap-3">
-          <div className="space-y-1.5">
-            <span className={labelClass}>Khoảng ngày</span>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={fromDate}
-                max={toDate || undefined}
-                onChange={(e) => withPageReset(setFromDate)(e.target.value)}
-                aria-label="Từ ngày"
-                className={`${inputClass} sm:w-40`}
-              />
-              <span className="text-slate-400">→</span>
-              <input
-                type="date"
-                value={toDate}
-                min={fromDate || undefined}
-                onChange={(e) => withPageReset(setToDate)(e.target.value)}
-                aria-label="Đến ngày"
-                className={`${inputClass} sm:w-40`}
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {QUICK_RANGES.map((r) => (
-              <button
-                key={r.label}
-                type="button"
-                onClick={() => {
-                  setFromDate(daysAgoYmd(r.days));
-                  setToDate(daysAgoYmd(0));
-                  setPageIndex(1);
-                }}
-                className={`px-3 py-2.5 rounded-lg border text-xs font-bold transition-colors ${
-                  activeQuick === r ? 'bg-red-50 border-red-500 text-red-700' : 'border-slate-300 text-slate-600 hover:border-slate-400'
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-            {hasFilter && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-              >
-                <X className="w-3.5 h-3.5" />
-                Xóa bộ lọc
-              </button>
-            )}
-          </div>
-        </div>
+      <div className="flex gap-1 border-b border-slate-200" role="tablist">
+        {TABS.map(({ key, icon: Icon }) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => selectTab(key)}
+            className={`flex items-center gap-1.5 px-3 py-2 -mb-px border-b-2 text-sm font-semibold transition-colors ${
+              tab === key ? 'border-red-600 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            {t(`admin.monitoring.audit.tabs.${key}`)}
+          </button>
+        ))}
       </div>
 
-      <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
-        <Lock className="w-3.5 h-3.5" />
-        Nhật ký chỉ đọc, ghi lại mọi thao tác trên sự cố (thẩm định, điều xe, leo thang, hiện số, chặn số…).
-      </p>
-
-      {query.error && <Notice notice={{ kind: 'error', message: query.error }} />}
-
-      <AuditTrailTable
-        entries={query.data?.items ?? []}
-        loading={query.loading}
-        selectedId={selected?.id ?? null}
-        onSelect={setSelected}
-      />
-
-      {query.data && (
-        <Pagination
-          pageIndex={query.data.pageIndex}
-          totalPages={query.data.totalPages}
-          totalCount={query.data.totalCount}
-          onChange={setPageIndex}
-        />
-      )}
-
-      {selected && (
-        <AuditDetailDrawer
-          entry={selected}
-          onClose={() => setSelected(null)}
-          onFilterIncident={(id) => {
-            setIncidentId(id);
-            setPageIndex(1);
-            setSelected(null);
-          }}
-        />
-      )}
+      {/* key: mỗi tab giữ bộ lọc riêng, đổi tab là dựng lại từ đầu. */}
+      {tab === 'system' ? <SystemAuditTab key="system" /> : <IncidentAuditTab key="incident" />}
     </div>
   );
 };

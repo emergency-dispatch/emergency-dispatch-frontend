@@ -3,6 +3,7 @@ import { ConfirmModal, Notice } from './ui';
 import { inputClass } from './styles';
 import { REASON_MIN_LENGTH } from '../../../services/admin/validation';
 import { getApiErrorMessage } from '../../../services/apiClient';
+import { useTranslation } from '../../../i18n';
 
 interface ReasonModalProps {
   title: string;
@@ -29,6 +30,7 @@ export const ReasonModal: React.FC<ReasonModalProps> = ({
   onCancel,
   onConfirm,
 }) => {
+  const { t } = useTranslation();
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +73,7 @@ export const ReasonModal: React.FC<ReasonModalProps> = ({
             reasonLength >= REASON_MIN_LENGTH ? 'text-slate-400' : 'text-amber-600'
           }`}
         >
-          {reasonLength}/{REASON_MIN_LENGTH} ký tự tối thiểu · được ghi vào Audit Trail
+          {t('common.reason.counter', { length: reasonLength, min: REASON_MIN_LENGTH })}
         </p>
       </div>
     </ConfirmModal>

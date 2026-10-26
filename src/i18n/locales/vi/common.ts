@@ -1,0 +1,25 @@
+export const commonVi = {
+  close: 'Đóng',
+  cancel: 'Hủy',
+  saving: 'Đang lưu...',
+  processing: 'Đang xử lý...',
+  loading: 'Đang tải…',
+  dismissNotice: 'Đóng thông báo',
+  previousPage: 'Trang trước',
+  nextPage: 'Trang sau',
+  recordCount: '{{count}} bản ghi',
+  you: 'Bạn',
+  km: '{{value}} km',
+  minutesShort: '{{count}} phút',
+  duration: {
+    justNow: 'Vừa xong',
+    minutes: '{{m}} phút',
+    hours: '{{h}} giờ',
+    hoursMinutes: '{{h}} giờ {{m}} phút',
+    days: '{{d}} ngày',
+    daysHours: '{{d}} ngày {{h}} giờ',
+  },
+  reason: {
+    counter: '{{length}}/{{min}} ký tự tối thiểu · được ghi vào Audit Trail',
+  },
+} as const;

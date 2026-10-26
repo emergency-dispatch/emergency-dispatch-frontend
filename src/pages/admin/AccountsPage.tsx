@@ -3,23 +3,20 @@ import { Plus, Search } from 'lucide-react';
 import { AccountFormDrawer } from '../../components/admin/accounts/AccountFormDrawer';
 import { AccountsTable } from '../../components/admin/accounts/AccountsTable';
 import { AccountActionDialog } from '../../components/admin/accounts/AccountActionDialog';
-import { ACCOUNT_STATUSES, ACCOUNT_STATUS_META, INTERNAL_ROLES, ROLE_META } from '../../components/admin/accounts/accountMeta';
+import { TransferStationDialog } from '../../components/admin/accounts/TransferStationDialog';
+import { ACCOUNT_STATUSES, INTERNAL_ROLES } from '../../components/admin/accounts/accountMeta';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { accountAdminService } from '../../services/admin/accountAdminService';
 import type { UserResponseDto, UserStatus } from '../../types/auth';
 import type { InternalRole } from '../../types/internalAccount';
+import { useTranslation } from '../../i18n';
 
 const PAGE_SIZE = 10;
 
-const DONE_MESSAGE = {
-  lock: (name: string) => `Đã khóa tài khoản ${name}.`,
-  unlock: (name: string) => `Đã mở khóa tài khoản ${name}.`,
-  delete: (name: string) => `Đã xóa tài khoản ${name}.`,
-};
-
 const AccountsPage: React.FC = () => {
+  const { t } = useTranslation();
   const initial = useInitialQueryParams();
   const [search, setSearch] = useState(() => initial.text('search'));
   const [role, setRole] = useState<InternalRole | ''>(() => initial.oneOf('role', INTERNAL_ROLES));
@@ -41,6 +38,7 @@ const AccountsPage: React.FC = () => {
     account: UserResponseDto;
     mode: 'lock' | 'unlock' | 'delete';
   } | null>(null);
+  const [transferAccount, setTransferAccount] = useState<UserResponseDto | null>(null);
   const [notice, setNotice] = useState<NoticeState>(null);
 
   const withPageReset =
@@ -58,7 +56,7 @@ const AccountsPage: React.FC = () => {
           <input
             value={search}
             onChange={(e) => withPageReset(setSearch)(e.target.value)}
-            placeholder="Tìm theo tên, email, SĐT..."
+            placeholder={t('admin.users.accounts.searchPlaceholder')}
             className={`${inputClass} pl-9`}
           />
         </div>
@@ -66,26 +64,26 @@ const AccountsPage: React.FC = () => {
           <select
             value={role}
             onChange={(e) => withPageReset(setRole)(e.target.value as InternalRole | '')}
-            aria-label="Lọc theo vai trò"
+            aria-label={t('admin.users.accounts.filterByRole')}
             className={`${inputClass} lg:w-44`}
           >
-            <option value="">Tất cả vai trò</option>
+            <option value="">{t('admin.users.accounts.allRoles')}</option>
             {INTERNAL_ROLES.map((r) => (
               <option key={r} value={r}>
-                {ROLE_META[r].label}
+                {t(`admin.users.roles.${r}.label`)}
               </option>
             ))}
           </select>
           <select
             value={status}
             onChange={(e) => withPageReset(setStatus)(e.target.value as UserStatus | '')}
-            aria-label="Lọc theo trạng thái"
+            aria-label={t('admin.common.filterByStatus')}
             className={`${inputClass} lg:w-44`}
           >
-            <option value="">Tất cả trạng thái</option>
+            <option value="">{t('admin.common.allStatuses')}</option>
             {ACCOUNT_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {ACCOUNT_STATUS_META[s].label}
+                {t(`admin.users.accountStatus.${s}`)}
               </option>
             ))}
           </select>
@@ -95,7 +93,7 @@ const AccountsPage: React.FC = () => {
           className="lg:ml-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-sm shadow-red-500/25 whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
-          Tạo tài khoản
+          {t('admin.users.accounts.create')}
         </button>
       </div>
 
@@ -109,6 +107,7 @@ const AccountsPage: React.FC = () => {
         onLock={(account) => setActionTarget({ account, mode: 'lock' })}
         onUnlock={(account) => setActionTarget({ account, mode: 'unlock' })}
         onDelete={(account) => setActionTarget({ account, mode: 'delete' })}
+        onTransfer={setTransferAccount}
       />
 
       {query.data && (
@@ -127,12 +126,28 @@ const AccountsPage: React.FC = () => {
           onSaved={(saved) => {
             setNotice({
               kind: 'success',
-              message:
-                formAccount === 'new'
-                  ? `Đã tạo tài khoản ${saved.fullName}. Gửi email và mật khẩu ban đầu cho nhân sự để đăng nhập.`
-                  : `Đã cập nhật tài khoản ${saved.fullName}.`,
+              message: t(formAccount === 'new' ? 'admin.users.accounts.created' : 'admin.users.accounts.updated', {
+                name: saved.fullName,
+              }),
             });
             setFormAccount(null);
+            query.reload();
+          }}
+        />
+      )}
+
+      {transferAccount && (
+        <TransferStationDialog
+          account={transferAccount}
+          onCancel={() => setTransferAccount(null)}
+          onDone={(stationName) => {
+            setNotice({
+              kind: 'success',
+              message: stationName
+                ? t('admin.users.accounts.transferred', { name: transferAccount.fullName, station: stationName })
+                : t('admin.users.accounts.removedFromStation', { name: transferAccount.fullName }),
+            });
+            setTransferAccount(null);
             query.reload();
           }}
         />
@@ -144,7 +159,10 @@ const AccountsPage: React.FC = () => {
           mode={actionTarget.mode}
           onCancel={() => setActionTarget(null)}
           onDone={() => {
-            setNotice({ kind: 'success', message: DONE_MESSAGE[actionTarget.mode](actionTarget.account.fullName) });
+            setNotice({
+              kind: 'success',
+              message: t(`admin.users.done.${actionTarget.mode}`, { name: actionTarget.account.fullName }),
+            });
             setActionTarget(null);
             query.reload();
           }}

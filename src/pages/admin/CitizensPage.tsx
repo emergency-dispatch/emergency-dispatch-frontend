@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { Search } from 'lucide-react';
 import { AccountActionDialog } from '../../components/admin/accounts/AccountActionDialog';
-import { ACCOUNT_STATUSES, ACCOUNT_STATUS_META } from '../../components/admin/accounts/accountMeta';
+import { ACCOUNT_STATUSES } from '../../components/admin/accounts/accountMeta';
 import { CitizensTable } from '../../components/admin/citizens/CitizensTable';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { citizenAdminService } from '../../services/admin/citizenAdminService';
 import type { UserResponseDto, UserStatus } from '../../types/auth';
+import { useTranslation } from '../../i18n';
 
 const PAGE_SIZE = 10;
 
 const CitizensPage: React.FC = () => {
+  const { t } = useTranslation();
   const initial = useInitialQueryParams();
   const [search, setSearch] = useState(() => initial.text('search'));
   const [status, setStatus] = useState<UserStatus | ''>(() => initial.oneOf('status', ACCOUNT_STATUSES));
@@ -35,7 +37,7 @@ const CitizensPage: React.FC = () => {
               setSearch(e.target.value);
               setPageIndex(1);
             }}
-            placeholder="Tìm theo họ tên, email hoặc số điện thoại..."
+            placeholder={t('admin.users.citizens.searchPlaceholder')}
             className={`${inputClass} pl-9`}
           />
         </div>
@@ -45,13 +47,13 @@ const CitizensPage: React.FC = () => {
             setStatus(e.target.value as UserStatus | '');
             setPageIndex(1);
           }}
-          aria-label="Lọc theo trạng thái"
+          aria-label={t('admin.common.filterByStatus')}
           className={`${inputClass} sm:w-44`}
         >
-          <option value="">Tất cả trạng thái</option>
+          <option value="">{t('admin.common.allStatuses')}</option>
           {ACCOUNT_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {ACCOUNT_STATUS_META[s].label}
+              {t(`admin.users.accountStatus.${s}`)}
             </option>
           ))}
         </select>
@@ -77,7 +79,7 @@ const CitizensPage: React.FC = () => {
       )}
 
       <p className="text-[11px] text-slate-500">
-        Admin chỉ xem và khóa/mở khóa tài khoản Citizen. Không xem được SĐT đầy đủ, hồ sơ y tế hay danh bạ khẩn cấp.
+        {t('admin.users.citizens.note')}
       </p>
 
       {target && (
@@ -87,7 +89,7 @@ const CitizensPage: React.FC = () => {
           onCancel={() => setTarget(null)}
           onDone={() => {
             const { citizen, mode } = target;
-            setNotice({ kind: 'success', message: `Đã ${mode === 'lock' ? 'khóa' : 'mở khóa'} tài khoản ${citizen.fullName}.` });
+            setNotice({ kind: 'success', message: t(`admin.users.done.${mode}`, { name: citizen.fullName }) });
             setTarget(null);
             query.reload();
           }}

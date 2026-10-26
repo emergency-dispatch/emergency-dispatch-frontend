@@ -1,7 +1,7 @@
 import React from 'react';
-import { Layers } from 'lucide-react';
 import type mapboxgl from 'mapbox-gl';
 import type { RasterLayerSpecification, StyleSpecification } from 'mapbox-gl';
+import { useTranslation } from '../../../i18n';
 
 export type MapTileMode = 'light' | 'dark' | 'satellite';
 
@@ -61,31 +61,35 @@ export function applyTileMode(map: mapboxgl.Map, mode: MapTileMode) {
   MODE_ORDER.forEach((m) => map.setLayoutProperty(baseLayerId(m), 'visibility', m === mode ? 'visible' : 'none'));
 }
 
-const MODE_LABELS: Record<MapTileMode, string> = {
-  light: 'Sáng',
-  dark: 'Tối',
-  satellite: 'Vệ tinh',
-};
-
 interface MapLayerToggleProps {
   mode: MapTileMode;
   onChange: (mode: MapTileMode) => void;
 }
 
-export const MapLayerToggle: React.FC<MapLayerToggleProps> = ({ mode, onChange }) => {
-  const handleClick = () => {
-    const nextIndex = (MODE_ORDER.indexOf(mode) + 1) % MODE_ORDER.length;
-    onChange(MODE_ORDER[nextIndex]);
-  };
+// Thứ tự nút giống bản đồ Staff: Vệ tinh · CAD tối · Đường phố.
+const PILL_ORDER: MapTileMode[] = ['satellite', 'dark', 'light'];
 
+/** Ba nút chọn lớp nền (cùng kiểu với bản đồ Staff). */
+export const MapLayerToggle: React.FC<MapLayerToggleProps> = ({ mode, onChange }) => {
+  const { t } = useTranslation();
   return (
-    <button
-      onClick={handleClick}
-      className="p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-md transition-all active:scale-95"
-      title={`Đổi lớp bản đồ (Hiện tại: ${MODE_LABELS[mode]})`}
-      aria-label="Đổi lớp bản đồ"
+    <div
+      role="group"
+      aria-label={t('liveMap.layers.toggle')}
+      className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1 shadow-xl flex items-center gap-1"
     >
-      <Layers className="w-5 h-5" />
-    </button>
+      {PILL_ORDER.map((m) => (
+        <button
+          key={m}
+          onClick={() => onChange(m)}
+          aria-pressed={mode === m}
+          className={`px-2.5 py-1.5 rounded-lg text-xs font-mono-data font-bold uppercase transition-all ${
+            mode === m ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          {t(`liveMap.layers.${m}`)}
+        </button>
+      ))}
+    </div>
   );
 };

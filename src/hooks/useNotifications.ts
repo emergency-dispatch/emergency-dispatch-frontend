@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { notificationService, type NotificationDto } from '../services/notificationService';
 import { HubEvents, incidentHubService } from '../services/realtime/incidentHubService';
+import i18n from '../i18n';
 
 const PAGE_SIZE = 20;
 
@@ -21,7 +22,7 @@ export function useNotifications() {
       setUnreadCount(count);
       setError(null);
     } catch {
-      setError('Không tải được thông báo.');
+      setError(i18n.t('context.loadNotificationsFailed'));
     } finally {
       setLoading(false);
     }
@@ -34,6 +35,15 @@ export function useNotifications() {
         setItems((prev) => [notification, ...prev.filter((n) => n.id !== notification.id)].slice(0, PAGE_SIZE));
         if (!notification.isRead) setUnreadCount((c) => c + 1);
       }),
+      // Đánh dấu đã đọc ở thiết bị / tab khác → đồng bộ badge và danh sách.
+      incidentHubService.on<{ notificationIds: string[]; all: boolean; unreadCount: number }>(
+        HubEvents.ReceiveNotificationRead,
+        (evt) => {
+          setUnreadCount(evt.unreadCount);
+          const ids = new Set(evt.notificationIds);
+          setItems((prev) => prev.map((n) => (evt.all || ids.has(n.id) ? { ...n, isRead: true } : n)));
+        }
+      ),
       incidentHubService.onReconnected(reload),
     ];
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());

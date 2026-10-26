@@ -29,55 +29,61 @@ interface StaffSidebarProps {
   profile: StaffProfile;
 }
 
-const NAV_ITEMS: {
+const getNavItems = (hasActiveMission: boolean): {
   id: StaffNavTab;
   label: string;
   sublabel: string;
   icon: React.ElementType;
   badge?: string;
   badgeColor?: string;
-}[] = [
+}[] => [
   {
     id: 'mission',
     label: 'Tác Chiến & Điều Hướng',
-    sublabel: 'Live Mission & HUD',
+    sublabel: hasActiveMission ? 'Nhiệm vụ đang diễn ra' : 'Túc trực tại trạm',
     icon: Radio,
-    badge: 'LIVE',
-    badgeColor: 'bg-red-500 text-white animate-pulse',
+    badge: hasActiveMission ? 'LIVE' : 'TÚC TRỰC',
+    badgeColor: hasActiveMission ? 'bg-red-600 text-white animate-pulse' : 'bg-emerald-600 text-white',
   },
   {
     id: 'team',
     label: 'Tổ Làm Việc & Trạm',
     sublabel: 'Kíp trực & Phương tiện',
     icon: Users,
-    badge: 'Kíp trực',
-    badgeColor: 'bg-blue-500/20 text-blue-500 border border-blue-500/40',
-  },
-  {
-    id: 'schedule',
-    label: 'Quản Lý Lịch Làm Việc',
-    sublabel: 'Ca trực & Điểm danh',
-    icon: CalendarDays,
-    badge: 'Hôm nay',
-    badgeColor: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40',
+    badge: 'Đơn vị',
+    badgeColor: 'bg-blue-50 text-blue-700 border border-blue-200',
   },
   {
     id: 'reports',
     label: 'Báo Cáo & Hiện Trường',
     sublabel: 'Digital Closure Reports',
     icon: FileCheck2,
+    badge: 'Lưu trữ',
+    badgeColor: 'bg-slate-100 text-slate-700 border border-slate-200',
+  },
+  {
+    id: 'schedule',
+    label: 'Quản Lý Ca Trực',
+    sublabel: 'Ca trực & Điểm danh',
+    icon: CalendarDays,
+    badge: 'Thiếu API',
+    badgeColor: 'bg-amber-100 text-amber-800 border border-amber-300',
   },
   {
     id: 'equipment',
     label: 'Kiểm Tra Phương Tiện',
     sublabel: 'Readiness Checklist',
     icon: Wrench,
+    badge: 'Thiếu API',
+    badgeColor: 'bg-amber-100 text-amber-800 border border-amber-300',
   },
   {
     id: 'profile',
-    label: 'Hồ Sơ & Chứng Chỉ',
-    sublabel: 'Cấp bậc & Bằng cấp',
+    label: 'Hồ Sơ Cán Bộ',
+    sublabel: 'Định danh quân số',
     icon: UserCircle,
+    badge: 'Hồ sơ',
+    badgeColor: 'bg-slate-100 text-slate-700 border border-slate-200',
   },
 ];
 
@@ -140,7 +146,7 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
           </div>
         )}
 
-        {NAV_ITEMS.map((item) => {
+        {getNavItems(hasActiveMission).map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
 

@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { Building2, CheckCircle2, Clock, Crown, ExternalLink, Loader2, LocateFixed, Users } from 'lucide-react';
+import { Building2, CheckCircle2, Clock, Compass, Crown, ExternalLink, Loader2, LocateFixed, MapPin, Radius, Users } from 'lucide-react';
 import { MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import { MAPBOX_ACCESS_TOKEN } from '../../../services/mapboxService';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { useAuth } from '../../../hooks/useAuth';
-import { TEAM_FUNCTION_META } from '../teams/teamFunction';
 import type { Station, Vehicle } from '../../../types/vehicle';
 import type { Incident, TrafficJamReport } from '../../../types/incident';
 import {
+  MAP_VISIBLE_VEHICLE_STATUSES,
   incidentMarkerHtml,
   stationMarkerHtml,
   trafficJamMarkerHtml,
@@ -17,9 +17,13 @@ import {
 } from './mapIcons';
 import { MapMarker } from './MapMarker';
 import { MapRouteLayer } from './MapRouteLayer';
+import { MapServiceAreaLayer } from './MapServiceAreaLayer';
+import { MapStationCoverageLayer } from './MapStationCoverageLayer';
+import type { ServiceAreaDto } from '../../../services/liveMapService';
 import type { DispatchRoute } from '../../../hooks/useDispatchRoutes';
 import { MapLegend } from './MapLegend';
 import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } from './MapLayerToggle';
+import { dateLocale, useTranslation } from '../../../i18n';
 
 // Bán kính gom cụm (px trên màn hình) — các xe nằm gần nhau hơn mức này ở zoom hiện tại sẽ gộp lại.
 const MAX_ZOOM = 18;
@@ -27,6 +31,16 @@ const MAX_ZOOM = 18;
 const STATION_Z_INDEX = 1;
 const VEHICLE_Z_INDEX = 2;
 const INCIDENT_Z_INDEX = 3;
+
+// Nhớ lựa chọn bật/tắt vòng phủ sóng trạm cho lần mở sau (chỉ là tiện ích của từng người xem).
+const COVERAGE_STORAGE_KEY = 'resq.liveMap.showStationCoverage';
+const readShowCoverage = () => {
+  try {
+    return localStorage.getItem(COVERAGE_STORAGE_KEY) !== '0';
+  } catch {
+    return true;
+  }
+};
 
 const boundsOf = (points: Array<{ lat: number; lng: number }>) =>
   points.reduce((b, p) => b.extend([p.lng, p.lat]), new mapboxgl.LngLatBounds());
@@ -73,57 +87,80 @@ const MapCameraController: React.FC<MapCameraControllerProps> = ({
   return null;
 };
 
-/** Popup xe: điều phối theo tổ nên tổ phụ trách đứng đầu, biển số / loại xe ghi nhỏ bên dưới. */
-const VehiclePopup: React.FC<{ vehicle: Vehicle }> = ({ vehicle }) => {
+const PopupRow: React.FC<{ icon: React.ElementType; children: React.ReactNode }> = ({ icon: Icon, children }) => (
+  <div className="flex items-start gap-1.5 text-xs text-slate-600">
+    <Icon className="w-3.5 h-3.5 shrink-0 mt-px text-slate-400" />
+    <span className="min-w-0">{children}</span>
+  </div>
+);
+
+/** Popup xe (RescueUnit): biển số, loại xe, trạng thái, trạm, tổ phụ trách, nhiệm vụ đang chạy, lần cập nhật vị trí. */
+const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident }> = ({ vehicle, incident }) => {
+  const { t } = useTranslation();
   const team = useTeamByVehicle().get(vehicle.id);
-  const statusMeta = VEHICLE_STATUS_META[vehicle.status];
-  const fn = TEAM_FUNCTION_META[vehicle.type];
-  const FnIcon = fn.icon;
+  const statusMeta =
+    vehicle.unitStatus === 'OutOfService'
+      ? { label: t('enums.vehicleStatus.outOfService'), color: '#64748B' }
+      : { label: t(`enums.vehicleStatus.${vehicle.status}`), color: VEHICLE_STATUS_META[vehicle.status].color };
+  const typeMeta = VEHICLE_TYPE_META[vehicle.type];
+  const TypeIcon = typeMeta.icon;
   const leader = team?.members.find((m) => m.crewRole === 'commander');
 
   return (
-    <div className="min-w-[200px] space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className={`text-sm font-bold truncate ${team ? 'text-slate-900' : 'text-amber-700'}`}>
-          {team?.name ?? 'Chưa có tổ phụ trách'}
-        </span>
-        <span
-          className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0"
-          style={{ color: statusMeta.color, backgroundColor: `${statusMeta.color}1A` }}
-        >
-          {statusMeta.label}
-        </span>
-      </div>
-      <span
-        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${fn.badgeClass}`}
-      >
-        <FnIcon className="w-3 h-3" />
-        {fn.label}
-      </span>
-      {team ? (
-        <div className="flex items-center gap-1.5 text-xs text-slate-600">
-          {leader ? <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" /> : <Users className="w-3.5 h-3.5 shrink-0" />}
-          <span className="truncate">
-            {leader?.fullName ? `${leader.fullName} · ` : ''}
-            {team.members.length} người
+    <div className="min-w-[220px] space-y-2">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{t('liveMap.map.vehicle')}</p>
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          <span className="text-sm font-bold text-slate-900 font-mono-data">{vehicle.plate}</span>
+          <span
+            className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
+            style={{ color: statusMeta.color, backgroundColor: `${statusMeta.color}1A` }}
+          >
+            {statusMeta.label}
           </span>
         </div>
-      ) : (
-        <p className="text-[11px] text-amber-700">Gắn xe cho một tổ ở màn Station Teams để điều động được.</p>
-      )}
-      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-        <Building2 className="w-3.5 h-3.5 shrink-0" />
-        <span className="truncate">
-          <span className="font-mono-data">{vehicle.plate}</span> · {VEHICLE_TYPE_META[vehicle.type].label} ·{' '}
-          {vehicle.stationName}
-        </span>
+        <p className="flex items-center gap-1 text-xs text-slate-600 mt-0.5">
+          <TypeIcon className="w-3.5 h-3.5 shrink-0" />
+          {t(`enums.vehicleType.${vehicle.type}`)} · {t(`enums.teamFunction.${vehicle.type}`)}
+        </p>
       </div>
-      {vehicle.etaMinutes !== null && (
-        <div className="flex items-center gap-1.5 text-xs text-red-600 font-semibold">
-          <Clock className="w-3.5 h-3.5 shrink-0" />
-          <span>ETA {vehicle.etaMinutes} phút</span>
-        </div>
-      )}
+
+      <div className="space-y-1 pt-1.5 border-t border-slate-100">
+        <PopupRow icon={Building2}>{vehicle.stationName}</PopupRow>
+        <PopupRow icon={team && leader ? Crown : Users}>
+          {team ? (
+            <>
+              <span className="font-semibold text-slate-800">{team.name}</span>
+              {' · '}
+              {leader?.fullName ? `${leader.fullName} · ` : ''}
+              {t('liveMap.map.teamMembers', { count: team.members.length })}
+            </>
+          ) : (
+            <span className="text-amber-700">{t('liveMap.map.noTeam')}</span>
+          )}
+        </PopupRow>
+        {incident && (
+          <PopupRow icon={MapPin}>
+            {t('liveMap.map.mission')}
+            <span className="font-semibold text-slate-800">{incident.title}</span>
+            {vehicle.etaMinutes !== null && (
+              <span className="text-red-600 font-semibold">{t('liveMap.map.etaMinutes', { count: vehicle.etaMinutes })}</span>
+            )}
+          </PopupRow>
+        )}
+        <PopupRow icon={Clock}>
+          {vehicle.incidentId && !vehicle.hasLiveGps
+            ? t('liveMap.map.noGps')
+            : t('liveMap.map.locationUpdated', {
+                time: new Date(vehicle.lastUpdated).toLocaleString(dateLocale(), {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  day: '2-digit',
+                  month: '2-digit',
+                }),
+              })}
+        </PopupRow>
+      </div>
     </div>
   );
 };
@@ -132,6 +169,7 @@ const TrafficJamPopup: React.FC<{
   jam: TrafficJamReport;
   onResolve?: (id: string) => Promise<{ ok: boolean; message?: string }>;
 }> = ({ jam, onResolve }) => {
+  const { t } = useTranslation();
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,17 +181,19 @@ const TrafficJamPopup: React.FC<{
     // Thành công → điểm ùn tắc bị gỡ khỏi bản đồ cùng popup này.
     if (!result.ok) {
       setResolving(false);
-      setError(result.message ?? 'Không thể giải tỏa điểm ùn tắc.');
+      setError(result.message ?? t('liveMap.map.resolveFailed'));
     }
   };
 
   return (
     <div className="min-w-[200px] space-y-1">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600">Ùn tắc giao thông</p>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600">{t('liveMap.map.trafficJam')}</p>
       <p className="text-sm font-bold text-slate-900">{jam.area}</p>
       <p className="text-xs text-slate-600">{jam.note}</p>
       <p className="text-[11px] text-slate-400">
-        Báo lúc {new Date(jam.reportedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+        {t('liveMap.map.reportedAt', {
+          time: new Date(jam.reportedAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' }),
+        })}
       </p>
       {onResolve && (
         <button
@@ -162,7 +202,7 @@ const TrafficJamPopup: React.FC<{
           className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-colors disabled:opacity-60"
         >
           {resolving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-          Đánh dấu đã giải tỏa
+          {t('liveMap.map.markResolved')}
         </button>
       )}
       {error && <p className="text-[11px] text-red-600">{error}</p>}
@@ -178,46 +218,66 @@ const PARKED_TOP_PX = 16;
 interface VehicleMarkersProps {
   map: mapboxgl.Map;
   vehicles: Vehicle[];
-  stations: Station[];
+  placements: Map<string, VehiclePlacement>;
+  incidentsById?: Map<string, Incident>;
   selectedVehicleId: string | null;
   onSelectVehicle: (id: string) => void;
 }
 
+/** Xe đứng tại trạm, trừ xe đang làm nhiệm vụ đã có GPS thật. Dùng chung cho marker, camera và chỉ đường. */
+const isParkedAtStation = (v: Vehicle) => !(v.incidentId && v.hasLiveGps);
+
+/** Vị trí vẽ của một xe: tọa độ + (xe đậu) độ dời pixel để xếp hàng dưới ghim trạm. */
+export interface VehiclePlacement {
+  lat: number;
+  lng: number;
+  offset?: [number, number];
+}
+
+/** Xe đậu xếp hàng dưới ghim trạm (sắp theo biển số); xe đang chạy có GPS thật đứng tại tọa độ GPS. */
+function computeVehiclePlacements(vehicles: Vehicle[], stations: Station[]): Map<string, VehiclePlacement> {
+  const stationsById = new Map(stations.map((s) => [s.id, s]));
+  const parkedByStation = new Map<string, Vehicle[]>();
+  vehicles.forEach((v) => {
+    // Đang làm nhiệm vụ mà đã có GPS thật → hiện theo GPS; còn lại (kể cả xe vừa được giao, chưa gửi GPS) đứng tại trạm.
+    if (!isParkedAtStation(v) || !stationsById.has(v.stationId)) return;
+    parkedByStation.set(v.stationId, [...(parkedByStation.get(v.stationId) ?? []), v]);
+  });
+
+  const result = new Map<string, VehiclePlacement>();
+  parkedByStation.forEach((parked, stationId) => {
+    const station = stationsById.get(stationId)!;
+    [...parked]
+      .sort((a, b) => a.plate.localeCompare(b.plate))
+      .forEach((v, index) => {
+        const row = Math.floor(index / PARKED_PER_ROW);
+        const inRow = Math.min(PARKED_PER_ROW, parked.length - row * PARKED_PER_ROW);
+        const col = index % PARKED_PER_ROW;
+        result.set(v.id, {
+          lat: station.lat,
+          lng: station.lng,
+          offset: [(col - (inRow - 1) / 2) * PARKED_SPACING_PX, PARKED_TOP_PX + row * PARKED_SPACING_PX],
+        });
+      });
+  });
+  vehicles.forEach((v) => {
+    if (!result.has(v.id)) result.set(v.id, { lat: v.lat, lng: v.lng });
+  });
+  return result;
+}
+
 /**
  * Mỗi xe một marker (không gom cụm), icon theo loại xe, màu theo trạng thái.
- * Xe không có nhiệm vụ đứng tại trạm của nó; xe đang làm nhiệm vụ hiện theo vị trí GPS thật.
+ * Xe đứng tại trạm của nó, trừ xe đang làm nhiệm vụ đã có GPS thật (hiện theo vị trí GPS).
  */
-const VehicleMarkers: React.FC<VehicleMarkersProps> = ({ map, vehicles, stations, selectedVehicleId, onSelectVehicle }) => {
-  const placements = useMemo(() => {
-    const stationsById = new Map(stations.map((s) => [s.id, s]));
-    const parkedByStation = new Map<string, Vehicle[]>();
-    vehicles.forEach((v) => {
-      if (v.incidentId || !stationsById.has(v.stationId)) return;
-      parkedByStation.set(v.stationId, [...(parkedByStation.get(v.stationId) ?? []), v]);
-    });
-
-    const result = new Map<string, { lat: number; lng: number; offset?: [number, number] }>();
-    parkedByStation.forEach((parked, stationId) => {
-      const station = stationsById.get(stationId)!;
-      [...parked]
-        .sort((a, b) => a.plate.localeCompare(b.plate))
-        .forEach((v, index) => {
-          const row = Math.floor(index / PARKED_PER_ROW);
-          const inRow = Math.min(PARKED_PER_ROW, parked.length - row * PARKED_PER_ROW);
-          const col = index % PARKED_PER_ROW;
-          result.set(v.id, {
-            lat: station.lat,
-            lng: station.lng,
-            offset: [(col - (inRow - 1) / 2) * PARKED_SPACING_PX, PARKED_TOP_PX + row * PARKED_SPACING_PX],
-          });
-        });
-    });
-    vehicles.forEach((v) => {
-      if (!result.has(v.id)) result.set(v.id, { lat: v.lat, lng: v.lng });
-    });
-    return result;
-  }, [vehicles, stations]);
-
+const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
+  map,
+  vehicles,
+  placements,
+  incidentsById,
+  selectedVehicleId,
+  onSelectVehicle,
+}) => {
   return (
     <>
       {vehicles.map((vehicle) => {
@@ -235,7 +295,7 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({ map, vehicles, stations
             popupOffset={isSelected ? 18 : 14}
             onClick={() => onSelectVehicle(vehicle.id)}
           >
-            <VehiclePopup vehicle={vehicle} />
+            <VehiclePopup vehicle={vehicle} incident={vehicle.incidentId ? incidentsById?.get(vehicle.incidentId) : undefined} />
           </MapMarker>
         );
       })}
@@ -257,6 +317,8 @@ interface LiveMapViewProps {
   routes?: DispatchRoute[];
   vehiclesById?: Map<string, Vehicle>;
   incidentsById?: Map<string, Incident>;
+  /** Khu vực phục vụ (vẽ vòng tròn khi Admin bật). */
+  serviceArea?: ServiceAreaDto | null;
 }
 
 export const LiveMapView: React.FC<LiveMapViewProps> = ({
@@ -270,17 +332,54 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   trafficJams = [],
   onResolveTrafficJam,
   routes = [],
+  serviceArea = null,
   vehiclesById,
   incidentsById,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
-  const [tileMode, setTileMode] = useState<MapTileMode>('light');
+  const [tileMode, setTileMode] = useState<MapTileMode>('satellite');
   const appliedTileModeRef = useRef(tileMode);
   const [recenterCount, setRecenterCount] = useState(0);
+  const [is3DMode, setIs3DMode] = useState(true);
+  const [showCoverage, setShowCoverage] = useState(readShowCoverage);
+  const toggleCoverage = () =>
+    setShowCoverage((prev) => {
+      try {
+        localStorage.setItem(COVERAGE_STORAGE_KEY, prev ? '0' : '1');
+      } catch {
+        // Trình duyệt chặn storage → chỉ không nhớ được lựa chọn.
+      }
+      return !prev;
+    });
 
-  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId) ?? null;
+  // Góc nghiêng 2D / 3D như bản đồ Staff (45°); các lần bay camera sau đó giữ nguyên góc đang chọn.
+  const handleToggle3D = () => {
+    if (!map) return;
+    const next = !is3DMode;
+    setIs3DMode(next);
+    map.easeTo({ pitch: next ? 45 : 0, duration: 600 });
+  };
+
+  // Tọa độ xe đúng như đang hiển thị: xe đậu lấy tọa độ trạm (tọa độ trong DB có thể là vị trí cũ / trạm cũ).
+  // Camera, nút định vị và chỉ đường Google Maps đều dùng tọa độ này.
+  const mapVehicles = useMemo(() => {
+    const stationsById = new Map(stations.map((s) => [s.id, s]));
+    return vehicles.map((v) => {
+      const station = stationsById.get(v.stationId);
+      return station && isParkedAtStation(v) ? { ...v, lat: station.lat, lng: station.lng } : v;
+    });
+  }, [vehicles, stations]);
+  // Chỉ vẽ xe đang trên đường tới hiện trường; icon theo loại xe (vehicleMarkerHtml).
+  const movingVehicles = useMemo(
+    () => mapVehicles.filter((v) => MAP_VISIBLE_VEHICLE_STATUSES.includes(v.status)),
+    [mapVehicles]
+  );
+  const selectedVehicle = movingVehicles.find((v) => v.id === selectedVehicleId) ?? null;
+  // Xe không vẽ thì không có vị trí marker → đường đi (VD xe chờ đội xác nhận) bắt đầu từ điểm đầu của tuyến (trạm).
+  const placements = useMemo(() => computeVehiclePlacements(movingVehicles, stations), [movingVehicles, stations]);
   const selectedIncident = dispatchIncidents.find((i) => i.id === selectedIncidentId) ?? null;
 
   useEffect(() => {
@@ -293,6 +392,8 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
       style: createBaseMapStyle(appliedTileModeRef.current),
       center: [MAP_CENTER[1], MAP_CENTER[0]],
       zoom: 14,
+      // Mở ở góc nhìn 3D (khớp is3DMode mặc định).
+      pitch: 45,
       maxZoom: MAX_ZOOM,
       attributionControl: false,
     });
@@ -335,13 +436,20 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
         <>
           <MapCameraController
             map={map}
-            vehicles={vehicles}
+            vehicles={movingVehicles}
             selectedVehicle={selectedVehicle}
             selectedIncident={selectedIncident}
             recenterTrigger={recenterCount}
           />
 
-          <MapRouteLayer map={map} routes={routes} selectedVehicleId={selectedVehicleId} />
+          <MapStationCoverageLayer
+            map={map}
+            stations={stations}
+            myStationId={user?.stationId ?? null}
+            visible={showCoverage}
+          />
+          <MapServiceAreaLayer map={map} area={serviceArea} />
+          <MapRouteLayer map={map} routes={routes} placements={placements} selectedVehicleId={selectedVehicleId} />
 
           {stations.map((station) => {
             const isMine = station.id === user?.stationId;
@@ -359,13 +467,21 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
               >
                 <div className="min-w-[200px] space-y-1">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                    {isMine ? 'Trạm bạn phụ trách' : 'Trạm cứu hộ'}
+                    {isMine ? t('liveMap.map.myStation') : t('liveMap.map.station')}
                   </p>
                   <p className="text-sm font-bold text-slate-900">{station.name}</p>
                   <p className="text-[11px] text-slate-500">{station.address}</p>
                   <p className="text-[11px] text-slate-600 pt-1">
-                    {stationVehicles.filter((v) => v.status === 'available').length}/{stationVehicles.length} xe sẵn sàng
+                    {t('liveMap.map.availableVehicles', {
+                      available: stationVehicles.filter((v) => v.status === 'available').length,
+                      total: stationVehicles.length,
+                    })}
                   </p>
+                  {station.coverageRadiusKm > 0 && (
+                    <p className="text-[11px] text-slate-500">
+                      {t('liveMap.map.coverageRadius', { km: station.coverageRadiusKm })}
+                    </p>
+                  )}
                 </div>
               </MapMarker>
             );
@@ -379,8 +495,9 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
 
           <VehicleMarkers
             map={map}
-            vehicles={vehicles}
-            stations={stations}
+            vehicles={movingVehicles}
+            placements={placements}
+            incidentsById={incidentsById}
             selectedVehicleId={selectedVehicleId}
             onSelectVehicle={onSelectVehicle}
           />
@@ -406,23 +523,23 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
               >
                 <div className="min-w-[200px] space-y-1.5">
                   <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: category.color }}>
-                    {category.label}
+                    {t(`enums.category.${incident.category}`)}
                   </span>
                   <p className="text-sm font-bold text-slate-900">{incident.title}</p>
                   <span
                     className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${severityMeta.badgeClass}`}
                   >
-                    {severityMeta.label}
+                    {t(`enums.severity.level${incident.severity}`)}
                   </span>
                   <p className="text-xs text-slate-600">{incident.area}</p>
                   {assigned.length > 0 ? (
                     assigned.map((v) => (
                       <p key={v.id} className="text-xs text-red-600 font-semibold">
-                        {v.plate} · ETA {v.etaMinutes ?? '--'} phút
+                        {t('liveMap.map.vehicleEta', { plate: v.plate, eta: v.etaMinutes ?? '--' })}
                       </p>
                     ))
                   ) : (
-                    <p className="text-xs text-amber-600 font-semibold">Chưa giao xe</p>
+                    <p className="text-xs text-amber-600 font-semibold">{t('liveMap.map.noVehicle')}</p>
                   )}
                 </div>
               </MapMarker>
@@ -433,25 +550,55 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
 
       <MapLegend />
 
+      <div className="absolute top-4 left-4 z-[1000]">
+        <MapLayerToggle mode={tileMode} onChange={setTileMode} />
+      </div>
+
       {/* Camera / layer / external navigation controls — mirrors the Staff field map's control set. */}
       <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
         <button
           onClick={() => setRecenterCount((v) => v + 1)}
           className="p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-red-600 shadow-md transition-all active:scale-95"
-          title={selectedVehicle ? 'Định vị lại vị trí xe đã chọn' : 'Định vị tất cả xe trong khung nhìn'}
-          aria-label="Định vị vị trí xe"
+          title={selectedVehicle ? t('liveMap.map.recenterSelected') : t('liveMap.map.recenterAll')}
+          aria-label={t('liveMap.map.recenter')}
         >
           <LocateFixed className="w-5 h-5" />
         </button>
 
-        <MapLayerToggle mode={tileMode} onChange={setTileMode} />
+        <button
+          onClick={handleToggle3D}
+          aria-pressed={is3DMode}
+          className={`p-2.5 rounded-xl border shadow-md transition-all active:scale-95 ${
+            is3DMode
+              ? 'bg-red-600 text-white border-red-600'
+              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+          }`}
+          title={is3DMode ? t('liveMap.layers.view2d') : t('liveMap.layers.view3d')}
+          aria-label={is3DMode ? t('liveMap.layers.view2d') : t('liveMap.layers.view3d')}
+        >
+          <Compass className={`w-5 h-5 transition-transform ${is3DMode ? 'rotate-45' : ''}`} />
+        </button>
+
+        <button
+          onClick={toggleCoverage}
+          aria-pressed={showCoverage}
+          className={`p-2.5 rounded-xl border shadow-md transition-all active:scale-95 ${
+            showCoverage
+              ? 'bg-red-600 text-white border-red-600'
+              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+          }`}
+          title={showCoverage ? t('liveMap.map.hideCoverage') : t('liveMap.map.showCoverage')}
+          aria-label={showCoverage ? t('liveMap.map.hideCoverage') : t('liveMap.map.showCoverage')}
+        >
+          <Radius className="w-5 h-5" />
+        </button>
 
         <button
           onClick={handleOpenDirections}
           disabled={!selectedVehicle}
           className="p-2.5 rounded-xl bg-red-600 hover:bg-red-700 disabled:bg-slate-200 disabled:text-slate-400 border border-red-600 disabled:border-slate-200 text-white shadow-md transition-all active:scale-95 disabled:cursor-not-allowed disabled:active:scale-100"
-          title={selectedVehicle ? 'Mở chỉ đường Google Maps' : 'Chọn 1 xe trước để mở chỉ đường'}
-          aria-label="Mở chỉ đường Google Maps"
+          title={selectedVehicle ? t('liveMap.map.directions') : t('liveMap.map.directionsNeedVehicle')}
+          aria-label={t('liveMap.map.directions')}
         >
           <ExternalLink className="w-5 h-5" />
         </button>

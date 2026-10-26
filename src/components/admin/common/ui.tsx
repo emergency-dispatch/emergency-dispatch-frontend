@@ -1,26 +1,36 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, CircleCheck, CircleAlert, X } from 'lucide-react';
 import { labelClass } from './styles';
+import { useTranslation } from '../../../i18n';
 
-export const FormField: React.FC<{ label: string; required?: boolean; hint?: string; children: React.ReactNode }> = ({
-  label,
-  required,
-  hint,
-  children,
-}) => (
+export const FormField: React.FC<{
+  label: string;
+  required?: boolean;
+  hint?: string;
+  /** Lỗi kiểm tra của trường — hiện chữ đỏ thay cho hint. */
+  error?: string | null;
+  children: React.ReactNode;
+}> = ({ label, required, hint, error, children }) => (
   <div className="space-y-1.5">
     <label className={labelClass}>
       {label}
       {required && ' *'}
     </label>
     {children}
-    {hint && <p className="text-[11px] text-slate-500">{hint}</p>}
+    {error ? (
+      <p role="alert" className="text-[11px] font-medium text-red-600">
+        {error}
+      </p>
+    ) : (
+      hint && <p className="text-[11px] text-slate-500">{hint}</p>
+    )}
   </div>
 );
 
 export type NoticeState = { kind: 'success' | 'error'; message: string } | null;
 
 export const Notice: React.FC<{ notice: NoticeState; onClose?: () => void }> = ({ notice, onClose }) => {
+  const { t } = useTranslation();
   if (!notice) return null;
   const isError = notice.kind === 'error';
   const Icon = isError ? CircleAlert : CircleCheck;
@@ -34,7 +44,7 @@ export const Notice: React.FC<{ notice: NoticeState; onClose?: () => void }> = (
       <Icon className="w-4 h-4 mt-0.5 shrink-0" />
       <span className="flex-1">{notice.message}</span>
       {onClose && (
-        <button onClick={onClose} aria-label="Đóng thông báo" className="shrink-0 opacity-60 hover:opacity-100">
+        <button onClick={onClose} aria-label={t('common.dismissNotice')} className="shrink-0 opacity-60 hover:opacity-100">
           <X className="w-4 h-4" />
         </button>
       )}
@@ -56,14 +66,16 @@ export const Pagination: React.FC<{
   totalPages: number;
   totalCount: number;
   onChange: (page: number) => void;
-}> = ({ pageIndex, totalPages, totalCount, onChange }) => (
+}> = ({ pageIndex, totalPages, totalCount, onChange }) => {
+  const { t } = useTranslation();
+  return (
   <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
-    <span className="font-mono-data">{totalCount} bản ghi</span>
+    <span className="font-mono-data">{t('common.recordCount', { count: totalCount })}</span>
     <div className="flex items-center gap-1.5">
       <button
         onClick={() => onChange(pageIndex - 1)}
         disabled={pageIndex <= 1}
-        aria-label="Trang trước"
+        aria-label={t('common.previousPage')}
         className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <ChevronLeft className="w-4 h-4" />
@@ -74,14 +86,15 @@ export const Pagination: React.FC<{
       <button
         onClick={() => onChange(pageIndex + 1)}
         disabled={pageIndex >= totalPages}
-        aria-label="Trang sau"
+        aria-label={t('common.nextPage')}
         className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <ChevronRight className="w-4 h-4" />
       </button>
     </div>
   </div>
-);
+  );
+};
 
 export const DrawerShell: React.FC<{
   title: string;
@@ -89,7 +102,9 @@ export const DrawerShell: React.FC<{
   children: React.ReactNode;
   footer: React.ReactNode;
   onSubmit: (e: React.FormEvent) => void;
-}> = ({ title, onClose, children, footer, onSubmit }) => (
+}> = ({ title, onClose, children, footer, onSubmit }) => {
+  const { t } = useTranslation();
+  return (
   <>
     <div className="fixed inset-0 bg-black/60 z-[1400]" onClick={onClose} />
     <aside className="fixed top-0 right-0 h-full w-full max-w-lg bg-white border-l border-slate-200 z-[1401] flex flex-col shadow-2xl shadow-slate-900/20 animate-drawer-in">
@@ -98,7 +113,7 @@ export const DrawerShell: React.FC<{
         <button
           onClick={onClose}
           className="p-2 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100"
-          aria-label="Đóng"
+          aria-label={t('common.close')}
         >
           <X className="w-4 h-4" />
         </button>
@@ -109,31 +124,35 @@ export const DrawerShell: React.FC<{
       </form>
     </aside>
   </>
-);
+  );
+};
 
 export const DrawerFooter: React.FC<{ onCancel: () => void; submitLabel: string; submitting: boolean; canSubmit: boolean }> = ({
   onCancel,
   submitLabel,
   submitting,
   canSubmit,
-}) => (
+}) => {
+  const { t } = useTranslation();
+  return (
   <>
     <button
       type="button"
       onClick={onCancel}
       className="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-colors"
     >
-      Hủy
+      {t('common.cancel')}
     </button>
     <button
       type="submit"
       disabled={!canSubmit || submitting}
       className="py-3 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors"
     >
-      {submitting ? 'Đang lưu...' : submitLabel}
+      {submitting ? t('common.saving') : submitLabel}
     </button>
   </>
-);
+  );
+};
 
 export const ConfirmModal: React.FC<{
   title: string;
@@ -143,7 +162,9 @@ export const ConfirmModal: React.FC<{
   submitting?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
-}> = ({ title, children, confirmLabel, confirmDisabled, submitting, onCancel, onConfirm }) => (
+}> = ({ title, children, confirmLabel, confirmDisabled, submitting, onCancel, onConfirm }) => {
+  const { t } = useTranslation();
+  return (
   <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
     <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-2xl p-5 space-y-4">
       <h3 className="text-base font-bold text-slate-900">{title}</h3>
@@ -153,19 +174,20 @@ export const ConfirmModal: React.FC<{
           onClick={onCancel}
           className="py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-colors"
         >
-          Hủy
+          {t('common.cancel')}
         </button>
         <button
           onClick={onConfirm}
           disabled={confirmDisabled || submitting}
           className="py-2.5 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors"
         >
-          {submitting ? 'Đang xử lý...' : confirmLabel}
+          {submitting ? t('common.processing') : confirmLabel}
         </button>
       </div>
     </div>
   </div>
-);
+  );
+};
 
 export const VehicleStatusBadge: React.FC<{ label: string; color: string }> = ({ label, color }) => (
   <span

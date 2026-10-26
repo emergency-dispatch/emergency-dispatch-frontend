@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../common/ui';
 import { inputClass } from '../common/styles';
-import { INTERNAL_ROLES, ROLE_META } from './accountMeta';
+import { INTERNAL_ROLES } from './accountMeta';
 import { accountAdminService } from '../../../services/admin/accountAdminService';
 import { EMAIL_PATTERN, PASSWORD_MIN_LENGTH, PHONE_PATTERN } from '../../../services/admin/validation';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { UserRole, type UserResponseDto } from '../../../types/auth';
 import type { InternalRole } from '../../../types/internalAccount';
+import { useTranslation } from '../../../i18n';
 
 interface AccountFormDrawerProps {
   initialAccount: UserResponseDto | null;
@@ -17,6 +18,7 @@ interface AccountFormDrawerProps {
 const FULL_NAME_MAX_LENGTH = 100;
 
 export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAccount, onClose, onSaved }) => {
+  const { t } = useTranslation();
   const isEdit = !!initialAccount;
 
   const [fullName, setFullName] = useState(initialAccount?.fullName ?? '');
@@ -55,13 +57,17 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
 
   return (
     <DrawerShell
-      title={initialAccount ? `Chỉnh sửa ${initialAccount.fullName}` : 'Tạo tài khoản nội bộ'}
+      title={
+        initialAccount
+          ? t('admin.users.form.editTitle', { name: initialAccount.fullName })
+          : t('admin.users.form.addTitle')
+      }
       onClose={onClose}
       onSubmit={handleSubmit}
       footer={
         <DrawerFooter
           onCancel={onClose}
-          submitLabel={initialAccount ? 'Lưu thay đổi' : 'Tạo tài khoản'}
+          submitLabel={initialAccount ? t('admin.users.form.saveChanges') : t('admin.users.form.create')}
           submitting={submitting}
           canSubmit={canSubmit}
         />
@@ -69,7 +75,7 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
     >
       <Notice notice={error ? { kind: 'error', message: error } : null} />
 
-      <FormField label="Họ tên" required>
+      <FormField label={t('admin.users.form.fullName')} required>
         <input
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
@@ -80,15 +86,21 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
       </FormField>
 
       <FormField
-        label="Email"
+        label={t('admin.users.form.email')}
         required
-        hint={isEdit ? 'Email đăng nhập không đổi được.' : email && !emailValid ? 'Email không hợp lệ.' : undefined}
+        hint={
+          isEdit
+            ? t('admin.users.form.emailLocked')
+            : email && !emailValid
+              ? t('admin.users.form.emailInvalid')
+              : undefined
+        }
       >
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="ten.ho@resq-ai.vn"
+          placeholder={t('admin.users.form.emailPlaceholder')}
           disabled={isEdit}
           required
           className={inputClass}
@@ -97,9 +109,9 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
 
       {!isEdit && (
         <FormField
-          label="Mật khẩu ban đầu"
+          label={t('admin.users.form.password')}
           required
-          hint={`Tối thiểu ${PASSWORD_MIN_LENGTH} ký tự. Gửi mật khẩu cho nhân sự; họ tự đổi sau khi đăng nhập.`}
+          hint={t('admin.users.form.passwordHint', { min: PASSWORD_MIN_LENGTH })}
         >
           <input
             type="password"
@@ -113,22 +125,21 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
       )}
 
       <FormField
-        label="Số điện thoại"
-        hint={!phoneValid ? 'Số điện thoại gồm 10 chữ số, bắt đầu bằng 0.' : undefined}
+        label={t('admin.users.form.phone')}
+        hint={!phoneValid ? t('admin.users.form.phoneInvalid') : undefined}
       >
         <input
           value={phoneNumber}
           onChange={(e) => setPhoneNumber(e.target.value)}
           inputMode="tel"
-          placeholder="VD: 0981234567"
+          placeholder={t('admin.users.form.phonePlaceholder')}
           className={`${inputClass} font-mono-data`}
         />
       </FormField>
 
-      <FormField label="Vai trò" required>
+      <FormField label={t('admin.users.form.role')} required>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {INTERNAL_ROLES.map((r) => {
-            const meta = ROLE_META[r];
             const active = role === r;
             return (
               <button
@@ -139,8 +150,8 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
                   active ? 'bg-red-50 border-red-500' : 'border-slate-300 hover:border-slate-400'
                 }`}
               >
-                <span className={`block text-sm font-bold ${active ? 'text-red-700' : 'text-slate-800'}`}>{meta.label}</span>
-                <span className="block mt-1 text-[11px] text-slate-500">{meta.description}</span>
+                <span className={`block text-sm font-bold ${active ? 'text-red-700' : 'text-slate-800'}`}>{t(`admin.users.roles.${r}.label`)}</span>
+                <span className="block mt-1 text-[11px] text-slate-500">{t(`admin.users.roles.${r}.description`)}</span>
               </button>
             );
           })}
@@ -148,8 +159,10 @@ export const AccountFormDrawer: React.FC<AccountFormDrawerProps> = ({ initialAcc
       </FormField>
 
       <p className="text-xs text-slate-500">
-        {initialAccount?.stationName ? `Đang thuộc trạm ${initialAccount.stationName}. ` : ''}
-        Gán tài khoản vào trạm ở tab Trạm cứu hộ (Thêm / Sửa trạm → Nhân sự của trạm).
+        {initialAccount?.stationName
+          ? t('admin.users.form.currentStation', { station: initialAccount.stationName })
+          : ''}
+        {t('admin.users.form.stationNote')}
       </p>
     </DrawerShell>
   );

@@ -3,6 +3,7 @@ import { Loader2, MapPin } from 'lucide-react';
 import { inputClass } from '../common/styles';
 import { useDebouncedValue } from '../common/hooks';
 import { searchAddress, type AddressSuggestion } from '../../../services/admin/geocodeService';
+import { useTranslation } from '../../../i18n';
 
 const MIN_QUERY_LENGTH = 4;
 
@@ -25,6 +26,7 @@ export const AddressSearchField: React.FC<AddressSearchFieldProps> = ({
   disabled,
   placeholder,
 }) => {
+  const { t } = useTranslation();
   // Chỉ tìm khi Admin tự gõ — địa chỉ tự điền từ bản đồ thì không mở gợi ý.
   const [typed, setTyped] = useState(false);
   const [open, setOpen] = useState(false);
@@ -73,7 +75,7 @@ export const AddressSearchField: React.FC<AddressSearchFieldProps> = ({
         maxLength={maxLength}
         required
         disabled={disabled}
-        placeholder={placeholder ?? 'Gõ địa chỉ để tìm trên bản đồ...'}
+        placeholder={placeholder ?? t('admin.stations.addressSearch.placeholder')}
         autoComplete="off"
         className={`${inputClass} pr-9`}
       />
@@ -84,7 +86,7 @@ export const AddressSearchField: React.FC<AddressSearchFieldProps> = ({
       {open && active && current && !searchError && (
         <ul className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg divide-y divide-slate-100">
           {suggestions.length === 0 ? (
-            <li className="px-3 py-2.5 text-xs text-slate-400">Không tìm thấy địa chỉ phù hợp — chọn vị trí trên bản đồ.</li>
+            <li className="px-3 py-2.5 text-xs text-slate-400">{t('admin.stations.addressSearch.noResults')}</li>
           ) : (
             suggestions.map((s) => (
               <li key={`${s.lat},${s.lng},${s.label}`}>
@@ -106,7 +108,7 @@ export const AddressSearchField: React.FC<AddressSearchFieldProps> = ({
         </ul>
       )}
       {searchError && active && (
-        <p className="mt-1 text-[11px] text-amber-700">Không tra cứu được địa chỉ lúc này — chọn vị trí trên bản đồ.</p>
+        <p className="mt-1 text-[11px] text-amber-700">{t('admin.stations.addressSearch.failed')}</p>
       )}
     </div>
   );

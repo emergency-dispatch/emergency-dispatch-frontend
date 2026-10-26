@@ -1,6 +1,6 @@
 // Mirror EmergencyDispatch.Application.DTOs.Incident.AuditTrailEntryDto (enum trả về dạng chuỗi).
-// Immutable Audit Trail: backend chỉ ghi nhật ký gắn với sự cố — không có bản ghi khóa tài khoản,
-// sửa trạm/xe hay đổi cấu hình.
+// Hai loại nhật ký chỉ đọc: thao tác trên sự cố (GET /api/audit-trail) và thao tác quản trị — trạm, xe, tài khoản,
+// tổ, cấu hình… (GET /api/audit-trail/system, kiểu SystemAuditLogDto bên dưới).
 
 export type AuditAction =
   | 'Created'
@@ -18,7 +18,9 @@ export type AuditAction =
   | 'Closed'
   | 'ReDispatched'
   | 'PhoneRevealed'
-  | 'ReporterBlocked';
+  | 'ReporterBlocked'
+  | 'TransferredStation'
+  | 'OutOfServiceArea';
 
 export const AUDIT_ACTIONS: AuditAction[] = [
   'Created',
@@ -37,6 +39,8 @@ export const AUDIT_ACTIONS: AuditAction[] = [
   'Closed',
   'PhoneRevealed',
   'ReporterBlocked',
+  'TransferredStation',
+  'OutOfServiceArea',
 ];
 
 export interface AuditTrailEntryDto {
@@ -53,5 +57,74 @@ export interface AuditTrailEntryDto {
   /** JSON trạng thái trước / sau thao tác (có thể null). */
   oldStateJson: string | null;
   newStateJson: string | null;
+  timestamp: string;
+}
+
+/** SystemAuditAction của backend (BR-AD-06). */
+export type SystemAuditAction =
+  | 'Created'
+  | 'Updated'
+  | 'Deleted'
+  | 'StatusChanged'
+  | 'Locked'
+  | 'Unlocked'
+  | 'StationAssigned'
+  | 'SettingsUpdated'
+  | 'Unblocked'
+  | 'BlockExtended'
+  | 'Exported';
+
+export const SYSTEM_AUDIT_ACTIONS: SystemAuditAction[] = [
+  'Created',
+  'Updated',
+  'Deleted',
+  'StatusChanged',
+  'Locked',
+  'Unlocked',
+  'StationAssigned',
+  'SettingsUpdated',
+  'Unblocked',
+  'BlockExtended',
+  'Exported',
+];
+
+/** AuditEntityTypes của backend. */
+export type SystemAuditEntityType =
+  | 'Station'
+  | 'RescueUnit'
+  | 'User'
+  | 'StationTeam'
+  | 'Settings'
+  | 'EscalationRule'
+  | 'BlockedNumber'
+  | 'Report';
+
+export const SYSTEM_AUDIT_ENTITY_TYPES: SystemAuditEntityType[] = [
+  'Station',
+  'RescueUnit',
+  'User',
+  'StationTeam',
+  'Settings',
+  'EscalationRule',
+  'BlockedNumber',
+  'Report',
+];
+
+/** Mirror SystemAuditLogDto (GET /api/audit-trail/system). */
+export interface SystemAuditLogDto {
+  id: string;
+  actorId: string | null;
+  actorName: string | null;
+  actorRole: string | null;
+  action: SystemAuditAction;
+  entityType: SystemAuditEntityType;
+  entityId: string | null;
+  /** Tên đối tượng lúc ghi (VD biển số, tên trạm, email; cấu hình thì là khóa "dispatch" / "escalation"…). */
+  entityName: string | null;
+  description: string;
+  /** JSON camelCase trạng thái trước / sau (có thể lồng object, enum dạng chuỗi); null nếu không có. */
+  oldValueJson: string | null;
+  newValueJson: string | null;
+  ipAddress: string | null;
   timestamp: string;
 }

@@ -23,16 +23,16 @@ export const StaffQuickActionPanel: React.FC<StaffQuickActionPanelProps> = ({ mi
 
   const handleTriggerBackup = (type: string) => {
     staffAudioService.playPriorityBeep();
-    setSentNotification(`Đã gửi yêu cầu chi viện [${type}] khẩn cấp tới Tổng Đài CAD!`);
+    setSentNotification(`Đã gửi yêu cầu chi viện [${type}] (Chưa có API: /api/dispatch/backup - Hãy gọi trực tiếp 114)`);
     setActiveDialog(null);
-    setTimeout(() => setSentNotification(null), 4000);
+    setTimeout(() => setSentNotification(null), 5000);
   };
 
   const handleReportTraffic = () => {
     staffAudioService.playPriorityBeep();
-    setSentNotification('Đã báo kẹt xe! Tổng đài CAD đang điều chỉnh đèn tín hiệu ưu tiên.');
+    setSentNotification('Đã ghi nhận báo kẹt xe (Chưa có API: /api/traffic/report - Hãy liên hệ CAD qua bộ đàm)');
     setActiveDialog(null);
-    setTimeout(() => setSentNotification(null), 4000);
+    setTimeout(() => setSentNotification(null), 5000);
   };
 
   return (

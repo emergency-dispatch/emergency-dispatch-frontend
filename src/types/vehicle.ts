@@ -32,6 +32,11 @@ export interface Vehicle {
   lastUpdated: string;
   /** Lượt điều phối đang chạy của xe — dùng để hủy giao xe. */
   assignmentId: string | null;
+  /**
+   * Có vị trí GPS thật cho nhiệm vụ hiện tại (realtime, hoặc cập nhật sau lúc được giao).
+   * false → chưa có GPS mới, bản đồ đặt xe tại trạm thay vì tọa độ cũ trong DB.
+   */
+  hasLiveGps: boolean;
 }
 
 export interface Station {
@@ -40,6 +45,8 @@ export interface Station {
   address: string;
   lat: number;
   lng: number;
+  /** Bán kính phủ sóng (km) — backend chọn trạm phụ trách SOS theo vòng này. */
+  coverageRadiusKm: number;
   vehicleIds: string[];
 }
 
@@ -54,6 +61,11 @@ export interface DispatchCandidate {
   cost: number;
   /** Tỷ lệ xe đang bận của trạm (0–1). */
   stationLoad: number;
+  /** Quãng đường / ETA là ước lượng (máy chủ chỉ đường lỗi). */
+  isApproximate: boolean;
+  /** Xe của trạm khác (điều hỗ trợ). */
+  isSupportUnit: boolean;
+  stationName: string;
 }
 
 export interface DispatchSuggestion {

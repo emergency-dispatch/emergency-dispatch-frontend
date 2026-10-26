@@ -9,6 +9,8 @@ export interface DispatchRoute {
   vehicleId: string;
   status: VehicleStatus;
   coordinates: [number, number][];
+  /** Máy chủ chỉ đường lỗi → chỉ là đoạn thẳng ước lượng (vẽ nét đứt). */
+  approximate: boolean;
 }
 
 // Chỉ vẽ đường cho xe chưa tới hiện trường.
@@ -17,7 +19,8 @@ const ROUTED_STATUSES: VehicleStatus[] = ['awaiting_ack', 'accepted', 'en_route'
 const REFRESH_MS = 30000;
 
 /**
- * Lộ trình của các xe đang tới hiện trường (GET /api/dispatch/tracking/incident/{id} → units[].routeTrajectory).
+ * Lộ trình đường bộ của các xe đang tới hiện trường (GET /api/dispatch/tracking/incident/{id} →
+ * units[].routeTrajectory, backend tính bằng OSRM từ vị trí xe; xe chưa gửi GPS thì vị trí = trạm của xe).
  * Tải lại khi có xe đổi trạng thái hoặc được giao / hủy giao, và mỗi 30 giây.
  */
 export function useDispatchRoutes(incidents: Incident[], vehicles: Vehicle[]): DispatchRoute[] {
@@ -31,7 +34,10 @@ export function useDispatchRoutes(incidents: Incident[], vehicles: Vehicle[]): D
     const active = new Set(incidents.filter((i) => i.status === 'approved').map((i) => i.id));
     return [...new Set(movingVehicles.map((v) => v.incidentId!))].filter((id) => active.has(id));
   }, [incidents, movingVehicles]);
-  const refreshKey = movingVehicles.map((v) => `${v.id}:${v.status}`).sort().join('|');
+  const refreshKey = movingVehicles
+    .map((v) => `${v.id}:${v.status}`)
+    .sort()
+    .join('|');
 
   useEffect(() => {
     if (incidentIds.length === 0) {
@@ -56,6 +62,7 @@ export function useDispatchRoutes(incidents: Incident[], vehicles: Vehicle[]): D
                 vehicleId: unit.rescueUnitId,
                 status,
                 coordinates: unit.routeTrajectory.map((p) => [p.longitude, p.latitude] as [number, number]),
+                approximate: !!unit.isApproximateRoute,
               },
             ];
           });
