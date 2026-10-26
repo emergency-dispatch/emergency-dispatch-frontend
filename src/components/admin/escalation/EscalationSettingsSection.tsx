@@ -67,7 +67,8 @@ const EscalationForm: React.FC<{
 
   const values = draftToEscalation(draft);
   const errors = validateEscalationSettings(values, dispatchStepsKm);
-  const dirty = !sameSettings(values, record.values);
+  // So với bản đã qua draft (cùng thứ tự key, bỏ field thừa) — so thẳng record.values từ API luôn lệch.
+  const dirty = !sameSettings(values, draftToEscalation(escalationToDraft(record.values)));
   const canSave = dirty && Object.keys(errors).length === 0;
   useUnsavedChangesGuard(dirty);
 

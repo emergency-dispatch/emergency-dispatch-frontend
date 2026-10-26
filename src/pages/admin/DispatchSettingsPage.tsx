@@ -67,7 +67,8 @@ const DispatchForm: React.FC<{
 
   const values = draftToDispatch(draft);
   const errors = validateDispatchSettings(values, maxRadiusKm);
-  const dirty = !sameSettings(values, record.values);
+  // So với bản đã qua draft (cùng thứ tự key, bỏ field thừa) — so thẳng record.values từ API luôn lệch.
+  const dirty = !sameSettings(values, draftToDispatch(dispatchToDraft(record.values)));
   const canSave = dirty && Object.keys(errors).length === 0;
   useUnsavedChangesGuard(dirty);
 

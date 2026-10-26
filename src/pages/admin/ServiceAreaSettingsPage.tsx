@@ -123,8 +123,8 @@ const ServiceAreaForm: React.FC<{
     () =>
       radiusValid
         ? stations.filter(
-            (s) => distanceKm(values.centerLat, values.centerLng, s.latitude, s.longitude) > values.radiusKm
-          )
+          (s) => distanceKm(values.centerLat, values.centerLng, s.latitude, s.longitude) > values.radiusKm
+        )
         : [],
     [stations, values.centerLat, values.centerLng, values.radiusKm, radiusValid]
   );
@@ -179,7 +179,7 @@ const ServiceAreaForm: React.FC<{
       </label>
 
       <div className="space-y-1.5">
-        <label className={labelClass}>Tên khu vực *</label>
+        <label className={labelClass}>Tên khu vực </label>
         <input
           value={draft.name}
           onChange={(e) => set('name', e.target.value)}
@@ -195,7 +195,7 @@ const ServiceAreaForm: React.FC<{
       </div>
 
       <div className="space-y-2">
-        <label className={labelClass}>Bán kính *</label>
+        <label className={labelClass}>Bán kính </label>
         <div className="flex items-center gap-3">
           <input
             type="range"
@@ -235,7 +235,7 @@ const ServiceAreaForm: React.FC<{
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-3">
-          <label className={labelClass}>Tâm khu vực *</label>
+          <label className={labelClass}>Tâm khu vực </label>
           <button
             type="button"
             onClick={() => setRecenterKey((k) => k + 1)}
