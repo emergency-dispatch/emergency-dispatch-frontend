@@ -9,6 +9,7 @@ import type {
   ReportFormat,
 } from '../../types/report';
 import type { PageParams } from './listUtils';
+import i18n from '../../i18n';
 
 const startOfDay = (ymd: string) => new Date(`${ymd}T00:00:00`).toISOString();
 const endOfDay = (ymd: string) => new Date(`${ymd}T23:59:59.999`).toISOString();
@@ -16,7 +17,7 @@ const endOfDay = (ymd: string) => new Date(`${ymd}T23:59:59.999`).toISOString();
 /** Tham số query chung của ba API báo cáo. */
 function toParams(filter: IncidentReportFilter) {
   if (filter.fromDate && filter.toDate && filter.fromDate > filter.toDate) {
-    throw new Error('Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.');
+    throw new Error(i18n.t('admin.common.invalidDateRange'));
   }
   return {
     from: filter.fromDate ? startOfDay(filter.fromDate) : undefined,

@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { Notice } from '../../components/admin/common/ui';
 import { useServiceQuery } from '../../components/admin/common/hooks';
-import { ROLE_META } from '../../components/admin/accounts/accountMeta';
 import { RESCUE_UNIT_STATUS_META } from '../../components/admin/fleetMeta';
 import {
   LONG_MAINTENANCE_DAYS,
@@ -22,26 +21,25 @@ import {
   type OverviewVehicleGroup,
 } from '../../services/admin/overviewAdminService';
 import { UserRole } from '../../types/auth';
+import { dateLocale, useTranslation } from '../../i18n';
 
-const VEHICLE_GROUPS: { key: OverviewVehicleGroup; label: string; color: string }[] = [
-  { key: 'Available', label: RESCUE_UNIT_STATUS_META.Available.label, color: RESCUE_UNIT_STATUS_META.Available.color },
-  { key: 'on_mission', label: 'Đang làm nhiệm vụ', color: RESCUE_UNIT_STATUS_META.Dispatched.color },
-  { key: 'CoolDown', label: RESCUE_UNIT_STATUS_META.CoolDown.label, color: RESCUE_UNIT_STATUS_META.CoolDown.color },
-  { key: 'Maintenance', label: RESCUE_UNIT_STATUS_META.Maintenance.label, color: RESCUE_UNIT_STATUS_META.Maintenance.color },
-  {
-    key: 'OutOfService',
-    label: RESCUE_UNIT_STATUS_META.OutOfService.label,
-    color: RESCUE_UNIT_STATUS_META.OutOfService.color,
-  },
+// Nhãn: on_mission → admin.monitoring.overview.onMission, còn lại → enums.unitStatus.*
+const VEHICLE_GROUPS: { key: OverviewVehicleGroup; color: string }[] = [
+  { key: 'Available', color: RESCUE_UNIT_STATUS_META.Available.color },
+  { key: 'on_mission', color: RESCUE_UNIT_STATUS_META.Dispatched.color },
+  { key: 'CoolDown', color: RESCUE_UNIT_STATUS_META.CoolDown.color },
+  { key: 'Maintenance', color: RESCUE_UNIT_STATUS_META.Maintenance.color },
+  { key: 'OutOfService', color: RESCUE_UNIT_STATUS_META.OutOfService.color },
 ];
 
 const vehicleLink = (plate: string) => `/admin/vehicles?search=${encodeURIComponent(plate)}`;
 const stationLink = (name: string) => `/admin/stations?search=${encodeURIComponent(name)}`;
 
-const formatTime = (iso: string) => new Date(iso).toLocaleTimeString('vi-VN', { hour12: false });
-const formatDate = (iso: string) => new Date(iso).toLocaleDateString('vi-VN');
+const formatTime = (iso: string) => new Date(iso).toLocaleTimeString(dateLocale(), { hour12: false });
+const formatDate = (iso: string) => new Date(iso).toLocaleDateString(dateLocale());
 
 const OverviewPage: React.FC = () => {
+  const { t } = useTranslation();
   const query = useServiceQuery(() => overviewAdminService.getOverview(), 'overview');
   const data = query.data;
 
@@ -49,7 +47,7 @@ const OverviewPage: React.FC = () => {
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-slate-500 font-mono-data">
-          {data ? `Cập nhật lúc ${formatTime(data.generatedAt)}` : 'Đang tải...'}
+          {data ? t('admin.monitoring.overview.updatedAt', { time: formatTime(data.generatedAt) }) : t('admin.common.loading')}
         </p>
         <button
           onClick={query.reload}
@@ -57,7 +55,7 @@ const OverviewPage: React.FC = () => {
           className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-60"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${query.loading ? 'animate-spin' : ''}`} />
-          Làm mới
+          {t('admin.monitoring.refresh')}
         </button>
       </div>
 
@@ -68,14 +66,14 @@ const OverviewPage: React.FC = () => {
           <section className="space-y-3">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Truck className="w-4 h-4 text-red-600" />
-              Đội xe
+              {t('admin.monitoring.overview.fleet')}
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {VEHICLE_GROUPS.map((g) => (
                 <StatCard
                   key={g.key}
                   to={`/admin/vehicles?status=${g.key}`}
-                  label={g.label}
+                  label={g.key === 'on_mission' ? t('admin.monitoring.overview.onMission') : t(`enums.unitStatus.${g.key}`)}
                   value={data.vehicleCounts[g.key]}
                   dotColor={g.color}
                 />
@@ -84,20 +82,25 @@ const OverviewPage: React.FC = () => {
           </section>
 
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <StatCard to="/admin/stations" label="Trạm đang hoạt động" value={data.activeStationCount} icon={Building2} />
+            <StatCard
+              to="/admin/stations"
+              label={t('admin.monitoring.overview.activeStations')}
+              value={data.activeStationCount}
+              icon={Building2}
+            />
             <StatCard
               to={`/admin/accounts?role=${UserRole.Operator}`}
-              label={ROLE_META[UserRole.Operator].label}
+              label={t(`admin.users.roles.${UserRole.Operator}.label`)}
               value={data.accountCounts[UserRole.Operator]}
               icon={Users}
             />
             <StatCard
               to={`/admin/accounts?role=${UserRole.RescueStaff}`}
-              label={ROLE_META[UserRole.RescueStaff].label}
+              label={t(`admin.users.roles.${UserRole.RescueStaff}.label`)}
               value={data.accountCounts[UserRole.RescueStaff]}
               icon={Users}
             />
-            <StatCard to="/admin/citizens" label="Tài khoản Citizen" value={data.citizenCount} icon={UserRound} />
+            <StatCard to="/admin/citizens" label={t('admin.monitoring.overview.citizenAccounts')} value={data.citizenCount} icon={UserRound} />
           </section>
 
           <ActionItems items={data.actionItems} />
@@ -131,16 +134,26 @@ const StatCard: React.FC<{ to: string; label: string; value: number; dotColor?: 
 );
 
 const ActionItems: React.FC<{ items: AdminOverview['actionItems'] }> = ({ items }) => {
+  const { t } = useTranslation();
   const groups: { title: string; icon: LucideIcon; rows: React.ReactNode[] }[] = [
     {
-      title: 'Trạm không còn xe Sẵn sàng',
+      title: t('admin.monitoring.overview.noAvailableVehicle'),
       icon: Building2,
       rows: items.stationsWithoutAvailableVehicle.map((s) => (
-        <ActionRow key={s.id} to={stationLink(s.name)} primary={s.name} secondary={s.vehicleCount === 0 ? 'Trạm chưa có xe nào' : `${s.vehicleCount} xe, không xe nào Sẵn sàng`} />
+        <ActionRow
+          key={s.id}
+          to={stationLink(s.name)}
+          primary={s.name}
+          secondary={
+            s.vehicleCount === 0
+              ? t('admin.monitoring.overview.stationNoVehicles')
+              : t('admin.monitoring.overview.stationNoneAvailable', { count: s.vehicleCount })
+          }
+        />
       )),
     },
     {
-      title: `Xe bảo trì quá ${LONG_MAINTENANCE_DAYS} ngày`,
+      title: t('admin.monitoring.overview.longMaintenance', { days: LONG_MAINTENANCE_DAYS }),
       icon: Wrench,
       rows: items.longMaintenanceVehicles.map((v) => (
         <ActionRow
@@ -148,12 +161,16 @@ const ActionItems: React.FC<{ items: AdminOverview['actionItems'] }> = ({ items 
           to={vehicleLink(v.plate)}
           primary={v.plate}
           mono
-          secondary={`${v.stationName} · cập nhật lần cuối ${formatDate(v.maintenanceSince)} (${v.days} ngày)`}
+          secondary={t('admin.monitoring.overview.maintenanceSince', {
+            station: v.stationName,
+            date: formatDate(v.maintenanceSince),
+            days: v.days,
+          })}
         />
       )),
     },
     {
-      title: 'Xe ngừng hoạt động chờ chuyển trạm',
+      title: t('admin.monitoring.overview.outOfService'),
       icon: Truck,
       rows: items.outOfServiceVehicles.map((v) => (
         <ActionRow
@@ -161,7 +178,9 @@ const ActionItems: React.FC<{ items: AdminOverview['actionItems'] }> = ({ items 
           to={vehicleLink(v.plate)}
           primary={v.plate}
           mono
-          secondary={v.stationName ? `Trạm cũ: ${v.stationName}` : 'Trạm cũ đã bị xóa'}
+          secondary={
+            v.stationName ? t('admin.monitoring.overview.previousStation', { station: v.stationName }) : t('admin.monitoring.overview.previousStationDeleted')
+          }
         />
       )),
     },
@@ -169,11 +188,11 @@ const ActionItems: React.FC<{ items: AdminOverview['actionItems'] }> = ({ items 
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-bold text-slate-900">Cần xử lý</h2>
+      <h2 className="text-sm font-bold text-slate-900">{t('admin.monitoring.overview.actionItems')}</h2>
       {groups.length === 0 ? (
         <div className="p-8 rounded-xl border border-dashed border-slate-300 bg-white text-center">
           <CircleCheck className="w-7 h-7 text-emerald-500 mx-auto" />
-          <p className="mt-2 text-sm font-semibold text-slate-600">Không có việc cần xử lý</p>
+          <p className="mt-2 text-sm font-semibold text-slate-600">{t('admin.monitoring.overview.nothingToDo')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -199,7 +218,9 @@ const ActionRow: React.FC<{ to: string; primary: string; secondary: string; mono
   secondary,
   mono,
   action,
-}) => (
+}) => {
+  const { t } = useTranslation();
+  return (
   <li className="flex items-center gap-3 px-4 py-2.5">
     <Link to={to} className="group flex-1 min-w-0">
       <span className={`block text-sm font-semibold text-slate-900 group-hover:text-red-600 truncate ${mono ? 'font-mono-data' : ''}`}>
@@ -208,11 +229,12 @@ const ActionRow: React.FC<{ to: string; primary: string; secondary: string; mono
       <span className="block text-[11px] text-slate-500 truncate">{secondary}</span>
     </Link>
     {action ?? (
-      <Link to={to} aria-label={`Mở ${primary}`} className="text-slate-300 hover:text-red-500">
+      <Link to={to} aria-label={t('admin.monitoring.overview.open', { name: primary })} className="text-slate-300 hover:text-red-500">
         <ArrowRight className="w-4 h-4" />
       </Link>
     )}
   </li>
-);
+  );
+};
 
 export default OverviewPage;

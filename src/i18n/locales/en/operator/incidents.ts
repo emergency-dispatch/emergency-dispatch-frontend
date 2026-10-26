@@ -1,5 +1,5 @@
-import type { Messages } from '../types';
-import type { incidentsVi } from '../vi/incidents';
+import type { Messages } from '../../types';
+import type { incidentsVi } from '../../vi/operator/incidents';
 
 export const incidentsEn: Messages<typeof incidentsVi> = {
   page: {

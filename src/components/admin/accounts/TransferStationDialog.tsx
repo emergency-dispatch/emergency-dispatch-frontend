@@ -5,6 +5,7 @@ import { useServiceQuery } from '../common/hooks';
 import { stationAdminService } from '../../../services/admin/stationAdminService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import type { UserResponseDto } from '../../../types/auth';
+import { Trans, useTranslation } from '../../../i18n';
 
 interface TransferStationDialogProps {
   account: UserResponseDto;
@@ -17,6 +18,7 @@ interface TransferStationDialogProps {
  * nhân sự trạm mình và không thấy người chưa thuộc trạm nào. Chia tổ ở trạm mới do Operator trạm đó làm.
  */
 export const TransferStationDialog: React.FC<TransferStationDialogProps> = ({ account, onCancel, onDone }) => {
+  const { t } = useTranslation();
   const stations = useServiceQuery(() => stationAdminService.list({ pageIndex: 1, pageSize: 500 }), 'transfer-stations');
   const [stationId, setStationId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
@@ -41,8 +43,8 @@ export const TransferStationDialog: React.FC<TransferStationDialogProps> = ({ ac
 
   return (
     <ConfirmModal
-      title={`Chuyển trạm cho ${account.fullName}`}
-      confirmLabel={stationId === NONE ? 'Gỡ khỏi trạm' : 'Chuyển trạm'}
+      title={t('admin.users.transfer.title', { name: account.fullName })}
+      confirmLabel={stationId === NONE ? t('admin.users.transfer.remove') : t('admin.users.transfer.confirm')}
       confirmDisabled={!canConfirm}
       submitting={submitting}
       onCancel={onCancel}
@@ -50,27 +52,30 @@ export const TransferStationDialog: React.FC<TransferStationDialogProps> = ({ ac
     >
       <Notice notice={error ? { kind: 'error', message: error } : null} />
       <p>
-        Đang thuộc: <strong>{account.stationName ?? 'chưa thuộc trạm nào'}</strong>
+        <Trans
+          i18nKey="admin.users.transfer.current"
+          values={{ station: account.stationName ?? t('admin.users.transfer.noStation') }}
+          components={{ b: <strong /> }}
+        />
       </p>
       <select
         value={stationId}
         onChange={(e) => setStationId(e.target.value)}
         disabled={stations.loading && !stations.data}
-        aria-label="Trạm mới"
+        aria-label={t('admin.users.transfer.newStation')}
         className={inputClass}
       >
-        <option value="">{stations.loading && !stations.data ? 'Đang tải danh sách trạm...' : '— Chọn trạm mới —'}</option>
+        <option value="">{stations.loading && !stations.data ? t('admin.users.transfer.loading') : t('admin.users.transfer.choose')}</option>
         {targets.map((s) => (
           <option key={s.id} value={s.id}>
             {s.name}
           </option>
         ))}
-        {account.stationId && <option value={NONE}>Gỡ khỏi trạm (không thuộc trạm nào)</option>}
+        {account.stationId && <option value={NONE}>{t('admin.users.transfer.removeOption')}</option>}
       </select>
       {stations.error && <p className="text-[11px] text-red-600">{stations.error}</p>}
       <p className="text-xs text-slate-500">
-        Người này sẽ rời tổ làm việc hiện tại; app của họ tự nhận trạm mới. Operator của trạm mới xếp họ vào tổ ở màn
-        Trạm &amp; Tổ.
+        {t('admin.users.transfer.note')}
       </p>
     </ConfirmModal>
   );

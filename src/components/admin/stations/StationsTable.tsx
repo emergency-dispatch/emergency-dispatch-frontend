@@ -2,6 +2,7 @@ import React from 'react';
 import { Pencil, Phone, Trash2 } from 'lucide-react';
 import { iconButtonClass, thClass } from '../common/styles';
 import type { StationResponseDto } from '../../../types/station';
+import { useTranslation } from '../../../i18n';
 
 interface StationsTableProps {
   stations: StationResponseDto[];
@@ -11,6 +12,7 @@ interface StationsTableProps {
 }
 
 export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading, onEdit, onDelete }) => {
+  const { t } = useTranslation();
   return (
     <div
       className={`rounded-xl border border-slate-200 overflow-x-auto bg-white shadow-xs transition-opacity ${
@@ -20,21 +22,21 @@ export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading,
       <table className="w-full text-sm min-w-[980px]">
         <thead>
           <tr className="bg-slate-50 border-b border-slate-200 text-left">
-            <th className={thClass}>Tên trạm</th>
-            <th className={thClass}>Operator phụ trách</th>
-            <th className={thClass}>Hotline</th>
-            <th className={thClass}>Bán kính</th>
-            <th className={thClass}>Trạng thái</th>
-            <th className={thClass}>Nhân sự</th>
-            <th className={thClass}>Xe sẵn sàng</th>
-            <th className={`${thClass} text-right`}>Hành động</th>
+            <th className={thClass}>{t('admin.stations.table.name')}</th>
+            <th className={thClass}>{t('admin.stations.table.headOperator')}</th>
+            <th className={thClass}>{t('admin.stations.table.hotline')}</th>
+            <th className={thClass}>{t('admin.stations.table.radius')}</th>
+            <th className={thClass}>{t('admin.common.status')}</th>
+            <th className={thClass}>{t('admin.stations.table.staff')}</th>
+            <th className={thClass}>{t('admin.stations.table.availableUnits')}</th>
+            <th className={`${thClass} text-right`}>{t('admin.common.actions')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {stations.length === 0 && (
             <tr>
               <td colSpan={8} className="px-4 py-10 text-center text-slate-400 text-sm">
-                {loading ? 'Đang tải...' : 'Không có trạm nào phù hợp.'}
+                {loading ? t('admin.common.loading') : t('admin.stations.table.empty')}
               </td>
             </tr>
           )}
@@ -54,7 +56,7 @@ export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading,
                   </>
                 ) : (
                   <span className="px-2 py-0.5 rounded-md border border-amber-200 bg-amber-50 text-amber-700 text-[10px] font-bold font-mono-data">
-                    Chưa có
+                    {t('admin.stations.table.noHeadOperator')}
                   </span>
                 )}
               </td>
@@ -68,11 +70,11 @@ export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading,
               <td className="px-4 py-3 whitespace-nowrap">
                 {station.isActive ? (
                   <span className="px-2 py-0.5 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold font-mono-data">
-                    Hoạt động
+                    {t('admin.stations.table.active')}
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-md border border-slate-300 bg-slate-100 text-slate-500 text-[10px] font-bold font-mono-data">
-                    Tạm ngưng
+                    {t('admin.stations.table.inactive')}
                   </span>
                 )}
               </td>
@@ -88,10 +90,10 @@ export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading,
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center justify-end gap-1.5">
-                  <button onClick={() => onEdit(station)} className={iconButtonClass} aria-label="Sửa trạm" title="Sửa trạm">
+                  <button onClick={() => onEdit(station)} className={iconButtonClass} aria-label={t('admin.stations.table.edit')} title={t('admin.stations.table.edit')}>
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => onDelete(station)} className={iconButtonClass} aria-label="Xóa trạm" title="Xóa trạm">
+                  <button onClick={() => onDelete(station)} className={iconButtonClass} aria-label={t('admin.stations.table.delete')} title={t('admin.stations.table.delete')}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>

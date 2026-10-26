@@ -3,7 +3,7 @@ import { Info } from 'lucide-react';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../common/ui';
 import { inputClass } from '../common/styles';
 import { useServiceQuery } from '../common/hooks';
-import { NOTIFY_ROLE_LABEL, escalationSeverityMeta } from './escalationMeta';
+import { escalationSeverityMeta } from './escalationMeta';
 import {
   DESCRIPTION_MAX_LENGTH,
   escalationService,
@@ -19,6 +19,7 @@ import {
   type EscalationRuleDto,
   type EscalationSeverity,
 } from '../../../types/escalation';
+import { Trans, useTranslation } from '../../../i18n';
 
 interface EscalationRuleFormDrawerProps {
   initialRule: EscalationRuleDto | null;
@@ -27,6 +28,7 @@ interface EscalationRuleFormDrawerProps {
 }
 
 export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> = ({ initialRule, onClose, onSaved }) => {
+  const { t } = useTranslation();
   // Ngưỡng chờ và bán kính không thuộc quy tắc mà là cấu hình chung (PUT /api/settings/escalation) — chỉ hiện để tham khảo.
   const settings = useServiceQuery(() => adminSettingsService.getEscalationSettings(), 'escalation-rule-effective');
   const effective = settings.data?.values;
@@ -69,10 +71,10 @@ export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> =
 
   return (
     <DrawerShell
-      title={initialRule ? 'Sửa quy tắc leo thang' : 'Thêm quy tắc leo thang'}
+      title={initialRule ? t('admin.settings.escalation.ruleForm.editTitle') : t('admin.settings.escalation.ruleForm.addTitle')}
       onClose={onClose}
       onSubmit={handleSubmit}
-      footer={<DrawerFooter onCancel={onClose} submitLabel="Lưu quy tắc" submitting={submitting} canSubmit={canSubmit} />}
+      footer={<DrawerFooter onCancel={onClose} submitLabel={t('admin.settings.escalation.ruleForm.save')} submitting={submitting} canSubmit={canSubmit} />}
     >
       <Notice notice={error ? { kind: 'error', message: error } : null} />
 
@@ -81,24 +83,29 @@ export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> =
         <span>
           {effective ? (
             <>
-              <strong className="text-slate-800">Đang áp dụng:</strong> ban ngày {effective.dayThresholdMinutes} phút · ban
-              đêm {effective.nightThresholdMinutes} phút ({effective.nightStart}–{effective.nightEnd}) · bán kính tìm xe ×
-              {effective.radiusMultiplier} (tối đa {effective.maxRadiusKm} km).
+              <strong className="text-slate-800">{t('admin.settings.escalation.ruleForm.effectiveLabel')}</strong>{' '}
+              {t('admin.settings.escalation.ruleForm.effective', {
+                day: effective.dayThresholdMinutes,
+                night: effective.nightThresholdMinutes,
+                start: effective.nightStart,
+                end: effective.nightEnd,
+                multiplier: effective.radiusMultiplier,
+                maxKm: effective.maxRadiusKm,
+              })}
             </>
           ) : settings.error ? (
-            'Không tải được ngưỡng đang áp dụng.'
+            t('admin.settings.escalation.ruleForm.effectiveError')
           ) : (
-            'Đang tải ngưỡng đang áp dụng...'
+            t('admin.settings.escalation.ruleForm.effectiveLoading')
           )}{' '}
-          Các giá trị này dùng chung cho mọi quy tắc, chỉnh ở phần <strong>Ngưỡng chờ đội nhận</strong> và{' '}
-          <strong>Mở rộng bán kính khi leo thang</strong> đầu trang này.
+          <Trans i18nKey="admin.settings.escalation.ruleForm.sharedNote" components={{ b: <strong /> }} />
         </span>
       </div>
 
       <FormField
-        label="Áp dụng cho sự cố từ"
+        label={t('admin.settings.escalation.ruleForm.appliesFrom')}
         required
-        hint="Sự cố có cấp bằng hoặc cao hơn cấp này (và sự cố AI chưa phân loại) sẽ bị leo thang khi quá ngưỡng chờ."
+        hint={t('admin.settings.escalation.ruleForm.appliesFromHint')}
       >
         <div className="grid grid-cols-3 gap-2">
           {ESCALATION_SEVERITIES.map((level) => {
@@ -121,14 +128,13 @@ export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> =
       </FormField>
 
       <p className="text-[11px] text-slate-500">
-        Ngưỡng chờ (ngày/đêm) và mức mở rộng bán kính dùng chung cho mọi quy tắc — chỉnh ở phần Cấu hình leo thang phía
-        trên.
+        {t('admin.settings.escalation.ruleForm.thresholdNote')}
       </p>
 
       <FormField
-        label="Vai trò ghi nhận trong nhật ký"
+        label={t('admin.settings.escalation.ruleForm.notifyRoles')}
         required
-        hint={errors.notifyRoles ?? 'Cảnh báo realtime luôn gửi tới Điều phối viên và Quản trị viên.'}
+        hint={errors.notifyRoles ?? t('admin.settings.escalation.ruleForm.notifyRolesHint')}
       >
         <div className="space-y-2">
           {ESCALATION_NOTIFY_ROLES.map((role) => (
@@ -139,19 +145,19 @@ export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> =
                 onChange={() => toggleRole(role)}
                 className="w-4 h-4 accent-red-600"
               />
-              {NOTIFY_ROLE_LABEL[role]}
+              {t(`admin.settings.escalation.notifyRole.${role}`)}
             </label>
           ))}
         </div>
       </FormField>
 
-      <FormField label="Mô tả" hint={errors.description}>
+      <FormField label={t('admin.settings.escalation.ruleForm.description')} hint={errors.description}>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           maxLength={DESCRIPTION_MAX_LENGTH}
           rows={3}
-          placeholder="VD: Leo thang sự cố Cấp 3 chưa có đội nhận"
+          placeholder={t('admin.settings.escalation.ruleForm.descriptionPlaceholder')}
           className={`${inputClass} resize-none`}
         />
       </FormField>
@@ -163,7 +169,7 @@ export const EscalationRuleFormDrawer: React.FC<EscalationRuleFormDrawerProps> =
           onChange={(e) => setIsActive(e.target.checked)}
           className="w-4 h-4 accent-red-600"
         />
-        Bật quy tắc ngay sau khi lưu
+        {t('admin.settings.escalation.ruleForm.activateNow')}
       </label>
     </DrawerShell>
   );

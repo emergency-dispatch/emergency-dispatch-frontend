@@ -5,6 +5,7 @@ import { AccountStatusCell } from './AccountStatusCell';
 import { ROLE_META, canUnlockUser } from './accountMeta';
 import { maskPhone } from '../../../utils/incidentFormat';
 import { UserRole, UserStatus, type UserResponseDto } from '../../../types/auth';
+import { dateLocale, useTranslation } from '../../../i18n';
 
 interface AccountsTableProps {
   accounts: UserResponseDto[];
@@ -17,7 +18,7 @@ interface AccountsTableProps {
   onTransfer: (account: UserResponseDto) => void;
 }
 
-const formatDate = (iso: string) => new Date(iso).toLocaleDateString('vi-VN');
+const formatDate = (iso: string) => new Date(iso).toLocaleDateString(dateLocale());
 
 export const AccountsTable: React.FC<AccountsTableProps> = ({
   accounts,
@@ -28,6 +29,7 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
   onDelete,
   onTransfer,
 }) => {
+  const { t } = useTranslation();
   return (
     <div
       className={`rounded-xl border border-slate-200 overflow-x-auto bg-white shadow-xs transition-opacity ${
@@ -37,38 +39,39 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
       <table className="w-full text-sm min-w-[980px]">
         <thead>
           <tr className="bg-slate-50 border-b border-slate-200 text-left">
-            <th className={thClass}>Họ tên</th>
-            <th className={thClass}>Email</th>
-            <th className={thClass}>SĐT</th>
-            <th className={thClass}>Vai trò</th>
-            <th className={thClass}>Trạm công tác</th>
-            <th className={thClass}>Trạng thái</th>
-            <th className={`${thClass} text-right`}>Hành động</th>
+            <th className={thClass}>{t('admin.users.table.fullName')}</th>
+            <th className={thClass}>{t('admin.users.table.email')}</th>
+            <th className={thClass}>{t('admin.users.table.phone')}</th>
+            <th className={thClass}>{t('admin.users.table.role')}</th>
+            <th className={thClass}>{t('admin.users.table.station')}</th>
+            <th className={thClass}>{t('admin.common.status')}</th>
+            <th className={`${thClass} text-right`}>{t('admin.common.actions')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {accounts.length === 0 && (
             <tr>
               <td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-sm">
-                {loading ? 'Đang tải...' : 'Không có tài khoản nào phù hợp.'}
+                {loading ? t('admin.common.loading') : t('admin.users.table.empty')}
               </td>
             </tr>
           )}
           {accounts.map((account) => {
-            const role = ROLE_META[account.role as UserRole.Operator | UserRole.RescueStaff];
+            const roleKey = account.role as UserRole.Operator | UserRole.RescueStaff;
+            const role = ROLE_META[roleKey];
             const inactive = account.status === UserStatus.Inactive;
-            const unlockLabel = inactive ? 'Kích hoạt tài khoản' : 'Mở khóa tài khoản';
+            const unlockLabel = inactive ? t('admin.users.table.activate') : t('admin.users.table.unlock');
 
             return (
               <tr key={account.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="font-semibold text-slate-900">{account.fullName}</div>
-                  <div className="text-[11px] text-slate-400 font-mono-data">Tạo {formatDate(account.createdAt)}</div>
+                  <div className="text-[11px] text-slate-400 font-mono-data">{t('admin.users.table.createdAt', { date: formatDate(account.createdAt) })}</div>
                 </td>
                 <td className="px-4 py-3 text-slate-600">
                   {account.email}
                   {!account.isEmailVerified && (
-                    <span className="ml-1.5 text-[10px] font-bold text-amber-600 whitespace-nowrap">· chưa xác thực</span>
+                    <span className="ml-1.5 text-[10px] font-bold text-amber-600 whitespace-nowrap">{t('admin.users.unverified')}</span>
                   )}
                 </td>
                 <td className="px-4 py-3 font-mono-data text-slate-600 whitespace-nowrap">
@@ -79,7 +82,7 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
                     <span
                       className={`px-2 py-0.5 rounded-md border text-[10px] font-bold font-mono-data whitespace-nowrap ${role.badgeClass}`}
                     >
-                      {role.label}
+                      {t(`admin.users.roles.${roleKey}.label`)}
                     </span>
                   )}
                 </td>
@@ -101,8 +104,8 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
                     <button
                       onClick={() => onEdit(account)}
                       className={iconButtonClass}
-                      aria-label="Sửa tài khoản"
-                      title="Sửa tài khoản"
+                      aria-label={t('admin.users.table.edit')}
+                      title={t('admin.users.table.edit')}
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -110,8 +113,8 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
                       <button
                         onClick={() => onTransfer(account)}
                         className={iconButtonClass}
-                        aria-label="Chuyển trạm"
-                        title="Chuyển trạm"
+                        aria-label={t('admin.users.table.transfer')}
+                        title={t('admin.users.table.transfer')}
                       >
                         <ArrowRightLeft className="w-3.5 h-3.5" />
                       </button>
@@ -129,8 +132,8 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
                       <button
                         onClick={() => onLock(account)}
                         className={iconButtonClass}
-                        aria-label="Khóa tài khoản"
-                        title="Khóa tài khoản"
+                        aria-label={t('admin.users.table.lock')}
+                        title={t('admin.users.table.lock')}
                       >
                         <Lock className="w-3.5 h-3.5" />
                       </button>
@@ -138,8 +141,8 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
                     <button
                       onClick={() => onDelete(account)}
                       className={iconButtonClass}
-                      aria-label="Xóa tài khoản"
-                      title="Xóa tài khoản"
+                      aria-label={t('admin.users.table.delete')}
+                      title={t('admin.users.table.delete')}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

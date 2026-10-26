@@ -4,19 +4,22 @@ import { ChevronDown, LogOut, Menu, User } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { findAdminNavItem } from './adminNav';
+import { LANGUAGE_OPTIONS, getLanguage, setLanguage, useTranslation } from '../../i18n';
 
 interface AdminTopbarProps {
   onOpenMenu: () => void;
 }
 
 export const AdminTopbar: React.FC<AdminTopbarProps> = ({ onOpenMenu }) => {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const location = useLocation();
   const [userOpen, setUserOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
 
-  const pageTitle = findAdminNavItem(location.pathname)?.label ?? 'Quản trị hệ thống';
+  const navItem = findAdminNavItem(location.pathname);
+  const pageTitle = navItem ? t(`admin.layout.nav.${navItem.key}`) : t('admin.layout.systemAdmin');
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -26,7 +29,7 @@ export const AdminTopbar: React.FC<AdminTopbarProps> = ({ onOpenMenu }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const displayName = user?.fullName || 'Quản trị viên';
+  const displayName = user?.fullName || t('admin.layout.defaultName');
   const initials =
     displayName
       .split(' ')
@@ -40,72 +43,93 @@ export const AdminTopbar: React.FC<AdminTopbarProps> = ({ onOpenMenu }) => {
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={onOpenMenu}
-          aria-label="Mở menu"
+          aria-label={t('admin.layout.openMenu')}
           className="lg:hidden p-2 -ml-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:text-slate-900"
         >
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex flex-col leading-tight min-w-0">
           <span className="text-[10px] font-mono-data uppercase tracking-widest text-slate-400 font-bold">
-            Quản trị hệ thống
+            {t('admin.layout.systemAdmin')}
           </span>
           <h1 className="text-sm sm:text-base font-bold text-slate-900 truncate">{pageTitle}</h1>
         </div>
       </div>
 
-      <div className="relative shrink-0" ref={userRef}>
-        <button
-          onClick={() => setUserOpen((v) => !v)}
-          className="flex items-center gap-2.5 p-1 pr-2 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-colors"
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div
+          role="group"
+          aria-label={t('layout.topbar.language')}
+          className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
         >
-          {user?.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt={displayName}
-              className="w-8 h-8 rounded-full object-cover shadow-xs border border-slate-200"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-xs font-bold text-white shadow-xs">
-              {initials}
+          {LANGUAGE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setLanguage(option.value)}
+              aria-pressed={getLanguage() === option.value}
+              className={`px-2 py-1 rounded-md text-[11px] font-bold font-mono-data transition-colors ${
+                getLanguage() === option.value ? 'bg-white text-red-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative shrink-0" ref={userRef}>
+          <button
+            onClick={() => setUserOpen((v) => !v)}
+            className="flex items-center gap-2.5 p-1 pr-2 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-colors"
+          >
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={displayName}
+                className="w-8 h-8 rounded-full object-cover shadow-xs border border-slate-200"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-xs font-bold text-white shadow-xs">
+                {initials}
+              </div>
+            )}
+            <div className="hidden sm:flex flex-col items-start leading-tight">
+              <span className="text-xs font-semibold text-slate-900">{displayName}</span>
+              <span className="text-[10px] font-mono-data text-slate-500">Admin</span>
+            </div>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
+          </button>
+
+          {userOpen && (
+            <div className="absolute right-0 mt-2 w-60 rounded-xl cad-glass overflow-hidden z-[1200]">
+              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 min-w-0">
+                <p className="text-xs font-semibold text-slate-900 truncate">{displayName}</p>
+                <p className="text-[10px] font-mono-data text-red-600 font-semibold uppercase">Admin</p>
+                <p className="text-[10px] font-mono-data text-slate-400 truncate mt-0.5">{user?.email}</p>
+              </div>
+              <div className="py-1.5">
+                <button
+                  onClick={() => {
+                    setUserOpen(false);
+                    setProfileModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                >
+                  <User className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{t('admin.layout.profile')}</span>
+                </button>
+              </div>
+              <div className="py-1.5 border-t border-slate-100">
+                <button
+                  onClick={() => logout('/login')}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors text-left font-semibold"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>{t('layout.topbar.logout')}</span>
+                </button>
+              </div>
             </div>
           )}
-          <div className="hidden sm:flex flex-col items-start leading-tight">
-            <span className="text-xs font-semibold text-slate-900">{displayName}</span>
-            <span className="text-[10px] font-mono-data text-slate-500">Admin</span>
-          </div>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
-        </button>
-
-        {userOpen && (
-          <div className="absolute right-0 mt-2 w-60 rounded-xl cad-glass overflow-hidden z-[1200]">
-            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 min-w-0">
-              <p className="text-xs font-semibold text-slate-900 truncate">{displayName}</p>
-              <p className="text-[10px] font-mono-data text-red-600 font-semibold uppercase">Admin</p>
-              <p className="text-[10px] font-mono-data text-slate-400 truncate mt-0.5">{user?.email}</p>
-            </div>
-            <div className="py-1.5">
-              <button
-                onClick={() => {
-                  setUserOpen(false);
-                  setProfileModalOpen(true);
-                }}
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-              >
-                <User className="w-3.5 h-3.5 text-slate-400" />
-                <span>Hồ sơ cá nhân &amp; Đổi mật khẩu</span>
-              </button>
-            </div>
-            <div className="py-1.5 border-t border-slate-100">
-              <button
-                onClick={() => logout('/login')}
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors text-left font-semibold"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Đăng xuất</span>
-              </button>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
       <UserProfileModal isOpen={profileModalOpen} onClose={() => setProfileModalOpen(false)} />

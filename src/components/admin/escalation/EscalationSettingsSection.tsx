@@ -11,6 +11,7 @@ import {
   type SettingsRecord,
 } from '../../../services/admin/adminSettingsService';
 import { getApiErrorMessage } from '../../../services/apiClient';
+import i18n, { Trans, useTranslation } from '../../../i18n';
 
 const toMinutes = (hhmm: string) => {
   const [h, m] = hhmm.split(':').map(Number);
@@ -21,12 +22,13 @@ const toMinutes = (hhmm: string) => {
 function describeNightWindow(start: string, end: string): string | null {
   if (!start || !end || start === end) return null;
   return toMinutes(start) > toMinutes(end)
-    ? `Từ ${start} hôm nay đến ${end} sáng hôm sau (qua nửa đêm).`
-    : `Từ ${start} đến ${end} cùng ngày.`;
+    ? i18n.t('admin.settings.escalation.nightOvernight', { start, end })
+    : i18n.t('admin.settings.escalation.nightSameDay', { start, end });
 }
 
 /** Ngưỡng chờ + mở rộng bán kính khi leo thang (GET/PUT /api/settings/escalation). */
 export const EscalationSettingsSection: React.FC = () => {
+  const { t } = useTranslation();
   // Bán kính tối đa không được nhỏ hơn nấc cuối của tham số điều phối → tải cả hai.
   const query = useServiceQuery(async () => {
     const [escalation, dispatch] = await Promise.all([
@@ -39,7 +41,7 @@ export const EscalationSettingsSection: React.FC = () => {
   const [flash, setFlash] = useState<NoticeState>(null);
 
   if (query.error && !query.data) return <div className="p-4 sm:p-6"><Notice notice={{ kind: 'error', message: query.error }} /></div>;
-  if (!query.data) return <div className="p-4 sm:p-6 text-sm text-slate-400">Đang tải cấu hình...</div>;
+  if (!query.data) return <div className="p-4 sm:p-6 text-sm text-slate-400">{t('admin.common.settings.loading')}</div>;
 
   return (
     <EscalationForm
@@ -61,6 +63,7 @@ const EscalationForm: React.FC<{
   initialNotice: NoticeState;
   onSaved: (message: string) => void;
 }> = ({ record, dispatchStepsKm, initialNotice, onSaved }) => {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState<EscalationDraft>(() => escalationToDraft(record.values));
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<NoticeState>(initialNotice);
@@ -79,7 +82,7 @@ const EscalationForm: React.FC<{
     setNotice(null);
     try {
       await adminSettingsService.updateEscalationSettings(values);
-      onSaved('Đã lưu cấu hình leo thang.');
+      onSaved(t('admin.settings.escalation.saved'));
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
       setSaving(false);
@@ -90,7 +93,7 @@ const EscalationForm: React.FC<{
     try {
       const defaults = await adminSettingsService.getDefaults();
       setDraft(escalationToDraft(defaults.escalation));
-      setNotice({ kind: 'success', message: 'Đã điền giá trị mặc định. Bấm “Lưu cấu hình” để áp dụng.' });
+      setNotice({ kind: 'success', message: t('admin.common.settings.defaultsFilled') });
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     }
@@ -101,11 +104,7 @@ const EscalationForm: React.FC<{
   return (
     <SettingsForm
       scopeNote={
-        <>
-          Escalation Daemon quét định kỳ: sự cố thuộc phạm vi của quy tắc đang bật mà chưa có đội nhận quá{' '}
-          <span className="font-bold">ngưỡng chờ</span> dưới đây sẽ chuyển sang Leo thang, báo động tới Command Center và
-          mở rộng bán kính tìm xe.
-        </>
+        <Trans i18nKey="admin.settings.escalation.scopeNote" components={{ b: <span className="font-bold" /> }} />
       }
       updatedAt={record.updatedAt}
       updatedByName={record.updatedByName}
@@ -122,34 +121,34 @@ const EscalationForm: React.FC<{
       onRestoreDefaults={handleRestoreDefaults}
     >
       <section className="space-y-4">
-        <h3 className="text-sm font-bold text-slate-900">Ngưỡng chờ đội nhận</h3>
+        <h3 className="text-sm font-bold text-slate-900">{t('admin.settings.escalation.thresholdTitle')}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <NumberSettingField
-            label="Ban ngày"
-            unit="phút"
+            label={t('admin.settings.escalation.day')}
+            unit={t('admin.settings.dispatch.minutesUnit')}
             value={draft.dayThresholdMinutes}
             onChange={set('dayThresholdMinutes')}
             error={errors.dayThresholdMinutes}
-            hint="Bước 0.5 phút."
+            hint={t('admin.settings.escalation.halfStepHint')}
           />
           <NumberSettingField
-            label="Ban đêm"
-            unit="phút"
+            label={t('admin.settings.escalation.night')}
+            unit={t('admin.settings.dispatch.minutesUnit')}
             value={draft.nightThresholdMinutes}
             onChange={set('nightThresholdMinutes')}
             error={errors.nightThresholdMinutes}
-            hint="Bước 0.5 phút."
+            hint={t('admin.settings.escalation.halfStepHint')}
           />
         </div>
 
         <div className="space-y-1.5">
-          <span className={labelClass}>Khung giờ ban đêm (giờ Việt Nam)</span>
+          <span className={labelClass}>{t('admin.settings.escalation.nightWindow')}</span>
           <div className="flex items-center gap-2 max-w-sm">
             <input
               type="time"
               value={draft.nightStart}
               onChange={(e) => set('nightStart')(e.target.value)}
-              aria-label="Giờ bắt đầu khung đêm"
+              aria-label={t('admin.settings.escalation.nightStart')}
               className={`${inputClass} font-mono-data ${errors.nightStart ? 'border-red-400' : ''}`}
             />
             <span className="text-slate-400">→</span>
@@ -157,7 +156,7 @@ const EscalationForm: React.FC<{
               type="time"
               value={draft.nightEnd}
               onChange={(e) => set('nightEnd')(e.target.value)}
-              aria-label="Giờ kết thúc khung đêm"
+              aria-label={t('admin.settings.escalation.nightEnd')}
               className={`${inputClass} font-mono-data ${errors.nightEnd ? 'border-red-400' : ''}`}
             />
           </div>
@@ -170,24 +169,24 @@ const EscalationForm: React.FC<{
       </section>
 
       <section className="space-y-4 pt-5 border-t border-slate-100">
-        <h3 className="text-sm font-bold text-slate-900">Mở rộng bán kính khi leo thang</h3>
+        <h3 className="text-sm font-bold text-slate-900">{t('admin.settings.escalation.radiusTitle')}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <NumberSettingField
-            label="Hệ số mở rộng"
+            label={t('admin.settings.escalation.multiplier')}
             unit="×"
             step={0.1}
             value={draft.radiusMultiplier}
             onChange={set('radiusMultiplier')}
             error={errors.radiusMultiplier}
-            hint="Nhân với từng nấc bán kính tìm xe."
+            hint={t('admin.settings.escalation.multiplierHint')}
           />
           <NumberSettingField
-            label="Bán kính tối đa"
+            label={t('admin.settings.escalation.maxRadius')}
             unit="km"
             value={draft.maxRadiusKm}
             onChange={set('maxRadiusKm')}
             error={errors.maxRadiusKm}
-            hint="Bán kính sau khi nhân không vượt giá trị này."
+            hint={t('admin.settings.escalation.maxRadiusHint')}
           />
         </div>
       </section>

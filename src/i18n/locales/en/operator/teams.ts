@@ -1,5 +1,5 @@
-import type { Messages } from '../types';
-import type { teamsVi } from '../vi/teams';
+import type { Messages } from '../../types';
+import type { teamsVi } from '../../vi/operator/teams';
 
 export const teamsEn: Messages<typeof teamsVi> = {
   crewRole: {

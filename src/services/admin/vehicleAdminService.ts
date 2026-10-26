@@ -10,6 +10,7 @@ import {
   type RescueUnitType,
 } from '../../types/rescueUnit';
 import { normalizeText, paginate, type PageParams } from './listUtils';
+import i18n from '../../i18n';
 
 /** Một trạng thái, hoặc 'on_mission' = Đã điều động + Tại hiện trường + Đang quay về. */
 export type VehicleStatusFilter = RescueUnitStatus | 'on_mission';
@@ -38,10 +39,10 @@ export const isOffMission = (status: RescueUnitStatus) => !ON_MISSION_UNIT_STATU
 /** Cùng quy tắc với backend; kiểm tra trước để báo lỗi rõ ràng (backend còn chặn khi xe có lượt phân công đang chạy). */
 function assertSettable(current: RescueUnitResponseDto, status: RescueUnitStatus) {
   if (!ADMIN_SETTABLE_UNIT_STATUSES.includes(status)) {
-    throw new Error('Admin chỉ đặt được Sẵn sàng, Bảo trì hoặc Ngừng hoạt động.');
+    throw new Error(i18n.t('admin.vehicles.errors.invalidStatus'));
   }
   if (!isOffMission(current.status)) {
-    throw new Error(`Xe ${current.plateNumber} đang làm nhiệm vụ — trạng thái tự cập nhật theo tiến độ nhiệm vụ.`);
+    throw new Error(i18n.t('admin.vehicles.errors.statusOnMission', { plate: current.plateNumber }));
   }
 }
 
@@ -83,7 +84,7 @@ export const vehicleAdminService = {
     const status = input.status ?? current.status;
     if (status !== current.status) assertSettable(current, status);
     if (current.stationId !== input.stationId && !isOffMission(current.status)) {
-      throw new Error(`Xe ${current.plateNumber} đang làm nhiệm vụ, không thể đổi trạm trực thuộc.`);
+      throw new Error(i18n.t('admin.vehicles.errors.stationOnMission', { plate: current.plateNumber }));
     }
     return unwrapApi(
       apiClient.put<ApiResponse<RescueUnitResponseDto>>(`/rescue-units/${id}`, {

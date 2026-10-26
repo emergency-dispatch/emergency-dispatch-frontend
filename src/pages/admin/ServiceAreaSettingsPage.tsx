@@ -17,6 +17,7 @@ import {
 import { stationAdminService } from '../../services/admin/stationAdminService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { StationResponseDto } from '../../types/station';
+import { Trans, useTranslation } from '../../i18n';
 
 // Cùng màu với vòng khu vực trên Live Map của Operator (MapServiceAreaLayer).
 const AREA_COLOR = '#2563EB';
@@ -30,6 +31,7 @@ const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
 };
 
 const ServiceAreaSettingsPage: React.FC = () => {
+  const { t } = useTranslation();
   const query = useServiceQuery(async () => {
     const [area, stations] = await Promise.all([
       adminSettingsService.getServiceArea(),
@@ -46,7 +48,7 @@ const ServiceAreaSettingsPage: React.FC = () => {
       </div>
     );
   }
-  if (!query.data) return <div className="p-4 sm:p-6 text-sm text-slate-400">Đang tải cấu hình...</div>;
+  if (!query.data) return <div className="p-4 sm:p-6 text-sm text-slate-400">{t('admin.common.settings.loading')}</div>;
 
   return (
     <ServiceAreaForm
@@ -94,6 +96,7 @@ const ServiceAreaForm: React.FC<{
   initialNotice: NoticeState;
   onSaved: (message: string) => void;
 }> = ({ record, stations, initialNotice, onSaved }) => {
+  const { t } = useTranslation();
   // Bản nháp ban đầu (chưa cấu hình thì tâm đã được đặt mặc định) — mốc để biết có thay đổi chưa lưu.
   const [initialDraft] = useState<ServiceAreaDraft>(() => {
     const center = initialCenter(record.values, stations);
@@ -137,9 +140,7 @@ const ServiceAreaForm: React.FC<{
     try {
       await adminSettingsService.updateServiceArea(values);
       onSaved(
-        values.enabled
-          ? 'Đã lưu khu vực phục vụ. SOS ngoài vùng sẽ được gắn cờ và báo cho Operator / Admin.'
-          : 'Đã lưu khu vực phục vụ (đang tắt kiểm tra).'
+        values.enabled ? t('admin.settings.serviceArea.savedEnabled') : t('admin.settings.serviceArea.savedDisabled')
       );
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
@@ -171,31 +172,31 @@ const ServiceAreaForm: React.FC<{
           className="w-4 h-4 mt-0.5 accent-red-600"
         />
         <span>
-          <span className="block text-sm font-bold text-slate-900">Bật kiểm tra khu vực phục vụ</span>
+          <span className="block text-sm font-bold text-slate-900">{t('admin.settings.serviceArea.enable')}</span>
           <span className="block text-[11px] text-slate-500 mt-0.5">
-            Tắt thì không gắn cờ SOS ngoài vùng và không vẽ vòng khu vực trên Live Map.
+            {t('admin.settings.serviceArea.enableHint')}
           </span>
         </span>
       </label>
 
       <div className="space-y-1.5">
-        <label className={labelClass}>Tên khu vực </label>
+        <label className={labelClass}>{t('admin.settings.serviceArea.name')}</label>
         <input
           value={draft.name}
           onChange={(e) => set('name', e.target.value)}
           maxLength={NAME_MAX}
-          placeholder="VD: Khu Công nghệ cao TP.HCM"
+          placeholder={t('admin.settings.serviceArea.namePlaceholder')}
           className={`${inputClass} ${errors.name ? 'border-red-400' : ''}`}
         />
         {errors.name ? (
           <p className="text-[11px] text-red-600">{errors.name}</p>
         ) : (
-          <p className="text-[11px] text-slate-500">Hiện trong cảnh báo cho người dân và thông báo cho Operator.</p>
+          <p className="text-[11px] text-slate-500">{t('admin.settings.serviceArea.nameHint')}</p>
         )}
       </div>
 
       <div className="space-y-2">
-        <label className={labelClass}>Bán kính </label>
+        <label className={labelClass}>{t('admin.settings.serviceArea.radius')}</label>
         <div className="flex items-center gap-3">
           <input
             type="range"
@@ -204,7 +205,7 @@ const ServiceAreaForm: React.FC<{
             step={0.5}
             value={radiusValid ? values.radiusKm : SERVICE_AREA_RADIUS_KM.min}
             onChange={(e) => set('radiusKm', e.target.value)}
-            aria-label="Bán kính khu vực (km)"
+            aria-label={t('admin.settings.serviceArea.radiusAria')}
             className="flex-1 accent-red-600"
           />
           <div className="flex items-stretch w-32 shrink-0">
@@ -228,21 +229,21 @@ const ServiceAreaForm: React.FC<{
           <p className="text-[11px] text-red-600">{errors.radiusKm}</p>
         ) : (
           <p className="text-[11px] text-slate-500">
-            Từ {SERVICE_AREA_RADIUS_KM.min} đến {SERVICE_AREA_RADIUS_KM.max} km.
+            {t('admin.settings.serviceArea.radiusRange', SERVICE_AREA_RADIUS_KM)}
           </p>
         )}
       </div>
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-3">
-          <label className={labelClass}>Tâm khu vực </label>
+          <label className={labelClass}>{t('admin.settings.serviceArea.center')}</label>
           <button
             type="button"
             onClick={() => setRecenterKey((k) => k + 1)}
             className="flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-red-600"
           >
             <LocateFixed className="w-3.5 h-3.5" />
-            Xem cả khu vực
+            {t('admin.settings.serviceArea.viewWholeArea')}
           </button>
         </div>
         <div className="h-80 rounded-lg overflow-hidden border border-slate-200">
@@ -257,7 +258,7 @@ const ServiceAreaForm: React.FC<{
           />
         </div>
         <p className="text-[11px] text-slate-500">
-          Bấm lên bản đồ hoặc kéo chấm đỏ để đặt tâm ·{' '}
+          {t('admin.settings.serviceArea.centerHint')}{' '}
           <span className="font-mono-data">
             {draft.centerLat.toFixed(5)}, {draft.centerLng.toFixed(5)}
           </span>
@@ -269,8 +270,11 @@ const ServiceAreaForm: React.FC<{
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span>
-            Trạm nằm ngoài khu vực: <strong>{outsideStations.map((s) => s.name).join(', ')}</strong>. Vẫn lưu được, nhưng
-            nên mở rộng bán kính hoặc dời tâm để các trạm nằm trong vùng phục vụ.
+            <Trans
+              i18nKey="admin.settings.serviceArea.outsideStations"
+              values={{ stations: outsideStations.map((s) => s.name).join(', ') }}
+              components={{ b: <strong /> }}
+            />
           </span>
         </div>
       )}

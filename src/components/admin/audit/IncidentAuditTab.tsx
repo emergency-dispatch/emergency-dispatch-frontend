@@ -9,11 +9,13 @@ import { inputClass, labelClass } from '../common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../common/hooks';
 import { GUID_PATTERN, auditTrailService } from '../../../services/admin/auditTrailService';
 import { AUDIT_ACTIONS, type AuditAction, type AuditTrailEntryDto } from '../../../types/auditTrail';
+import { useTranslation } from '../../../i18n';
 
 const PAGE_SIZE = 20;
 
 /** Nhật ký thao tác trên sự cố (thẩm định, điều xe, leo thang, hiện số, chặn số…). */
 export const IncidentAuditTab: React.FC = () => {
+  const { t } = useTranslation();
   const initial = useInitialQueryParams();
   const dateParam = (key: string) => (YMD_PATTERN.test(initial.text(key)) ? initial.text(key) : '');
 
@@ -60,28 +62,28 @@ export const IncidentAuditTab: React.FC = () => {
       <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className={labelClass}>Mã sự cố</label>
+            <label className={labelClass}>{t('admin.monitoring.audit.incidentId')}</label>
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 value={incidentId}
                 onChange={(e) => withPageReset(setIncidentId)(e.target.value)}
-                placeholder="Dán mã sự cố đầy đủ (GUID)"
+                placeholder={t('admin.monitoring.audit.incidentIdPlaceholder')}
                 className={`${inputClass} pl-9 font-mono-data ${incidentValid ? '' : 'border-amber-400'}`}
               />
             </div>
             {!incidentValid && (
-              <p className="text-[11px] text-amber-700">Cần mã đầy đủ dạng 3fa85f64-5717-4562-b3fc-2c963f66afa6.</p>
+              <p className="text-[11px] text-amber-700">{t('admin.monitoring.audit.incidentIdInvalid')}</p>
             )}
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Hành động</label>
+            <label className={labelClass}>{t('admin.monitoring.audit.action')}</label>
             <select
               value={action}
               onChange={(e) => withPageReset(setAction)(e.target.value as AuditAction | '')}
               className={inputClass}
             >
-              <option value="">Tất cả hành động</option>
+              <option value="">{t('admin.monitoring.audit.allActions')}</option>
               {AUDIT_ACTIONS.map((a) => (
                 <option key={a} value={a}>
                   {auditActionMeta(a).label}
@@ -107,7 +109,7 @@ export const IncidentAuditTab: React.FC = () => {
               className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-900 hover:bg-slate-100"
             >
               <X className="w-3.5 h-3.5" />
-              Xóa bộ lọc
+              {t('admin.common.clearFilters')}
             </button>
           )}
         </DateRangeFilter>
@@ -115,7 +117,7 @@ export const IncidentAuditTab: React.FC = () => {
 
       <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
         <Lock className="w-3.5 h-3.5" />
-        Nhật ký chỉ đọc, ghi lại mọi thao tác trên sự cố (thẩm định, điều xe, leo thang, hiện số, chặn số…).
+        {t('admin.monitoring.audit.incidentNote')}
       </p>
 
       {query.error && <Notice notice={{ kind: 'error', message: query.error }} />}

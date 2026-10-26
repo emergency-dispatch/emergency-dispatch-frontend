@@ -9,6 +9,7 @@ import type {
   SystemAuditLogDto,
 } from '../../types/auditTrail';
 import type { PageParams } from './listUtils';
+import i18n from '../../i18n';
 
 export interface AuditTrailFilter {
   /** Mã sự cố đầy đủ (GUID) — backend lọc khớp chính xác. */
@@ -38,11 +39,11 @@ const endOfDay = (ymd: string) => new Date(`${ymd}T23:59:59.999`).toISOString();
 export const auditTrailService = {
   async list(filter: AuditTrailFilter = {}, page: PageParams = {}): Promise<PaginatedResultDto<AuditTrailEntryDto>> {
     if (filter.fromDate && filter.toDate && filter.fromDate > filter.toDate) {
-      throw new Error('Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.');
+      throw new Error(i18n.t('admin.common.invalidDateRange'));
     }
     // Backend ràng buộc incidentId kiểu Guid — chuỗi sai định dạng sẽ bị từ chối, nên chặn trước.
     if (filter.incidentId && !GUID_PATTERN.test(filter.incidentId)) {
-      throw new Error('Mã sự cố phải là mã đầy đủ (GUID), VD 3fa85f64-5717-4562-b3fc-2c963f66afa6.');
+      throw new Error(i18n.t('admin.monitoring.audit.incidentIdError'));
     }
     return unwrapApi(
       apiClient.get<ApiResponse<PaginatedResultDto<AuditTrailEntryDto>>>('/audit-trail', {
@@ -61,7 +62,7 @@ export const auditTrailService = {
   /** Nhật ký thao tác quản trị (backend tự ghi khi thao tác thành công). Backend giới hạn 100 dòng / trang. */
   async listSystem(filter: SystemAuditFilter = {}, page: PageParams = {}): Promise<PaginatedResultDto<SystemAuditLogDto>> {
     if (filter.fromDate && filter.toDate && filter.fromDate > filter.toDate) {
-      throw new Error('Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.');
+      throw new Error(i18n.t('admin.common.invalidDateRange'));
     }
     return unwrapApi(
       apiClient.get<ApiResponse<PaginatedResultDto<SystemAuditLogDto>>>('/audit-trail/system', {

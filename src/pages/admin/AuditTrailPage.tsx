@@ -3,16 +3,18 @@ import { useSearchParams } from 'react-router-dom';
 import { Settings, Siren } from 'lucide-react';
 import { IncidentAuditTab } from '../../components/admin/audit/IncidentAuditTab';
 import { SystemAuditTab } from '../../components/admin/audit/SystemAuditTab';
+import { useTranslation } from '../../i18n';
 
 type AuditTab = 'incident' | 'system';
 
-const TABS: { key: AuditTab; label: string; icon: React.ElementType }[] = [
-  { key: 'incident', label: 'Sự cố', icon: Siren },
-  { key: 'system', label: 'Quản trị', icon: Settings },
+const TABS: { key: AuditTab; icon: React.ElementType }[] = [
+  { key: 'incident', icon: Siren },
+  { key: 'system', icon: Settings },
 ];
 
 /** Audit Trail: nhật ký thao tác trên sự cố và nhật ký thao tác quản trị — cả hai chỉ đọc. Tab lưu ở ?tab=. */
 const AuditTrailPage: React.FC = () => {
+  const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const tab: AuditTab = params.get('tab') === 'system' ? 'system' : 'incident';
 
@@ -25,7 +27,7 @@ const AuditTrailPage: React.FC = () => {
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <div className="flex gap-1 border-b border-slate-200" role="tablist">
-        {TABS.map(({ key, label, icon: Icon }) => (
+        {TABS.map(({ key, icon: Icon }) => (
           <button
             key={key}
             role="tab"
@@ -36,7 +38,7 @@ const AuditTrailPage: React.FC = () => {
             }`}
           >
             <Icon className="w-4 h-4" />
-            {label}
+            {t(`admin.monitoring.audit.tabs.${key}`)}
           </button>
         ))}
       </div>

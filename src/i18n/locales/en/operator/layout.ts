@@ -1,5 +1,5 @@
-import type { Messages } from '../types';
-import type { layoutVi } from '../vi/layout';
+import type { Messages } from '../../types';
+import type { layoutVi } from '../../vi/operator/layout';
 
 export const layoutEn: Messages<typeof layoutVi> = {
   nav: {

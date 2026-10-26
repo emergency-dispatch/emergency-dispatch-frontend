@@ -11,6 +11,7 @@ import {
   systemActionMeta,
 } from './auditMeta';
 import type { SystemAuditLogDto } from '../../../types/auditTrail';
+import { useTranslation } from '../../../i18n';
 
 interface SystemAuditDetailDrawerProps {
   entry: SystemAuditLogDto;
@@ -28,6 +29,7 @@ const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, ch
 
 /** Chi tiết một bản ghi quản trị kèm bảng so sánh trước / sau — chỉ đọc. */
 export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = ({ entry, onClose, onFilterEntity }) => {
+  const { t } = useTranslation();
   const action = systemActionMeta(entry.action);
   const ActionIcon = action.icon;
   const entity = entityTypeMeta(entry.entityType);
@@ -52,7 +54,7 @@ export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = (
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Chi tiết bản ghi quản trị"
+        aria-label={t('admin.monitoring.audit.system.detailTitle')}
         className="fixed top-0 right-0 h-full w-full max-w-2xl bg-white border-l border-slate-200 z-[1401] flex flex-col shadow-2xl shadow-slate-900/20 animate-drawer-in"
       >
         <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-slate-200">
@@ -60,7 +62,7 @@ export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = (
             <ActionIcon className="w-3.5 h-3.5" />
             {action.label}
           </span>
-          <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100" aria-label="Đóng">
+          <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100" aria-label={t('common.close')}>
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -69,13 +71,13 @@ export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = (
           {entry.description && <p className="text-sm text-slate-800">{entry.description}</p>}
 
           <dl>
-            <Row label="Thời điểm">
+            <Row label={t('admin.monitoring.audit.time')}>
               <span className="font-mono-data">{formatAuditTime(entry.timestamp)}</span>
             </Row>
-            <Row label="Người thao tác">
+            <Row label={t('admin.monitoring.audit.actor')}>
               {entry.actorName || '—'} <span className="text-slate-500">· {actorRoleLabel(entry.actorRole)}</span>
             </Row>
-            <Row label="Đối tượng">
+            <Row label={t('admin.monitoring.audit.entity')}>
               <div>
                 <span className="text-slate-500">{entity.label}:</span> {entityDisplayName(entry.entityType, entry.entityName)}
               </div>
@@ -86,16 +88,16 @@ export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = (
                   onClick={() => onFilterEntity(entry)}
                   className="mt-1 text-xs font-semibold text-red-600 hover:underline"
                 >
-                  Xem mọi bản ghi của đối tượng này
+                  {t('admin.monitoring.audit.system.viewEntityRecords')}
                 </button>
               )}
             </Row>
             {entry.ipAddress && (
-              <Row label="Địa chỉ IP">
+              <Row label={t('admin.monitoring.audit.system.ipAddress')}>
                 <span className="font-mono-data text-xs">{entry.ipAddress}</span>
               </Row>
             )}
-            <Row label="Mã bản ghi">
+            <Row label={t('admin.monitoring.audit.recordId')}>
               <span className="font-mono-data text-xs text-slate-500">{entry.id}</span>
             </Row>
           </dl>
@@ -104,7 +106,11 @@ export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = (
             <section className="space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <h3 className={labelClass}>
-                  {hasBefore && hasAfter ? 'So sánh trước / sau' : hasAfter ? 'Dữ liệu sau thao tác' : 'Dữ liệu trước thao tác'}
+                  {hasBefore && hasAfter
+                    ? t('admin.monitoring.audit.system.compare')
+                    : hasAfter
+                      ? t('admin.monitoring.audit.system.afterOnly')
+                      : t('admin.monitoring.audit.system.beforeOnly')}
                 </h3>
                 {canHideUnchanged && (
                   <button
@@ -112,7 +118,9 @@ export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = (
                     onClick={() => setShowAll((v) => !v)}
                     className="text-[11px] font-bold text-slate-600 hover:text-red-600"
                   >
-                    {showAll ? `Chỉ hiện ${changedCount} trường đã đổi` : `Hiện cả ${rows.length - changedCount} trường không đổi`}
+                    {showAll
+                      ? t('admin.monitoring.audit.system.showChangedOnly', { count: changedCount })
+                      : t('admin.monitoring.audit.system.showUnchanged', { count: rows.length - changedCount })}
                   </button>
                 )}
               </div>
@@ -120,9 +128,9 @@ export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = (
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-left">
-                      <th className="px-3 py-2 font-semibold text-slate-500 w-[34%]">Trường</th>
-                      {hasBefore && <th className="px-3 py-2 font-semibold text-slate-500">Trước</th>}
-                      {hasAfter && <th className="px-3 py-2 font-semibold text-slate-500">Sau</th>}
+                      <th className="px-3 py-2 font-semibold text-slate-500 w-[34%]">{t('admin.monitoring.audit.system.field')}</th>
+                      {hasBefore && <th className="px-3 py-2 font-semibold text-slate-500">{t('admin.monitoring.audit.system.before')}</th>}
+                      {hasAfter && <th className="px-3 py-2 font-semibold text-slate-500">{t('admin.monitoring.audit.system.after')}</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -154,7 +162,7 @@ export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = (
                 </table>
               </div>
               {hasBefore && hasAfter && changedCount === 0 && (
-                <p className="text-[11px] text-slate-500">Không có trường nào thay đổi giá trị.</p>
+                <p className="text-[11px] text-slate-500">{t('admin.monitoring.audit.system.noChanges')}</p>
               )}
             </section>
           )}
@@ -162,7 +170,7 @@ export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = (
 
         <div className="shrink-0 px-5 py-3 border-t border-slate-200 flex items-center gap-2 text-[11px] text-slate-500">
           <Lock className="w-3.5 h-3.5" />
-          Bản ghi chỉ đọc, không thể sửa hoặc xóa.
+          {t('admin.monitoring.readOnlyRecord')}
         </div>
       </aside>
     </>

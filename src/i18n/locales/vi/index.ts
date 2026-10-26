@@ -1,11 +1,12 @@
 import { commonVi } from './common';
-import { contextVi } from './context';
+import { contextVi } from './operator/context';
 import { enumsVi } from './enums';
-import { layoutVi } from './layout';
-import { vehiclesVi } from './vehicles';
-import { teamsVi } from './teams';
-import { liveMapVi } from './liveMap';
-import { incidentsVi } from './incidents';
+import { layoutVi } from './operator/layout';
+import { vehiclesVi } from './operator/vehicles';
+import { teamsVi } from './operator/teams';
+import { liveMapVi } from './operator/liveMap';
+import { incidentsVi } from './operator/incidents';
+import { adminVi } from './admin';
 
 export const vi = {
   common: commonVi,
@@ -16,4 +17,5 @@ export const vi = {
   teams: teamsVi,
   liveMap: liveMapVi,
   incidents: incidentsVi,
+  admin: adminVi,
 } as const;
