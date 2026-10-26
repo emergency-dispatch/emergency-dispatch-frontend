@@ -393,8 +393,18 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
       const lineId = 'citizen-dispatch-route-line';
 
       const existingSource = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
+      const isApprox = !!trackingData?.isApproximateRoute;
+
       if (existingSource) {
         existingSource.setData(geojson);
+        if (map.getLayer(lineId)) {
+          if (isApprox) {
+            map.setPaintProperty(lineId, 'line-dasharray', [2, 2]);
+          } else {
+            // Reset to solid line in Mapbox GL
+            map.setPaintProperty(lineId, 'line-dasharray', [1, 0]);
+          }
+        }
       } else {
         map.addSource(sourceId, {
           type: 'geojson',
@@ -418,7 +428,16 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           },
         });
 
-        // Main trajectory line
+        // Main trajectory line - solid road route by default, dashed when approximate
+        const mainLinePaint: any = {
+          'line-color': '#0284C7',
+          'line-width': 4.5,
+          'line-opacity': 0.95,
+        };
+        if (isApprox) {
+          mainLinePaint['line-dasharray'] = [2, 2];
+        }
+
         map.addLayer({
           id: lineId,
           type: 'line',
@@ -427,11 +446,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
             'line-join': 'round',
             'line-cap': 'round',
           },
-          paint: {
-            'line-color': '#0284C7',
-            'line-width': 4.5,
-            'line-opacity': 0.95,
-          },
+          paint: mainLinePaint,
         });
       }
 
@@ -567,6 +582,9 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
                       </div>
                       <div className="text-base font-extrabold text-white mt-0.5">
                         {trackingData.distanceKm ? trackingData.distanceKm.toFixed(1) : '1.2'} km
+                        {trackingData.isApproximateRoute && (
+                          <span className="block text-[9px] font-normal text-amber-300">(ước lượng)</span>
+                        )}
                       </div>
                     </div>
 

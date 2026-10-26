@@ -60,9 +60,10 @@ export interface CitizenTrackingDto {
   acceptedAt?: string;
   arrivedAt?: string;
   completedAt?: string;
-  notes?: string;
   /** Mọi xe đang được giao cho sự cố (Cấp 3 có thể nhiều xe); các trường đơn ở trên là xe đầu tiên. */
   units?: TrackedUnitDto[];
+  /** Đánh dấu lộ trình là đường thẳng ước lượng (khi OSRM định tuyến đường bộ không khả dụng). */
+  isApproximateRoute?: boolean;
 }
 
 export interface TrackedUnitDto {

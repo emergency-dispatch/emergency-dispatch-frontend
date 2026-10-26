@@ -16,10 +16,13 @@ import {
   XCircle,
   Search,
   ShieldAlert,
+  MapPinOff,
+  PhoneCall,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { incidentService } from '../../services/incidentService';
 import { mediaService } from '../../services/mediaService';
+import { liveMapService } from '../../services/liveMapService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import { MapboxLocationPicker } from '../common/MapboxLocationPicker';
 import { mapboxService } from '../../services/mapboxService';
@@ -60,6 +63,17 @@ const formatIncidentStatus = (status: string) => {
   }
 };
 
+function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const r = 6371.0;
+  const rad = (deg: number) => (deg * Math.PI) / 180.0;
+  const dLat = rad(lat2 - lat1);
+  const dLon = rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenReports }) => {
   const { user, isAuthenticated, updateProfile } = useAuth();
 
@@ -87,6 +101,14 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
   const [createdIncident, setCreatedIncident] = useState<IncidentResponseDto | null>(null);
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
+
+  // Out of service area notice modal
+  const [showOutOfAreaModal, setShowOutOfAreaModal] = useState<boolean>(false);
+  const [outOfAreaNotice, setOutOfAreaNotice] = useState<{
+    areaName: string;
+    radiusKm: number;
+    outsideKm: number;
+  }>({ areaName: '', radiusKm: 0, outsideKm: 0 });
 
   const isCitizen = !user || user.role === UserRole.Citizen;
   const isCitizenWithoutPhone = isAuthenticated && isCitizen && (!user?.phoneNumber || user.phoneNumber.trim() === '');
@@ -256,6 +278,26 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
       } catch (saveErr) {
         console.warn('Lỗi lưu số điện thoại vào hồ sơ:', saveErr);
       }
+    }
+
+    // Service area boundary validation
+    try {
+      const area = await liveMapService.getServiceArea().catch(() => null);
+      if (area && area.enabled && area.radiusKm > 0) {
+        const dist = haversineDistanceKm(latitude, longitude, area.centerLat, area.centerLng);
+        const outsideKm = dist - area.radiusKm;
+        if (outsideKm > 0) {
+          setOutOfAreaNotice({
+            areaName: area.name || 'Khu vực hoạt động ResQ',
+            radiusKm: area.radiusKm,
+            outsideKm: Math.round(outsideKm * 10) / 10,
+          });
+          setShowOutOfAreaModal(true);
+          return;
+        }
+      }
+    } catch {
+      // Continue if service area check fails
     }
 
     setSubmittingState('analyzing');
@@ -765,6 +807,83 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
           setShowPhoneModal(false);
         }}
       />
+
+      {/* Out of Service Area Informational Modal */}
+      {showOutOfAreaModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 relative animate-in zoom-in-95 duration-150">
+            <button
+              type="button"
+              onClick={() => setShowOutOfAreaModal(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-14 h-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4">
+              <MapPinOff className="w-7 h-7" />
+            </div>
+
+            <h3 className="text-lg font-bold text-slate-900 text-center mb-2">
+              Ngoài Phạm Vi Hoạt Động
+            </h3>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800 leading-relaxed flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                Không thể gửi tín hiệu cứu nạn SOS vì toạ độ hiện tại của bạn nằm ngoài bán kính phục vụ của hệ thống ResQ.
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 text-xs space-y-1.5 mb-4 text-slate-600">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Khu vực phục vụ:</span>
+                <span className="font-semibold text-slate-900">{outOfAreaNotice.areaName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Bán kính hoạt động:</span>
+                <span className="font-semibold text-slate-900">{outOfAreaNotice.radiusKm} km</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Khoảng cách vượt ngoài:</span>
+                <span className="font-bold text-red-600">+{outOfAreaNotice.outsideKm} km</span>
+              </div>
+              <div className="pt-1 text-[11px] text-slate-400 font-mono">
+                Toạ độ: {latitude.toFixed(4)}, {longitude.toFixed(4)}
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-500 text-center mb-4">
+              Vui lòng liên hệ trực tiếp tổng đài ứng cứu quốc gia:
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <a
+                href="tel:114"
+                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-sm transition-all"
+              >
+                <PhoneCall className="w-4 h-4" />
+                <span>114 Cứu hoả</span>
+              </a>
+              <a
+                href="tel:115"
+                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-sm transition-all"
+              >
+                <PhoneCall className="w-4 h-4" />
+                <span>115 Cấp cứu</span>
+              </a>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowOutOfAreaModal(false)}
+              className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+            >
+              Đã hiểu &amp; Đóng
+            </button>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );
