@@ -26,6 +26,7 @@ import { mediaService } from '../../services/mediaService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import { BloodType, Gender, UserRole, UserResponseDto } from '../../types/auth';
 import { getAvatarUrl, DEFAULT_AVATAR } from '../../utils/avatar';
+import { useTranslation } from 'react-i18next';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -34,7 +35,31 @@ interface UserProfileModalProps {
 
 type TabType = 'general' | 'medical' | 'ice' | 'security';
 
+const now = new Date();
+const maxBirthYear = now.getFullYear() - 18;
+const maxBirthDate = `${maxBirthYear}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+const minBirthDate = `${now.getFullYear() - 120}-01-01`;
+
+const calculateAge = (dobString: string): number | null => {
+  if (!dobString) return null;
+  const parts = dobString.split('T')[0].split('-');
+  if (parts.length !== 3) return null;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const d = parseInt(parts[2], 10);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - y;
+  const monthDiff = today.getMonth() + 1 - m;
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < d)) {
+    age--;
+  }
+  return age;
+};
+
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) => {
+  const { t, i18n } = useTranslation();
   const { user, updateProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('general');
 
@@ -134,10 +159,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         fullName: fullName.trim(),
         avatarUrl: uploadedUrl,
       });
-      setSuccessMsg('Cập nhật ảnh đại diện thành công!');
+      setSuccessMsg(t('profile.messages.avatarSuccess'));
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
-      setErrorMsg(getApiErrorMessage(err, 'Không thể tải ảnh đại diện lên.'));
+      setErrorMsg(getApiErrorMessage(err, t('profile.messages.avatarError')));
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -156,18 +181,76 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
           .map((s) => s.trim())
           .filter(Boolean);
 
-      const cleanPhone = phoneNumber.trim();
-      if (cleanPhone && !/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(cleanPhone)) {
-        setErrorMsg('Số điện thoại cá nhân không đúng định dạng Việt Nam (ví dụ: 0912345678).');
+      if (!fullName.trim()) {
+        setErrorMsg(t('profile.messages.nameRequired'));
         setIsLoading(false);
         return;
       }
 
-      const cleanIcePhone = emergencyContactPhone.trim();
-      if (cleanIcePhone && !/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(cleanIcePhone)) {
-        setErrorMsg('Số điện thoại người thân không đúng định dạng Việt Nam (ví dụ: 0912345678).');
+      const cleanPhone = phoneNumber.trim();
+      if (cleanPhone && !/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(cleanPhone)) {
+        setErrorMsg(t('profile.messages.invalidPhone'));
         setIsLoading(false);
         return;
+      }
+
+      const cleanIdCard = citizenIdNumber.trim();
+      if (cleanIdCard && !/^[0-9]{9}([0-9]{3})?$/.test(cleanIdCard)) {
+        setErrorMsg(t('profile.messages.invalidCitizenId'));
+        setIsLoading(false);
+        return;
+      }
+
+      if (dateOfBirth) {
+        const parts = dateOfBirth.split('T')[0].split('-');
+        if (parts.length !== 3) {
+          setErrorMsg(t('profile.messages.invalidDobFormat'));
+          setIsLoading(false);
+          return;
+        }
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        const today = new Date();
+        const curY = today.getFullYear();
+        const curM = today.getMonth() + 1;
+        const curD = today.getDate();
+
+        const isFuture = y > curY || (y === curY && (m > curM || (m === curM && d > curD)));
+        if (isFuture) {
+          setErrorMsg(t('profile.messages.dobFutureError', { year: y }));
+          setIsLoading(false);
+          return;
+        }
+
+        const age = calculateAge(dateOfBirth);
+        if (age !== null && age < 18) {
+          setErrorMsg(t('profile.messages.under18Error', { age }));
+          setIsLoading(false);
+          return;
+        }
+
+        if (age !== null && age > 120) {
+          setErrorMsg(t('profile.messages.over120Error'));
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      const cleanIcePhone = emergencyContactPhone.trim();
+      if (cleanIcePhone && !/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(cleanIcePhone)) {
+        setErrorMsg(t('profile.messages.invalidIcePhone'));
+        setIsLoading(false);
+        return;
+      }
+
+      if (householdMembersCount) {
+        const count = parseInt(householdMembersCount, 10);
+        if (isNaN(count) || count < 1) {
+          setErrorMsg(t('profile.messages.invalidHouseholdCount'));
+          setIsLoading(false);
+          return;
+        }
       }
 
       await updateProfile({
@@ -176,7 +259,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         avatarUrl: avatarUrl.trim() || undefined,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString() : undefined,
         address: address.trim() || undefined,
-        citizenIdNumber: citizenIdNumber.trim() || undefined,
+        citizenIdNumber: cleanIdCard || undefined,
         gender,
         bloodType,
         medicalNotes: medicalNotes.trim() || undefined,
@@ -192,10 +275,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         emergencyContactRelationship: emergencyContactRelationship.trim() || undefined,
       });
 
-      setSuccessMsg('Cập nhật thông tin hồ sơ thành công!');
+      setSuccessMsg(t('profile.messages.updateSuccess'));
       setTimeout(() => setSuccessMsg(''), 3500);
     } catch (err) {
-      setErrorMsg(getApiErrorMessage(err, 'Không thể cập nhật hồ sơ. Vui lòng thử lại.'));
+      setErrorMsg(getApiErrorMessage(err, t('profile.messages.updateError')));
     } finally {
       setIsLoading(false);
     }
@@ -204,15 +287,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPassword || !newPassword) {
-      setErrorMsg('Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới.');
+      setErrorMsg(t('profile.messages.passwordRequired'));
       return;
     }
     if (newPassword.length < 6) {
-      setErrorMsg('Mật khẩu mới phải có tối thiểu 6 ký tự.');
+      setErrorMsg(t('profile.messages.passwordMinLength'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setErrorMsg('Xác nhận mật khẩu mới không khớp.');
+      setErrorMsg(t('profile.messages.passwordMismatch'));
       return;
     }
 
@@ -226,36 +309,36 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         newPassword,
       });
 
-      setSuccessMsg('Đổi mật khẩu bảo mật thành công!');
+      setSuccessMsg(t('profile.messages.changePasswordSuccess'));
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setTimeout(() => setSuccessMsg(''), 3500);
     } catch (err) {
-      setErrorMsg(getApiErrorMessage(err, 'Đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại.'));
+      setErrorMsg(getApiErrorMessage(err, t('profile.messages.changePasswordError')));
     } finally {
       setIsLoading(false);
     }
   };
 
   const bloodTypeLabels: Record<BloodType, string> = {
-    [BloodType.Unknown]: 'Chưa xác định',
-    [BloodType.O_Positive]: 'O+ (Phổ biến)',
-    [BloodType.O_Negative]: 'O- (Hiến tặng toàn năng)',
-    [BloodType.A_Positive]: 'A+',
-    [BloodType.A_Negative]: 'A-',
-    [BloodType.B_Positive]: 'B+',
-    [BloodType.B_Negative]: 'B-',
-    [BloodType.AB_Positive]: 'AB+ (Nhận toàn năng)',
-    [BloodType.AB_Negative]: 'AB-',
+    [BloodType.Unknown]: t('profile.medical.bloodTypeLabels.unknown'),
+    [BloodType.O_Positive]: t('profile.medical.bloodTypeLabels.oPositive'),
+    [BloodType.O_Negative]: t('profile.medical.bloodTypeLabels.oNegative'),
+    [BloodType.A_Positive]: t('profile.medical.bloodTypeLabels.aPositive'),
+    [BloodType.A_Negative]: t('profile.medical.bloodTypeLabels.aNegative'),
+    [BloodType.B_Positive]: t('profile.medical.bloodTypeLabels.bPositive'),
+    [BloodType.B_Negative]: t('profile.medical.bloodTypeLabels.bNegative'),
+    [BloodType.AB_Positive]: t('profile.medical.bloodTypeLabels.abPositive'),
+    [BloodType.AB_Negative]: t('profile.medical.bloodTypeLabels.abNegative'),
   };
 
   return createPortal(
-    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-2xl max-h-[90vh] rounded-2xl bg-white border border-slate-200 shadow-2xl text-slate-900 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 m-0 z-[9999] flex items-center justify-center p-0 sm:p-4 bg-slate-950/40 backdrop-blur-sm animate-fadeIn">
+      <div className="relative w-full max-w-2xl h-full sm:h-auto max-h-[100dvh] sm:max-h-[90vh] rounded-none sm:rounded-2xl bg-white border-0 sm:border border-slate-200 shadow-2xl text-slate-900 flex flex-col overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-200 bg-white shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <div className="relative group">
               <img
                 src={getAvatarUrl(avatarUrl, fullName || user?.fullName)}
@@ -263,14 +346,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                 onError={(e) => {
                   e.currentTarget.src = DEFAULT_AVATAR;
                 }}
-                className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-sm"
+                className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover border border-slate-200 shadow-sm"
               />
               <button
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
                 disabled={isUploadingAvatar}
                 className="absolute -bottom-1 -right-1 p-1 rounded-full bg-slate-800 text-white hover:bg-red-600 transition-colors shadow-xs cursor-pointer"
-                title="Thay đổi ảnh đại diện"
+                title={t('profile.header.changeAvatar')}
               >
                 {isUploadingAvatar ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
               </button>
@@ -284,26 +367,27 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
             </div>
 
             <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>{user?.fullName || 'Hồ sơ người dân'}</span>
-                <span className="text-[10px] font-mono-data uppercase px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700 font-bold">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-1.5 sm:gap-2">
+                <span>{user?.fullName || t('profile.header.fallbackTitle')}</span>
+                <span className="text-[9px] sm:text-[10px] font-mono-data uppercase px-1.5 sm:px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700 font-bold">
                   {user?.role || UserRole.Citizen}
                 </span>
               </h2>
-              <p className="text-xs text-slate-500 font-mono-data">{user?.email}</p>
+              <p className="text-[11px] sm:text-xs text-slate-500 font-mono-data">{user?.email}</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            title={t('profile.header.close')}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 bg-slate-50 px-6 gap-2 pt-2 overflow-x-auto">
+        <div className="flex border-b border-slate-200 bg-slate-50 px-3 sm:px-6 gap-2 pt-2 overflow-x-auto shrink-0">
           <button
             type="button"
             onClick={() => {
@@ -311,12 +395,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
-              activeTab === 'general' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
+            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'general' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
           >
             <User className="w-3.5 h-3.5" />
-            <span>Thông tin cá nhân</span>
+            <span>{t('profile.tabs.general')}</span>
           </button>
 
           <button
@@ -326,12 +409,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
-              activeTab === 'medical' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
+            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'medical' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
           >
             <Heart className="w-3.5 h-3.5" />
-            <span>Hồ sơ y tế cứu hộ</span>
+            <span>{t('profile.tabs.medical')}</span>
           </button>
 
           <button
@@ -341,12 +423,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
-              activeTab === 'ice' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
+            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'ice' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>Danh bạ khẩn cấp (ICE)</span>
+            <span>{t('profile.tabs.ice')}</span>
           </button>
 
           <button
@@ -356,12 +437,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
-              activeTab === 'security' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
+            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'security' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
           >
             <Lock className="w-3.5 h-3.5" />
-            <span>Bảo mật</span>
+            <span>{t('profile.tabs.security')}</span>
           </button>
         </div>
 
@@ -390,7 +470,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Họ và tên
+                    {t('profile.general.fullName')}
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
@@ -406,7 +486,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Email tài khoản (Không thể đổi)
+                    {t('profile.general.accountEmail')}
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
@@ -422,17 +502,17 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                      Số điện thoại
+                      {t('profile.general.phoneNumber')}
                     </label>
                     {phoneNumber && (
                       <button
                         type="button"
                         onClick={() => setPhoneNumber('')}
                         className="text-[11px] text-red-600 hover:text-red-700 hover:underline flex items-center gap-1 font-medium cursor-pointer"
-                        title="Xóa số điện thoại"
+                        title={t('profile.general.clearPhoneTitle')}
                       >
                         <Trash2 className="w-3 h-3" />
-                        <span>Xóa số</span>
+                        <span>{t('profile.general.clearPhone')}</span>
                       </button>
                     )}
                   </div>
@@ -442,7 +522,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                       type="tel"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="0912345678 (để trống nếu muốn xóa)"
+                      placeholder="0123456789"
                       className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                     />
                     {phoneNumber && (
@@ -450,73 +530,126 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                         type="button"
                         onClick={() => setPhoneNumber('')}
                         className="absolute right-2.5 top-2.5 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                        title="Xóa trắng số điện thoại"
+                        title={t('profile.general.clearPhoneInputTitle')}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                    {t('profile.general.citizenId')}
+                  </label>
+                  <input
+                    type="text"
+                    value={citizenIdNumber}
+                    onChange={(e) => setCitizenIdNumber(e.target.value)}
+                    placeholder={t('profile.general.citizenIdPlaceholder')}
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                      {t('profile.general.dob')}
+                    </label>
+                    {dateOfBirth && (
+                      (() => {
+                        const parts = dateOfBirth.split('T')[0].split('-');
+                        const y = parseInt(parts[0], 10);
+                        const m = parseInt(parts[1], 10);
+                        const d = parseInt(parts[2], 10);
+                        const today = new Date();
+                        const isFuture = y > today.getFullYear() || (y === today.getFullYear() && (m > today.getMonth() + 1 || (m === today.getMonth() + 1 && d > today.getDate())));
+                        if (isFuture) {
+                          return (
+                            <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded font-mono">
+                              {t('profile.general.dobFuture')}
+                            </span>
+                          );
+                        }
+                        const age = calculateAge(dateOfBirth);
+                        if (age !== null && age < 18) {
+                          return (
+                            <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded font-mono">
+                              {t('profile.general.dobUnder18', { age })}
+                            </span>
+                          );
+                        }
+                        if (age !== null && age >= 18) {
+                          return (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-mono">
+                              {t('profile.general.dobValid', { age })}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={dateOfBirth}
+                      max={maxBirthDate}
+                      min={minBirthDate}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      className={`w-full px-3 py-2.5 rounded-xl bg-white border text-slate-900 text-sm focus:outline-none font-mono-data ${dateOfBirth && calculateAge(dateOfBirth) !== null && calculateAge(dateOfBirth)! < 18
+                        ? 'border-red-400 focus:border-red-500'
+                        : 'border-slate-300 focus:border-red-500'
+                        }`}
+                    />
+                    {dateOfBirth && (
+                      <button
+                        type="button"
+                        onClick={() => setDateOfBirth('')}
+                        className="absolute right-8 top-2.5 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                        title={t('profile.general.clearDobTitle')}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    Để trống và bấm &ldquo;Lưu thay đổi&rdquo; nếu bạn muốn gỡ bỏ số điện thoại khỏi hồ sơ.
+                    {t('profile.general.dobRequirement')}
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Số CCCD / CMND
-                  </label>
-                  <input
-                    type="text"
-                    value={citizenIdNumber}
-                    onChange={(e) => setCitizenIdNumber(e.target.value)}
-                    placeholder="012345678901"
-                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Ngày sinh
-                  </label>
-                  <input
-                    type="date"
-                    value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Giới tính
+                    {t('profile.general.gender')}
                   </label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value as Gender)}
                     className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   >
-                    <option value={Gender.Male}>Nam</option>
-                    <option value={Gender.Female}>Nữ</option>
-                    <option value={Gender.Other}>Khác</option>
+                    <option value={Gender.Male}>{t('profile.general.genderOptions.male')}</option>
+                    <option value={Gender.Female}>{t('profile.general.genderOptions.female')}</option>
+                    <option value={Gender.Other}>{t('profile.general.genderOptions.other')}</option>
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Ngôn ngữ ưu tiên giao tiếp
+                    {t('profile.general.preferredLanguage')}
                   </label>
                   <input
                     type="text"
                     value={preferredLanguage}
                     onChange={(e) => setPreferredLanguage(e.target.value)}
-                    placeholder="VD: Tiếng Việt, Tiếng Anh..."
+                    placeholder={t('profile.general.preferredLanguagePlaceholder')}
                     className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Số thành viên hộ gia đình
+                    {t('profile.general.householdMembers')}
                   </label>
                   <input
                     type="number"
@@ -524,21 +657,21 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     max="100"
                     value={householdMembersCount}
                     onChange={(e) => setHouseholdMembersCount(e.target.value)}
-                    placeholder="VD: 4"
+                    placeholder={t('profile.general.householdMembersPlaceholder')}
                     className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Đơn vị / Trạm trực
+                    {t('profile.general.station')}
                   </label>
                   <div className="relative">
                     <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                     <input
                       type="text"
                       disabled
-                      value={user?.stationName || 'Công dân tự do (Không trực thuộc trạm)'}
+                      value={user?.stationName || t('profile.general.independentCitizen')}
                       className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 text-sm font-mono-data cursor-not-allowed"
                     />
                   </div>
@@ -547,20 +680,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                  Ghi chú người phụ thuộc (trẻ nhỏ, người già, người khuyết tật)
+                  {t('profile.general.dependentsNote')}
                 </label>
                 <textarea
                   rows={2}
                   value={dependentsNote}
                   onChange={(e) => setDependentsNote(e.target.value)}
-                  placeholder="VD: Gia đình có 1 bé sơ sinh 6 tháng và người già 80 tuổi đi lại khó khăn..."
+                  placeholder={t('profile.general.dependentsNotePlaceholder')}
                   className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data resize-none"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                  Địa chỉ thường trú / Cư trú
+                  {t('profile.general.address')}
                 </label>
                 <div className="relative">
                   <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
@@ -568,7 +701,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     type="text"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Số nhà, Tên đường, Phường/Xã, Quận/Huyện, Tỉnh/Thành..."
+                    placeholder={t('profile.general.addressPlaceholder')}
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
@@ -581,7 +714,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                   className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-sm transition-all disabled:opacity-50 flex items-center gap-2 border border-red-600 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{isLoading ? 'Đang lưu...' : 'Lưu thông tin'}</span>
+                  <span>{isLoading ? t('profile.messages.saving') : t('profile.general.saveBtn')}</span>
                 </button>
               </div>
             </form>
@@ -591,13 +724,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
           {activeTab === 'medical' && (
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 leading-relaxed font-mono-data">
-                Hồ sơ y tế giúp lực lượng cứu hộ và bác sĩ cấp cứu 115 nắm bắt tiền sử bệnh lý tức thì khi bạn phát tín hiệu SOS tại hiện trường.
+                {t('profile.medical.notice')}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Nhóm máu y tế
+                    {t('profile.medical.bloodType')}
                   </label>
                   <select
                     value={bloodType}
@@ -614,39 +747,39 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Bệnh lý mãn tính (cách nhau bằng dấu phẩy)
+                    {t('profile.medical.chronicConditions')}
                   </label>
                   <input
                     type="text"
                     value={chronicConditions}
                     onChange={(e) => setChronicConditions(e.target.value)}
-                    placeholder="Huyết áp cao, Tim mạch, Tiểu đường..."
+                    placeholder={t('profile.medical.chronicConditionsPlaceholder')}
                     className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Tiền sử dị ứng thuốc / thức ăn
+                    {t('profile.medical.allergies')}
                   </label>
                   <input
                     type="text"
                     value={allergies}
                     onChange={(e) => setAllergies(e.target.value)}
-                    placeholder="Dị ứng Penicillin, Aspirin, Hải sản..."
+                    placeholder={t('profile.medical.allergiesPlaceholder')}
                     className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Thuốc đang điều trị định kỳ
+                    {t('profile.medical.medications')}
                   </label>
                   <input
                     type="text"
                     value={currentMedications}
                     onChange={(e) => setCurrentMedications(e.target.value)}
-                    placeholder="Insulin, Thuốc hạ áp, Kháng đông..."
+                    placeholder={t('profile.medical.medicationsPlaceholder')}
                     className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                   />
                 </div>
@@ -654,26 +787,26 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                  Hạn chế vận động (nếu có)
+                  {t('profile.medical.mobility')}
                 </label>
                 <input
                   type="text"
                   value={mobilityLimitations}
                   onChange={(e) => setMobilityLimitations(e.target.value)}
-                  placeholder="Khó đi lại, Dùng xe lăn, Tổn thương cột sống..."
+                  placeholder={t('profile.medical.mobilityPlaceholder')}
                   className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                  Ghi chú y tế cứu nạn bổ sung
+                  {t('profile.medical.medicalNotes')}
                 </label>
                 <textarea
                   rows={2}
                   value={medicalNotes}
                   onChange={(e) => setMedicalNotes(e.target.value)}
-                  placeholder="Bất kỳ lưu ý đặc biệt nào khác cho nhân viên cứu nạn..."
+                  placeholder={t('profile.medical.medicalNotesPlaceholder')}
                   className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data resize-none"
                 />
               </div>
@@ -685,7 +818,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                   className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-sm transition-all disabled:opacity-50 flex items-center gap-2 border border-red-600 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{isLoading ? 'Đang lưu...' : 'Lưu hồ sơ y tế'}</span>
+                  <span>{isLoading ? t('profile.messages.saving') : t('profile.medical.saveBtn')}</span>
                 </button>
               </div>
             </form>
@@ -695,13 +828,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
           {activeTab === 'ice' && (
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 leading-relaxed font-mono-data">
-                Thông tin người thân khẩn cấp (In Case of Emergency) giúp tổng đài và đội cứu hộ liên hệ trực tiếp người nhà của bạn khi bạn gặp nạn hoặc bất tỉnh tại hiện trường.
+                {t('profile.ice.notice')}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Họ và tên người thân
+                    {t('profile.ice.contactName')}
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
@@ -709,7 +842,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                       type="text"
                       value={emergencyContactName}
                       onChange={(e) => setEmergencyContactName(e.target.value)}
-                      placeholder="VD: Nguyễn Văn B"
+                      placeholder={t('profile.ice.contactNamePlaceholder')}
                       className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                     />
                   </div>
@@ -717,7 +850,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    Số điện thoại người thân
+                    {t('profile.ice.contactPhone')}
                   </label>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
@@ -725,7 +858,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                       type="tel"
                       value={emergencyContactPhone}
                       onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                      placeholder="0912345678"
+                      placeholder={t('profile.ice.contactPhonePlaceholder')}
                       className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                     />
                   </div>
@@ -734,13 +867,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                  Mối quan hệ với bạn
+                  {t('profile.ice.relationship')}
                 </label>
                 <input
                   type="text"
                   value={emergencyContactRelationship}
                   onChange={(e) => setEmergencyContactRelationship(e.target.value)}
-                  placeholder="VD: Bố, Mẹ, Vợ, Chồng, Anh/Chị/Em, Bạn thân..."
+                  placeholder={t('profile.ice.relationshipPlaceholder')}
                   className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
                 />
               </div>
@@ -752,7 +885,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                   className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-sm transition-all disabled:opacity-50 flex items-center gap-2 border border-red-600 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{isLoading ? 'Đang lưu...' : 'Lưu người thân khẩn cấp'}</span>
+                  <span>{isLoading ? t('profile.messages.saving') : t('profile.ice.saveBtn')}</span>
                 </button>
               </div>
             </form>
@@ -764,13 +897,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed font-mono-data flex items-start gap-2.5">
                 <KeyRound className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                 <span>
-                  Để bảo mật hệ thống điều phối, sau khi đổi mật khẩu thành công, toàn bộ phiên đăng nhập cũ sẽ bị thu hồi và một email cảnh báo bảo mật thời gian thực sẽ được gửi tới hòm thư của bạn.
+                  {t('profile.security.notice')}
                 </span>
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                  Mật khẩu hiện tại
+                  {t('profile.security.currentPassword')}
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
@@ -794,7 +927,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                  Mật khẩu mới (Tối thiểu 6 ký tự)
+                  {t('profile.security.newPassword')}
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
@@ -819,7 +952,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                  Xác nhận mật khẩu mới
+                  {t('profile.security.confirmPassword')}
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
@@ -841,7 +974,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                   className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-sm transition-all disabled:opacity-50 flex items-center gap-2 border border-red-600 cursor-pointer"
                 >
                   <KeyRound className="w-4 h-4" />
-                  <span>{isLoading ? 'Đang xử lý...' : 'Cập nhật mật khẩu'}</span>
+                  <span>{isLoading ? t('profile.messages.processing') : t('profile.security.saveBtn')}</span>
                 </button>
               </div>
             </form>

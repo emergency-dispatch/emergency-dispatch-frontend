@@ -7,6 +7,8 @@ import { teamsVi } from './operator/teams';
 import { liveMapVi } from './operator/liveMap';
 import { incidentsVi } from './operator/incidents';
 import { adminVi } from './admin';
+import { citizenVi } from './citizen';
+import { profileVi } from './profile';
 
 export const vi = {
   common: commonVi,
@@ -18,4 +20,8 @@ export const vi = {
   liveMap: liveMapVi,
   incidents: incidentsVi,
   admin: adminVi,
+  citizen: citizenVi,
+  profile: profileVi,
 } as const;
+
+export type ViTranslations = typeof vi;

@@ -9,6 +9,8 @@ import { teamsEn } from './operator/teams';
 import { liveMapEn } from './operator/liveMap';
 import { incidentsEn } from './operator/incidents';
 import { adminEn } from './admin';
+import { citizenEn } from './citizen';
+import { profileEn } from './profile';
 
 export const en: Messages<typeof vi> = {
   common: commonEn,
@@ -20,4 +22,6 @@ export const en: Messages<typeof vi> = {
   liveMap: liveMapEn,
   incidents: incidentsEn,
   admin: adminEn,
+  citizen: citizenEn,
+  profile: profileEn,
 };
