@@ -51,8 +51,7 @@ export const incidentsVi = {
     householdCount: '{{count}} người',
     dependents: 'Người phụ thuộc',
     empty: 'Người báo chưa khai báo thông tin y tế.',
-    ice: 'Người thân khẩn cấp (ICE)',
-    primary: 'Chính',
+    ice: 'Người liên hệ khẩn cấp',
   },
   audit: {
     actions: {

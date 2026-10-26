@@ -54,8 +54,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     householdCount: '{{count}} people',
     dependents: 'Dependents',
     empty: 'The reporter has not provided medical information.',
-    ice: 'Emergency contacts (ICE)',
-    primary: 'Primary',
+    ice: 'Emergency contact',
   },
   audit: {
     actions: {

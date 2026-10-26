@@ -65,7 +65,10 @@ export interface ReporterMedicalProfile {
   preferredLanguage: string | null;
   dependentsNote: string | null;
   householdMembersCount: number;
-  iceContacts: Array<{ id: string; name: string; phoneNumber: string; relationship: string; isPrimary: boolean }>;
+  // Backend chỉ còn một người liên hệ khẩn cấp (bỏ danh bạ ICE nhiều người).
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  emergencyContactRelationship: string | null;
 }
 
 // Khóa mềm 2 phút khi một Operator mở ca (FR-OP-02).
