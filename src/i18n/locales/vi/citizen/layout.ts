@@ -12,4 +12,13 @@ export const citizenLayoutVi = {
   cadPortal: 'Trung tâm CAD',
   language: 'Ngôn ngữ',
   menu: 'Menu điều hướng',
+  toPortal: 'Đến {{portal}}',
+  navCadTitle: 'Tính năng CAD',
+  navCadDesc: 'Bản đồ số, giám sát sự cố & điều phối tác chiến thông minh',
+  navAiTitle: 'Công nghệ AI VLM',
+  navAiDesc: 'Trí tuệ nhân tạo phân tích hình ảnh & AI Triage tự động',
+  navWorkflowTitle: 'Quy trình Cứu hộ',
+  navWorkflowDesc: 'Quy trình tác chiến 4 bước chuẩn liên thông đa lực lượng',
+  navRolesTitle: 'Giải pháp Phân hệ',
+  navRolesDesc: 'Cổng Chỉ huy CAD, Lực lượng cứu nạn thực địa & Người dân',
 } as const;

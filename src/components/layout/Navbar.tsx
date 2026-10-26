@@ -71,30 +71,30 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
 
   const featureItems = [
     {
-      name: 'Tính năng CAD',
+      name: t('citizen.layout.navCadTitle'),
       href: '#features',
-      desc: 'Bản đồ số, giám sát sự cố & điều phối tác chiến thông minh',
+      desc: t('citizen.layout.navCadDesc'),
       icon: Layers,
       color: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
     },
     {
-      name: 'Công nghệ AI VLM',
+      name: t('citizen.layout.navAiTitle'),
       href: '#ai-technology',
-      desc: 'Trí tuệ nhân tạo phân tích hình ảnh & AI Triage tự động',
+      desc: t('citizen.layout.navAiDesc'),
       icon: Bot,
       color: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
     },
     {
-      name: 'Quy trình Cứu hộ',
+      name: t('citizen.layout.navWorkflowTitle'),
       href: '#workflow',
-      desc: 'Quy trình tác chiến 4 bước chuẩn liên thông đa lực lượng',
+      desc: t('citizen.layout.navWorkflowDesc'),
       icon: Activity,
       color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
     },
     {
-      name: 'Giải pháp Phân hệ',
+      name: t('citizen.layout.navRolesTitle'),
       href: '#roles',
-      desc: 'Cổng Chỉ huy CAD, Lực lượng cứu nạn thực địa & Người dân',
+      desc: t('citizen.layout.navRolesDesc'),
       icon: Users,
       color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
     },
@@ -340,7 +340,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                             className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-red-600 transition-colors"
                           >
                             <portal.icon className="w-3.5 h-3.5 text-red-500" />
-                            <span>Đến {portal.label}</span>
+                            <span>{t('citizen.layout.toPortal', { portal: portal.label })}</span>
                           </Link>
                         )}
 
@@ -439,7 +439,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                 >
                   <div className="flex items-center gap-2">
                     <Layers className="w-4 h-4 text-red-600" />
-                    <span>Tính năng &amp; Giải pháp</span>
+                    <span>{t('citizen.layout.features')}</span>
                   </div>
                   <ChevronDown
                     className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${mobileFeaturesOpen ? 'rotate-180 text-red-600' : ''

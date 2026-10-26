@@ -25,12 +25,12 @@ export const AiHighlightSection: React.FC = () => {
   const [scanActive, setScanActive] = useState<boolean>(true);
 
   const tags = [
-    { label: 'Hỏa hoạn (Fire)', confidence: '98.8%', color: 'bg-red-500/20 text-red-400 border-red-500/40' },
-    { label: 'Tai nạn (Accident)', confidence: '97.4%', color: 'bg-orange-500/20 text-orange-400 border-orange-500/40' },
-    { label: 'Ùn tắc (Traffic Jam)', confidence: '99.1%', color: 'bg-blue-500/20 text-blue-400 border-blue-500/40' },
-    { label: 'Cháy kho xưởng', confidence: '95.6%', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40' },
-    { label: 'Va chạm xe cơ giới', confidence: '93.2%', color: 'bg-purple-500/20 text-purple-400 border-purple-500/40' },
-    { label: 'Phân tích thị giác AI', confidence: '99.5%', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40' },
+    { label: t('citizen.landing.aiTagFire'), confidence: '98.8%', color: 'bg-red-500/20 text-red-400 border-red-500/40' },
+    { label: t('citizen.landing.aiTagAccident'), confidence: '97.4%', color: 'bg-orange-500/20 text-orange-400 border-orange-500/40' },
+    { label: t('citizen.landing.aiTagTrafficJam'), confidence: '99.1%', color: 'bg-blue-500/20 text-blue-400 border-blue-500/40' },
+    { label: t('citizen.landing.aiTagWarehouseFire'), confidence: '95.6%', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40' },
+    { label: t('citizen.landing.aiTagVehicleCollision'), confidence: '93.2%', color: 'bg-purple-500/20 text-purple-400 border-purple-500/40' },
+    { label: t('citizen.landing.aiTagVisionAnalysis'), confidence: '99.5%', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40' },
   ];
 
   return (
