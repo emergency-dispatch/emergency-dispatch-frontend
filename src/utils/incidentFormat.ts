@@ -47,3 +47,107 @@ export function formatDateTime(iso: string): string {
     minute: '2-digit',
   });
 }
+
+export interface IncidentVisualMeta {
+  category: 'fire' | 'accident' | 'other';
+  label: string;
+  icon: string;
+  badgeClass: string;
+}
+
+export function getIncidentVisualMeta(incident?: {
+  title?: string;
+  description?: string;
+  status?: string;
+  eventType?: string | null;
+  aiClassification?: {
+    eventType?: string | null;
+    incidentType?: string | null;
+    summary?: string | null;
+    hazardTags?: string[] | null;
+    isSuccess?: boolean | null;
+  } | null;
+} | null): IncidentVisualMeta {
+  if (!incident) {
+    return {
+      category: 'other',
+      label: i18n.t('citizen.reports.incidentTypes.sosSignal'),
+      icon: '',
+      badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+    };
+  }
+
+  // 1. Ưu tiên loại sự cố đã được Backend / AI xác định rõ ràng (EventType từ DB hoặc AiClassification)
+  const eventType = incident.eventType || incident.aiClassification?.eventType;
+  const aiType = incident.aiClassification?.incidentType;
+
+  if (eventType === 'FireExplosion' || aiType === 'fire') {
+    return {
+      category: 'fire',
+      label: i18n.t('citizen.reports.incidentTypes.fire'),
+      icon: '',
+      badgeClass: 'bg-red-50 text-red-700 border-red-200',
+    };
+  }
+
+  if (eventType === 'TrafficAccident' || aiType === 'accident') {
+    return {
+      category: 'accident',
+      label: i18n.t('citizen.reports.incidentTypes.accident'),
+      icon: '',
+      badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+    };
+  }
+
+  // 2. Nhận diện nếu AI phân tích thành công và có thẻ nguy cơ rõ ràng
+  if (incident.aiClassification?.isSuccess) {
+    const tags = (incident.aiClassification.hazardTags || []).map((t) => t.toLowerCase());
+    if (tags.some((t) => /fire|smoke|cháy|nổ/.test(t))) {
+      return {
+        category: 'fire',
+        label: i18n.t('citizen.reports.incidentTypes.fire'),
+        icon: '',
+        badgeClass: 'bg-red-50 text-red-700 border-red-200',
+      };
+    }
+    if (tags.some((t) => /accident|crash|traffic|va chạm|tai nạn/.test(t))) {
+      return {
+        category: 'accident',
+        label: i18n.t('citizen.reports.incidentTypes.accident'),
+        icon: '',
+        badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+      };
+    }
+  }
+
+  // 3. Chưa biết rõ loại sự cố (chờ AI/Operator xác nhận) -> Chỉ hiện Tín hiệu SOS
+  return {
+    category: 'other',
+    label: i18n.t('citizen.reports.incidentTypes.sosSignal'),
+    icon: '',
+    badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+  };
+}
+
+/** Định dạng trạng thái sự cố thân thiện cho Citizen, không hiển thị các enum kỹ thuật (AiProcessing/Pending). */
+export function formatCitizenIncidentStatus(status?: string | null): string {
+  switch (status) {
+    case 'Dispatched':
+      return i18n.t('citizen.reports.status.dispatched');
+    case 'InProgress':
+      return i18n.t('citizen.reports.status.inProgress');
+    case 'Verified':
+      return i18n.t('citizen.reports.status.verified');
+    case 'Completed':
+    case 'Resolved':
+      return i18n.t('citizen.reports.status.completed');
+    case 'Cancelled':
+      return i18n.t('citizen.reports.status.cancelled');
+    case 'Pending':
+    case 'AiProcessing':
+    case 'AiProcessed':
+    default:
+      return i18n.t('citizen.reports.status.pending');
+  }
+}
+

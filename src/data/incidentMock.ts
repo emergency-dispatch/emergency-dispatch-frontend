@@ -1,8 +1,8 @@
 import {
+  AlertCircle,
   AlertTriangle,
   Building2,
   CarFront,
-  CircleHelp,
   Droplet,
   Flame,
   HeartPulse,
@@ -35,7 +35,7 @@ export const UNKNOWN_HAZARD_TAG_META = { label: 'Khác', color: '#64748B', icon:
 export const INCIDENT_CATEGORY_META: Record<IncidentCategory, { label: string; color: string; icon: LucideIcon }> = {
   fire: { label: 'Cháy nổ', color: '#DC2626', icon: Flame },
   accident: { label: 'Tai nạn', color: '#F97316', icon: CarFront },
-  unknown: { label: 'Chưa xác định', color: '#64748B', icon: CircleHelp },
+  unknown: { label: 'Tín hiệu SOS', color: '#DC2626', icon: AlertCircle },
 };
 
 // Hai nhánh Operator chọn được khi duyệt (bắt buộc nếu backend chưa có loại sự cố).
