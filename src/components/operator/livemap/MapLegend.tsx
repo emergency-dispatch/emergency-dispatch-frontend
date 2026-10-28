@@ -144,6 +144,10 @@ export const MapLegend: React.FC = () => {
           <span className="text-xs text-slate-700">{t('liveMap.legend.stationCoverage')}</span>
         </span>
         <span className="flex items-center gap-1.5">
+          <span className="w-3.5 h-3.5 rounded-full border-[1.5px] border-violet-600 bg-violet-600/10 shrink-0" />
+          <span className="text-xs text-slate-700">{t('liveMap.legend.otherStationCoverage')}</span>
+        </span>
+        <span className="flex items-center gap-1.5">
           <span className="w-4 h-0 border-t-2 border-dashed border-blue-600 shrink-0" />
           <span className="text-xs text-slate-700">{t('liveMap.legend.serviceArea')}</span>
         </span>

@@ -110,7 +110,8 @@ export const liveMapVi = {
     otherStation: 'Trạm khác',
     trafficJam: 'Ùn tắc',
     serviceArea: 'Khu vực phục vụ',
-    stationCoverage: 'Phủ sóng trạm',
+    stationCoverage: 'Phủ sóng trạm bạn',
+    otherStationCoverage: 'Phủ sóng trạm khác',
     approximateRoute: 'Tuyến ước lượng',
   },
 } as const;

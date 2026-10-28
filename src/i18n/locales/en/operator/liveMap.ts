@@ -113,7 +113,8 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     otherStation: 'Other station',
     trafficJam: 'Traffic jam',
     serviceArea: 'Service area',
-    stationCoverage: 'Station coverage',
+    stationCoverage: 'Your station coverage',
+    otherStationCoverage: 'Other station coverage',
     approximateRoute: 'Estimated route',
   },
 };
