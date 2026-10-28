@@ -55,7 +55,7 @@ export const incidentsVi = {
   },
   audit: {
     actions: {
-      Created: 'Tiếp nhận tin báo',
+      Created: 'Gửi tin báo SOS',
       AiAnalyzed: 'AI phân tích xong',
       Verified: 'Operator xác minh',
       SeverityOverridden: 'Ghi đè đánh giá AI',
@@ -83,8 +83,6 @@ export const incidentsVi = {
       System: 'Hệ thống',
     },
     system: 'Hệ thống',
-    hideDetails: 'Ẩn chi tiết',
-    showDetails: 'Xem chi tiết',
     loadFailed: 'Không tải được lịch sử xử lý.',
     count: '{{count}} thao tác',
     showingLatest: ' · hiện {{count}} gần nhất',
@@ -130,6 +128,7 @@ export const incidentsVi = {
     aiConfidence: 'Độ tin cậy AI',
     suggestedLevel: 'Cấp độ đề xuất',
     hazardTags: 'Thẻ nguy cơ',
+    hazardTagsLess: 'Thu gọn',
     rejectTitle: 'Hủy ca báo khống',
     rejectReasonGroup: 'Lý do hủy',
     rejectNotePlaceholder: 'Ghi chú thêm (không bắt buộc). Vd: Gọi xác minh không có cháy, trùng sự cố lúc 10:05…',

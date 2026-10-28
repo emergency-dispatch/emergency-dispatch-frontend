@@ -53,8 +53,6 @@ export const layoutVi = {
     aiAnalyzing: 'AI đang phân tích…',
     location: 'Địa điểm',
     waitTime: 'Thời gian chờ',
-    justNow: 'Vừa xong',
-    minutes: '{{count}} phút',
     reporter: 'Người báo:',
     skip: 'Bỏ qua',
     verifyNow: 'Thẩm định ngay',

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import {
   BellRing,
@@ -11,12 +11,24 @@ import {
   X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } from '../../data/incidentMock';
+import { INCIDENT_CATEGORY_META } from '../../data/incidentMock';
+import { SeverityBadge } from './incidents/SeverityBadge';
+import { useNow } from '../../hooks/useNow';
 import { useDispatchStore } from '../../context/DispatchContext';
 import type { Incident } from '../../types/incident';
 import { useTranslation } from '../../i18n';
 
 const QUEUE_PATH = '/dashboard/command-center/incidents';
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** mm:ss, từ 1 giờ trở lên thành h:mm:ss. */
+const formatWaitTime = (totalSeconds: number) => {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return h > 0 ? `${h}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`;
+};
 
 interface ModalProps {
   incident: Incident;
@@ -26,11 +38,11 @@ interface ModalProps {
 
 const IncidentModal: React.FC<ModalProps> = ({ incident, onDismiss, onGoToQueue }) => {
   const { t } = useTranslation();
-  const now = Date.now();
-  const minutes = Math.max(0, Math.floor((now - new Date(incident.createdAt).getTime()) / 60000));
+  // Thời gian chờ kể từ lúc backend nhận SOS, đếm từng giây.
+  const now = useNow(1000);
+  const waitSeconds = Math.max(0, Math.floor((now - new Date(incident.createdAt).getTime()) / 1000));
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
-  const severityMeta = SEVERITY_LEVEL_META[incident.severity];
 
   return createPortal(
     <div
@@ -69,11 +81,10 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, onDismiss, onGoToQueue 
 
           {/* Mức độ + loại */}
           <div className="flex items-center flex-wrap gap-2">
-            <span
-              className={`px-2.5 py-1 rounded-md text-xs font-mono-data font-bold flex items-center gap-1.5 border ${severityMeta.badgeClass}`}
-            >
-              {t(`enums.severity.level${incident.severity}`)}
-            </span>
+            {/* AI chưa xong → chưa có cấp độ, chỉ hiện "AI đang phân tích…" bên dưới. */}
+            {!incident.aiPending && (
+              <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+            )}
             <span className="inline-flex items-center gap-1 text-xs font-bold" style={{ color: category.color }}>
               <CategoryIcon className="w-3.5 h-3.5" />
               {t(`enums.category.${incident.category}`)}
@@ -109,7 +120,7 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, onDismiss, onGoToQueue 
                 {t('layout.incomingIncident.waitTime')}
               </div>
               <p className="text-sm font-black text-slate-900 font-mono-data">
-                {minutes === 0 ? t('layout.incomingIncident.justNow') : t('layout.incomingIncident.minutes', { count: minutes })}
+                {formatWaitTime(waitSeconds)}
               </p>
             </div>
           </div>

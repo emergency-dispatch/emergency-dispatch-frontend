@@ -5,7 +5,6 @@ import {
   Ban,
   BrainCircuit,
   CheckCircle2,
-  ChevronDown,
   CircleDot,
   Eye,
   FilePlus2,
@@ -25,7 +24,7 @@ import {
 } from 'lucide-react';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { incidentService } from '../../../services/incidentService';
-import type { CancellationReasonCode, IncidentAuditAction, IncidentAuditEntryDto } from '../../../types/incident';
+import type { IncidentAuditAction, IncidentAuditEntryDto } from '../../../types/incident';
 import i18n, { dateLocale, useTranslation } from '../../../i18n';
 
 // Nhãn: incidents.audit.actions.<action> trong từ điển.
@@ -55,74 +54,15 @@ const UNKNOWN_ACTION = { icon: CircleDot, color: '#64748B' };
 const KNOWN_ROLES = ['Operator', 'Admin', 'RescueStaff', 'Citizen', 'System'] as const;
 type KnownRole = (typeof KNOWN_ROLES)[number];
 const isKnownRole = (role: string): role is KnownRole => (KNOWN_ROLES as readonly string[]).includes(role);
-const CANCELLATION_CODES: CancellationReasonCode[] = ['FalseReport', 'Duplicate', 'TestReport', 'Other', 'CitizenCancelled', 'AutoExpired'];
 
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleString(dateLocale(), { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit' });
 
-function parseState(json?: string | null): Record<string, unknown> | null {
-  if (!json) return null;
-  try {
-    const value = JSON.parse(json);
-    return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
-}
-
-const formatValue = (key: string, value: unknown): string => {
-  if (value === null || value === undefined || value === '') return '—';
-  if (/cancellationReason|reasonCode/i.test(key) && typeof value === 'string') {
-    return CANCELLATION_CODES.includes(value as CancellationReasonCode)
-      ? i18n.t(`enums.cancellationReason.${value as CancellationReasonCode}`)
-      : value;
-  }
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
-};
-
-/** Trạng thái trước / sau (oldStateJson / newStateJson) — chỉ các trường thay đổi hoặc có trong bản sau. */
-const StateDiff: React.FC<{ entry: IncidentAuditEntryDto }> = ({ entry }) => {
-  const before = parseState(entry.oldStateJson);
-  const after = parseState(entry.newStateJson);
-  if (!before && !after) return null;
-  const keys = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])];
-  return (
-    <dl className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 space-y-1 text-[11px]">
-      {keys.map((key) => {
-        const oldValue = before?.[key];
-        const newValue = after?.[key];
-        const changed = before && JSON.stringify(oldValue) !== JSON.stringify(newValue);
-        return (
-          <div key={key} className="flex gap-2 min-w-0">
-            <dt className="w-32 shrink-0 text-slate-500 font-mono-data truncate" title={key}>
-              {key}
-            </dt>
-            <dd className="min-w-0 text-slate-700 break-words">
-              {changed ? (
-                <>
-                  <span className="line-through text-slate-400">{formatValue(key, oldValue)}</span>
-                  {' → '}
-                  <span className="font-semibold">{formatValue(key, newValue)}</span>
-                </>
-              ) : (
-                formatValue(key, after ? newValue : oldValue)
-              )}
-            </dd>
-          </div>
-        );
-      })}
-    </dl>
-  );
-};
-
 const TimelineItem: React.FC<{ entry: IncidentAuditEntryDto; isLast: boolean }> = ({ entry, isLast }) => {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
   const meta = ACTION_META[entry.action] ?? UNKNOWN_ACTION;
   const label = entry.action in ACTION_META ? t(`incidents.audit.actions.${entry.action}`) : t('incidents.audit.unknownAction');
   const Icon = meta.icon;
-  const hasState = !!(entry.oldStateJson || entry.newStateJson);
   const role = entry.actorRole
     ? isKnownRole(entry.actorRole)
       ? t(`incidents.audit.roles.${entry.actorRole}`)
@@ -151,18 +91,10 @@ const TimelineItem: React.FC<{ entry: IncidentAuditEntryDto; isLast: boolean }> 
             {role && <span className="text-slate-400"> · {role}</span>}
           </p>
         )}
-        {entry.description && <p className="text-xs text-slate-700 mt-1 leading-relaxed">{entry.description}</p>}
-        {hasState && (
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="mt-1 inline-flex items-center gap-0.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800"
-            aria-expanded={open}
-          >
-            {open ? t('incidents.audit.hideDetails') : t('incidents.audit.showDetails')}
-            <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
-          </button>
+        {/* Mô tả của mốc "Created" do backend ghi cứng ("Tiếp nhận báo cáo SOS"), trùng tiêu đề và gán nhầm người dân là người tiếp nhận → ẩn. */}
+        {entry.description && entry.action !== 'Created' && (
+          <p className="text-xs text-slate-700 mt-1 leading-relaxed">{entry.description}</p>
         )}
-        {open && <StateDiff entry={entry} />}
       </div>
     </li>
   );

@@ -58,7 +58,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
   },
   audit: {
     actions: {
-      Created: 'Report received',
+      Created: 'SOS report submitted',
       AiAnalyzed: 'AI analysis completed',
       Verified: 'Verified by Operator',
       SeverityOverridden: 'AI assessment overridden',
@@ -86,8 +86,6 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
       System: 'System',
     },
     system: 'System',
-    hideDetails: 'Hide details',
-    showDetails: 'Show details',
     loadFailed: 'Could not load the handling history.',
     count: '{{count}} actions',
     showingLatest: ' · showing latest {{count}}',
@@ -135,6 +133,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     aiConfidence: 'AI confidence',
     suggestedLevel: 'Suggested level',
     hazardTags: 'Hazard tags',
+    hazardTagsLess: 'Show less',
     rejectTitle: 'Cancel false report',
     rejectReasonGroup: 'Cancellation reason',
     rejectNotePlaceholder: 'Additional note (optional). E.g. Called to verify — no fire, duplicate of the 10:05 incident…',

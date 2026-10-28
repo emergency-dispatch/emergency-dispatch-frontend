@@ -56,8 +56,6 @@ export const layoutEn: Messages<typeof layoutVi> = {
     aiAnalyzing: 'AI analyzing…',
     location: 'Location',
     waitTime: 'Waiting time',
-    justNow: 'Just now',
-    minutes: '{{count}} min',
     reporter: 'Reporter:',
     skip: 'Skip',
     verifyNow: 'Verify now',
