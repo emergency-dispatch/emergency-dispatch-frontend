@@ -138,10 +138,11 @@ export const LiveMapPage: React.FC = () => {
     if (createOpen) setSheetOpen(true);
   }, [createOpen]);
 
-  const handleCreated = (info: IncidentCreatedInfo, selectForDispatch: boolean) => {
+  // Sự cố Operator tạo đã được xác minh → chọn ngay để panel phải mở gợi ý xe.
+  const handleCreated = (info: IncidentCreatedInfo) => {
     closeCreate();
     setCreatedNotice(info);
-    if (selectForDispatch || info.dispatchSucceeded === false) handleSelectIncident(info.incidentId);
+    handleSelectIncident(info.incidentId);
   };
 
   useEffect(() => {

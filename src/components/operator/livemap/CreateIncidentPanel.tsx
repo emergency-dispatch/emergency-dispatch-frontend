@@ -5,6 +5,7 @@ import {
   ImagePlus,
   Loader2,
   MapPin,
+  MapPinOff,
   PhoneIncoming,
   Trash2,
   X,
@@ -13,6 +14,8 @@ import { CONFIRMABLE_CATEGORIES, INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } f
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { mapboxService } from '../../../services/mapboxService';
 import { AddressSearchField } from '../../admin/stations/AddressSearchField';
+import { searchAddressInArea } from '../../../services/admin/geocodeService';
+import { distanceOutsideAreaKm, resolveServiceArea } from '../../../utils/serviceArea';
 import { mediaService } from '../../../services/mediaService';
 import { validatedInputClass, labelClass } from '../../admin/common/styles';
 import { INCIDENT_SOURCE_ICON } from '../../../data/incidentSourceMeta';
@@ -55,14 +58,13 @@ interface CreateIncidentPanelProps {
   nearby: NearbyIncident[];
   onViewIncident: (id: string) => void;
   onClose: () => void;
-  /** `selectForDispatch` = bấm "Tạo & chọn xe": chọn sự cố mới để mở gợi ý xe. */
-  onCreated: (info: IncidentCreatedInfo, selectForDispatch: boolean) => void;
+  /** Tạo xong → trang chọn sự cố mới để mở gợi ý xe. */
+  onCreated: (info: IncidentCreatedInfo) => void;
 }
 
-const Section: React.FC<{ step: number; label: string; required?: boolean; error?: string | null; children: React.ReactNode }> = ({
+const Section: React.FC<{ step: number; label: string; error?: string | null; children: React.ReactNode }> = ({
   step,
   label,
-  required,
   error,
   children,
 }) => (
@@ -72,7 +74,6 @@ const Section: React.FC<{ step: number; label: string; required?: boolean; error
         {step}
       </span>
       {label}
-      {required && ' *'}
     </p>
     {children}
     {error && (
@@ -95,8 +96,11 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
   onClose,
   onCreated,
 }) => {
-  const { createOperatorIncident } = useDispatchStore();
+  const { createOperatorIncident, serviceArea } = useDispatchStore();
   const { t } = useTranslation();
+  // Cùng vùng phục vụ với SOS người dân: ngoài vùng thì không tìm ra địa chỉ và không tạo được sự cố.
+  const area = resolveServiceArea(serviceArea);
+  const outsideKm = position ? distanceOutsideAreaKm(position, area) : 0;
 
   const [source, setSource] = useState<OperatorIncidentSource | null>(null);
   const [category, setCategory] = useState<ConfirmableCategory | null>(null);
@@ -116,7 +120,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [attempted, setAttempted] = useState(false);
-  const [submitting, setSubmitting] = useState<'create' | 'dispatch' | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<{ message: string; errors: string[] } | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [duplicatesDismissed, setDuplicatesDismissed] = useState(false);
@@ -186,7 +190,13 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
   const notesLength = notes.trim().length;
   const phone = reporterPhone.trim();
   const errors = {
-    location: !position ? t('liveMap.create.requiredLocation') : !address.trim() ? t('liveMap.create.requiredAddress') : null,
+    location: !position
+      ? t('liveMap.create.requiredLocation')
+      : outsideKm > 0
+        ? t('liveMap.create.outOfAreaTitle')
+        : !address.trim()
+          ? t('liveMap.create.requiredAddress')
+          : null,
     source: !source ? t('liveMap.create.requiredSource') : null,
     category: !category ? t('liveMap.create.requiredType') : null,
     severity: !severity ? t('liveMap.create.requiredSeverity') : null,
@@ -197,13 +207,13 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
   const shown = (key: keyof typeof errors) => (attempted || (key === 'phone' && phone.length >= 10) ? errors[key] : null);
   const valid = Object.values(errors).every((e) => !e);
 
-  const submit = async (mode: 'create' | 'dispatch') => {
+  const submit = async () => {
     setAttempted(true);
     if (!valid || !position || !source || !category || !severity) {
       if (errors.phone) setReporterOpen(true);
       return;
     }
-    setSubmitting(mode);
+    setSubmitting(true);
     setError(null);
     const result = await createOperatorIncident({
       title: title.trim() || undefined,
@@ -219,7 +229,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
       reporterPhone: phone || undefined,
       mediaUrls,
     });
-    setSubmitting(null);
+    setSubmitting(false);
     if (!result.ok) {
       setError({ message: result.message, errors: result.errors });
       return;
@@ -232,7 +242,6 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
         dispatchSucceeded: result.dispatchSucceeded,
         dispatchMessage: result.dispatchMessage,
       },
-      mode === 'dispatch'
     );
   };
 
@@ -278,13 +287,17 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
           </div>
         )}
 
-        <Section step={1} label={t('liveMap.create.sectionLocation')} required error={shown('location')}>
+        <Section step={1} label={t('liveMap.create.sectionLocation')} error={shown('location')}>
           <div
             className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
-              position ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-dashed border-red-300 bg-red-50/50 text-red-700'
+              !position
+                ? 'border-dashed border-red-300 bg-red-50/50 text-red-700'
+                : outsideKm > 0
+                  ? 'border-red-300 bg-red-50 text-red-700'
+                  : 'border-slate-200 bg-slate-50 text-slate-700'
             }`}
           >
-            <MapPin className="w-3.5 h-3.5 shrink-0" />
+            {outsideKm > 0 ? <MapPinOff className="w-3.5 h-3.5 shrink-0" /> : <MapPin className="w-3.5 h-3.5 shrink-0" />}
             {position ? (
               <span className="font-mono-data">
                 {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
@@ -307,13 +320,28 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
                 onLocate({ lat: suggestion.lat, lng: suggestion.lng });
               }}
               maxLength={ADDRESS_MAX_LENGTH}
+              search={(query, signal) => searchAddressInArea(query, area, signal)}
+              // Đã giới hạn trong khu vực → tên ngắn (VD "FPT") vẫn ra đúng.
+              minQueryLength={2}
               placeholder={resolvingAddress ? t('liveMap.create.resolvingAddress') : t('liveMap.create.addressPlaceholder')}
             />
             {resolvingAddress && (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
             )}
           </div>
-          <p className="text-[11px] text-slate-500">{t('liveMap.create.addressHint')}</p>
+          {outsideKm > 0 ? (
+            <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">
+              <MapPinOff className="w-4 h-4 shrink-0 mt-px text-red-600" />
+              <div>
+                <p className="font-bold text-red-800">{t('liveMap.create.outOfAreaTitle')}</p>
+                <p className="mt-0.5">
+                  {t('liveMap.create.outOfAreaBody', { km: outsideKm, area: area.name, radius: area.radiusKm })}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[11px] text-slate-500">{t('liveMap.create.addressHint', { area: area.name })}</p>
+          )}
 
           {showDuplicates && (
             <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 space-y-1.5">
@@ -348,7 +376,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
           )}
         </Section>
 
-        <Section step={2} label={t('liveMap.create.sectionSource')} required error={shown('source')}>
+        <Section step={2} label={t('liveMap.create.sectionSource')} error={shown('source')}>
           <div className="grid grid-cols-3 gap-1.5">
             {OPERATOR_INCIDENT_SOURCES.map((key) => {
               const Icon = INCIDENT_SOURCE_ICON[key];
@@ -371,7 +399,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
           </div>
         </Section>
 
-        <Section step={3} label={t('liveMap.create.sectionType')} required error={shown('category')}>
+        <Section step={3} label={t('liveMap.create.sectionType')} error={shown('category')}>
           <div className="grid grid-cols-2 gap-2">
             {CONFIRMABLE_CATEGORIES.map((key) => {
               const meta = INCIDENT_CATEGORY_META[key];
@@ -396,7 +424,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
           </div>
         </Section>
 
-        <Section step={4} label={t('liveMap.create.sectionSeverity')} required error={shown('severity')}>
+        <Section step={4} label={t('liveMap.create.sectionSeverity')} error={shown('severity')}>
           <div className="grid grid-cols-3 gap-1.5">
             {([1, 2, 3] as SeverityLevel[]).map((level) => {
               const active = severity === level;
@@ -417,7 +445,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
           </div>
         </Section>
 
-        <Section step={5} label={t('liveMap.create.notes')} required error={shown('notes')}>
+        <Section step={5} label={t('liveMap.create.notes')} error={shown('notes')}>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -556,32 +584,23 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="shrink-0 p-3 border-t border-slate-200 grid grid-cols-[auto_1fr_1fr] gap-2">
+      <div className="shrink-0 p-3 border-t border-slate-200 grid grid-cols-[auto_1fr] gap-2">
         <button
           type="button"
           onClick={requestClose}
-          disabled={!!submitting}
-          className="px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors disabled:opacity-50"
+          disabled={submitting}
+          className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors disabled:opacity-50"
         >
           {t('common.cancel')}
         </button>
         <button
           type="button"
-          onClick={() => submit('create')}
-          disabled={!!submitting || uploading}
-          className="py-2.5 rounded-xl border border-red-600 text-red-700 hover:bg-red-50 font-bold text-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-        >
-          {submitting === 'create' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          {t('liveMap.create.submit')}
-        </button>
-        <button
-          type="button"
-          onClick={() => submit('dispatch')}
-          disabled={!!submitting || uploading}
+          onClick={submit}
+          disabled={submitting || uploading || outsideKm > 0}
           className="py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
         >
-          {submitting === 'dispatch' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          {t('liveMap.create.submitAndDispatch')}
+          {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          {t('liveMap.create.submit')}
         </button>
       </div>
 
