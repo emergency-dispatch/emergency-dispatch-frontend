@@ -1,5 +1,5 @@
-import type { Messages } from '../types';
-import type { layoutVi } from '../vi/layout';
+import type { Messages } from '../../types';
+import type { layoutVi } from '../../vi/operator/layout';
 
 export const layoutEn: Messages<typeof layoutVi> = {
   nav: {
@@ -56,8 +56,6 @@ export const layoutEn: Messages<typeof layoutVi> = {
     aiAnalyzing: 'AI analyzing…',
     location: 'Location',
     waitTime: 'Waiting time',
-    justNow: 'Just now',
-    minutes: '{{count}} min',
     reporter: 'Reporter:',
     skip: 'Skip',
     verifyNow: 'Verify now',

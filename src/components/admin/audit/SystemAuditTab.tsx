@@ -15,11 +15,13 @@ import {
   type SystemAuditEntityType,
   type SystemAuditLogDto,
 } from '../../../types/auditTrail';
+import { useTranslation } from '../../../i18n';
 
 const PAGE_SIZE = 20;
 
 /** Nhật ký thao tác quản trị: trạm, xe, tài khoản, tổ, cấu hình, quy tắc leo thang, chặn số, xuất báo cáo. */
 export const SystemAuditTab: React.FC = () => {
+  const { t } = useTranslation();
   const initial = useInitialQueryParams();
   const dateParam = (key: string) => (YMD_PATTERN.test(initial.text(key)) ? initial.text(key) : '');
 
@@ -68,7 +70,7 @@ export const SystemAuditTab: React.FC = () => {
       <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className={labelClass}>Loại đối tượng</label>
+            <label className={labelClass}>{t('admin.monitoring.audit.system.entityType')}</label>
             <select
               value={entityType}
               onChange={(e) => {
@@ -77,22 +79,22 @@ export const SystemAuditTab: React.FC = () => {
               }}
               className={inputClass}
             >
-              <option value="">Tất cả đối tượng</option>
-              {SYSTEM_AUDIT_ENTITY_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {entityTypeMeta(t).label}
+              <option value="">{t('admin.monitoring.audit.system.allEntities')}</option>
+              {SYSTEM_AUDIT_ENTITY_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {entityTypeMeta(type).label}
                 </option>
               ))}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Hành động</label>
+            <label className={labelClass}>{t('admin.monitoring.audit.action')}</label>
             <select
               value={action}
               onChange={(e) => withPageReset(setAction)(e.target.value as SystemAuditAction | '')}
               className={inputClass}
             >
-              <option value="">Tất cả hành động</option>
+              <option value="">{t('admin.monitoring.audit.allActions')}</option>
               {SYSTEM_AUDIT_ACTIONS.map((a) => (
                 <option key={a} value={a}>
                   {systemActionMeta(a).label}
@@ -118,14 +120,14 @@ export const SystemAuditTab: React.FC = () => {
               className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-900 hover:bg-slate-100"
             >
               <X className="w-3.5 h-3.5" />
-              Xóa bộ lọc
+              {t('admin.common.clearFilters')}
             </button>
           )}
         </DateRangeFilter>
 
         {entity && (
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-500">Đang xem bản ghi của:</span>
+            <span className="text-slate-500">{t('admin.monitoring.audit.system.viewing')}</span>
             <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-red-200 bg-red-50 text-red-700 font-semibold">
               {entity.label}
               <button
@@ -134,7 +136,7 @@ export const SystemAuditTab: React.FC = () => {
                   setEntity(null);
                   setPageIndex(1);
                 }}
-                aria-label="Bỏ lọc theo đối tượng"
+                aria-label={t('admin.monitoring.audit.system.clearEntity')}
                 className="hover:text-red-900"
               >
                 <X className="w-3 h-3" />
@@ -146,8 +148,7 @@ export const SystemAuditTab: React.FC = () => {
 
       <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
         <Lock className="w-3.5 h-3.5" />
-        Nhật ký chỉ đọc, ghi lại thao tác quản trị (trạm, xe, tài khoản, tổ, cấu hình, quy tắc leo thang, chặn số, xuất báo
-        cáo).
+        {t('admin.monitoring.audit.system.note')}
       </p>
 
       {query.error && <Notice notice={{ kind: 'error', message: query.error }} />}

@@ -176,6 +176,8 @@ function sortByPriority(incidents: Incident[]): Incident[] {
 }
 
 const isActiveAssignment = (a: DispatchAssignmentResponseDto) => ACTIVE_ASSIGNMENT_STATUSES.includes(a.status);
+/** HTTP 409: sự cố / lượt điều phối vừa bị người khác (hoặc worker) sửa trước — cần tải lại rồi thao tác lại. */
+const isConflict = (err: unknown) => isAxiosError(err) && err.response?.status === 409;
 
 const upsert = <T extends { id: string }>(map: Map<string, T>, items: T[]) => {
   const next = new Map(map);
@@ -768,6 +770,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       upsertIncidents([res.data]);
       return { ok: true };
     } catch (err) {
+      if (isConflict(err)) refreshBoard();
       return { ok: false, message: getApiErrorMessage(err, i18n.t('context.verifyFailed')) };
     }
   };
@@ -785,6 +788,10 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Backend trả các xe đang giao về Sẵn sàng.
       refreshUnits();
     } catch (err) {
+      if (isConflict(err)) {
+        refreshBoard();
+        refreshUnits();
+      }
       return { ok: false, message: getApiErrorMessage(err, i18n.t('context.cancelFailed')) };
     }
 
@@ -807,6 +814,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       removeIncident(id);
       return { ok: true };
     } catch (err) {
+      if (isConflict(err)) refreshBoard();
       return { ok: false, message: getApiErrorMessage(err, i18n.t('context.transferFailed')) };
     }
   };
@@ -878,8 +886,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setAssignments((prev) => upsert(prev, res.data));
       return { ok: true };
     } catch (err) {
-      // HTTP 409: xe vừa bị Operator khác giao trước → tải lại trạng thái xe để không gợi ý lại.
+      // HTTP 409: xe vừa bị Operator khác giao trước, hoặc sự cố vừa bị người khác sửa → tải lại xe và sự cố.
       refreshUnits();
+      if (isConflict(err)) refreshBoard();
       return { ok: false, message: `${getApiErrorMessage(err, i18n.t('context.assignFailed'))} (${vehicle.plate})` };
     }
   };
@@ -898,6 +907,10 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       refreshUnits();
       return { ok: true };
     } catch (err) {
+      if (isConflict(err)) {
+        refreshBoard();
+        refreshUnits();
+      }
       return { ok: false, message: getApiErrorMessage(err, i18n.t('context.unassignFailed')) };
     }
   };

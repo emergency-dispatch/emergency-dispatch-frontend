@@ -1,5 +1,5 @@
-import type { Messages } from '../types';
-import type { liveMapVi } from '../vi/liveMap';
+import type { Messages } from '../../types';
+import type { liveMapVi } from '../../vi/operator/liveMap';
 
 export const liveMapEn: Messages<typeof liveMapVi> = {
   page: {

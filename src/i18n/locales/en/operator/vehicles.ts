@@ -1,5 +1,5 @@
-import type { Messages } from '../types';
-import type { vehiclesVi } from '../vi/vehicles';
+import type { Messages } from '../../types';
+import type { vehiclesVi } from '../../vi/operator/vehicles';
 
 export const vehiclesEn: Messages<typeof vehiclesVi> = {
   filters: {

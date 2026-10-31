@@ -2,6 +2,7 @@ import React from 'react';
 import { thClass } from '../common/styles';
 import { actorRoleLabel, auditActionMeta, formatAuditTime } from './auditMeta';
 import type { AuditTrailEntryDto } from '../../../types/auditTrail';
+import { useTranslation } from '../../../i18n';
 
 interface AuditTrailTableProps {
   entries: AuditTrailEntryDto[];
@@ -10,7 +11,9 @@ interface AuditTrailTableProps {
   onSelect: (entry: AuditTrailEntryDto) => void;
 }
 
-export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ entries, loading, selectedId, onSelect }) => (
+export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ entries, loading, selectedId, onSelect }) => {
+  const { t } = useTranslation();
+  return (
   <div
     className={`rounded-xl border border-slate-200 overflow-x-auto bg-white shadow-xs transition-opacity ${
       loading ? 'opacity-60' : ''
@@ -19,18 +22,18 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ entries, loadi
     <table className="w-full text-sm min-w-[960px]">
       <thead>
         <tr className="bg-slate-50 border-b border-slate-200 text-left">
-          <th className={thClass}>Thời điểm</th>
-          <th className={thClass}>Người thao tác</th>
-          <th className={thClass}>Hành động</th>
-          <th className={thClass}>Sự cố</th>
-          <th className={thClass}>Mô tả</th>
+          <th className={thClass}>{t('admin.monitoring.audit.time')}</th>
+          <th className={thClass}>{t('admin.monitoring.audit.actor')}</th>
+          <th className={thClass}>{t('admin.monitoring.audit.action')}</th>
+          <th className={thClass}>{t('admin.monitoring.audit.incident')}</th>
+          <th className={thClass}>{t('admin.monitoring.audit.description')}</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-100">
         {entries.length === 0 && (
           <tr>
             <td colSpan={5} className="px-4 py-10 text-center text-slate-400 text-sm">
-              {loading ? 'Đang tải...' : 'Không có bản ghi nào phù hợp.'}
+              {loading ? t('admin.common.loading') : t('admin.monitoring.audit.empty')}
             </td>
           </tr>
         )}
@@ -66,7 +69,7 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ entries, loadi
                 </span>
               </td>
               <td className="px-4 py-3 max-w-[240px]">
-                <div className="text-slate-800 text-xs truncate">{e.incidentTitle || 'Sự cố không còn tồn tại'}</div>
+                <div className="text-slate-800 text-xs truncate">{e.incidentTitle || t('admin.monitoring.incident.missing')}</div>
                 <div className="text-[11px] text-slate-500 font-mono-data">{e.incidentId.slice(0, 8)}</div>
               </td>
               <td className="px-4 py-3 text-xs text-slate-600 max-w-[360px]">
@@ -78,4 +81,5 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ entries, loadi
       </tbody>
     </table>
   </div>
-);
+  );
+};

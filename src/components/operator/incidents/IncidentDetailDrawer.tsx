@@ -48,6 +48,8 @@ import { dateLocale, useTranslation } from '../../../i18n';
 const CONFIRMABLE_LEVELS: SeverityLevel[] = [1, 2, 3];
 // Lý do chuyển trạm: backend yêu cầu tối thiểu 5 ký tự.
 const TRANSFER_REASON_MIN_LENGTH = 5;
+// Số thẻ nguy cơ hiện sẵn; phần còn lại gộp vào nút "+N".
+const MAX_VISIBLE_TAGS = 4;
 
 type DrawerMode = 'review' | 'reject' | 'transfer';
 
@@ -109,6 +111,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   // Backend luôn trả số đã che; số đầy đủ chỉ có sau khi bấm "Hiện số".
   const [revealedPhone, setRevealedPhone] = useState<{ phone: string; at: Date } | null>(null);
   const [revealingPhone, setRevealingPhone] = useState(false);
+  // Thẻ nguy cơ: mặc định chỉ hiện vài thẻ đầu, phần mô tả AI bên dưới đã nói chi tiết.
+  const [showAllTags, setShowAllTags] = useState(false);
 
   // Sync severity khi mở drawer mới HOẶC khi AI xong (aiPending → false).
   // Dùng ref để không ghi đè khi Operator đã tự tay chọn cấp khác.
@@ -131,6 +135,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     setBlockPhone(false);
     setBlockDuration('30d');
     setRevealedPhone(null);
+    setShowAllTags(false);
   }, [incident?.id]);
 
   // AI vừa xong phân tích (aiPending false → severity mới) — cập nhật nếu Operator chưa override.
@@ -446,9 +451,22 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                       <div>
                         <p className="text-slate-500 mb-1">{t('incidents.drawer.hazardTags')}</p>
                         <div className="flex flex-wrap gap-1.5">
-                          {incident.hazardTags.map((tag) => (
-                            <HazardTagBadge key={tag} tag={tag} />
-                          ))}
+                          {(showAllTags ? incident.hazardTags : incident.hazardTags.slice(0, MAX_VISIBLE_TAGS)).map(
+                            (tag) => (
+                              <HazardTagBadge key={tag} tag={tag} />
+                            )
+                          )}
+                          {incident.hazardTags.length > MAX_VISIBLE_TAGS && (
+                            <button
+                              type="button"
+                              onClick={() => setShowAllTags((v) => !v)}
+                              className="text-[10px] px-1.5 py-0.5 rounded-md border border-slate-200 bg-white font-mono-data font-semibold text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                            >
+                              {showAllTags
+                                ? t('incidents.drawer.hazardTagsLess')
+                                : `+${incident.hazardTags.length - MAX_VISIBLE_TAGS}`}
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}

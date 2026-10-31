@@ -1,6 +1,7 @@
 import { apiClient, unwrapApi } from '../apiClient';
 import type { ApiResponse } from '../../types/auth';
 import type { EscalationLogDto, EscalationRuleDto, EscalationRuleInput } from '../../types/escalation';
+import i18n from '../../i18n';
 
 // Giới hạn của backend (CreateEscalationRuleDto / UpdateEscalationRuleDto).
 export const DESCRIPTION_MAX_LENGTH = 500;
@@ -11,9 +12,9 @@ export type EscalationRuleErrors = Partial<Record<keyof EscalationRuleInput, str
 export function validateEscalationRule(input: EscalationRuleInput): EscalationRuleErrors {
   const errors: EscalationRuleErrors = {};
   // Backend bỏ qua NotifyRoles rỗng khi cập nhật → bắt buộc chọn ít nhất 1 vai trò.
-  if (input.notifyRoles.length === 0) errors.notifyRoles = 'Chọn ít nhất 1 vai trò nhận cảnh báo.';
+  if (input.notifyRoles.length === 0) errors.notifyRoles = i18n.t('admin.settings.validation.notifyRolesRequired');
   if (input.description.length > DESCRIPTION_MAX_LENGTH) {
-    errors.description = `Mô tả tối đa ${DESCRIPTION_MAX_LENGTH} ký tự.`;
+    errors.description = i18n.t('admin.settings.validation.descriptionTooLong', { max: DESCRIPTION_MAX_LENGTH });
   }
   return errors;
 }

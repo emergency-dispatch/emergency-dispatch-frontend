@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { ConfirmModal, Notice } from '../common/ui';
 import { useServiceQuery } from '../common/hooks';
-import { RESCUE_UNIT_STATUS_META } from '../fleetMeta';
 import { stationAdminService } from '../../../services/admin/stationAdminService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { ON_MISSION_UNIT_STATUSES } from '../../../types/rescueUnit';
 import type { StationResponseDto } from '../../../types/station';
+import { Trans, useTranslation } from '../../../i18n';
 
 interface DeleteStationDialogProps {
   station: StationResponseDto;
@@ -15,6 +15,7 @@ interface DeleteStationDialogProps {
 }
 
 export const DeleteStationDialog: React.FC<DeleteStationDialogProps> = ({ station, onCancel, onDeleted }) => {
+  const { t } = useTranslation();
   // Đọc lại chi tiết để có trạng thái xe mới nhất trước khi xóa.
   const detail = useServiceQuery(() => stationAdminService.getById(station.id), station.id);
   const [submitting, setSubmitting] = useState(false);
@@ -38,43 +39,49 @@ export const DeleteStationDialog: React.FC<DeleteStationDialogProps> = ({ statio
 
   return (
     <ConfirmModal
-      title="Xóa trạm cứu hộ?"
-      confirmLabel="Xóa trạm"
+      title={t('admin.stations.deleteDialog.title')}
+      confirmLabel={t('admin.stations.deleteDialog.confirm')}
       confirmDisabled={detail.loading || !!detail.error || busy.length > 0}
       submitting={submitting}
       onCancel={onCancel}
       onConfirm={handleConfirm}
     >
       <p>
-        Xóa mềm trạm <span className="font-semibold text-slate-900">{station.name}</span>. Trạm sẽ bị ẩn khỏi danh sách và
-        không khôi phục được từ giao diện.
+        <Trans
+          i18nKey="admin.stations.deleteDialog.body"
+          values={{ name: station.name }}
+          components={{ b: <span className="font-semibold text-slate-900" /> }}
+        />
       </p>
 
       {detail.loading ? (
-        <p className="text-slate-400">Đang kiểm tra xe thuộc trạm...</p>
+        <p className="text-slate-400">{t('admin.stations.deleteDialog.checking')}</p>
       ) : detail.error ? (
         <Notice notice={{ kind: 'error', message: detail.error }} />
       ) : busy.length > 0 ? (
         <Notice
           notice={{
             kind: 'error',
-            message: `Không thể xóa: còn ${busy.length} xe đang làm nhiệm vụ (${busy.map((u) => u.plateNumber).join(', ')}). Chờ các xe hoàn tất nhiệm vụ rồi thử lại.`,
+            message: t('admin.stations.deleteDialog.busy', {
+              count: busy.length,
+              plates: busy.map((u) => u.plateNumber).join(', '),
+            }),
           }}
         />
       ) : units.length === 0 && staff.length === 0 ? (
-        <p>Trạm không có xe và nhân sự trực thuộc.</p>
+        <p>{t('admin.stations.deleteDialog.empty')}</p>
       ) : (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2 text-amber-800">
           {units.length > 0 && (
             <>
               <p className="font-semibold">
-                {units.length} xe chuyển sang Ngừng hoạt động — chuyển xe sang trạm mới ở trang Đội xe:
+                {t('admin.stations.deleteDialog.unitsMoved', { count: units.length })}
               </p>
               <ul className="space-y-1 text-xs">
                 {units.map((u) => (
                   <li key={u.id} className="flex items-center justify-between gap-3">
                     <span className="font-mono-data font-semibold text-slate-800">{u.plateNumber}</span>
-                    <span className="text-slate-500">{RESCUE_UNIT_STATUS_META[u.status]?.label ?? u.statusName}</span>
+                    <span className="text-slate-500">{t(`enums.unitStatus.${u.status}`, { defaultValue: u.statusName })}</span>
                   </li>
                 ))}
               </ul>
@@ -82,7 +89,7 @@ export const DeleteStationDialog: React.FC<DeleteStationDialogProps> = ({ statio
           )}
           {staff.length > 0 && (
             <p className="text-xs">
-              {staff.length} nhân sự bị gỡ khỏi trạm, các tổ làm việc của trạm bị xóa.
+              {t('admin.stations.deleteDialog.staffRemoved', { count: staff.length })}
             </p>
           )}
         </div>

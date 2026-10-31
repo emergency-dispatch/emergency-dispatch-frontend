@@ -2,6 +2,7 @@ import React from 'react';
 import { thClass } from '../common/styles';
 import { actorRoleLabel, entityDisplayName, entityTypeMeta, formatAuditTime, systemActionMeta } from './auditMeta';
 import type { SystemAuditLogDto } from '../../../types/auditTrail';
+import { useTranslation } from '../../../i18n';
 
 interface SystemAuditTableProps {
   entries: SystemAuditLogDto[];
@@ -10,7 +11,9 @@ interface SystemAuditTableProps {
   onSelect: (entry: SystemAuditLogDto) => void;
 }
 
-export const SystemAuditTable: React.FC<SystemAuditTableProps> = ({ entries, loading, selectedId, onSelect }) => (
+export const SystemAuditTable: React.FC<SystemAuditTableProps> = ({ entries, loading, selectedId, onSelect }) => {
+  const { t } = useTranslation();
+  return (
   <div
     className={`rounded-xl border border-slate-200 overflow-x-auto bg-white shadow-xs transition-opacity ${
       loading ? 'opacity-60' : ''
@@ -19,18 +22,18 @@ export const SystemAuditTable: React.FC<SystemAuditTableProps> = ({ entries, loa
     <table className="w-full text-sm min-w-[960px]">
       <thead>
         <tr className="bg-slate-50 border-b border-slate-200 text-left">
-          <th className={thClass}>Thời điểm</th>
-          <th className={thClass}>Người thao tác</th>
-          <th className={thClass}>Hành động</th>
-          <th className={thClass}>Đối tượng</th>
-          <th className={thClass}>Mô tả</th>
+          <th className={thClass}>{t('admin.monitoring.audit.time')}</th>
+          <th className={thClass}>{t('admin.monitoring.audit.actor')}</th>
+          <th className={thClass}>{t('admin.monitoring.audit.action')}</th>
+          <th className={thClass}>{t('admin.monitoring.audit.entity')}</th>
+          <th className={thClass}>{t('admin.monitoring.audit.description')}</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-100">
         {entries.length === 0 && (
           <tr>
             <td colSpan={5} className="px-4 py-10 text-center text-slate-400 text-sm">
-              {loading ? 'Đang tải...' : 'Không có bản ghi nào phù hợp.'}
+              {loading ? t('admin.common.loading') : t('admin.monitoring.audit.empty')}
             </td>
           </tr>
         )}
@@ -83,4 +86,5 @@ export const SystemAuditTable: React.FC<SystemAuditTableProps> = ({ entries, loa
       </tbody>
     </table>
   </div>
-);
+  );
+};

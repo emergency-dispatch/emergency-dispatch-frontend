@@ -18,13 +18,14 @@ import { stationAdminService } from '../../services/admin/stationAdminService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { BackendSeverityLevel } from '../../types/incident';
 import type { ClosedIncidentFilter, IncidentHistoryItemDto, IncidentReportFilter, ReportFormat } from '../../types/report';
+import { useTranslation } from '../../i18n';
 
 const PAGE_SIZE = 20;
-const STATUSES: { value: ClosedIncidentFilter; label: string }[] = [
-  { value: 'All', label: 'Đã đóng (tất cả)' },
-  { value: 'Completed', label: 'Hoàn thành' },
-  { value: 'Cancelled', label: 'Đã hủy' },
-];
+const STATUSES = [
+  { value: 'All', labelKey: 'closedAll' },
+  { value: 'Completed', labelKey: 'completed' },
+  { value: 'Cancelled', labelKey: 'cancelled' },
+] as const satisfies readonly { value: ClosedIncidentFilter; labelKey: string }[];
 
 const StatCard: React.FC<{ label: string; value: React.ReactNode; hint?: string; tone?: string }> = ({
   label,
@@ -41,6 +42,7 @@ const StatCard: React.FC<{ label: string; value: React.ReactNode; hint?: string;
 
 /** Báo cáo / lịch sử sự cố đã đóng: thẻ số liệu, bảng phân trang, xuất CSV / PDF theo cùng bộ lọc. */
 const ReportsPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const initial = useInitialQueryParams();
   const dateParam = (key: string) => (YMD_PATTERN.test(initial.text(key)) ? initial.text(key) : '');
@@ -98,9 +100,9 @@ const ReportsPage: React.FC = () => {
     setNotice(null);
     try {
       const name = await reportAdminService.exportIncidents(filter, format);
-      setNotice({ kind: 'success', message: `Đã tải ${name}.` });
+      setNotice({ kind: 'success', message: t('admin.monitoring.reports.downloaded', { name }) });
     } catch (err) {
-      setNotice({ kind: 'error', message: getApiErrorMessage(err, 'Không xuất được báo cáo.') });
+      setNotice({ kind: 'error', message: getApiErrorMessage(err, t('admin.monitoring.reports.exportFailed')) });
     } finally {
       setExporting(null);
     }
@@ -114,21 +116,21 @@ const ReportsPage: React.FC = () => {
       <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="space-y-1.5 lg:col-span-1">
-            <label className={labelClass}>Tìm kiếm</label>
+            <label className={labelClass}>{t('admin.monitoring.reports.search')}</label>
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 value={search}
                 onChange={(e) => withPageReset(setSearch)(e.target.value)}
-                placeholder="Tiêu đề hoặc địa chỉ"
+                placeholder={t('admin.monitoring.reports.searchPlaceholder')}
                 className={`${inputClass} pl-9`}
               />
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Trạm tham gia</label>
+            <label className={labelClass}>{t('admin.monitoring.reports.station')}</label>
             <select value={stationId} onChange={(e) => withPageReset(setStationId)(e.target.value)} className={inputClass}>
-              <option value="">Tất cả trạm</option>
+              <option value="">{t('admin.monitoring.reports.allStations')}</option>
               {(stations.data?.items ?? []).map((st) => (
                 <option key={st.id} value={st.id}>
                   {st.name}
@@ -137,7 +139,7 @@ const ReportsPage: React.FC = () => {
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Kết quả</label>
+            <label className={labelClass}>{t('admin.monitoring.reports.result')}</label>
             <select
               value={status}
               onChange={(e) => withPageReset(setStatus)(e.target.value as ClosedIncidentFilter)}
@@ -145,19 +147,19 @@ const ReportsPage: React.FC = () => {
             >
               {STATUSES.map((st) => (
                 <option key={st.value} value={st.value}>
-                  {st.label}
+                  {t(`admin.monitoring.reports.${st.labelKey}`)}
                 </option>
               ))}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Mức độ</label>
+            <label className={labelClass}>{t('admin.monitoring.reports.severity')}</label>
             <select
               value={severity}
               onChange={(e) => withPageReset(setSeverity)(e.target.value as BackendSeverityLevel | '')}
               className={inputClass}
             >
-              <option value="">Tất cả mức độ</option>
+              <option value="">{t('admin.monitoring.reports.allSeverities')}</option>
               {REPORT_SEVERITIES.map((lv) => (
                 <option key={lv} value={lv}>
                   {severityMeta(lv).label}
@@ -183,26 +185,30 @@ const ReportsPage: React.FC = () => {
               className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-900 hover:bg-slate-100"
             >
               <X className="w-3.5 h-3.5" />
-              Xóa bộ lọc
+              {t('admin.common.clearFilters')}
             </button>
           )}
         </DateRangeFilter>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <StatCard label="Sự cố đã đóng" value={s?.total ?? '—'} />
-        <StatCard label="Hoàn thành" value={s?.completed ?? '—'} tone="text-emerald-700" />
-        <StatCard label="Đã hủy" value={s?.cancelled ?? '—'} tone="text-slate-600" />
+        <StatCard label={t('admin.monitoring.reports.statClosed')} value={s?.total ?? '—'} />
+        <StatCard label={t('admin.monitoring.reports.completed')} value={s?.completed ?? '—'} tone="text-emerald-700" />
+        <StatCard label={t('admin.monitoring.reports.cancelled')} value={s?.cancelled ?? '—'} tone="text-slate-600" />
         <StatCard
-          label="Phản ứng TB"
+          label={t('admin.monitoring.reports.statAvgResponse')}
           value={s ? formatMinutes(s.avgResponseMinutes) : '—'}
-          hint="Từ lúc báo → xe đầu tiên tới nơi"
+          hint={t('admin.monitoring.reports.statAvgResponseHint')}
         />
-        <StatCard label="Xử lý TB" value={s ? formatMinutes(s.avgResolutionMinutes) : '—'} hint="Từ lúc báo → đóng sự cố" />
+        <StatCard
+          label={t('admin.monitoring.reports.statAvgResolution')}
+          value={s ? formatMinutes(s.avgResolutionMinutes) : '—'}
+          hint={t('admin.monitoring.reports.statAvgResolutionHint')}
+        />
       </div>
       {s && (
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-slate-500">Theo mức độ:</span>
+          <span className="text-slate-500">{t('admin.monitoring.reports.bySeverity')}</span>
           {REPORT_SEVERITIES.filter((lv) => (s.bySeverity[lv] ?? 0) > 0).map((lv) => {
             const meta = severityMeta(lv);
             return (
@@ -218,13 +224,13 @@ const ReportsPage: React.FC = () => {
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <p className="text-xs text-slate-500">
-          Xuất theo bộ lọc hiện tại, tối đa 5.000 sự cố mỗi lần (PDF ghi chú nếu bị cắt bớt).
+          {t('admin.monitoring.reports.exportNote')}
         </p>
         <div className="sm:ml-auto flex gap-2">
           {(
             [
-              ['Csv', 'Xuất CSV', FileSpreadsheet],
-              ['Pdf', 'Xuất PDF', FileText],
+              ['Csv', t('admin.monitoring.reports.exportCsv'), FileSpreadsheet],
+              ['Pdf', t('admin.monitoring.reports.exportPdf'), FileText],
             ] as const
           ).map(([format, label, Icon]) => (
             <button
@@ -232,7 +238,7 @@ const ReportsPage: React.FC = () => {
               type="button"
               onClick={() => handleExport(format)}
               disabled={!!exporting || total === 0}
-              title={total === 0 ? 'Không có sự cố nào để xuất' : undefined}
+              title={total === 0 ? t('admin.monitoring.reports.nothingToExport') : undefined}
               className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:border-red-400 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {exporting === format ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Icon className="w-3.5 h-3.5" />}
@@ -253,20 +259,20 @@ const ReportsPage: React.FC = () => {
         <table className="w-full text-sm min-w-[1000px]">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-left">
-              <th className={thClass}>Thời điểm báo</th>
-              <th className={thClass}>Sự cố</th>
-              <th className={thClass}>Mức độ</th>
-              <th className={thClass}>Kết quả</th>
-              <th className={thClass}>Trạm / Xe</th>
-              <th className={`${thClass} text-right`}>Phản ứng</th>
-              <th className={`${thClass} text-right`}>Xử lý</th>
+              <th className={thClass}>{t('admin.monitoring.reports.table.reportedAt')}</th>
+              <th className={thClass}>{t('admin.monitoring.reports.table.incident')}</th>
+              <th className={thClass}>{t('admin.monitoring.reports.severity')}</th>
+              <th className={thClass}>{t('admin.monitoring.reports.result')}</th>
+              <th className={thClass}>{t('admin.monitoring.reports.table.stationsUnits')}</th>
+              <th className={`${thClass} text-right`}>{t('admin.monitoring.reports.table.response')}</th>
+              <th className={`${thClass} text-right`}>{t('admin.monitoring.reports.table.resolution')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {(list.data?.items.length ?? 0) === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-sm">
-                  {list.loading ? 'Đang tải...' : 'Không có sự cố đã đóng nào phù hợp.'}
+                  {list.loading ? t('admin.common.loading') : t('admin.monitoring.reports.table.empty')}
                 </td>
               </tr>
             )}
@@ -301,10 +307,10 @@ const ReportsPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3 text-xs">
                     {item.status === 'Completed' ? (
-                      <span className="font-semibold text-emerald-700">Hoàn thành</span>
+                      <span className="font-semibold text-emerald-700">{t('admin.monitoring.reports.completed')}</span>
                     ) : (
                       <>
-                        <span className="font-semibold text-slate-600">Đã hủy</span>
+                        <span className="font-semibold text-slate-600">{t('admin.monitoring.reports.cancelled')}</span>
                         {item.cancellationReason && (
                           <div className="text-[11px] text-slate-500">{cancellationLabel(item.cancellationReason)}</div>
                         )}

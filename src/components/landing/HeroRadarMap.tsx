@@ -33,8 +33,10 @@ import {
   incidentMarkerHtml,
 } from '../operator/livemap/mapIcons';
 import type { IncidentResponseDto, IncidentCategory, SeverityLevel } from '../../types/incident';
+import { getIncidentVisualMeta, formatCitizenIncidentStatus } from '../../utils/incidentFormat';
 import type { RescueUnitResponseDto } from '../../types/rescueUnit';
 import type { Station, VehicleStatus, VehicleType } from '../../types/vehicle';
+import { useTranslation } from '../../i18n';
 
 interface HeroRadarMapProps {
   etaTime: number;
@@ -67,15 +69,16 @@ const UNIT_STATUS_MAP: Record<string, VehicleStatus> = {
 };
 
 const getIncidentCategory = (incident: IncidentResponseDto): IncidentCategory => {
-  if (incident.aiClassification?.eventType === 'TrafficAccident') return 'accident';
-  if (incident.aiClassification?.eventType === 'FireExplosion') return 'fire';
+  if (incident.aiClassification?.eventType === 'TrafficAccident' || incident.eventType === 'TrafficAccident') return 'accident';
+  if (incident.aiClassification?.eventType === 'FireExplosion' || incident.eventType === 'FireExplosion') return 'fire';
   const text = `${incident.title || ''} ${incident.description || ''}`.toLowerCase();
   if (text.includes('tai nạn') || text.includes('traffic') || text.includes('va chạm')) return 'accident';
-  return 'fire';
+  if (text.includes('hỏa hoạn') || text.includes('cháy') || text.includes('khói') || text.includes('nổ') || text.includes('fire')) return 'fire';
+  return 'unknown';
 };
 
 const getIncidentSeverity = (sev?: string): SeverityLevel => {
-  if (sev === 'Level3' || sev === 'Level4' || sev === 'Level5') return 3;
+  if (sev === 'Level3') return 3;
   if (sev === 'Level2') return 2;
   return 1;
 };
@@ -89,6 +92,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   onOpenReports,
   onStatsUpdate,
 }) => {
+  const { t, i18n } = useTranslation();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [radarLayer, setRadarLayer] = useState<'satellite' | 'dark'>('satellite');
@@ -169,22 +173,34 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         localStorage.getItem('resq_my_reported_incident_ids') || '[]'
       );
       if (storedIds.length > 0) {
-        const res = await incidentService.getById(storedIds[0]);
-        if (res.success && res.data) {
-          setReportedIncident(res.data);
-          return;
+        for (const id of storedIds.slice(0, 5)) {
+          const res = await incidentService.getById(id).catch(() => null);
+          if (res?.success && res.data) {
+            // Prioritize active (non-cancelled, non-completed) incidents for the radar map
+            if (res.data.status !== 'Cancelled' && res.data.status !== 'Completed') {
+              setReportedIncident(res.data);
+              return;
+            }
+          }
         }
       }
 
       // Fallback for logged-in citizen without localStorage items
-      const myReportsRes = await incidentService.getMyReports({ pageSize: 1 }).catch(() => null);
+      const myReportsRes = await incidentService.getMyReports({ pageSize: 5 }).catch(() => null);
       if (myReportsRes?.success && myReportsRes.data.items.length > 0) {
-        const latest = myReportsRes.data.items[0];
-        const res = await incidentService.getById(latest.id).catch(() => null);
-        if (res?.success && res.data) {
-          setReportedIncident(res.data);
+        for (const item of myReportsRes.data.items) {
+          if (item.status !== 'Cancelled' && item.status !== 'Completed') {
+            const res = await incidentService.getById(item.id).catch(() => null);
+            if (res?.success && res.data) {
+              setReportedIncident(res.data);
+              return;
+            }
+          }
         }
       }
+
+      // If all incidents are cancelled or resolved, clear active incident so HUD shows normal GPS state
+      setReportedIncident(null);
     } catch {
       // Ignore
     }
@@ -192,7 +208,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
   // Load tracking data if incident has active dispatch
   useEffect(() => {
-    if (!reportedIncident?.id) {
+    if (!reportedIncident?.id || reportedIncident.status === 'Cancelled' || reportedIncident.status === 'Completed') {
       setTrackingData(null);
       updateRouteTrajectory([]);
       return;
@@ -236,7 +252,15 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     checkCitizenReportedIncident();
 
     const handleIncidentUpdated = (e: any) => {
-      if (e.detail) {
+      if (e.detail?.status === 'Cancelled' || e.detail?.status === 'Completed') {
+        if (incidentMarkerRef.current) {
+          incidentMarkerRef.current.remove();
+          incidentMarkerRef.current = null;
+        }
+        setReportedIncident(null);
+        setTrackingData(null);
+        updateRouteTrajectory([]);
+      } else if (e.detail) {
         setReportedIncident(e.detail);
       } else {
         checkCitizenReportedIncident();
@@ -589,7 +613,12 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     const map = mapRef.current;
     if (!map) return;
 
-    if (!reportedIncident?.latitude || !reportedIncident?.longitude) {
+    if (
+      !reportedIncident?.latitude ||
+      !reportedIncident?.longitude ||
+      reportedIncident.status === 'Cancelled' ||
+      reportedIncident.status === 'Completed'
+    ) {
       if (incidentMarkerRef.current) {
         incidentMarkerRef.current.remove();
         incidentMarkerRef.current = null;
@@ -600,21 +629,41 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     const cat = getIncidentCategory(reportedIncident);
     const sev = getIncidentSeverity(reportedIncident.severity);
 
+    const visual = getIncidentVisualMeta(reportedIncident);
+    const photoHtml = reportedIncident.mediaItems?.[0]?.mediaUrl
+      ? `<img src="${reportedIncident.mediaItems[0].mediaUrl}" style="width: 100%; height: 75px; object-fit: cover; border-radius: 6px; margin-bottom: 6px;" alt="${i18n.language === 'en' ? 'Incident scene' : 'Hiện trường'}" />`
+      : '';
+    const isTypeKnown = visual.category === 'fire' || visual.category === 'accident';
+    const displayTitle = isTypeKnown
+      ? visual.label
+      : reportedIncident.title && !reportedIncident.title.includes('Tín hiệu') && !reportedIncident.title.includes('SOS')
+      ? reportedIncident.title
+      : t('citizen.reports.incidentTypes.sosSignal');
+
+    const statusText = formatCitizenIncidentStatus(reportedIncident.status);
+    const isDispatched = reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress';
+    const statusColor = isDispatched ? '#059669' : '#DC2626';
+    const statusLabel = i18n.language === 'en' ? 'STATUS' : 'TRẠNG THÁI';
+
+    const popupHtml = `
+      <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 190px;">
+        ${photoHtml}
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 3px;">
+          <span style="font-size: 11px; font-weight: 800; color: #DC2626;">${visual.icon} ${visual.label}</span>
+          <span style="font-size: 10px; font-family: monospace; color: #64748B;">#${reportedIncident.id.slice(0, 6).toUpperCase()}</span>
+        </div>
+        <div style="font-size: 11px; font-weight: 700; color: #0F172A;">${displayTitle}</div>
+        <div style="font-size: 10px; color: #64748B; margin-top: 2px;">📍 ${reportedIncident.locationAddress}</div>
+        <div style="font-size: 10px; font-weight: 700; color: ${statusColor}; margin-top: 4px; padding-top: 4px; border-top: 1px solid #E2E8F0;">
+          ${statusLabel}: ${statusText.toUpperCase()}
+        </div>
+      </div>
+    `;
+
     if (!incidentMarkerRef.current) {
       const el = document.createElement('div');
       el.className = 'cad-marker-incident cursor-pointer';
       el.innerHTML = incidentMarkerHtml(cat, sev, true);
-
-      const popupHtml = `
-        <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 180px;">
-          <div style="font-size: 11px; font-weight: 800; font-family: monospace; color: #DC2626;">SỰ CỐ: INC-${reportedIncident.id.slice(0, 6).toUpperCase()}</div>
-          <div style="font-size: 12px; font-weight: 700; color: #0F172A; margin-top: 2px;">${reportedIncident.title}</div>
-          <div style="font-size: 10px; color: #64748B; margin-top: 2px;">📍 ${reportedIncident.locationAddress}</div>
-          <div style="font-size: 10px; font-weight: 700; color: #B91C1C; margin-top: 4px; padding-top: 4px; border-top: 1px solid #E2E8F0;">
-            TRẠNG THÁI: ${reportedIncident.status}
-          </div>
-        </div>
-      `;
 
       const popup = new mapboxgl.Popup({ offset: 18, closeButton: false }).setHTML(popupHtml);
 
@@ -633,6 +682,10 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       incidentMarkerRef.current.setLngLat([reportedIncident.longitude, reportedIncident.latitude]);
       const el = incidentMarkerRef.current.getElement();
       el.innerHTML = incidentMarkerHtml(cat, sev, true);
+      const popup = incidentMarkerRef.current.getPopup();
+      if (popup) {
+        popup.setHTML(popupHtml);
+      }
     }
   }, [reportedIncident]);
 
@@ -739,73 +792,107 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
       {/* Floating HUD Card Top-Left: Shows Reported Incident / Live Tracking or GPS Status */}
       <div className="absolute top-2.5 left-2.5 z-30 animate-float-slow pointer-events-auto">
-        {reportedIncident ? (
-          <div
-            onClick={onOpenReports}
-            className="bg-white/95 backdrop-blur-md border border-slate-200 hover:border-red-400 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[220px] sm:max-w-[280px] text-left cursor-pointer transition-all hover:scale-[1.02]"
-            title="Bấm để mở lịch sử sự cố và theo dõi xe cứu hộ"
-          >
-            <div className="flex items-center justify-between gap-1.5 mb-1">
-              <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-red-600 flex items-center gap-1.5">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress'
-                      ? 'bg-emerald-500 animate-ping'
-                      : reportedIncident.status === 'Cancelled'
-                      ? 'bg-slate-400'
-                      : 'bg-red-600 animate-pulse'
-                  }`}
-                />
-                <span className="truncate">SỰ CỐ: INC-{reportedIncident.id.slice(0, 6).toUpperCase()}</span>
-              </span>
-              <span
-                className={`px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold font-mono-data shrink-0 ${
-                  reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress'
-                    ? 'bg-emerald-600 text-white'
-                    : reportedIncident.status === 'Cancelled'
-                    ? 'bg-slate-200 text-slate-700'
-                    : 'bg-red-600 text-white'
-                }`}
-              >
-                {reportedIncident.status === 'Dispatched'
-                  ? 'XE ĐANG ĐẾN'
-                  : reportedIncident.status === 'InProgress'
-                  ? 'ĐANG CỨU HỘ'
-                  : reportedIncident.status === 'Verified'
-                  ? 'ĐÃ DUYỆT'
-                  : reportedIncident.status === 'Cancelled'
-                  ? 'ĐÃ HỦY'
-                  : 'CHỜ TIẾP NHẬN'}
-              </span>
-            </div>
+        {reportedIncident ? (() => {
+          const visual = getIncidentVisualMeta(reportedIncident);
+          const hasPhoto = reportedIncident.mediaItems && reportedIncident.mediaItems.length > 0 && reportedIncident.mediaItems[0].mediaUrl;
+          const isAiKnown = reportedIncident.aiClassification?.isSuccess === true &&
+            reportedIncident.aiClassification?.eventType !== 'None' &&
+            Boolean(reportedIncident.aiClassification?.summary) &&
+            !/không thể phân loại|cần operator|đánh giá thủ công|unclassified|needshumanreview/i.test(reportedIncident.aiClassification?.summary || '');
 
-            <p className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight truncate">
-              {reportedIncident.title}
-            </p>
+          const cleanAiSummary = isAiKnown
+            ? reportedIncident.aiClassification?.summary
+                ?.replace(/^\[.*?\]\s*/, '')
+                ?.trim()
+            : null;
 
-            <p className="text-[10px] text-slate-500 truncate mt-0.5 font-mono">
-              📍 {reportedIncident.locationAddress}
-            </p>
+          const isTypeKnown = visual.category === 'fire' || visual.category === 'accident';
+          const displayTitle = isTypeKnown ? visual.label : 'Tín hiệu SOS';
+          const userNote = reportedIncident.description &&
+            !reportedIncident.description.startsWith('Tín hiệu cứu nạn SOS từ người dân tại') &&
+            !reportedIncident.description.startsWith('Tín hiệu SOS từ người dân tại') &&
+            !reportedIncident.description.startsWith('Người dân đè nút SOS')
+            ? reportedIncident.description
+            : null;
 
-            {/* Tracking live info if dispatched */}
-            {(reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress') && trackingData && (
-              <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] font-mono text-slate-700">
-                <span className="text-emerald-700 font-bold flex items-center gap-1">
-                  <Navigation className="w-3 h-3 text-emerald-600" />
-                  ETA: ~{trackingData.estimatedArrivalMinutes || 3}p
+          return (
+            <div
+              onClick={onOpenReports}
+              className="bg-white/95 backdrop-blur-md border border-slate-200 hover:border-red-400 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[240px] sm:max-w-[300px] text-left cursor-pointer transition-all hover:scale-[1.02]"
+              title="Bấm để mở lịch sử sự cố và theo dõi xe cứu hộ"
+            >
+              {/* Top line: Category pill + Status badge */}
+              <div className="flex items-center justify-between gap-1.5 mb-2">
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${visual.badgeClass}`}>
+                  <span>{visual.icon}</span>
+                  <span className="truncate max-w-[130px]">{visual.label}</span>
                 </span>
-                <span className="text-slate-600 font-bold truncate max-w-[110px]">
-                  {trackingData.plateNumber || 'Xe cứu hộ'}
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold font-mono-data shrink-0 ${
+                    reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress'
+                      ? 'bg-emerald-600 text-white'
+                      : reportedIncident.status === 'Cancelled'
+                      ? 'bg-slate-200 text-slate-700'
+                      : 'bg-red-600 text-white'
+                  }`}
+                >
+                  {formatCitizenIncidentStatus(reportedIncident.status).toUpperCase()}
                 </span>
               </div>
-            )}
 
-            <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] font-mono-data text-red-600 font-bold">
-              <span>Bấm theo dõi chi tiết</span>
-              <ChevronRight className="w-3 h-3 text-red-600" />
+              {/* Main Info: Thumbnail + Title & AI summary */}
+              <div className="flex items-start gap-2">
+                {hasPhoto && (
+                  <img
+                    src={reportedIncident.mediaItems[0].mediaUrl}
+                    alt="Hiện trường"
+                    className="w-11 h-11 rounded-lg object-cover border border-slate-200 shrink-0 shadow-xs"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <p className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight truncate">
+                      {displayTitle}
+                    </p>
+                    <span className="text-[9px] font-mono text-slate-400 shrink-0">
+                      #{reportedIncident.id.slice(0, 6).toUpperCase()}
+                    </span>
+                  </div>
+                  {cleanAiSummary ? (
+                    <p className="text-[10px] text-slate-700 line-clamp-1 mt-0.5 font-medium">
+                      {cleanAiSummary}
+                    </p>
+                  ) : userNote ? (
+                    <p className="text-[10px] text-slate-600 line-clamp-1 mt-0.5 italic">
+                      "{userNote}"
+                    </p>
+                  ) : null}
+                  <p className="text-[10px] text-slate-500 truncate mt-0.5 font-mono">
+                    📍 {reportedIncident.locationAddress}
+                  </p>
+                </div>
+              </div>
+
+              {/* Tracking live info if dispatched */}
+              {(reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress') && trackingData && (
+                <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] font-mono text-slate-700">
+                  <span className="text-emerald-700 font-bold flex items-center gap-1">
+                    <Navigation className="w-3 h-3 text-emerald-600" />
+                    ETA: ~{trackingData.estimatedArrivalMinutes || 3}p
+                  </span>
+                  <span className="text-slate-600 font-bold truncate max-w-[110px]">
+                    {trackingData.plateNumber || 'Xe cứu hộ'}
+                  </span>
+                </div>
+              )}
+
+              <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] font-mono-data text-red-600 font-bold">
+                <span>{t('citizen.landing.radarFollowAction')}</span>
+                <ChevronRight className="w-3 h-3 text-red-600" />
+              </div>
             </div>
-          </div>
-        ) : locationStatus === 'failed' ? (
+          );
+        })() : locationStatus === 'failed' ? (
           <div className="bg-white/95 backdrop-blur-md border border-red-200 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[220px] sm:max-w-[260px] text-left">
             <div className="flex items-center justify-between gap-1.5 mb-1">
               <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-red-600 flex items-center gap-1.5">
@@ -831,14 +918,14 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
                 <span>ĐỊNH VỊ GPS</span>
               </span>
               <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[9px] sm:text-[10px] font-bold font-mono-data animate-pulse">
-                ĐANG DÒ GPS...
+                {i18n.language === 'en' ? 'SCANNING GPS...' : 'ĐANG DÒ GPS...'}
               </span>
             </div>
             <p className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
-              Đang tìm vị trí hiện tại
+              {i18n.language === 'en' ? 'Locating current position' : 'Đang tìm vị trí hiện tại'}
             </p>
             <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
-              Đang kết nối tín hiệu vệ tinh CAD...
+              {i18n.language === 'en' ? 'Connecting to CAD satellite signals...' : 'Đang kết nối tín hiệu vệ tinh CAD...'}
             </p>
           </div>
         ) : (
@@ -846,22 +933,24 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             <div className="flex items-center justify-between gap-1.5 mb-1">
               <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-emerald-600 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>RADAR TÁC CHIẾN</span>
+                <span>{i18n.language === 'en' ? 'OPERATIONAL RADAR' : 'RADAR TÁC CHIẾN'}</span>
               </span>
               <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] sm:text-[10px] font-bold font-mono-data">
-                SẴN SÀNG
+                {i18n.language === 'en' ? 'READY' : 'SẴN SÀNG'}
               </span>
             </div>
             <p className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight truncate">
-              Vị trí sẵn sàng
+              {i18n.language === 'en' ? 'Position Ready' : 'Vị trí sẵn sàng'}
             </p>
             <p className="text-[10px] text-slate-600 mt-1 font-mono leading-tight truncate">
-              📍 {resolvedAddress || 'Khu Công nghệ cao, TP. Thủ Đức'}
+              📍 {resolvedAddress || (i18n.language === 'en' ? 'High-Tech Park, Thu Duc City' : 'Khu Công nghệ cao, TP. Thủ Đức')}
             </p>
             <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] font-mono-data text-slate-500">
-              <span>Mạng lưới cứu hộ:</span>
+              <span>{i18n.language === 'en' ? 'Rescue network:' : 'Mạng lưới cứu hộ:'}</span>
               <span className="text-emerald-700 font-bold">
-                {stations.length > 0 ? `${stations.length} trạm trực chiến` : 'Trực chiến 24/7'}
+                {stations.length > 0 
+                  ? (i18n.language === 'en' ? `${stations.length} standby stations` : `${stations.length} trạm trực chiến`)
+                  : (i18n.language === 'en' ? '24/7 Standby' : 'Trực chiến 24/7')}
               </span>
             </div>
           </div>
@@ -879,10 +968,10 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
                 ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
-            title="Chế độ ảnh vệ tinh thực tế"
+            title={i18n.language === 'en' ? 'Satellite imagery mode' : 'Chế độ ảnh vệ tinh thực tế'}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>VỆ TINH</span>
+            <span>{i18n.language === 'en' ? 'SATELLITE' : 'VỆ TINH'}</span>
           </button>
           <button
             type="button"
@@ -892,9 +981,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
                 ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
-            title="Chế độ CAD tác chiến ban đêm"
+            title={i18n.language === 'en' ? 'Night CAD mode' : 'Chế độ CAD tác chiến ban đêm'}
           >
-            <span>CAD TỐI</span>
+            <span>{i18n.language === 'en' ? 'DARK CAD' : 'CAD TỐI'}</span>
           </button>
         </div>
       </div>
@@ -910,8 +999,8 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
               ? 'bg-blue-600 text-white border-blue-400 animate-pulse'
               : 'bg-slate-900/90 hover:bg-slate-800 text-white border-slate-700/80 hover:text-blue-400'
           }`}
-          title="Vị trí của tôi"
-          aria-label="Vị trí của tôi"
+          title={i18n.language === 'en' ? 'My location' : 'Vị trí của tôi'}
+          aria-label={i18n.language === 'en' ? 'My location' : 'Vị trí của tôi'}
         >
           <LocateFixed className={`w-4 h-4 ${isLocatingUser ? 'animate-spin text-white' : ''}`} />
         </button>
@@ -920,8 +1009,8 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           type="button"
           onClick={handleZoomIn}
           className="w-8 h-8 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 backdrop-blur-md flex items-center justify-center shadow-lg transition-all active:scale-95 cursor-pointer"
-          title="Phóng to bản đồ (+)"
-          aria-label="Phóng to bản đồ"
+          title={i18n.language === 'en' ? 'Zoom in (+)' : 'Phóng to bản đồ (+)'}
+          aria-label={i18n.language === 'en' ? 'Zoom in' : 'Phóng to bản đồ'}
         >
           <Plus className="w-4 h-4" />
         </button>
@@ -929,8 +1018,8 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           type="button"
           onClick={handleZoomOut}
           className="w-8 h-8 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 backdrop-blur-md flex items-center justify-center shadow-lg transition-all active:scale-95 cursor-pointer"
-          title="Thu nhỏ bản đồ (-)"
-          aria-label="Thu nhỏ bản đồ"
+          title={i18n.language === 'en' ? 'Zoom out (-)' : 'Thu nhỏ bản đồ (-)'}
+          aria-label={i18n.language === 'en' ? 'Zoom out' : 'Thu nhỏ bản đồ'}
         >
           <Minus className="w-4 h-4" />
         </button>

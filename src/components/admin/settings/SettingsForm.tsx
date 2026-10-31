@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Info, RotateCcw, Undo2 } from 'lucide-react';
 import { ConfirmModal, Notice, type NoticeState } from '../common/ui';
 import { inputClass, labelClass } from '../common/styles';
+import { dateLocale, useTranslation } from '../../../i18n';
 
 const formatDateTime = (iso: string) =>
-  new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+  new Date(iso).toLocaleString(dateLocale(), { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
 
 interface SettingsFormProps {
   /** Ghi chú phạm vi áp dụng, hiện đầu form. Không truyền → không hiện khung ghi chú. */
@@ -38,6 +39,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
   onRestoreDefaults,
   children,
 }) => {
+  const { t } = useTranslation();
   const [confirmRestore, setConfirmRestore] = useState(false);
 
   return (
@@ -68,7 +70,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
               className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              Khôi phục mặc định
+              {t('admin.common.settings.restoreDefaults')}
             </button>
           )}
           <div className="sm:ml-auto grid grid-cols-2 sm:flex gap-3">
@@ -79,14 +81,14 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
               className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Undo2 className="w-3.5 h-3.5" />
-              Hủy thay đổi
+              {t('admin.common.settings.discard')}
             </button>
             <button
               type="submit"
               disabled={!canSave || saving}
               className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? 'Đang lưu...' : 'Lưu cấu hình'}
+              {saving ? t('common.saving') : t('admin.common.settings.save')}
             </button>
           </div>
         </div>
@@ -94,21 +96,21 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
 
       <p className="text-[11px] text-slate-500">
         {updatedAt
-          ? `Cập nhật gần nhất: ${formatDateTime(updatedAt)} bởi ${updatedByName ?? '—'}.`
-          : 'Chưa có ai cập nhật — đang dùng giá trị mặc định.'}
+          ? t('admin.common.settings.lastUpdated', { time: formatDateTime(updatedAt), name: updatedByName ?? '—' })
+          : t('admin.common.settings.neverUpdated')}
       </p>
 
       {confirmRestore && onRestoreDefaults && (
         <ConfirmModal
-          title="Khôi phục giá trị mặc định?"
-          confirmLabel="Khôi phục"
+          title={t('admin.common.settings.restoreTitle')}
+          confirmLabel={t('admin.common.settings.restoreConfirm')}
           onCancel={() => setConfirmRestore(false)}
           onConfirm={() => {
             setConfirmRestore(false);
             onRestoreDefaults();
           }}
         >
-          <p>Form sẽ được điền lại bằng giá trị mặc định. Cấu hình chỉ thay đổi khi bạn bấm “Lưu cấu hình”.</p>
+          <p>{t('admin.common.settings.restoreBody')}</p>
         </ConfirmModal>
       )}
     </div>

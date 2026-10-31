@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../services/apiClient';
+import i18n from '../../../i18n';
 
 /**
  * Gọi một hàm service mỗi khi `key` đổi (bộ lọc, trang…). Bỏ qua kết quả của lần gọi cũ
@@ -57,7 +58,7 @@ export function useDebouncedValue<T>(value: T, delayMs = 300): T {
  * (sidebar, topbar). App dùng <BrowserRouter> nên không có useBlocker của data router — chặn click
  * ở pha capture trước khi React Router xử lý. Nút Back của trình duyệt chưa chặn được.
  */
-export function useUnsavedChangesGuard(dirty: boolean, message = 'Bạn có thay đổi chưa lưu. Rời trang và bỏ các thay đổi này?') {
+export function useUnsavedChangesGuard(dirty: boolean, message?: string) {
   useEffect(() => {
     if (!dirty) return;
 
@@ -71,7 +72,7 @@ export function useUnsavedChangesGuard(dirty: boolean, message = 'Bạn có thay
       if (!anchor || anchor.target === '_blank') return;
       const url = new URL(anchor.href, window.location.href);
       if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
-      if (!window.confirm(message)) {
+      if (!window.confirm(message ?? i18n.t('admin.layout.unsavedChanges'))) {
         e.preventDefault();
         e.stopPropagation();
       }

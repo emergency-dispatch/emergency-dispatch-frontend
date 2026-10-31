@@ -13,13 +13,15 @@ import {
   Smartphone,
   Gauge
 } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 export const FeaturesSection: React.FC = () => {
+  const { t } = useTranslation();
   const features = [
     {
       icon: BrainCircuit,
-      title: 'AI Phân Loại Mối Nguy',
-      description: 'Hệ thống AI phân tích ảnh/video hiện trường trong tích tắc, tự động phân loại Cháy nổ và Tai nạn lao động / va chạm.',
+      title: t('citizen.landing.featureItems.f1Title'),
+      description: t('citizen.landing.featureItems.f1Desc'),
       badge: 'AI Vision Engine',
       color: 'from-red-600 to-rose-600',
       border: 'hover:border-red-500/60',
@@ -27,8 +29,8 @@ export const FeaturesSection: React.FC = () => {
     },
     {
       icon: Navigation,
-      title: 'Định Tuyến Né Điểm Ùn Tắc Nội Khu',
-      description: 'Tích hợp cảnh báo điểm ùn tắc giao thông tại cổng kiểm soát an ninh và trục đường chính giờ đổi ca để dẫn đường tối ưu cho đội cứu hộ.',
+      title: t('citizen.landing.featureItems.f2Title'),
+      description: t('citizen.landing.featureItems.f2Desc'),
       badge: 'Traffic-Aware Routing',
       color: 'from-blue-600 to-cyan-600',
       border: 'hover:border-blue-500/60',
@@ -36,8 +38,8 @@ export const FeaturesSection: React.FC = () => {
     },
     {
       icon: Gauge,
-      title: 'Ma Trận 3 Cấp Độ (Levels 1–3) & Cấp 0',
-      description: 'Chuẩn hóa đánh giá rủi ro từ Cấp 1 (Nhẹ) đến Cấp 3 (Nghiêm trọng), kèm Cấp 0 nghi vấn đẩy lên đầu hàng đợi để Operator xác minh trước khi điều xe.',
+      title: t('citizen.landing.featureItems.f3Title'),
+      description: t('citizen.landing.featureItems.f3Desc'),
       badge: 'Severity Matrix 1-3',
       color: 'from-amber-600 to-orange-600',
       border: 'hover:border-amber-500/60',
@@ -45,8 +47,8 @@ export const FeaturesSection: React.FC = () => {
     },
     {
       icon: Radio,
-      title: 'Điều Phối Nearest & Load-Aware',
-      description: 'Thuật toán đối sánh xe khả dụng gần nhất (Nearest-Available) và cân bằng khối lượng nhiệm vụ (Load-Aware), tự mở rộng bán kính 10–30 km.',
+      title: t('citizen.landing.featureItems.f4Title'),
+      description: t('citizen.landing.featureItems.f4Desc'),
       badge: 'Smart Heuristics',
       color: 'from-emerald-600 to-teal-600',
       border: 'hover:border-emerald-500/60',
@@ -54,8 +56,8 @@ export const FeaturesSection: React.FC = () => {
     },
     {
       icon: Layers,
-      title: 'Hiệp Đồng Lực Lượng Nội Khu & Leo Thang',
-      description: 'Điều phối đồng bộ Xe chữa cháy mini, Xe cứu thương, Đội tuần tra an ninh KCN và kích hoạt leo thang tự động (Escalation) tới Ban quản lý.',
+      title: t('citizen.landing.featureItems.f5Title'),
+      description: t('citizen.landing.featureItems.f5Desc'),
       badge: 'Internal Command Center',
       color: 'from-purple-600 to-indigo-600',
       border: 'hover:border-purple-500/60',
@@ -63,8 +65,8 @@ export const FeaturesSection: React.FC = () => {
     },
     {
       icon: Smartphone,
-      title: 'Cổng Báo Sự Cố 1-Chạm SOS & Báo Ùn Tắc',
-      description: 'Giao diện Web/PWA không rào cản cho công nhân: chụp ảnh hiện trường, tự động ghi nhận GPS nhà xưởng, hỗ trợ hàng đợi ngoại tuyến Offline Queue.',
+      title: t('citizen.landing.featureItems.f6Title'),
+      description: t('citizen.landing.featureItems.f6Desc'),
       badge: 'Worker SOS & Traffic Flow',
       color: 'from-pink-600 to-rose-600',
       border: 'hover:border-pink-500/60',
@@ -81,19 +83,16 @@ export const FeaturesSection: React.FC = () => {
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50 border border-red-100 shadow-xs whitespace-nowrap">
             <Zap className="w-4 h-4 text-red-600 shrink-0" />
             <span className="text-xs font-mono-data uppercase tracking-widest text-red-600 font-bold">
-              TÍNH NĂNG NỀN TẢNG CAD
+              {t('citizen.landing.featuresTag')}
             </span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight text-balance">
-            Tối Ưu Hóa Tác Chiến{' '}
-            <span className="text-red-600">
-              Tốc Độ &amp; Chuẩn Xác
-            </span>
+            {t('citizen.landing.featuresTitle')}
           </h2>
 
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed text-balance">
-            Bộ công cụ điều phối thông minh kết hợp thị giác AI giúp rút ngắn thời gian xử lý sự cố khẩn cấp, bảo vệ tính mạng công nhân và tài sản nhà xưởng KCN.
+            {t('citizen.landing.featuresDesc')}
           </p>
         </div>
 

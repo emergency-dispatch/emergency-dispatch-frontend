@@ -1,5 +1,5 @@
-import type { Messages } from '../types';
-import type { contextVi } from '../vi/context';
+import type { Messages } from '../../types';
+import type { contextVi } from '../../vi/operator/context';
 
 export const contextEn: Messages<typeof contextVi> = {
   loadQueueFailed: 'Could not load the incident queue.',

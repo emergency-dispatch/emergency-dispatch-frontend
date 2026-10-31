@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useDispatchRoutes } from '../../hooks/useDispatchRoutes';
@@ -11,6 +11,13 @@ import type { AssignOptions } from '../../context/DispatchContext';
 import type { OperatorCancellationCode } from '../../types/incident';
 import type { DispatchAlgorithm } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
+
+// DEV ONLY: giả lập GPS xe khi chưa có điện thoại Staff. Chỉ nạp khi `npm run dev`, bản build loại bỏ hẳn.
+const GpsSimulatorPanel = import.meta.env.DEV
+  ? React.lazy(() =>
+      import('../../components/operator/livemap/GpsSimulatorPanel').then((m) => ({ default: m.GpsSimulatorPanel }))
+    )
+  : null;
 
 /**
  * Live Map — bố cục 3 cột:
@@ -156,6 +163,11 @@ export const LiveMapPage: React.FC = () => {
           incidentsById={incidentsById}
           serviceArea={serviceArea}
         />
+        {GpsSimulatorPanel && (
+          <Suspense fallback={null}>
+            <GpsSimulatorPanel vehicles={vehicles} />
+          </Suspense>
+        )}
       </div>
 
       {/* ── CỘT PHẢI: Gợi ý tổ (340px cố định) ── */}

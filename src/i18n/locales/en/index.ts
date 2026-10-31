@@ -1,13 +1,16 @@
 import type { Messages } from '../types';
 import type { vi } from '../vi';
 import { commonEn } from './common';
-import { contextEn } from './context';
+import { contextEn } from './operator/context';
 import { enumsEn } from './enums';
-import { layoutEn } from './layout';
-import { vehiclesEn } from './vehicles';
-import { teamsEn } from './teams';
-import { liveMapEn } from './liveMap';
-import { incidentsEn } from './incidents';
+import { layoutEn } from './operator/layout';
+import { vehiclesEn } from './operator/vehicles';
+import { teamsEn } from './operator/teams';
+import { liveMapEn } from './operator/liveMap';
+import { incidentsEn } from './operator/incidents';
+import { adminEn } from './admin';
+import { citizenEn } from './citizen';
+import { profileEn } from './profile';
 
 export const en: Messages<typeof vi> = {
   common: commonEn,
@@ -18,4 +21,7 @@ export const en: Messages<typeof vi> = {
   teams: teamsEn,
   liveMap: liveMapEn,
   incidents: incidentsEn,
+  admin: adminEn,
+  citizen: citizenEn,
+  profile: profileEn,
 };

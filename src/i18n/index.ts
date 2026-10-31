@@ -3,7 +3,7 @@ import { initReactI18next } from 'react-i18next';
 import { en } from './locales/en';
 import { vi } from './locales/vi';
 
-// Song ngữ vi / en (hiện áp dụng cho Command Center của Operator). Chữ giao diện dịch ở đây; câu thông báo từ API
+// Song ngữ vi / en cho Command Center của Operator và trang Admin. Chữ giao diện dịch ở đây; câu thông báo từ API
 // do backend dịch theo header Accept-Language (services/operatorAdminLanguage.ts) và ?culture= của SignalR.
 
 export type AppLanguage = 'vi' | 'en';
@@ -41,15 +41,10 @@ export function setLanguage(language: AppLanguage) {
   }
 }
 
-/** Hiển thị ngôn ngữ Operator đã chọn (vào lại Command Center sau khi trang Admin ép tiếng Việt). */
+/** Hiển thị ngôn ngữ đã lưu khi vào Command Center / Admin (các trang khác có thể đã đổi ngôn ngữ hiển thị). */
 export const restoreStoredLanguage = () => {
   const stored = readStoredLanguage();
   if (i18n.language !== stored) i18n.changeLanguage(stored);
-};
-
-/** Admin chưa song ngữ: hiển thị tiếng Việt, không ghi đè lựa chọn đã lưu của Operator. */
-export const showVietnameseOnly = () => {
-  if (i18n.language !== 'vi') i18n.changeLanguage('vi');
 };
 
 /** Locale cho toLocaleString / toLocaleTimeString theo ngôn ngữ đang chọn. */

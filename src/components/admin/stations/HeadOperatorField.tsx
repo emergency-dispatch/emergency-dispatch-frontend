@@ -6,6 +6,7 @@ import { accountAdminService } from '../../../services/admin/accountAdminService
 import { stationAdminService } from '../../../services/admin/stationAdminService';
 import { UserRole, UserStatus } from '../../../types/auth';
 import type { StationResponseDto } from '../../../types/station';
+import { useTranslation } from '../../../i18n';
 
 interface HeadOperatorFieldProps {
   /** null khi đang tạo trạm mới. */
@@ -20,6 +21,7 @@ interface HeadOperatorFieldProps {
  * buộc cả hai đăng nhập lại.
  */
 export const HeadOperatorField: React.FC<HeadOperatorFieldProps> = ({ station, value, onChange }) => {
+  const { t, i18n } = useTranslation();
   const operators = useServiceQuery(
     () => accountAdminService.listAccounts({ role: UserRole.Operator, status: UserStatus.Active, pageIndex: 1, pageSize: 100 }),
     'head-operator-candidates'
@@ -34,8 +36,8 @@ export const HeadOperatorField: React.FC<HeadOperatorFieldProps> = ({ station, v
     );
     return (operators.data?.items ?? [])
       .filter((o) => !headOfOther.has(o.id))
-      .sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'));
-  }, [operators.data, stations.data, station?.id]);
+      .sort((a, b) => a.fullName.localeCompare(b.fullName, i18n.language));
+  }, [operators.data, stations.data, station?.id, i18n.language]);
 
   // Operator đang phụ trách có thể đã bị khóa (không còn trong danh sách Active) — vẫn hiện để không mất giá trị.
   const currentMissing = !!value && !!operators.data && !options.some((o) => o.id === value);
@@ -44,13 +46,13 @@ export const HeadOperatorField: React.FC<HeadOperatorFieldProps> = ({ station, v
 
   return (
     <FormField
-      label="Operator phụ trách trạm"
+      label={t('admin.stations.headOperator.label')}
       hint={
         currentMissing
-          ? 'Operator đang phụ trách đã bị khóa — chọn Operator khác hoặc bỏ trống, nếu không sẽ không lưu được trạm.'
+          ? t('admin.stations.headOperator.hintLocked')
           : changed && station
-            ? 'Operator cũ và Operator mới sẽ bị đăng xuất để nhận trạm mới khi đăng nhập lại.'
-            : 'Mỗi Operator chỉ phụ trách 1 trạm và chỉ nhận sự cố của trạm đó. Chỉ hiện Operator đang hoạt động, chưa phụ trách trạm khác.'
+            ? t('admin.stations.headOperator.hintChanged')
+            : t('admin.stations.headOperator.hintDefault')
       }
     >
       <select
@@ -59,9 +61,13 @@ export const HeadOperatorField: React.FC<HeadOperatorFieldProps> = ({ station, v
         disabled={loading}
         className={inputClass}
       >
-        <option value="">{loading ? 'Đang tải danh sách Operator...' : '— Chưa có Operator phụ trách —'}</option>
+        <option value="">{loading ? t('admin.stations.headOperator.loading') : t('admin.stations.headOperator.none')}</option>
         {currentMissing && station && (
-          <option value={value!}>{station.headOperatorName ?? 'Operator hiện tại'} (đã khóa)</option>
+          <option value={value!}>
+            {t('admin.stations.headOperator.lockedOption', {
+              name: station.headOperatorName ?? t('admin.stations.headOperator.currentFallback'),
+            })}
+          </option>
         )}
         {options.map((o) => (
           <option key={o.id} value={o.id}>
@@ -74,7 +80,7 @@ export const HeadOperatorField: React.FC<HeadOperatorFieldProps> = ({ station, v
       )}
       {!loading && options.length === 0 && !value && (
         <p className="text-[11px] text-amber-700">
-          Không còn Operator trống — tạo tài khoản Operator ở tab Tài khoản nội bộ hoặc gỡ Operator khỏi trạm khác.
+          {t('admin.stations.headOperator.noneAvailable')}
         </p>
       )}
     </FormField>

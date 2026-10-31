@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../common/ui';
 import { inputClass } from '../common/styles';
 import { useServiceQuery } from '../common/hooks';
-import { RESCUE_UNIT_STATUS_META, RESCUE_UNIT_TYPE_META } from '../fleetMeta';
+import { RESCUE_UNIT_TYPE_META } from '../fleetMeta';
 import { stationAdminService } from '../../../services/admin/stationAdminService';
 import { isOffMission, vehicleAdminService, type VehicleEditInput } from '../../../services/admin/vehicleAdminService';
 import { getApiErrorMessage } from '../../../services/apiClient';
@@ -12,6 +12,7 @@ import {
   type RescueUnitResponseDto,
   type RescueUnitStatus,
 } from '../../../types/rescueUnit';
+import { useTranslation } from '../../../i18n';
 
 interface VehicleFormDrawerProps {
   initialVehicle: RescueUnitResponseDto | null;
@@ -23,6 +24,7 @@ interface VehicleFormDrawerProps {
 const PLATE_MAX_LENGTH = 50;
 
 export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVehicle, onClose, onSaved }) => {
+  const { t } = useTranslation();
   const stations = useServiceQuery(() => stationAdminService.list({ pageIndex: 1, pageSize: 500 }), 'vehicle-form-stations');
 
   const [form, setForm] = useState<VehicleEditInput>({
@@ -79,25 +81,29 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
 
   return (
     <DrawerShell
-      title={initialVehicle ? `Chỉnh sửa xe ${initialVehicle.plateNumber}` : 'Thêm xe mới'}
+      title={
+        initialVehicle
+          ? t('admin.vehicles.form.editTitle', { plate: initialVehicle.plateNumber })
+          : t('admin.vehicles.form.addTitle')
+      }
       onClose={onClose}
       onSubmit={handleSubmit}
-      footer={<DrawerFooter onCancel={onClose} submitLabel="Lưu xe" submitting={submitting} canSubmit={canSubmit} />}
+      footer={<DrawerFooter onCancel={onClose} submitLabel={t('admin.vehicles.form.save')} submitting={submitting} canSubmit={canSubmit} />}
     >
       <Notice notice={error ? { kind: 'error', message: error } : null} />
 
-      <FormField label="Biển số / Mã hiệu" required>
+      <FormField label={t('admin.vehicles.form.plate')} required>
         <input
           value={form.plateNumber}
           onChange={(e) => set('plateNumber', e.target.value)}
-          placeholder="VD: 51D-123.45"
+          placeholder={t('admin.vehicles.form.platePlaceholder')}
           maxLength={PLATE_MAX_LENGTH}
           required
           className={`${inputClass} font-mono-data uppercase`}
         />
       </FormField>
 
-      <FormField label="Chủng loại" required>
+      <FormField label={t('admin.vehicles.form.type')} required>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {RESCUE_UNIT_TYPES.map((type) => {
             const meta = RESCUE_UNIT_TYPE_META[type];
@@ -113,7 +119,7 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
                 }`}
               >
                 <Icon className="w-5 h-5" />
-                {meta.label}
+                {t(`enums.unitType.${type}`)}
               </button>
             );
           })}
@@ -121,13 +127,13 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
       </FormField>
 
       <FormField
-        label="Trạm trực thuộc"
+        label={t('admin.vehicles.form.station')}
         required
         hint={
           onMission
-            ? 'Xe đang làm nhiệm vụ — không thể đổi trạm trực thuộc.'
+            ? t('admin.vehicles.form.stationLockedOnMission')
             : currentStationMissing
-              ? 'Trạm cũ của xe đã bị xóa — chọn trạm mới.'
+              ? t('admin.vehicles.form.stationDeleted')
               : undefined
         }
       >
@@ -137,14 +143,14 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
           disabled={onMission || (stations.loading && !stations.data)}
           className={inputClass}
         >
-          {!stationId && <option value="">— Chưa có trạm —</option>}
+          {!stationId && <option value="">{t('admin.vehicles.form.noStation')}</option>}
           {initialVehicle && currentStationMissing && (
-            <option value={initialVehicle.stationId}>{initialVehicle.stationName || 'Trạm không còn tồn tại'}</option>
+            <option value={initialVehicle.stationId}>{initialVehicle.stationName || t('admin.vehicles.form.missingStation')}</option>
           )}
           {stationItems.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
-              {s.isActive ? '' : ' (tạm ngưng)'}
+              {s.isActive ? '' : t('admin.vehicles.form.inactiveSuffix')}
             </option>
           ))}
         </select>
@@ -153,13 +159,9 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
 
       {initialVehicle ? (
         <FormField
-          label="Trạng thái"
+          label={t('admin.common.status')}
           required
-          hint={
-            onMission
-              ? 'Xe đang làm nhiệm vụ — trạng thái tự cập nhật theo tiến độ nhiệm vụ.'
-              : 'Đã điều động / Tại hiện trường / Đang quay về / Hồi sức do hệ thống tự đặt.'
-          }
+          hint={onMission ? t('admin.vehicles.form.statusOnMission') : t('admin.vehicles.form.statusHint')}
         >
           <select
             value={status}
@@ -169,13 +171,13 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ initialVeh
           >
             {statusOptions.map((s) => (
               <option key={s} value={s} disabled={!ADMIN_SETTABLE_UNIT_STATUSES.includes(s)}>
-                {RESCUE_UNIT_STATUS_META[s].label}
+                {t(`enums.unitStatus.${s}`)}
               </option>
             ))}
           </select>
         </FormField>
       ) : (
-        <p className="text-xs text-slate-500">Xe mới được tạo ở trạng thái Sẵn sàng, vị trí ban đầu tại trạm.</p>
+        <p className="text-xs text-slate-500">{t('admin.vehicles.form.newVehicleNote')}</p>
       )}
     </DrawerShell>
   );

@@ -1,5 +1,6 @@
 import { apiClient, unwrapApi } from '../apiClient';
 import type { ApiResponse } from '../../types/auth';
+import i18n from '../../i18n';
 
 // Mirror EmergencyDispatch.Application.DTOs.Settings. Backend đọc các cấu hình này ở mỗi lần gợi ý điều phối
 // và mỗi lượt quét leo thang, nên Admin lưu là có tác dụng ngay.
@@ -60,20 +61,20 @@ export function validateDispatchSettings(s: DispatchSettings, maxRadiusKm: numbe
   const { distance, stationLoad, activeMissions } = s.weights;
 
   if (![distance, stationLoad, activeMissions].every(isPositive)) {
-    errors.weights = 'Mỗi trọng số phải lớn hơn 0.';
+    errors.weights = i18n.t('admin.settings.validation.weightsPositive');
   } else if (Math.abs(distance + stationLoad + activeMissions - 1) > WEIGHT_SUM_TOLERANCE) {
-    errors.weights = 'Tổng ba trọng số phải bằng 1.';
+    errors.weights = i18n.t('admin.settings.validation.weightsSum');
   }
 
-  if (s.radiusStepsKm.length === 0) errors.radiusStepsKm = 'Cần ít nhất 1 nấc bán kính.';
-  else if (!s.radiusStepsKm.every(isPositive)) errors.radiusStepsKm = 'Mỗi nấc bán kính phải lớn hơn 0.';
+  if (s.radiusStepsKm.length === 0) errors.radiusStepsKm = i18n.t('admin.settings.validation.stepsRequired');
+  else if (!s.radiusStepsKm.every(isPositive)) errors.radiusStepsKm = i18n.t('admin.settings.validation.stepsPositive');
   else if (s.radiusStepsKm.some((r, i) => i > 0 && r <= s.radiusStepsKm[i - 1])) {
-    errors.radiusStepsKm = 'Các nấc bán kính phải tăng dần.';
+    errors.radiusStepsKm = i18n.t('admin.settings.validation.stepsIncreasing');
   } else if (s.radiusStepsKm[s.radiusStepsKm.length - 1] > maxRadiusKm) {
-    errors.radiusStepsKm = `Nấc cuối không được vượt bán kính tối đa của cấu hình leo thang (${maxRadiusKm} km).`;
+    errors.radiusStepsKm = i18n.t('admin.settings.validation.stepsExceedMax', { km: maxRadiusKm });
   }
 
-  if (!isPositive(s.recoveryMinutes)) errors.recoveryMinutes = 'Phải lớn hơn 0.';
+  if (!isPositive(s.recoveryMinutes)) errors.recoveryMinutes = i18n.t('admin.common.settings.mustBePositive');
 
   return stripEmpty(errors);
 }
@@ -84,19 +85,23 @@ export function validateEscalationSettings(
 ): SettingsErrors<EscalationSettings> {
   const errors: SettingsErrors<EscalationSettings> = {};
   const threshold = (n: number) =>
-    !isPositive(n) ? 'Phải lớn hơn 0.' : !isHalfStep(n) ? 'Chỉ nhận bước 0.5 phút (VD 2, 2.5, 3).' : undefined;
+    !isPositive(n)
+      ? i18n.t('admin.common.settings.mustBePositive')
+      : !isHalfStep(n)
+        ? i18n.t('admin.settings.validation.halfStep')
+        : undefined;
 
   errors.dayThresholdMinutes = threshold(s.dayThresholdMinutes);
   errors.nightThresholdMinutes = threshold(s.nightThresholdMinutes);
-  if (!TIME_PATTERN.test(s.nightStart)) errors.nightStart = 'Giờ không hợp lệ.';
-  if (!TIME_PATTERN.test(s.nightEnd)) errors.nightEnd = 'Giờ không hợp lệ.';
-  else if (s.nightStart === s.nightEnd) errors.nightEnd = 'Giờ kết thúc phải khác giờ bắt đầu.';
-  if (!isPositive(s.radiusMultiplier)) errors.radiusMultiplier = 'Phải lớn hơn 0.';
+  if (!TIME_PATTERN.test(s.nightStart)) errors.nightStart = i18n.t('admin.settings.validation.invalidTime');
+  if (!TIME_PATTERN.test(s.nightEnd)) errors.nightEnd = i18n.t('admin.settings.validation.invalidTime');
+  else if (s.nightStart === s.nightEnd) errors.nightEnd = i18n.t('admin.settings.validation.sameStartEnd');
+  if (!isPositive(s.radiusMultiplier)) errors.radiusMultiplier = i18n.t('admin.common.settings.mustBePositive');
 
   const lastStep = dispatchStepsKm.length > 0 ? Math.max(...dispatchStepsKm) : 0;
-  if (!isPositive(s.maxRadiusKm)) errors.maxRadiusKm = 'Phải lớn hơn 0.';
+  if (!isPositive(s.maxRadiusKm)) errors.maxRadiusKm = i18n.t('admin.common.settings.mustBePositive');
   else if (s.maxRadiusKm < lastStep) {
-    errors.maxRadiusKm = `Không được nhỏ hơn nấc bán kính cuối của tham số điều phối (${lastStep} km).`;
+    errors.maxRadiusKm = i18n.t('admin.settings.validation.maxBelowLastStep', { km: lastStep });
   }
 
   return stripEmpty(errors);
@@ -104,10 +109,10 @@ export function validateEscalationSettings(
 
 export function validateServiceArea(s: ServiceAreaSettings): SettingsErrors<ServiceAreaSettings> {
   const errors: SettingsErrors<ServiceAreaSettings> = {};
-  if (!s.name.trim()) errors.name = 'Vui lòng nhập tên khu vực.';
-  if (s.enabled && s.centerLat === 0 && s.centerLng === 0) errors.centerLat = 'Vui lòng chọn tâm khu vực trên bản đồ.';
+  if (!s.name.trim()) errors.name = i18n.t('admin.settings.validation.areaNameRequired');
+  if (s.enabled && s.centerLat === 0 && s.centerLng === 0) errors.centerLat = i18n.t('admin.settings.validation.areaCenterRequired');
   if (!(s.radiusKm >= SERVICE_AREA_RADIUS_KM.min && s.radiusKm <= SERVICE_AREA_RADIUS_KM.max)) {
-    errors.radiusKm = `Bán kính phải từ ${SERVICE_AREA_RADIUS_KM.min} đến ${SERVICE_AREA_RADIUS_KM.max} km.`;
+    errors.radiusKm = i18n.t('admin.settings.validation.areaRadiusRange', SERVICE_AREA_RADIUS_KM);
   }
   return stripEmpty(errors);
 }

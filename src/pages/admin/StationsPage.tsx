@@ -8,12 +8,13 @@ import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { stationAdminService, type StationStatusFilter } from '../../services/admin/stationAdminService';
 import type { StationResponseDto } from '../../types/station';
+import { useTranslation } from '../../i18n';
 
 const PAGE_SIZE = 10;
 const STATUSES: StationStatusFilter[] = ['active', 'inactive'];
-const STATUS_LABEL: Record<StationStatusFilter, string> = { active: 'Đang hoạt động', inactive: 'Tạm ngưng' };
 
 const StationsPage: React.FC = () => {
+  const { t } = useTranslation();
   const initial = useInitialQueryParams();
   const [search, setSearch] = useState(() => initial.text('search'));
   const [status, setStatus] = useState<StationStatusFilter | ''>(() => initial.oneOf('status', STATUSES));
@@ -38,7 +39,7 @@ const StationsPage: React.FC = () => {
               setSearch(e.target.value);
               setPageIndex(1);
             }}
-            placeholder="Tìm theo tên, địa chỉ, hotline..."
+            placeholder={t('admin.stations.searchPlaceholder')}
             className={`${inputClass} pl-9`}
           />
         </div>
@@ -48,13 +49,13 @@ const StationsPage: React.FC = () => {
             setStatus(e.target.value as StationStatusFilter | '');
             setPageIndex(1);
           }}
-          aria-label="Lọc theo trạng thái"
+          aria-label={t('admin.common.filterByStatus')}
           className={`${inputClass} sm:w-44`}
         >
-          <option value="">Tất cả trạng thái</option>
+          <option value="">{t('admin.common.allStatuses')}</option>
           {STATUSES.map((s) => (
             <option key={s} value={s}>
-              {STATUS_LABEL[s]}
+              {t(`admin.stations.statusFilter.${s}`)}
             </option>
           ))}
         </select>
@@ -63,7 +64,7 @@ const StationsPage: React.FC = () => {
           className="sm:ml-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-sm shadow-red-500/25"
         >
           <Plus className="w-4 h-4" />
-          Thêm trạm
+          {t('admin.stations.add')}
         </button>
       </div>
 
@@ -93,7 +94,7 @@ const StationsPage: React.FC = () => {
           onSaved={(saved) => {
             setNotice({
               kind: 'success',
-              message: formStation === 'new' ? `Đã thêm trạm "${saved.name}".` : `Đã cập nhật trạm "${saved.name}".`,
+              message: t(formStation === 'new' ? 'admin.stations.added' : 'admin.stations.updated', { name: saved.name }),
             });
             setFormStation(null);
             query.reload();
@@ -107,10 +108,13 @@ const StationsPage: React.FC = () => {
           onCancel={() => setDeletingStation(null)}
           onDeleted={({ units, staff }) => {
             const extras = [
-              units > 0 && `${units} xe chuyển sang Ngừng hoạt động — chuyển sang trạm mới ở trang Đội xe.`,
-              staff > 0 && `${staff} nhân sự bị gỡ khỏi trạm.`,
+              units > 0 && t('admin.stations.deletedUnits', { count: units }),
+              staff > 0 && t('admin.stations.deletedStaff', { count: staff }),
             ].filter(Boolean);
-            setNotice({ kind: 'success', message: [`Đã xóa trạm "${deletingStation.name}".`, ...extras].join(' ') });
+            setNotice({
+              kind: 'success',
+              message: [t('admin.stations.deleted', { name: deletingStation.name }), ...extras].join(' '),
+            });
             setDeletingStation(null);
             query.reload();
           }}

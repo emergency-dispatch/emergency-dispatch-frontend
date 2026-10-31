@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminTopbar } from './AdminTopbar';
 import '../../services/operatorAdminLanguage';
-import { showVietnameseOnly } from '../../i18n';
+import { restoreStoredLanguage } from '../../i18n';
 
 const PageLoading: React.FC = () => (
   <div className="h-full flex items-center justify-center">
@@ -16,8 +16,8 @@ const PageLoading: React.FC = () => (
  * ≥ 1024px: sidebar cố định, thu gọn được. < 1024px: sidebar thành menu trượt, mở bằng nút trên Topbar.
  */
 export const AdminLayout: React.FC = () => {
-  // Admin chưa song ngữ — các component dùng chung với Operator (admin/common) hiển thị tiếng Việt.
-  useLayoutEffect(showVietnameseOnly, []);
+  // Hiển thị ngôn ngữ đã chọn (nút VI / EN trên Topbar, dùng chung lựa chọn với Command Center).
+  useLayoutEffect(restoreStoredLanguage, []);
   const [collapsed, setCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 

@@ -4,38 +4,41 @@ import {
   ShieldAlert, 
   Flame, 
   HeartPulse, 
-  AlertOctagon,
+  AlertOctagon, 
   ArrowUpRight
 } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 interface HotlineBannerSectionProps {
   onOpenSos: () => void;
 }
 
 export const HotlineBannerSection: React.FC<HotlineBannerSectionProps> = ({ onOpenSos }) => {
+  const { t } = useTranslation();
+
   const hotlines = [
     {
       number: '028.3736',
-      name: 'An ninh & PCCC Nội Khu',
-      vietnameseName: 'Chỉ huy & Điều hành Sự cố KCN (24/7)',
+      name: t('citizen.landing.hotlines.h1.name'),
+      vietnameseName: t('citizen.landing.hotlines.h1.vietnameseName'),
       icon: ShieldAlert,
-      badge: 'Hotline KCN',
+      badge: t('citizen.landing.hotlines.h1.badge'),
       tel: 'tel:02837360000'
     },
     {
       number: '114',
-      name: 'Cứu hỏa & Cứu nạn cứu hộ',
-      vietnameseName: 'Hỏa hoạn kho xưởng, nổ & mắc kẹt',
+      name: t('citizen.landing.hotlines.h2.name'),
+      vietnameseName: t('citizen.landing.hotlines.h2.vietnameseName'),
       icon: Flame,
-      badge: 'PCCC Chuyên Trách',
+      badge: t('citizen.landing.hotlines.h2.badge'),
       tel: 'tel:114'
     },
     {
       number: '115',
-      name: 'Cấp cứu y tế khẩn cấp',
-      vietnameseName: 'Tai nạn lao động & ngộ độc khí',
+      name: t('citizen.landing.hotlines.h3.name'),
+      vietnameseName: t('citizen.landing.hotlines.h3.vietnameseName'),
       icon: HeartPulse,
-      badge: 'Cấp Cứu Y Tế',
+      badge: t('citizen.landing.hotlines.h3.badge'),
       tel: 'tel:115'
     }
   ];
@@ -50,14 +53,14 @@ export const HotlineBannerSection: React.FC<HotlineBannerSectionProps> = ({ onOp
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 border border-red-200 whitespace-nowrap">
               <PhoneCall className="w-3.5 h-3.5 text-red-600 shrink-0" />
               <span className="text-xs font-mono text-red-600 font-bold uppercase tracking-wider">
-                Đường dây nóng hỗ trợ khẩn cấp
+                {t('citizen.landing.hotlines.tag')}
               </span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight">
-              Đầu số khẩn cấp nội khu &amp; quốc gia
+              {t('citizen.landing.hotlines.title')}
             </h2>
             <p className="text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
-              Khi xảy ra cháy nổ hoặc tai nạn lao động nghiêm trọng trong KCN, hãy gọi ngay đường dây nóng an ninh nội bộ hoặc phát tín hiệu SOS để hệ thống tự động điều xe gần nhất.
+              {t('citizen.landing.hotlines.desc')}
             </p>
           </div>
 
@@ -66,7 +69,7 @@ export const HotlineBannerSection: React.FC<HotlineBannerSectionProps> = ({ onOp
             className="self-start md:self-auto px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-sm flex items-center gap-2 transition-all shrink-0 cursor-pointer"
           >
             <AlertOctagon className="w-4 h-4 shrink-0" />
-            <span>Phát tín hiệu SOS ngay</span>
+            <span>{t('citizen.landing.hotlines.sosBtn')}</span>
           </button>
         </div>
 
@@ -97,7 +100,7 @@ export const HotlineBannerSection: React.FC<HotlineBannerSectionProps> = ({ onOp
                         {hotline.number}
                       </span>
                       <span className="text-xs font-mono text-slate-500 font-bold uppercase tracking-wider whitespace-nowrap">
-                        MIỄN CƯỚC 24/7
+                        {t('citizen.landing.hotlines.tollFree')}
                       </span>
                     </div>
                     <h3 className="text-lg font-bold text-slate-900 mt-2 leading-snug">
@@ -110,7 +113,7 @@ export const HotlineBannerSection: React.FC<HotlineBannerSectionProps> = ({ onOp
                 </div>
 
                 <div className="pt-4 border-t border-slate-200 flex items-center justify-between text-xs font-bold text-red-600 group-hover:text-red-700 transition-colors">
-                  <span className="whitespace-nowrap">Chạm để gọi ngay</span>
+                  <span className="whitespace-nowrap">{t('citizen.landing.hotlines.tapToCall')}</span>
                   <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
                 </div>
               </a>

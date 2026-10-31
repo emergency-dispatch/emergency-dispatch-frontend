@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   ShieldAlert,
   Menu,
@@ -21,9 +21,11 @@ import {
   Clock,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useSosCooldown } from '../../hooks/useSosCooldown';
 import { UserRole } from '../../types/auth';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { getAvatarUrl, DEFAULT_AVATAR } from '../../utils/avatar';
+import { useTranslation, getLanguage, setLanguage, LANGUAGE_OPTIONS } from '../../i18n';
 
 interface NavbarProps {
   onOpenSos: () => void;
@@ -31,8 +33,9 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
+  const { t } = useTranslation();
   const { user, isAuthenticated, logout } = useAuth();
-  const navigate = useNavigate();
+  const { isCooldown, cooldownLabel } = useSosCooldown();
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -68,30 +71,30 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
 
   const featureItems = [
     {
-      name: 'Tính năng CAD',
+      name: t('citizen.layout.navCadTitle'),
       href: '#features',
-      desc: 'Bản đồ số, giám sát sự cố & điều phối tác chiến thông minh',
+      desc: t('citizen.layout.navCadDesc'),
       icon: Layers,
       color: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
     },
     {
-      name: 'Công nghệ AI VLM',
+      name: t('citizen.layout.navAiTitle'),
       href: '#ai-technology',
-      desc: 'Trí tuệ nhân tạo phân tích hình ảnh & AI Triage tự động',
+      desc: t('citizen.layout.navAiDesc'),
       icon: Bot,
       color: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
     },
     {
-      name: 'Quy trình Cứu hộ',
+      name: t('citizen.layout.navWorkflowTitle'),
       href: '#workflow',
-      desc: 'Quy trình tác chiến 4 bước chuẩn liên thông đa lực lượng',
+      desc: t('citizen.layout.navWorkflowDesc'),
       icon: Activity,
       color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
     },
     {
-      name: 'Giải pháp Phân hệ',
+      name: t('citizen.layout.navRolesTitle'),
       href: '#roles',
-      desc: 'Cổng Chỉ huy CAD, Lực lượng cứu nạn thực địa & Người dân',
+      desc: t('citizen.layout.navRolesDesc'),
       icon: Users,
       color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
     },
@@ -119,33 +122,23 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
   const getRolePortal = () => {
     if (!user) return null;
     if (user.role === UserRole.RescueStaff) {
-      return { label: 'Tác chiến Cứu hộ', path: '/staff', icon: Radio };
+      return { label: t('citizen.layout.staffPortal'), path: '/staff', icon: Radio };
     }
     if (user.role === UserRole.Operator || user.role === UserRole.Admin) {
-      return { label: 'Trung tâm CAD', path: '/dashboard', icon: LayoutDashboard };
+      return { label: t('citizen.layout.cadPortal'), path: '/dashboard', icon: LayoutDashboard };
     }
     return null;
   };
 
   const portal = getRolePortal();
 
-  const initials = user?.fullName
-    ? user.fullName
-        .split(' ')
-        .map((w) => w[0])
-        .slice(-2)
-        .join('')
-        .toUpperCase()
-    : 'U';
-
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled
             ? 'bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm py-3'
             : 'bg-white/90 backdrop-blur-sm border-b border-slate-200/60 py-3.5'
-        }`}
+          }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-11">
@@ -180,15 +173,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                 <button
                   type="button"
                   onClick={() => setFeaturesDropdownOpen((v) => !v)}
-                  className={`flex items-center gap-1.5 py-1.5 transition-colors duration-200 tracking-wide font-semibold ${
-                    featuresDropdownOpen ? 'text-red-600' : 'text-slate-700 hover:text-red-600'
-                  }`}
-                >
-                  <span>Tính năng &amp; Giải pháp</span>
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                      featuresDropdownOpen ? 'rotate-180 text-red-600' : ''
+                  className={`flex items-center gap-1.5 py-1.5 transition-colors duration-200 tracking-wide font-semibold ${featuresDropdownOpen ? 'text-red-600' : 'text-slate-700 hover:text-red-600'
                     }`}
+                >
+                  <span>{t('citizen.layout.features')}</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${featuresDropdownOpen ? 'rotate-180 text-red-600' : ''
+                      }`}
                   />
                 </button>
 
@@ -234,12 +225,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                 className="text-slate-700 hover:text-red-600 transition-colors duration-200 relative group py-1.5 flex items-center gap-1.5 tracking-wide font-semibold"
               >
                 <PhoneCall className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                <span>Đường dây nóng</span>
+                <span>{t('citizen.layout.hotlines')}</span>
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-red-600 transition-all duration-300 group-hover:w-full"></span>
               </a>
             </nav>
 
-            {/* Right Action Area: Portal (if any) -> SOS CTA -> Profile / Sign In */}
+            {/* Right Action Area: Portal (if any) -> SOS CTA -> Language Switcher -> Profile / Sign In */}
             <div className="hidden sm:flex items-center gap-2.5 xl:gap-3 shrink-0 whitespace-nowrap ml-auto">
               {/* Dedicated Portal Button if Operator/Staff/Admin */}
               {isAuthenticated && user && portal && (
@@ -252,15 +243,42 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                 </Link>
               )}
 
+              {/* Language Switcher */}
+              <div
+                role="group"
+                aria-label={t('citizen.layout.language')}
+                className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5 shadow-xs"
+              >
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setLanguage(option.value)}
+                    aria-pressed={getLanguage() === option.value}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-bold font-mono-data transition-colors ${
+                      getLanguage() === option.value
+                        ? 'bg-white text-red-600 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Clean Red Emergency SOS CTA */}
               <button
                 onClick={onOpenSos}
-                className="relative group px-4 xl:px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs xl:text-sm tracking-wide shadow-md shadow-red-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center gap-2 overflow-hidden whitespace-nowrap shrink-0"
+                disabled={isCooldown}
+                className={`relative group px-4 xl:px-5 py-2 rounded-xl text-white font-bold text-xs xl:text-sm tracking-wide transition-all duration-200 flex items-center gap-2 overflow-hidden whitespace-nowrap shrink-0 ${isCooldown
+                    ? 'bg-slate-400 opacity-60 cursor-not-allowed shadow-none'
+                    : 'bg-red-600 hover:bg-red-700 shadow-md shadow-red-500/25 hover:scale-[1.02] active:scale-[0.98] cursor-pointer'
+                  }`}
                 id="nav-emergency-sos-btn"
+                title={isCooldown ? t('citizen.layout.cooldownLabel', { time: cooldownLabel }) : t('citizen.layout.reportSos')}
               >
-                <AlertTriangle className="w-4 h-4 text-white animate-bounce shrink-0" />
-                <span>Báo Cứu Nạn SOS</span>
-                <span className="flex h-2 w-2 rounded-full bg-white animate-ping shrink-0"></span>
+                <AlertTriangle className={`w-4 h-4 text-white shrink-0 ${isCooldown ? '' : 'animate-bounce'}`} />
+                <span>{isCooldown ? t('citizen.layout.cooldownLabel', { time: cooldownLabel }) : t('citizen.layout.reportSos')}</span>
+                {!isCooldown && <span className="flex h-2 w-2 rounded-full bg-white animate-ping shrink-0"></span>}
               </button>
 
               {/* User Profile on the rightmost (or Sign In if guest) */}
@@ -322,7 +340,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                             className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-red-600 transition-colors"
                           >
                             <portal.icon className="w-3.5 h-3.5 text-red-500" />
-                            <span>Đến {portal.label}</span>
+                            <span>{t('citizen.layout.toPortal', { portal: portal.label })}</span>
                           </Link>
                         )}
 
@@ -334,7 +352,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                           className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-red-600 transition-colors text-left"
                         >
                           <User className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Hồ sơ cá nhân &amp; Y tế</span>
+                          <span>{t('citizen.layout.profile')}</span>
                         </button>
 
                         <button
@@ -345,7 +363,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                           className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-red-600 transition-colors text-left"
                         >
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Lịch sử báo cáo sự cố</span>
+                          <span>{t('citizen.layout.myReports')}</span>
                         </button>
 
                         <button
@@ -356,7 +374,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                           className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-red-600 transition-colors text-left"
                         >
                           <Settings className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Đổi mật khẩu &amp; Cài đặt</span>
+                          <span>{t('citizen.layout.settings')}</span>
                         </button>
                       </div>
 
@@ -366,7 +384,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                           className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors text-left font-semibold"
                         >
                           <LogOut className="w-3.5 h-3.5 text-red-600" />
-                          <span>Đăng xuất</span>
+                          <span>{t('citizen.layout.signOut')}</span>
                         </button>
                       </div>
                     </div>
@@ -378,7 +396,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                   className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-red-600 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all flex items-center gap-2 font-mono-data whitespace-nowrap shadow-xs hover:border-red-500"
                 >
                   <LogIn className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                  <span>Đăng nhập</span>
+                  <span>{t('citizen.layout.signIn')}</span>
                 </Link>
               )}
             </div>
@@ -387,10 +405,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
             <div className="flex lg:hidden items-center gap-2">
               <button
                 onClick={onOpenSos}
-                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-bold shadow-md shadow-red-500/30 flex items-center gap-1 whitespace-nowrap"
+                disabled={isCooldown}
+                className={`px-3 py-1.5 rounded-md text-white text-xs font-bold flex items-center gap-1 whitespace-nowrap ${isCooldown
+                    ? 'bg-slate-400 opacity-60 cursor-not-allowed shadow-none'
+                    : 'bg-red-600 shadow-md shadow-red-500/30'
+                  }`}
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span>SOS</span>
+                <span>{isCooldown ? cooldownLabel : 'SOS'}</span>
               </button>
 
               <button
@@ -417,12 +439,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                 >
                   <div className="flex items-center gap-2">
                     <Layers className="w-4 h-4 text-red-600" />
-                    <span>Tính năng &amp; Giải pháp</span>
+                    <span>{t('citizen.layout.features')}</span>
                   </div>
                   <ChevronDown
-                    className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
-                      mobileFeaturesOpen ? 'rotate-180 text-red-600' : ''
-                    }`}
+                    className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${mobileFeaturesOpen ? 'rotate-180 text-red-600' : ''
+                      }`}
                   />
                 </button>
 
@@ -458,22 +479,52 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
               >
                 <div className="flex items-center gap-2.5">
                   <PhoneCall className="w-4 h-4 text-red-600" />
-                  <span>Đường dây nóng</span>
+                  <span>{t('citizen.layout.hotlines')}</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
               </a>
             </div>
 
             <div className="pt-3 border-t border-slate-200 space-y-3">
+              {/* Language Switcher in Mobile Drawer */}
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-semibold text-slate-500">{t('citizen.layout.language')}</span>
+                <div
+                  role="group"
+                  aria-label={t('citizen.layout.language')}
+                  className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5"
+                >
+                  {LANGUAGE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setLanguage(option.value)}
+                      aria-pressed={getLanguage() === option.value}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold font-mono-data transition-colors ${
+                        getLanguage() === option.value
+                          ? 'bg-white text-red-600 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <button
+                disabled={isCooldown}
                 onClick={() => {
+                  if (isCooldown) return;
                   setMobileMenuOpen(false);
                   onOpenSos();
                 }}
-                className="w-full py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-center shadow-md shadow-red-500/30 flex items-center justify-center gap-2"
+                className={`w-full py-3 rounded-lg text-white font-bold text-center flex items-center justify-center gap-2 ${isCooldown
+                    ? 'bg-slate-400 opacity-60 cursor-not-allowed shadow-none'
+                    : 'bg-red-600 hover:bg-red-700 shadow-md shadow-red-500/30'
+                  }`}
               >
                 <AlertTriangle className="w-4 h-4" />
-                <span>Gửi Báo Sự Cố Khẩn Cấp (SOS)</span>
+                <span>{isCooldown ? t('citizen.layout.cooldownLabel', { time: cooldownLabel }) : t('citizen.layout.reportSos')}</span>
               </button>
 
               {isAuthenticated && user ? (
@@ -503,7 +554,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                       }}
                       className="w-6 h-6 rounded-full object-cover shrink-0 border border-slate-200"
                     />
-                    <span className="truncate flex-1 text-left">Hồ sơ cá nhân ({user.fullName})</span>
+                    <span className="truncate flex-1 text-left">{t('citizen.layout.profile')} ({user.fullName})</span>
                   </button>
                   <button
                     onClick={() => {
@@ -513,7 +564,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                     className="w-full py-2.5 rounded-lg bg-white hover:bg-slate-50 text-slate-800 font-semibold text-center border border-slate-200 flex items-center justify-center gap-2 text-sm shadow-xs"
                   >
                     <Clock className="w-4 h-4 text-red-600" />
-                    <span>Lịch sử báo cáo sự cố</span>
+                    <span>{t('citizen.layout.myReports')}</span>
                   </button>
                   <button
                     onClick={() => {
@@ -523,7 +574,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                     className="w-full py-2.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-center border border-red-200 flex items-center justify-center gap-2 text-sm"
                   >
                     <LogOut className="w-4 h-4 text-red-600" />
-                    <span>Đăng xuất</span>
+                    <span>{t('citizen.layout.signOut')}</span>
                   </button>
                 </div>
               ) : (
@@ -533,7 +584,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                   className="w-full py-2.5 rounded-lg bg-white hover:bg-slate-50 text-slate-800 font-semibold text-center border border-slate-200 flex items-center justify-center gap-2 text-sm shadow-xs"
                 >
                   <LogIn className="w-4 h-4 text-red-600" />
-                  <span>Đăng nhập Cổng CAD</span>
+                  <span>{t('citizen.layout.signIn')}</span>
                 </Link>
               )}
             </div>

@@ -5,7 +5,6 @@ import { VehiclesTable } from '../../components/admin/vehicles/VehiclesTable';
 import { ConfirmModal, Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
-import { RESCUE_UNIT_STATUS_META, RESCUE_UNIT_TYPE_META } from '../../components/admin/fleetMeta';
 import { stationAdminService } from '../../services/admin/stationAdminService';
 import { vehicleAdminService, type VehicleStatusFilter } from '../../services/admin/vehicleAdminService';
 import { getApiErrorMessage } from '../../services/apiClient';
@@ -16,6 +15,7 @@ import {
   type RescueUnitResponseDto,
   type RescueUnitType,
 } from '../../types/rescueUnit';
+import { Trans, useTranslation } from '../../i18n';
 
 const PAGE_SIZE = 10;
 // Gom các sự kiện đổi trạng thái xe đến dồn dập (VD giao nhiều xe cùng lúc) thành một lần tải lại.
@@ -23,6 +23,7 @@ const REALTIME_RELOAD_DELAY_MS = 500;
 const STATUS_FILTERS: VehicleStatusFilter[] = ['on_mission', ...RESCUE_UNIT_STATUSES];
 
 const VehiclesPage: React.FC = () => {
+  const { t } = useTranslation();
   const initial = useInitialQueryParams();
   const [search, setSearch] = useState(() => initial.text('search'));
   const [stationId, setStationId] = useState(() => initial.text('stationId'));
@@ -86,7 +87,7 @@ const VehiclesPage: React.FC = () => {
       await vehicleAdminService.setStatus(vehicle.id, next);
       setNotice({
         kind: 'success',
-        message: `Xe ${vehicle.plateNumber} chuyển sang ${RESCUE_UNIT_STATUS_META[next].label}.`,
+        message: t('admin.vehicles.statusChanged', { plate: vehicle.plateNumber, status: t(`enums.unitStatus.${next}`) }),
       });
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
@@ -101,7 +102,7 @@ const VehiclesPage: React.FC = () => {
     setDeleting(true);
     try {
       await vehicleAdminService.remove(deletingVehicle.id);
-      setNotice({ kind: 'success', message: `Đã xóa xe ${deletingVehicle.plateNumber}.` });
+      setNotice({ kind: 'success', message: t('admin.vehicles.deleted', { plate: deletingVehicle.plateNumber }) });
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     } finally {
@@ -119,7 +120,7 @@ const VehiclesPage: React.FC = () => {
           <input
             value={search}
             onChange={(e) => withPageReset(setSearch)(e.target.value)}
-            placeholder="Tìm biển số, tên trạm..."
+            placeholder={t('admin.vehicles.searchPlaceholder')}
             className={`${inputClass} pl-9`}
           />
         </div>
@@ -127,10 +128,10 @@ const VehiclesPage: React.FC = () => {
           <select
             value={stationId}
             onChange={(e) => withPageReset(setStationId)(e.target.value)}
-            aria-label="Lọc theo trạm"
+            aria-label={t('admin.vehicles.filterByStation')}
             className={`${inputClass} lg:w-48`}
           >
-            <option value="">Tất cả trạm</option>
+            <option value="">{t('admin.vehicles.allStations')}</option>
             {(stations.data?.items ?? []).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -140,27 +141,27 @@ const VehiclesPage: React.FC = () => {
           <select
             value={type}
             onChange={(e) => withPageReset(setType)(e.target.value as RescueUnitType | '')}
-            aria-label="Lọc theo chủng loại"
+            aria-label={t('admin.vehicles.filterByType')}
             className={`${inputClass} lg:w-40`}
           >
-            <option value="">Tất cả loại xe</option>
-            {RESCUE_UNIT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {RESCUE_UNIT_TYPE_META[t].label}
+            <option value="">{t('admin.vehicles.allTypes')}</option>
+            {RESCUE_UNIT_TYPES.map((unitType) => (
+              <option key={unitType} value={unitType}>
+                {t(`enums.unitType.${unitType}`)}
               </option>
             ))}
           </select>
           <select
             value={status}
             onChange={(e) => withPageReset(setStatus)(e.target.value as VehicleStatusFilter | '')}
-            aria-label="Lọc theo trạng thái"
+            aria-label={t('admin.common.filterByStatus')}
             className={`${inputClass} lg:w-44`}
           >
-            <option value="">Tất cả trạng thái</option>
-            <option value="on_mission">Đang làm nhiệm vụ (điều động · hiện trường · quay về)</option>
+            <option value="">{t('admin.common.allStatuses')}</option>
+            <option value="on_mission">{t('admin.vehicles.onMission')}</option>
             {RESCUE_UNIT_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {RESCUE_UNIT_STATUS_META[s].label}
+                {t(`enums.unitStatus.${s}`)}
               </option>
             ))}
           </select>
@@ -170,7 +171,7 @@ const VehiclesPage: React.FC = () => {
           className="lg:ml-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-sm shadow-red-500/25 whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
-          Thêm xe
+          {t('admin.vehicles.add')}
         </button>
       </div>
 
@@ -202,8 +203,9 @@ const VehiclesPage: React.FC = () => {
           onSaved={(saved) => {
             setNotice({
               kind: 'success',
-              message:
-                formVehicle === 'new' ? `Đã thêm xe ${saved.plateNumber}.` : `Đã cập nhật xe ${saved.plateNumber}.`,
+              message: t(formVehicle === 'new' ? 'admin.vehicles.added' : 'admin.vehicles.updated', {
+                plate: saved.plateNumber,
+              }),
             });
             setFormVehicle(null);
             query.reload();
@@ -213,16 +215,21 @@ const VehiclesPage: React.FC = () => {
 
       {deletingVehicle && (
         <ConfirmModal
-          title="Xóa xe?"
-          confirmLabel="Xóa xe"
+          title={t('admin.vehicles.deleteDialog.title')}
+          confirmLabel={t('admin.vehicles.deleteDialog.confirm')}
           submitting={deleting}
           onCancel={() => setDeletingVehicle(null)}
           onConfirm={handleDelete}
         >
           <p>
-            Xóa mềm xe <span className="font-semibold font-mono-data text-slate-900">{deletingVehicle.plateNumber}</span>
-            {deletingVehicle.stationName && ` (${deletingVehicle.stationName})`}. Xe sẽ bị ẩn khỏi danh sách và không còn
-            được điều phối.
+            <Trans
+              i18nKey="admin.vehicles.deleteDialog.body"
+              values={{
+                plate: deletingVehicle.plateNumber,
+                station: deletingVehicle.stationName ? ` (${deletingVehicle.stationName})` : '',
+              }}
+              components={{ b: <span className="font-semibold font-mono-data text-slate-900" /> }}
+            />
           </p>
         </ConfirmModal>
       )}

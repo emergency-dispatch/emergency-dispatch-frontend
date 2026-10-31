@@ -5,7 +5,9 @@ import { LocateFixed, MapPin, Loader2, Shield } from 'lucide-react';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE, mapboxService } from '../../services/mapboxService';
 import { liveMapService } from '../../services/liveMapService';
 import { stationMarkerHtml } from '../operator/livemap/mapIcons';
+import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
 import type { Station } from '../../types/vehicle';
+import { useTranslation } from '../../i18n';
 
 interface MapboxLocationPickerProps {
   latitude: number;
@@ -22,6 +24,7 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
   height = '220px',
   scrollZoom = true,
 }) => {
+  const { i18n } = useTranslation();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
@@ -103,6 +106,43 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
       updatePosition(lng, lat);
     });
 
+    // Draw KCN (Saigon Hi-Tech Park) 4.5km operational boundary
+    const addKcnBoundary = () => {
+      if (!map.getSource('kcn-boundary')) {
+        map.addSource('kcn-boundary', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: { name: 'Khu Công nghệ cao' },
+            geometry: {
+              type: 'Polygon',
+              coordinates: [circlePolygon(10.8441, 106.8089, 4.5)],
+            },
+          },
+        });
+        map.addLayer({
+          id: 'kcn-boundary-fill',
+          type: 'fill',
+          source: 'kcn-boundary',
+          paint: { 'fill-color': '#EF4444', 'fill-opacity': 0.05 },
+        });
+        map.addLayer({
+          id: 'kcn-boundary-line',
+          type: 'line',
+          source: 'kcn-boundary',
+          paint: {
+            'line-color': '#DC2626',
+            'line-width': 2.5,
+            'line-dasharray': [3, 2],
+            'line-opacity': 0.85,
+          },
+        });
+      }
+    };
+
+    if (map.isStyleLoaded()) addKcnBoundary();
+    else map.once('idle', addKcnBoundary);
+
     // Critical: Ensure canvas is resized once container finishes rendering in modal
     map.on('load', () => {
       map.resize();
@@ -165,6 +205,13 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
       if (resizeObserver) resizeObserver.disconnect();
       stationMarkersRef.current.forEach((m) => m.remove());
       stationMarkersRef.current = [];
+      try {
+        if (map.getLayer('kcn-boundary-line')) map.removeLayer('kcn-boundary-line');
+        if (map.getLayer('kcn-boundary-fill')) map.removeLayer('kcn-boundary-fill');
+        if (map.getSource('kcn-boundary')) map.removeSource('kcn-boundary');
+      } catch {
+        // Map cleaned up
+      }
       map.remove();
       mapRef.current = null;
     };
@@ -226,29 +273,35 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
           ) : (
             <LocateFixed className="w-3.5 h-3.5 text-red-600" />
           )}
-          <span>{isLocating ? 'Đang định vị GPS...' : 'Định vị vị trí của tôi'}</span>
+          <span>
+            {isLocating
+              ? (i18n.language === 'en' ? 'Locating GPS...' : 'Đang định vị GPS...')
+              : (i18n.language === 'en' ? 'Locate My Position' : 'Định vị vị trí của tôi')}
+          </span>
         </button>
 
         {isReverseGeocoding && (
           <span className="px-2 py-1 rounded-md bg-slate-900/80 text-white text-[10px] font-mono flex items-center gap-1 shadow-md">
             <Loader2 className="w-3 h-3 animate-spin" />
-            <span>Mapbox đang tìm địa chỉ...</span>
+            <span>{i18n.language === 'en' ? 'Finding address...' : 'Mapbox đang tìm địa chỉ...'}</span>
           </span>
         )}
       </div>
 
       {/* Station Count Indicator */}
-      {stationCount > 0 && (
-        <div className="absolute top-2.5 right-12 z-10 hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/85 backdrop-blur-xs text-sky-400 text-[10px] font-mono font-bold border border-sky-500/30 shadow-md">
-          <Shield className="w-3.5 h-3.5 text-sky-400" />
-          <span>{stationCount} Trạm Cứu Hộ trực chiến</span>
-        </div>
-      )}
+      <div className="absolute top-2.5 right-12 z-10 hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/85 backdrop-blur-xs text-red-400 text-[10px] font-mono font-bold border border-red-500/30 shadow-md">
+        <Shield className="w-3.5 h-3.5 text-red-400" />
+        <span>{i18n.language === 'en' ? 'Park Boundary (4.5 km)' : 'Ranh giới KCN (4.5 km)'}</span>
+      </div>
 
       {/* Drag instruction notice */}
       <div className="absolute bottom-2 left-2 right-2 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-mono px-2.5 py-1 rounded-md text-center pointer-events-none flex items-center justify-center gap-1.5 shadow-sm z-10">
         <MapPin className="w-3 h-3 text-red-400 shrink-0" />
-        <span>Kéo ghim đỏ hoặc chạm vào bản đồ Mapbox để điều chỉnh chính xác vị trí cứu nạn</span>
+        <span>
+          {i18n.language === 'en'
+            ? 'Drag red pin or tap Mapbox map to fine-tune exact rescue location'
+            : 'Kéo ghim đỏ hoặc chạm vào bản đồ Mapbox để điều chỉnh chính xác vị trí cứu nạn'}
+        </span>
       </div>
     </div>
   );

@@ -3,9 +3,7 @@ import { Search } from 'lucide-react';
 import { BlockedNumbersTable } from '../../components/admin/blocked/BlockedNumbersTable';
 import {
   BLOCK_DURATIONS,
-  BLOCK_DURATION_LABEL,
   BLOCK_STATUSES,
-  BLOCK_STATUS_META,
   extendedExpiry,
   formatExpiry,
   isLaterExpiry,
@@ -16,10 +14,12 @@ import { inputClass, labelClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { blockedNumberService } from '../../services/admin/blockedNumberService';
 import type { BlockDurationDto, BlockedNumberDto, BlockedNumberStatus } from '../../types/blockedNumber';
+import { Trans, useTranslation } from '../../i18n';
 
 const PAGE_SIZE = 10;
 
 const BlockedNumbersPage: React.FC = () => {
+  const { t } = useTranslation();
   const initial = useInitialQueryParams();
   const [search, setSearch] = useState(() => initial.text('search'));
   // Mặc định chỉ hiện số còn hiệu lực; "" = tất cả.
@@ -47,7 +47,7 @@ const BlockedNumbersPage: React.FC = () => {
               setSearch(e.target.value);
               setPageIndex(1);
             }}
-            placeholder="Số điện thoại hoặc lý do chặn..."
+            placeholder={t('admin.users.blocked.searchPlaceholder')}
             className={`${inputClass} pl-9`}
           />
         </div>
@@ -57,13 +57,13 @@ const BlockedNumbersPage: React.FC = () => {
             setStatus(e.target.value as BlockedNumberStatus | '');
             setPageIndex(1);
           }}
-          aria-label="Lọc theo trạng thái"
+          aria-label={t('admin.common.filterByStatus')}
           className={`${inputClass} sm:w-44`}
         >
-          <option value="">Tất cả trạng thái</option>
+          <option value="">{t('admin.common.allStatuses')}</option>
           {BLOCK_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {BLOCK_STATUS_META[s].label}
+              {t(`admin.users.blocked.status.${s}`)}
             </option>
           ))}
         </select>
@@ -89,25 +89,28 @@ const BlockedNumbersPage: React.FC = () => {
       )}
 
       <p className="text-[11px] text-slate-500">
-        Số bị chặn do Operator thêm khi hủy ca báo khống. Admin chỉ gỡ chặn hoặc gia hạn.
+        {t('admin.users.blocked.note')}
       </p>
 
       {unblocking && (
         <ReasonModal
-          title={`Gỡ chặn số ${unblocking.maskedPhone}?`}
-          confirmLabel="Gỡ chặn"
-          reasonLabel="Lý do gỡ chặn"
-          placeholder="VD: Xác minh lại, người báo không cố ý..."
+          title={t('admin.users.blocked.unblock.title', { phone: unblocking.maskedPhone })}
+          confirmLabel={t('admin.users.blocked.unblock.confirm')}
+          reasonLabel={t('admin.users.blocked.unblock.reasonLabel')}
+          placeholder={t('admin.users.blocked.unblock.placeholder')}
           onCancel={() => setUnblocking(null)}
           onConfirm={async (reason) => {
             await blockedNumberService.unblock(unblocking.id, reason);
-            setNotice({ kind: 'success', message: `Đã gỡ chặn số ${unblocking.maskedPhone}.` });
+            setNotice({ kind: 'success', message: t('admin.users.blocked.unblock.done', { phone: unblocking.maskedPhone }) });
             setUnblocking(null);
             query.reload();
           }}
         >
           <p className="text-xs">
-            Chặn {BLOCK_DURATION_LABEL[unblocking.duration].toLowerCase()}, hết hạn {formatExpiry(unblocking.expiresAt)}.
+            {t('admin.users.blocked.unblock.summary', {
+              duration: t(`admin.users.blocked.duration.${unblocking.duration}`).toLowerCase(),
+              expiry: formatExpiry(unblocking.expiresAt),
+            })}
           </p>
         </ReasonModal>
       )}
@@ -132,6 +135,7 @@ const ExtendDialog: React.FC<{
   onCancel: () => void;
   onDone: (message: string) => void;
 }> = ({ item, onCancel, onDone }) => {
+  const { t } = useTranslation();
   const [duration, setDuration] = useState<BlockDurationDto | ''>('');
   // Xem trước hạn mới (tính từ lúc mở hộp thoại); backend tính lại khi lưu.
   const [openedAt] = useState(() => new Date());
@@ -140,24 +144,31 @@ const ExtendDialog: React.FC<{
 
   return (
     <ReasonModal
-      title={`Gia hạn chặn số ${item.maskedPhone}`}
-      confirmLabel="Gia hạn"
-      reasonLabel="Lý do gia hạn"
-      placeholder="VD: Tiếp tục báo khống sau khi bị chặn..."
+      title={t('admin.users.blocked.extend.title', { phone: item.maskedPhone })}
+      confirmLabel={t('admin.users.blocked.extend.confirm')}
+      reasonLabel={t('admin.users.blocked.extend.reasonLabel')}
+      placeholder={t('admin.users.blocked.extend.placeholder')}
       extraValid={valid}
       onCancel={onCancel}
       onConfirm={async (reason) => {
         if (!duration) return;
         const updated = await blockedNumberService.extend(item.id, duration, reason);
-        onDone(`Đã gia hạn chặn số ${item.maskedPhone} tới ${formatExpiry(updated.expiresAt)}.`);
+        onDone(t('admin.users.blocked.extend.done', { phone: item.maskedPhone, expiry: formatExpiry(updated.expiresAt) }));
       }}
     >
       <p className="text-xs">
-        Hiện tại: {BLOCK_DURATION_LABEL[item.duration]}, hết hạn <span className="font-semibold">{formatExpiry(item.expiresAt)}</span>
-        {item.status === 'Expired' && ' (đã hết hạn)'}.
+        <Trans
+          i18nKey="admin.users.blocked.extend.current"
+          values={{
+            duration: t(`admin.users.blocked.duration.${item.duration}`),
+            expiry: formatExpiry(item.expiresAt),
+            expired: item.status === 'Expired' ? t('admin.users.blocked.extend.expiredSuffix') : '',
+          }}
+          components={{ b: <span className="font-semibold" /> }}
+        />
       </p>
       <div className="space-y-1.5">
-        <span className={labelClass}>Thời hạn mới (tính từ hôm nay) *</span>
+        <span className={labelClass}>{t('admin.users.blocked.extend.newDuration')}</span>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {BLOCK_DURATIONS.map((d) => {
             const candidate = extendedExpiry(d, openedAt);
@@ -168,19 +179,27 @@ const ExtendDialog: React.FC<{
                 type="button"
                 onClick={() => setDuration(d)}
                 disabled={!allowed}
-                title={allowed ? `Hết hạn ${formatExpiry(candidate)}` : 'Hạn mới phải sau hạn hiện tại'}
+                title={
+                  allowed
+                    ? t('admin.users.blocked.extend.expiresOn', { date: formatExpiry(candidate) })
+                    : t('admin.users.blocked.extend.mustBeLater')
+                }
                 className={`py-2 rounded-lg border text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                   duration === d ? 'bg-red-50 border-red-500 text-red-700' : 'border-slate-300 text-slate-600 hover:border-slate-400'
                 }`}
               >
-                {BLOCK_DURATION_LABEL[d]}
+                {t(`admin.users.blocked.duration.${d}`)}
               </button>
             );
           })}
         </div>
         {nextExpiry !== undefined && (
           <p className="text-[11px] text-slate-500">
-            Hạn mới: <span className="font-semibold">{formatExpiry(nextExpiry)}</span>
+            <Trans
+              i18nKey="admin.users.blocked.extend.newExpiry"
+              values={{ expiry: formatExpiry(nextExpiry) }}
+              components={{ b: <span className="font-semibold" /> }}
+            />
           </p>
         )}
       </div>

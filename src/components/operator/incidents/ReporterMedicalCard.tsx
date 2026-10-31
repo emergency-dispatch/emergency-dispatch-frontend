@@ -62,26 +62,21 @@ export const ReporterMedicalCard: React.FC<ReporterMedicalCardProps> = ({ profil
           <p className="text-xs text-slate-500">{t('incidents.medical.empty')}</p>
         ))}
 
-      {profile && profile.iceContacts.length > 0 && (
+      {profile && (profile.emergencyContactName || profile.emergencyContactPhone) && (
         <div className="space-y-1.5">
           <p className="text-[11px] font-semibold text-slate-600">{t('incidents.medical.ice')}</p>
-          <ul className="space-y-1">
-            {profile.iceContacts.map((contact) => (
-              <li key={contact.id} className="flex items-center gap-2 text-xs text-slate-700 min-w-0">
-                <Phone className="w-3 h-3 text-slate-400 shrink-0" />
-                <span className="truncate">
-                  {contact.name}
-                  {contact.relationship && <span className="text-slate-500"> ({contact.relationship})</span>}
-                </span>
-                <span className="ml-auto font-mono-data text-slate-500 shrink-0">{contact.phoneNumber}</span>
-                {contact.isPrimary && (
-                  <span className="px-1.5 py-0.5 rounded bg-rose-100 text-[10px] font-bold text-rose-700 shrink-0">
-                    {t('incidents.medical.primary')}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <div className="flex items-center gap-2 text-xs text-slate-700 min-w-0">
+            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+            <span className="truncate">
+              {profile.emergencyContactName || '—'}
+              {profile.emergencyContactRelationship && (
+                <span className="text-slate-500"> ({profile.emergencyContactRelationship})</span>
+              )}
+            </span>
+            {profile.emergencyContactPhone && (
+              <span className="ml-auto font-mono-data text-slate-500 shrink-0">{profile.emergencyContactPhone}</span>
+            )}
+          </div>
         </div>
       )}
 

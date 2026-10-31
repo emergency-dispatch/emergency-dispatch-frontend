@@ -9,77 +9,80 @@ import {
   ShieldCheck,
   Building2
 } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 interface RoleSolutionsSectionProps {
   onOpenSos: () => void;
 }
 
 export const RoleSolutionsSection: React.FC<RoleSolutionsSectionProps> = ({ onOpenSos }) => {
+  const { t } = useTranslation();
+
   const roles = [
     {
       id: 1,
-      name: 'Công nhân / Người lao động',
-      subtitle: 'Mobile Client · Web / PWA',
+      name: t('citizen.landing.roles.r1.name'),
+      subtitle: t('citizen.landing.roles.r1.subtitle'),
       icon: Smartphone,
-      description: 'Giao diện không rào cản giúp công nhân phát tín hiệu SOS Cháy nổ & Tai nạn, định vị GPS nhà xưởng và báo cáo điểm ùn tắc nội khu.',
+      description: t('citizen.landing.roles.r1.desc'),
       features: [
-        'Nút SOS 1 chạm tự động định vị GPS nhà xưởng',
-        'Chụp ảnh/video hiện trường báo Cháy nổ & Tai nạn',
-        'Báo cáo điểm ùn tắc giao thông cổng KCN (#Traffic_Jam)',
-        'Bản đồ theo dõi trực tiếp vị trí xe cứu hộ & ETA',
-        'Lịch sử báo cáo sự cố & hàng đợi ngoại tuyến'
+        t('citizen.landing.roles.r1.f1'),
+        t('citizen.landing.roles.r1.f2'),
+        t('citizen.landing.roles.r1.f3'),
+        t('citizen.landing.roles.r1.f4'),
+        t('citizen.landing.roles.r1.f5'),
       ],
-      actionLabel: 'Mở SOS báo nạn',
+      actionLabel: t('citizen.landing.roles.r1.action'),
       actionType: 'sos'
     },
     {
       id: 2,
-      name: 'Điều phối viên CAD',
-      subtitle: 'Command Center · Web Dashboard',
+      name: t('citizen.landing.roles.r2.name'),
+      subtitle: t('citizen.landing.roles.r2.subtitle'),
       icon: MonitorCheck,
-      description: 'Bàn điều khiển CAD cho điều phối viên an ninh KCN. Tự động xếp hạng ưu tiên theo phân tích AI, thẩm định Human-in-the-Loop và điều xe thông minh.',
+      description: t('citizen.landing.roles.r2.desc'),
       features: [
-        'Live Map GIS thời gian thực toàn khu công nghệ cao',
-        'Hàng đợi sự cố ưu tiên theo AI (Cấp 1–3 & Cấp 0)',
-        'Thẩm định Human-in-the-Loop có khóa mềm chống trùng',
-        'Gợi ý điều phối xe gần nhất (Nearest & Load-Aware)',
-        'Giám sát điểm ùn tắc nội khu để dẫn đường tối ưu'
+        t('citizen.landing.roles.r2.f1'),
+        t('citizen.landing.roles.r2.f2'),
+        t('citizen.landing.roles.r2.f3'),
+        t('citizen.landing.roles.r2.f4'),
+        t('citizen.landing.roles.r2.f5'),
       ],
-      actionLabel: 'Cổng điều phối viên',
+      actionLabel: t('citizen.landing.roles.r2.action'),
       actionType: 'link',
       actionHref: '/login'
     },
     {
       id: 3,
-      name: 'Lực lượng Cứu hộ & An ninh',
-      subtitle: 'Rescue Staff · Mobile & Web Fallback',
+      name: t('citizen.landing.roles.r3.name'),
+      subtitle: t('citizen.landing.roles.r3.subtitle'),
       icon: Truck,
-      description: 'Giao diện tác chiến hiện trường cho đội PCCC cơ sở, y tế và an ninh tuần tra KCN. Nhận lệnh tác chiến, dẫn đường né kẹt xe và lập báo cáo số.',
+      description: t('citizen.landing.roles.r3.desc'),
       features: [
-        'Chuông cảnh báo ưu tiên cao, 120s xác nhận nhiệm vụ',
-        'Turn-by-Turn hiển thị điểm ùn tắc né kẹt xe',
-        'Truyền viễn trắc GPS 3–5s/lần về trung tâm chỉ huy',
-        'Cập nhật trạng thái: Accepted → EnRoute → OnScene',
-        'Báo cáo kết thúc số hóa bắt buộc kèm ảnh sau xử lý'
+        t('citizen.landing.roles.r3.f1'),
+        t('citizen.landing.roles.r3.f2'),
+        t('citizen.landing.roles.r3.f3'),
+        t('citizen.landing.roles.r3.f4'),
+        t('citizen.landing.roles.r3.f5'),
       ],
-      actionLabel: 'Cổng đội phản ứng',
+      actionLabel: t('citizen.landing.roles.r3.action'),
       actionType: 'link',
       actionHref: '/login'
     },
     {
       id: 4,
-      name: 'Quản trị & Điều hành KCN',
-      subtitle: 'System Administrator · Back-office',
+      name: t('citizen.landing.roles.r4.name'),
+      subtitle: t('citizen.landing.roles.r4.subtitle'),
       icon: ShieldCheck,
-      description: 'Phân hệ quản trị tài sản an ninh KCN, thiết lập quy tắc leo thang tự động khi xảy ra thảm họa và quản lý phân quyền theo vai trò.',
+      description: t('citizen.landing.roles.r4.desc'),
       features: [
-        'Quản lý danh bạ trạm cứu hỏa, chốt an ninh & bốt gác',
-        'Quản lý đội xe chuyên dụng, xe chữa cháy mini & thiết bị',
-        'Cấu hình quy tắc leo thang tự động (Escalation Daemon)',
-        'Phân quyền tài khoản theo vai trò (RBAC 4 cấp)',
-        'Ghi nhật ký kiểm toán không thể sửa xóa (Audit Trail)'
+        t('citizen.landing.roles.r4.f1'),
+        t('citizen.landing.roles.r4.f2'),
+        t('citizen.landing.roles.r4.f3'),
+        t('citizen.landing.roles.r4.f4'),
+        t('citizen.landing.roles.r4.f5'),
       ],
-      actionLabel: 'Cổng quản trị viên',
+      actionLabel: t('citizen.landing.roles.r4.action'),
       actionType: 'link',
       actionHref: '/login'
     }
@@ -94,19 +97,19 @@ export const RoleSolutionsSection: React.FC<RoleSolutionsSectionProps> = ({ onOp
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50 border border-red-200 shadow-sm whitespace-nowrap">
             <UserCheck className="w-4 h-4 text-red-600 shrink-0" />
             <span className="text-xs font-mono uppercase tracking-widest text-red-600 font-bold">
-              Kiến trúc hệ thống
+              {t('citizen.landing.roles.tag')}
             </span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
-            Giải pháp chuyên biệt cho{' '}
+            {t('citizen.landing.roles.title')}{' '}
             <span className="text-red-600">
-              4 vai trò trong Khu Công nghiệp
+              {t('citizen.landing.roles.titleHighlight')}
             </span>
           </h2>
 
           <p className="text-base text-slate-600 leading-relaxed">
-            Hệ sinh thái liên kết khép kín giữa công nhân nhà xưởng, trung tâm điều hành an ninh KCN, các đội phản ứng nhanh và ban quản lý.
+            {t('citizen.landing.roles.desc')}
           </p>
         </div>
 
@@ -127,7 +130,7 @@ export const RoleSolutionsSection: React.FC<RoleSolutionsSectionProps> = ({ onOp
                       <Icon className="w-7 h-7" />
                     </div>
                     <span className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold border border-red-200 bg-red-50 text-red-600 whitespace-nowrap">
-                      VAI TRÒ 0{role.id}
+                      {t('citizen.landing.roles.roleBadge', { id: role.id })}
                     </span>
                   </div>
 

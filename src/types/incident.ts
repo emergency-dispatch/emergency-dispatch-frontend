@@ -65,7 +65,10 @@ export interface ReporterMedicalProfile {
   preferredLanguage: string | null;
   dependentsNote: string | null;
   householdMembersCount: number;
-  iceContacts: Array<{ id: string; name: string; phoneNumber: string; relationship: string; isPrimary: boolean }>;
+  // Backend chỉ còn một người liên hệ khẩn cấp (bỏ danh bạ ICE nhiều người).
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  emergencyContactRelationship: string | null;
 }
 
 // Khóa mềm 2 phút khi một Operator mở ca (FR-OP-02).
@@ -155,7 +158,7 @@ export type BackendIncidentStatus =
   | 'Cancelled'
   | 'Escalated';
 
-export type BackendSeverityLevel = 'Unclassified' | 'Level1' | 'Level2' | 'Level3' | 'Level4' | 'Level5';
+export type BackendSeverityLevel = 'Unclassified' | 'Level1' | 'Level2' | 'Level3';
 
 export interface IncidentMediaDto {
   id: string;
@@ -312,14 +315,11 @@ export interface VerifyIncidentRequestDto {
 }
 
 // Unclassified (AI không phân loại được) giữ số 1 cho kiểu dữ liệu, UI hiện "Chưa phân loại" qua Incident.aiUnclassified.
-// Level4/5 chỉ còn ở dữ liệu cũ (trang landing vẫn so sánh hai giá trị này).
 const SEVERITY_FROM_BACKEND: Record<BackendSeverityLevel, SeverityLevel> = {
   Unclassified: 1,
   Level1: 1,
   Level2: 2,
   Level3: 3,
-  Level4: 3,
-  Level5: 3,
 };
 
 const CATEGORY_FROM_EVENT_TYPE: Partial<Record<BackendEventType, Exclude<IncidentCategory, 'unknown'>>> = {

@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import {
   Ban,
   CircleDashed,
@@ -11,52 +12,58 @@ import {
   UserCog,
   Users,
 } from 'lucide-react';
-import type { DashboardNavGroup, DashboardNavItem } from '../../types/dashboard';
+import type { adminLayoutVi } from '../../i18n/locales/vi/admin/layout';
 
-// Nhóm không có label (Tổng quan) hiển thị không có tiêu đề nhóm.
-export const adminNavGroups: DashboardNavGroup[] = [
+// Nhãn dịch theo key: admin.layout.groups.* / admin.layout.nav.*
+export interface AdminNavItem {
+  key: keyof typeof adminLayoutVi.nav;
+  path: string;
+  icon: ComponentType<{ className?: string }>;
+}
+
+export interface AdminNavGroup {
+  /** Không có → nhóm hiển thị không có tiêu đề (Tổng quan). */
+  key?: keyof typeof adminLayoutVi.groups;
+  items: AdminNavItem[];
+}
+
+export const adminNavGroups: AdminNavGroup[] = [
   {
-    id: 'overview',
-    label: '',
-    items: [{ label: 'Tổng quan', path: '/admin/overview', icon: LayoutDashboard }],
+    items: [{ key: 'overview', path: '/admin/overview', icon: LayoutDashboard }],
   },
   {
-    id: 'operations',
-    label: 'Vận hành',
+    key: 'operations',
     items: [
-      { label: 'Trạm cứu hộ', path: '/admin/stations', icon: Building2 },
-      { label: 'Đội xe', path: '/admin/vehicles', icon: Truck },
+      { key: 'stations', path: '/admin/stations', icon: Building2 },
+      { key: 'vehicles', path: '/admin/vehicles', icon: Truck },
     ],
   },
   {
-    id: 'users',
-    label: 'Người dùng',
+    key: 'users',
     items: [
-      { label: 'Tài khoản nội bộ', path: '/admin/accounts', icon: UserCog },
-      { label: 'Tài khoản Citizen', path: '/admin/citizens', icon: Users },
-      { label: 'Số bị chặn', path: '/admin/blocked-numbers', icon: Ban },
+      { key: 'accounts', path: '/admin/accounts', icon: UserCog },
+      { key: 'citizens', path: '/admin/citizens', icon: Users },
+      { key: 'blockedNumbers', path: '/admin/blocked-numbers', icon: Ban },
     ],
   },
   {
-    id: 'settings',
-    label: 'Cấu hình',
+    key: 'settings',
     items: [
-      { label: 'Leo thang', path: '/admin/settings/escalation', icon: Siren },
-      { label: 'Tham số điều phối', path: '/admin/settings/dispatch', icon: SlidersHorizontal },
-      { label: 'Khu vực phục vụ', path: '/admin/settings/service-area', icon: CircleDashed },
+      { key: 'escalation', path: '/admin/settings/escalation', icon: Siren },
+      { key: 'dispatch', path: '/admin/settings/dispatch', icon: SlidersHorizontal },
+      { key: 'serviceArea', path: '/admin/settings/service-area', icon: CircleDashed },
     ],
   },
   {
-    id: 'monitoring',
-    label: 'Giám sát',
+    key: 'monitoring',
     items: [
-      { label: 'Báo cáo sự cố', path: '/admin/reports', icon: FileBarChart },
-      { label: 'Audit Trail', path: '/admin/audit-trail', icon: ScrollText },
+      { key: 'reports', path: '/admin/reports', icon: FileBarChart },
+      { key: 'auditTrail', path: '/admin/audit-trail', icon: ScrollText },
     ],
   },
 ];
 
-export function findAdminNavItem(pathname: string): DashboardNavItem | null {
+export function findAdminNavItem(pathname: string): AdminNavItem | null {
   for (const group of adminNavGroups) {
     const item = group.items.find((i) => pathname === i.path || pathname.startsWith(`${i.path}/`));
     if (item) return item;

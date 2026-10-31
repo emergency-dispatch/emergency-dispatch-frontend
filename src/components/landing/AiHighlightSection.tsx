@@ -17,18 +17,20 @@ import {
   Users,
   Activity
 } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 export const AiHighlightSection: React.FC = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'vlm' | 'risk' | 'resources'>('vlm');
   const [scanActive, setScanActive] = useState<boolean>(true);
 
   const tags = [
-    { label: 'Hỏa hoạn (Fire)', confidence: '98.8%', color: 'bg-red-500/20 text-red-400 border-red-500/40' },
-    { label: 'Tai nạn (Accident)', confidence: '97.4%', color: 'bg-orange-500/20 text-orange-400 border-orange-500/40' },
-    { label: 'Ùn tắc (Traffic Jam)', confidence: '99.1%', color: 'bg-blue-500/20 text-blue-400 border-blue-500/40' },
-    { label: 'Cháy kho xưởng', confidence: '95.6%', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40' },
-    { label: 'Va chạm xe cơ giới', confidence: '93.2%', color: 'bg-purple-500/20 text-purple-400 border-purple-500/40' },
-    { label: 'Phân tích thị giác AI', confidence: '99.5%', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40' },
+    { label: t('citizen.landing.aiTagFire'), confidence: '98.8%', color: 'bg-red-500/20 text-red-400 border-red-500/40' },
+    { label: t('citizen.landing.aiTagAccident'), confidence: '97.4%', color: 'bg-orange-500/20 text-orange-400 border-orange-500/40' },
+    { label: t('citizen.landing.aiTagTrafficJam'), confidence: '99.1%', color: 'bg-blue-500/20 text-blue-400 border-blue-500/40' },
+    { label: t('citizen.landing.aiTagWarehouseFire'), confidence: '95.6%', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40' },
+    { label: t('citizen.landing.aiTagVehicleCollision'), confidence: '93.2%', color: 'bg-purple-500/20 text-purple-400 border-purple-500/40' },
+    { label: t('citizen.landing.aiTagVisionAnalysis'), confidence: '99.5%', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40' },
   ];
 
   return (
@@ -40,19 +42,16 @@ export const AiHighlightSection: React.FC = () => {
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50 border border-red-100 shadow-xs whitespace-nowrap">
             <BrainCircuit className="w-4 h-4 text-red-600 shrink-0" />
             <span className="text-xs font-mono-data uppercase tracking-widest text-red-600 font-bold">
-              CÔNG NGHỆ THỊ GIÁC AI
+              {t('citizen.landing.aiSectionTag')}
             </span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight text-balance">
-            Phân Tích Hiện Trường &amp;{' '}
-            <span className="text-red-600">
-              Nhận Diện Mối Nguy
-            </span>
+            {t('citizen.landing.aiSectionTitle')}
           </h2>
 
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed text-balance">
-            Mô hình AI đa phương thức phân tích ảnh/video hiện trường từ công nhân trong tích tắc để phân loại Cháy nổ, Tai nạn lao động, phát hiện Ùn tắc và chấm cấp độ nghiêm trọng (Cấp 1–3).
+            {t('citizen.landing.aiSectionDesc')}
           </p>
         </div>
 
@@ -68,7 +67,7 @@ export const AiHighlightSection: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></div>
                   <span className="text-xs font-mono-data font-bold text-slate-900 tracking-wider">
-                    LUỒNG PHÂN TÍCH THỜI GIAN THỰC #VLM-9021
+                    {t('citizen.landing.aiRealtimeStream')}
                   </span>
                 </div>
                 <button
@@ -76,7 +75,7 @@ export const AiHighlightSection: React.FC = () => {
                   className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-[11px] font-mono-data text-slate-700 border border-slate-200 flex items-center gap-1.5 transition-colors font-semibold"
                 >
                   <Scan className="w-3.5 h-3.5 text-red-600" />
-                  <span>{scanActive ? 'Quét AI: BẬT' : 'Quét AI: TẠM DỪNG'}</span>
+                  <span>{scanActive ? t('citizen.landing.aiScanOn') : t('citizen.landing.aiScanOff')}</span>
                 </button>
               </div>
 
@@ -133,7 +132,7 @@ export const AiHighlightSection: React.FC = () => {
               <div className="mt-4 pt-3 border-t border-slate-100">
                 <p className="text-xs text-slate-500 font-mono-data uppercase tracking-wider mb-2 flex items-center gap-1.5 font-bold">
                   <Sparkles className="w-3.5 h-3.5 text-red-600" />
-                  Mối nguy &amp; Thực thể hiện trường được trích xuất:
+                  {t('citizen.landing.aiHazardsExtracted')}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {tags.map((tag) => (
@@ -161,24 +160,24 @@ export const AiHighlightSection: React.FC = () => {
                     <ShieldAlert className="w-6 h-6 animate-pulse" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-slate-900">Đánh Giá Mức Độ Khẩn Cấp</h3>
-                    <p className="text-xs font-mono-data text-red-600 font-bold">KẾT QUẢ AI TRIAGE TỰ ĐỘNG</p>
+                    <h3 className="text-lg font-black text-slate-900">{t('citizen.landing.aiTriageTitle')}</h3>
+                    <p className="text-xs font-mono-data text-red-600 font-bold">{t('citizen.landing.aiTriageSubtitle')}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="px-3 py-1 rounded-lg bg-red-600 text-white font-black text-sm font-mono-data shadow-md">
-                    Cấp 3 / 3
+                    {t('citizen.landing.aiLevel3Badge')}
                   </div>
-                  <span className="text-[10px] font-mono-data text-slate-500 font-bold">MỨC NGUY HIỂM CAO NHẤT</span>
+                  <span className="text-[10px] font-mono-data text-slate-500 font-bold">{t('citizen.landing.aiLevel3Desc')}</span>
                 </div>
               </div>
 
               {/* 3-Step Severity Bar */}
               <div className="space-y-1.5 mb-4">
                 <div className="flex justify-between text-[11px] font-mono-data text-slate-500 font-medium">
-                  <span className="text-emerald-600 font-semibold">Cấp 1: Nhẹ</span>
-                  <span className="text-amber-600 font-semibold">Cấp 2: Vừa</span>
-                  <span className="text-red-600 font-bold">Cấp 3: Khẩn Cấp</span>
+                  <span className="text-emerald-600 font-semibold">{t('citizen.landing.aiLevel1Name')}</span>
+                  <span className="text-amber-600 font-semibold">{t('citizen.landing.aiLevel2Name')}</span>
+                  <span className="text-red-600 font-bold">{t('citizen.landing.aiLevel3Name')}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 h-2.5">
                   <div className="bg-emerald-500 rounded-sm"></div>
@@ -186,12 +185,12 @@ export const AiHighlightSection: React.FC = () => {
                   <div className="bg-red-600 rounded-sm shadow-sm animate-pulse"></div>
                 </div>
                 <div className="flex items-center justify-between text-[10px] font-mono-data text-slate-400 pt-0.5">
-                  <span>* Cấp 0: AI nghi vấn / ảnh mờ → Đẩy lên đầu hàng đợi để Operator xác minh</span>
+                  <span>{t('citizen.landing.aiLevel0Note')}</span>
                 </div>
               </div>
 
               <p className="text-sm text-slate-600 leading-relaxed">
-                <strong className="text-slate-900">Kết luận AI:</strong> Cháy lớn tại kho linh kiện Lô I-3, khói đen dày đặc và nguy cơ cháy lan sang xưởng lân cận. Hệ thống đề xuất điều động đồng thời 2 xe chữa cháy mini và 1 xe cứu thương nội khu theo thuật toán Nearest-Available.
+                <strong className="text-slate-900">{t('citizen.landing.aiConclusionTitle')}</strong> {t('citizen.landing.aiConclusionText')}
               </p>
             </div>
 
@@ -200,7 +199,7 @@ export const AiHighlightSection: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
                   <span className="text-xs font-mono-data uppercase tracking-wider text-slate-500 font-bold">
-                    Quy Trình AI Ra Quyết Định
+                    {t('citizen.landing.aiDecisionProcess')}
                   </span>
                   <div className="flex gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
                     <button
@@ -209,7 +208,7 @@ export const AiHighlightSection: React.FC = () => {
                         activeTab === 'vlm' ? 'bg-red-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-950'
                       }`}
                     >
-                      Nhận Diện
+                      {t('citizen.landing.aiTabPerception')}
                     </button>
                     <button
                       onClick={() => setActiveTab('risk')}
@@ -217,7 +216,7 @@ export const AiHighlightSection: React.FC = () => {
                         activeTab === 'risk' ? 'bg-red-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-950'
                       }`}
                     >
-                      Phân Tích
+                      {t('citizen.landing.aiTabRisk')}
                     </button>
                     <button
                       onClick={() => setActiveTab('resources')}
@@ -225,7 +224,7 @@ export const AiHighlightSection: React.FC = () => {
                         activeTab === 'resources' ? 'bg-red-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-950'
                       }`}
                     >
-                      Kế Hoạch Xe
+                      {t('citizen.landing.aiTabDispatch')}
                     </button>
                   </div>
                 </div>
@@ -235,16 +234,16 @@ export const AiHighlightSection: React.FC = () => {
                   <div className="space-y-3">
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
                       <div className="flex items-center justify-between text-slate-700 font-mono-data">
-                        <span className="text-red-600 font-bold">● Trích xuất đặc trưng thị giác VLM</span>
-                        <span>Độ tin cậy: 99.1%</span>
+                        <span className="text-red-600 font-bold">{t('citizen.landing.aiVlmExtraction')}</span>
+                        <span>{t('citizen.landing.aiConfidence99')}</span>
                       </div>
                       <p className="text-slate-600 leading-relaxed font-mono-data">
-                        "Hai xe con va chạm trực diện biến dạng đầu xe. Cabin người lái bị chèn ép &gt; 30cm. Có khói bốc lên tại khoang động cơ xe bên phải."
+                        {t('citizen.landing.aiVlmQuote')}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 text-xs font-mono-data text-emerald-600 font-semibold">
                       <CheckCircle className="w-4 h-4" />
-                      <span>Xác minh chống ảo giác AI: ĐẠT (Độ chính xác 99.8%)</span>
+                      <span>{t('citizen.landing.aiHallucinationCheck')}</span>
                     </div>
                   </div>
                 )}
@@ -254,8 +253,8 @@ export const AiHighlightSection: React.FC = () => {
                   <div className="space-y-3">
                     <div className="space-y-2">
                       <div className="flex justify-between text-xs font-mono-data">
-                        <span className="text-slate-700 font-medium">Xác suất kẹt nạn nhân trong xe</span>
-                        <span className="text-red-600 font-bold">94.5% (Cao)</span>
+                        <span className="text-slate-700 font-medium">{t('citizen.landing.aiTrappedProb')}</span>
+                        <span className="text-red-600 font-bold">{t('citizen.landing.aiTrappedProbVal')}</span>
                       </div>
                       <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                         <div className="bg-red-600 h-full w-[94.5%]"></div>
@@ -263,8 +262,8 @@ export const AiHighlightSection: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                       <div className="flex justify-between text-xs font-mono-data">
-                        <span className="text-slate-700 font-medium">Nguy cơ bùng phát cháy nổ</span>
-                        <span className="text-amber-600 font-bold">88.2% (Trung bình - Cao)</span>
+                        <span className="text-slate-700 font-medium">{t('citizen.landing.aiExplosionRisk')}</span>
+                        <span className="text-amber-600 font-bold">{t('citizen.landing.aiExplosionRiskVal')}</span>
                       </div>
                       <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                         <div className="bg-amber-500 h-full w-[88.2%]"></div>
@@ -279,30 +278,30 @@ export const AiHighlightSection: React.FC = () => {
                     <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-mono-data">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-red-600"></span>
-                        <span className="text-slate-900 font-bold">2x Xe Chữa Cháy Mini KCN (FIRE FE-01, FE-02)</span>
+                        <span className="text-slate-900 font-bold">{t('citizen.landing.aiDispatchFire')}</span>
                       </div>
-                      <span className="text-red-600 font-bold">Dự kiến 2m 15s</span>
+                      <span className="text-red-600 font-bold">{t('citizen.landing.aiDispatchFireEta')}</span>
                     </div>
                     <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-mono-data">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span className="text-slate-900 font-bold">1x Xe Cấp Cứu Trạm Y Tế KCN (EMS AM-02)</span>
+                        <span className="text-slate-900 font-bold">{t('citizen.landing.aiDispatchEms')}</span>
                       </div>
-                      <span className="text-emerald-600 font-bold">Dự kiến 3m 40s</span>
+                      <span className="text-emerald-600 font-bold">{t('citizen.landing.aiDispatchEmsEta')}</span>
                     </div>
                     <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-mono-data">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                        <span className="text-slate-900 font-bold">1x Đội Tuần Tra An Ninh Phân Luồng (PATROL PC-03)</span>
+                        <span className="text-slate-900 font-bold">{t('citizen.landing.aiDispatchPatrol')}</span>
                       </div>
-                      <span className="text-blue-600 font-bold">Đã có mặt</span>
+                      <span className="text-blue-600 font-bold">{t('citizen.landing.aiDispatchPatrolStatus')}</span>
                     </div>
                   </div>
                 )}
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-mono-data text-slate-500">
-                <span>Tối ưu hóa thuật toán</span>
+                <span>{t('citizen.landing.aiAlgorithmOptimization')}</span>
                 <span className="text-red-600 font-bold">Nearest-Available &amp; Load-Aware</span>
               </div>
             </div>
