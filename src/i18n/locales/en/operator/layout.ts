@@ -24,6 +24,8 @@ export const layoutEn: Messages<typeof layoutVi> = {
     defaultName: 'Dispatcher',
     defaultStation: 'Dispatch center',
     notifications: 'Notifications',
+    createIncident: 'New incident',
+    createIncidentHint: 'Create an incident from an off-app report',
     unreadSuffix: ' ({{count}} unread)',
     markAllRead: 'Mark all read',
     escalatingBanner: 'Escalating incidents with no responding unit: {{count}}',

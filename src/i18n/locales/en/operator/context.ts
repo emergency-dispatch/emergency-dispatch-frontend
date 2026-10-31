@@ -6,6 +6,7 @@ export const contextEn: Messages<typeof contextVi> = {
   stationNotAssigned: 'An Admin has not assigned you a station yet.',
   sessionEnded: 'Your session has ended.',
   verifyFailed: 'Failed to verify the incident.',
+  createIncidentFailed: 'Could not create the incident.',
   cancelFailed: 'Failed to cancel the incident.',
   blockAfterCancelFailed: 'Incident cancelled, but blocking the phone number failed: {{message}}',
   transferFailed: 'Failed to transfer the incident.',

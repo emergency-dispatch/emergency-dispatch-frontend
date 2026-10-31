@@ -24,6 +24,7 @@ import {
   severityToBackend,
   toOperatorStatus,
   type BlockDuration,
+  type CreateOperatorIncidentDto,
   type CrewResponseNotice,
   type Incident,
   type IncidentCategory,
@@ -153,6 +154,11 @@ export interface AssignOptions {
 
 type ActionResult = { ok: boolean; message?: string };
 
+/** Kết quả Operator tự tạo sự cố: `errors` = lỗi kiểm tra từng trường backend trả kèm HTTP 400. */
+export type CreateIncidentResult =
+  | { ok: true; incidentId: string; message?: string; dispatchSucceeded: boolean | null; dispatchMessage?: string | null }
+  | { ok: false; message: string; errors: string[] };
+
 /** Body thêm / sửa xe từ màn Đội xe. Khi sửa, `stationId` bị bỏ qua (giữ trạm hiện tại của xe). */
 export interface VehicleSaveInput {
   plateNumber: string;
@@ -229,6 +235,8 @@ interface DispatchContextValue {
   transferIncident: (id: string, stationId: string, reason: string) => Promise<ActionResult>;
   lockIncident: (id: string) => Promise<ActionResult>;
   releaseIncident: (id: string) => void;
+  /** Operator tự tạo sự cố (tin báo qua điện thoại, bộ đàm, camera…) — sự cố được xác minh ngay. */
+  createOperatorIncident: (dto: CreateOperatorIncidentDto) => Promise<CreateIncidentResult>;
   /** Số điện thoại đầy đủ (backend ghi vết), null nếu thất bại. */
   revealReporterPhone: (id: string) => Promise<string | null>;
   /** Giao 1 xe cho sự cố (1-click hoặc kéo-thả). Cấp 3 gọi nhiều lần, tối đa 5 xe. */
@@ -294,6 +302,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const knownIncidentIdsRef = useRef<Set<string> | null>(null);
   const myStationIdRef = useRef(user?.stationId ?? null);
   myStationIdRef.current = user?.stationId ?? null;
+  const myUserIdRef = useRef(user?.id ?? null);
+  myUserIdRef.current = user?.id ?? null;
   // Lượt điều phối hiện có — để biết lượt nào vừa kết thúc giữa hai lần poll.
   const assignmentsRef = useRef(assignments);
   assignmentsRef.current = assignments;
@@ -484,7 +494,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         upsertIncidents([dto]);
         knownIncidentIdsRef.current?.add(dto.id);
         highlight([dto.id]);
-        announceIncoming([dto.id]);
+        // Sự cố chính mình vừa tạo (event có thể tới trước cả HTTP response) → không bíp báo tin mới.
+        const createdByMe = !!dto.source && dto.source !== 'CitizenApp' && dto.verifiedByUserId === myUserIdRef.current;
+        if (!createdByMe) announceIncoming([dto.id]);
       }),
       incidentHubService.on<IncidentResponseDto>(HubEvents.ReceiveIncidentUpdate, (dto) => upsertIncidents([dto])),
       incidentHubService.on<EscalationAlertMessage>(HubEvents.ReceiveEscalationAlert, (alert) => {
@@ -843,6 +855,28 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     incidentService.unlock(id).catch(() => undefined);
   };
 
+  const createOperatorIncident = async (dto: CreateOperatorIncidentDto): Promise<CreateIncidentResult> => {
+    try {
+      const res = await incidentService.createByOperator(dto);
+      if (!res.success) {
+        return { ok: false, message: res.message || i18n.t('context.createIncidentFailed'), errors: res.errors ?? [] };
+      }
+      const { incident, assignments: created, dispatchSucceeded, dispatchMessage } = res.data;
+      upsertIncidents([incident]);
+      knownIncidentIdsRef.current?.add(incident.id);
+      highlight([incident.id]);
+      if (created.length > 0) {
+        setAssignments((prev) => upsert(prev, created));
+        refreshUnits();
+      }
+      return { ok: true, incidentId: incident.id, message: res.message, dispatchSucceeded, dispatchMessage };
+    } catch (err) {
+      const data = isAxiosError(err) ? (err.response?.data as { errors?: unknown } | undefined) : undefined;
+      const errors = Array.isArray(data?.errors) ? data.errors.filter((e): e is string => typeof e === 'string') : [];
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('context.createIncidentFailed')), errors };
+    }
+  };
+
   const revealReporterPhone = async (id: string): Promise<string | null> => {
     try {
       const res = await incidentService.revealPhone(id);
@@ -992,6 +1026,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         transferIncident,
         lockIncident,
         releaseIncident,
+        createOperatorIncident,
         revealReporterPhone,
         assignVehicle,
         cancelAssignment,

@@ -4,6 +4,14 @@ export const enumsVi = {
   severity: { level1: 'Cấp 1 · Nhẹ', level2: 'Cấp 2 · Trung bình', level3: 'Cấp 3 · Nghiêm trọng' },
   severityShort: { level1: 'Cấp 1', level2: 'Cấp 2', level3: 'Cấp 3' },
   category: { fire: 'Cháy nổ', accident: 'Tai nạn', unknown: 'Chưa xác định' },
+  incidentSource: {
+    CitizenApp: 'Ứng dụng SOS',
+    PhoneCall: 'Điện thoại',
+    Radio: 'Bộ đàm',
+    Cctv: 'Camera',
+    FieldObservation: 'Quan sát',
+    Other: 'Kênh khác',
+  },
   hazardTag: { fire: '#Fire', accident: '#Accident', traffic_jam: '#Traffic_Jam', other: 'Khác' },
   vehicleStatus: {
     available: 'Sẵn sàng',

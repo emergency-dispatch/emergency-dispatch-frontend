@@ -21,6 +21,8 @@ export const layoutVi = {
     defaultName: 'Điều phối viên',
     defaultStation: 'Trung tâm điều phối',
     notifications: 'Thông báo',
+    createIncident: 'Tạo sự cố',
+    createIncidentHint: 'Tạo sự cố từ tin báo ngoài app',
     unreadSuffix: ' ({{count}} chưa đọc)',
     markAllRead: 'Đọc tất cả',
     escalatingBanner: '{{count}} sự cố đang leo thang, chưa có đơn vị nhận',

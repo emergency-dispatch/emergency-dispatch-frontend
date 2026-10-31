@@ -20,6 +20,7 @@ import {
   ThumbsDown,
   ThumbsUp,
   Truck,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react';
 import { getApiErrorMessage } from '../../../services/apiClient';
@@ -47,6 +48,7 @@ const ACTION_META: Record<IncidentAuditAction, { icon: LucideIcon; color: string
   ReporterBlocked: { icon: PhoneOff, color: '#DC2626' },
   TransferredStation: { icon: ArrowRightLeft, color: '#2563EB' },
   OutOfServiceArea: { icon: MapPinOff, color: '#DC2626' },
+  CreatedByOperator: { icon: UserPlus, color: '#4F46E5' },
 };
 
 const UNKNOWN_ACTION = { icon: CircleDot, color: '#64748B' };

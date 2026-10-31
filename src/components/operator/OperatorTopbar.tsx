@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, ChevronDown, LogOut, MapPin, Settings, ShieldAlert, Siren, User } from 'lucide-react';
+import { Bell, CheckCheck, ChevronDown, LogOut, MapPin, Plus, Settings, ShieldAlert, Siren, User } from 'lucide-react';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -51,6 +51,9 @@ export const OperatorTopbar: React.FC = () => {
     if (incident?.status === 'pending') navigate('/dashboard/command-center/incidents');
     else if (incident) navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: incident.id } });
   };
+
+  // Tạo sự cố từ tin báo ngoài app: mở form trên Live Map.
+  const openCreateIncident = () => navigate('/dashboard/command-center/live-map?create=1');
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -113,6 +116,14 @@ export const OperatorTopbar: React.FC = () => {
 
       {/* Right: Notification bell + Avatar */}
       <div className="flex items-center gap-3 shrink-0">
+        <button
+          onClick={openCreateIncident}
+          title={t('layout.topbar.createIncidentHint')}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">{t('layout.topbar.createIncident')}</span>
+        </button>
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setNotifOpen((v) => !v)}

@@ -76,6 +76,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
       ReporterBlocked: 'Reporter number blocked',
       TransferredStation: 'Responsible station changed',
       OutOfServiceArea: 'SOS outside the service area',
+      CreatedByOperator: 'Created by operator',
     },
     unknownAction: 'Other action',
     roles: {

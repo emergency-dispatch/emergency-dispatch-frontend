@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { SeverityBadge } from '../incidents/SeverityBadge';
+import { SourceChip } from '../incidents/SourceChip';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
 import { CANCELLATION_REASON_OPTIONS, INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
@@ -101,6 +102,11 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
               <Siren className="w-2.5 h-2.5" />
               {escalationTier >= 2 ? t('liveMap.incidentList.escalatedTier2') : t('liveMap.incidentList.escalated')}
             </span>
+          </div>
+        )}
+        {incident.source !== 'CitizenApp' && (
+          <div className="mb-1">
+            <SourceChip source={incident.source} />
           </div>
         )}
         {incident.isOutOfServiceArea && (

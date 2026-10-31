@@ -4,6 +4,7 @@ export const contextVi = {
   stationNotAssigned: 'Bạn chưa được Admin phân công trạm phụ trách.',
   sessionEnded: 'Phiên đăng nhập đã kết thúc.',
   verifyFailed: 'Xác minh sự cố thất bại.',
+  createIncidentFailed: 'Tạo sự cố thất bại.',
   cancelFailed: 'Hủy sự cố thất bại.',
   blockAfterCancelFailed: 'Đã hủy ca nhưng chặn số điện thoại thất bại: {{message}}',
   transferFailed: 'Chuyển trạm thất bại.',

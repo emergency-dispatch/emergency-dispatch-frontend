@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
+import { SourceChip } from '../incidents/SourceChip';
 import { INCIDENT_CATEGORY_META, OVERRIDE_REASON_MIN_LENGTH } from '../../../data/incidentMock';
 import { DISPATCH_ALGORITHM_META, MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
 import { useDispatchStore, type AssignOptions } from '../../../context/DispatchContext';
@@ -195,6 +196,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
             <div className="flex items-center gap-1.5 mb-1">
               <category.icon className="w-3.5 h-3.5 shrink-0" style={{ color: category.color }} />
               <span className="text-[10px] font-bold" style={{ color: category.color }}>{t(`enums.category.${selectedIncident.category}`)}</span>
+              <SourceChip source={selectedIncident.source} />
               {isEscalated && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white uppercase animate-pulse">
                   {t('liveMap.recommend.escalated')}

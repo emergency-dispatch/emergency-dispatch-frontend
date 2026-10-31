@@ -1,4 +1,5 @@
 import type { IncidentSeverity } from './dashboard';
+import type { DispatchAssignmentResponseDto } from './dispatch';
 
 // Legacy thang 0–5 + hazard keys cũ — vẫn được Staff portal & Admin (escalation) import.
 // Phân hệ Operator dùng SeverityLevel / HazardTag bên dưới.
@@ -27,6 +28,14 @@ export type HazardTag = 'fire' | 'accident' | 'traffic_jam';
 
 /** IncidentEventType của backend. */
 export type BackendEventType = 'None' | 'FireExplosion' | 'TrafficAccident';
+
+/**
+ * Kênh tiếp nhận sự cố. CitizenApp = người dân gửi SOS qua app; còn lại = Operator tự tạo khi biết tin
+ * từ bên ngoài (POST /api/incidents/operator).
+ */
+export type IncidentSource = 'CitizenApp' | 'PhoneCall' | 'Radio' | 'Cctv' | 'FieldObservation' | 'Other';
+export type OperatorIncidentSource = Exclude<IncidentSource, 'CitizenApp'>;
+export const OPERATOR_INCIDENT_SOURCES: OperatorIncidentSource[] = ['PhoneCall', 'Radio', 'Cctv', 'FieldObservation', 'Other'];
 
 /** CancellationReason của backend; Operator chỉ gửi được 4 mã đầu. */
 export type CancellationReasonCode = 'FalseReport' | 'Duplicate' | 'TestReport' | 'Other' | 'CitizenCancelled' | 'AutoExpired';
@@ -86,6 +95,8 @@ export interface Incident {
   title: string;
   description: string;
   category: IncidentCategory;
+  /** Kênh tiếp nhận — khác CitizenApp là Operator tự tạo (không qua AI). */
+  source: IncidentSource;
   /**
    * Backend chưa có loại sự cố đã xác nhận (eventType = None) → khi duyệt bắt buộc gửi confirmedEventType.
    * `category` lúc này chỉ là gợi ý suy từ tiêu đề SOS (hoặc 'unknown').
@@ -210,6 +221,8 @@ export interface IncidentResponseDto {
   distanceOutsideAreaKm?: number | null;
   /** Loại sự cố đã xác nhận (Operator chọn khi verify, hoặc AI xác định); None = chưa rõ. */
   eventType?: BackendEventType;
+  /** Backend cũ không gửi → coi như CitizenApp. */
+  source?: IncidentSource;
   cancellationReason?: CancellationReasonCode | null;
   cancelledAt?: string | null;
   cancelledByUserId?: string | null;
@@ -240,7 +253,8 @@ export type IncidentAuditAction =
   | 'PhoneRevealed'
   | 'ReporterBlocked'
   | 'TransferredStation'
-  | 'OutOfServiceArea';
+  | 'OutOfServiceArea'
+  | 'CreatedByOperator';
 
 /** Mirror AuditTrailEntryDto (GET /api/incidents/{id}/audit-trail). */
 export interface IncidentAuditEntryDto {
@@ -267,6 +281,35 @@ export interface CreateIncidentDto {
   reporterName?: string;
   reporterPhone?: string;
   mediaUrls?: string[];
+}
+
+/** Body POST /api/incidents/operator — sự cố được xác minh ngay theo loại / mức Operator chọn. */
+export interface CreateOperatorIncidentDto {
+  title?: string;
+  description?: string;
+  latitude: number;
+  longitude: number;
+  locationAddress: string;
+  source: OperatorIncidentSource;
+  eventType: Exclude<BackendEventType, 'None'>;
+  severity: Exclude<BackendSeverityLevel, 'Unclassified'>;
+  /** Nội dung tin báo / căn cứ đánh giá, ≥ 5 ký tự. */
+  operatorNotes: string;
+  reporterName?: string;
+  reporterPhone?: string;
+  mediaUrls?: string[];
+  /** Điều xe luôn khi tạo; bỏ trống thì điều xe sau qua POST /api/dispatch/assign. */
+  rescueUnitIds?: string[];
+  algorithm?: 'NearestAvailable' | 'LoadAware';
+  dispatchNotes?: string;
+}
+
+export interface OperatorIncidentResultDto {
+  incident: IncidentResponseDto;
+  assignments: DispatchAssignmentResponseDto[];
+  /** null = không yêu cầu điều xe; false = điều xe thất bại nhưng sự cố vẫn được tạo. */
+  dispatchSucceeded: boolean | null;
+  dispatchMessage?: string | null;
 }
 
 export interface PaginatedResultDto<T> {
@@ -399,6 +442,7 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto): Inciden
     title: dto.title,
     description: dto.description,
     category,
+    source: dto.source ?? 'CitizenApp',
     needsEventType: !CATEGORY_FROM_EVENT_TYPE[dto.eventType ?? 'None'],
     hazardTags,
     severity: SEVERITY_FROM_BACKEND[dto.severity] ?? 1,

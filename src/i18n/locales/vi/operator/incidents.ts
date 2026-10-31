@@ -73,6 +73,7 @@ export const incidentsVi = {
       ReporterBlocked: 'Chặn số người báo',
       TransferredStation: 'Chuyển trạm phụ trách',
       OutOfServiceArea: 'SOS ngoài khu vực phục vụ',
+      CreatedByOperator: 'Operator tạo sự cố',
     },
     unknownAction: 'Thao tác khác',
     roles: {

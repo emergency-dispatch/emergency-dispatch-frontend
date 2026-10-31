@@ -4,6 +4,8 @@ import type {
   BackendIncidentStatus,
   BlockDuration,
   CreateIncidentDto,
+  CreateOperatorIncidentDto,
+  OperatorIncidentResultDto,
   IncidentAuditEntryDto,
   IncidentResponseDto,
   OperatorCancellationCode,
@@ -92,6 +94,15 @@ export const incidentService = {
    */
   async createIncident(dto: CreateIncidentDto): Promise<ApiResponse<IncidentResponseDto>> {
     const response = await apiClient.post<ApiResponse<IncidentResponseDto>>('/Incidents', dto);
+    return response.data;
+  },
+
+  /**
+   * Operator tự tạo sự cố khi biết tin từ bên ngoài (điện thoại, bộ đàm, camera…) — POST /api/incidents/operator.
+   * Sự cố được xác minh ngay, thuộc trạm của Operator.
+   */
+  async createByOperator(dto: CreateOperatorIncidentDto): Promise<ApiResponse<OperatorIncidentResultDto>> {
+    const response = await apiClient.post<ApiResponse<OperatorIncidentResultDto>>('/Incidents/operator', dto);
     return response.data;
   },
 

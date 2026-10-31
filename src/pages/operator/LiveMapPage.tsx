@@ -1,10 +1,14 @@
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
+import { AlertTriangle, CheckCircle2, X } from 'lucide-react';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useDispatchRoutes } from '../../hooks/useDispatchRoutes';
 import { DispatchIncidentList } from '../../components/operator/livemap/DispatchIncidentList';
 import { DispatchRecommendPanel } from '../../components/operator/livemap/DispatchRecommendPanel';
 import { LiveMapView } from '../../components/operator/livemap/LiveMapView';
+import { CreateIncidentPanel, type IncidentCreatedInfo } from '../../components/operator/livemap/CreateIncidentPanel';
+import type { PickedPoint } from '../../components/operator/livemap/MapPickLocation';
+import { findNearbyIncidents } from '../../utils/nearbyIncidents';
 import { MAX_VEHICLES_BY_LEVEL } from '../../data/dispatchConfig';
 import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
 import type { AssignOptions } from '../../context/DispatchContext';
@@ -25,7 +29,21 @@ const GpsSimulatorPanel = import.meta.env.DEV
  *
  * Tablet < 1024px: DispatchIncidentList thu thành Bottom Sheet.
  * Panel phải luôn hiện trên desktop.
+ *
+ * Chế độ tạo sự cố (?create=1, nút "Tạo sự cố" trên Topbar): form tiếp nhận thay cột trái (rộng hơn),
+ * panel phải ẩn, bản đồ chuyển sang chọn vị trí. Tạo xong quay về 3 cột.
  */
+const CREATED_NOTICE_MS = 6000;
+
+// Khớp breakpoint `lg` của Tailwind: form tạo sự cố chỉ mount một bản (cột trái hoặc bottom sheet) để không tách state.
+const DESKTOP_QUERY = '(min-width: 1024px)';
+const subscribeDesktop = (onChange: () => void) => {
+  const mql = window.matchMedia(DESKTOP_QUERY);
+  mql.addEventListener('change', onChange);
+  return () => mql.removeEventListener('change', onChange);
+};
+const getIsDesktop = () => window.matchMedia(DESKTOP_QUERY).matches;
+
 export const LiveMapPage: React.FC = () => {
   const {
     vehicles,
@@ -52,6 +70,16 @@ export const LiveMapPage: React.FC = () => {
   const [sheetOpen, setSheetOpen] = useState(true);
 
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const createOpen = searchParams.get('create') === '1';
+  const [pickPosition, setPickPosition] = useState<PickedPoint | null>(null);
+  const [pickFlyKey, setPickFlyKey] = useState(0);
+  const [createdNotice, setCreatedNotice] = useState<IncidentCreatedInfo | null>(null);
+  const nearby = useMemo(
+    () => (createOpen && pickPosition ? findNearbyIncidents(incidents, pickPosition) : []),
+    [createOpen, pickPosition, incidents]
+  );
+  const nearbyIncidents = useMemo(() => nearby.map((n) => n.incident), [nearby]);
   const dispatchIncidents = useMemo(() => incidents.filter((i) => i.status === 'approved'), [incidents]);
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
   const incidentsById = useMemo(() => new Map(incidents.map((i) => [i.id, i])), [incidents]);
@@ -89,6 +117,60 @@ export const LiveMapPage: React.FC = () => {
     setSelectedIncidentId(id);
     if (id) setSheetOpen(true);
   };
+
+  const closeCreate = () => {
+    setPickPosition(null);
+    setPickFlyKey(0);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('create');
+        return next;
+      },
+      { replace: true }
+    );
+  };
+
+  const isDesktop = useSyncExternalStore(subscribeDesktop, getIsDesktop);
+
+  // Tablet: mở form thì kéo bottom sheet lên.
+  useEffect(() => {
+    if (createOpen) setSheetOpen(true);
+  }, [createOpen]);
+
+  const handleCreated = (info: IncidentCreatedInfo, selectForDispatch: boolean) => {
+    closeCreate();
+    setCreatedNotice(info);
+    if (selectForDispatch || info.dispatchSucceeded === false) handleSelectIncident(info.incidentId);
+  };
+
+  useEffect(() => {
+    if (!createdNotice || createdNotice.dispatchSucceeded === false) return;
+    const timer = setTimeout(() => setCreatedNotice(null), CREATED_NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [createdNotice]);
+
+  const handleViewNearby = (id: string) => {
+    const incident = incidentsById.get(id);
+    // Sự cố đã duyệt → chọn để camera bay tới. Chờ duyệt (không mở được ở đây mà không mất form) → bay về khu vực
+    // ghim, nơi sự cố nghi trùng đang được vẽ nổi bật (cách ghim ≤ 500 m).
+    if (incident?.status === 'approved') setSelectedIncidentId(id);
+    else if (incident) setPickFlyKey((k) => k + 1);
+  };
+
+  const createPanel = createOpen ? (
+    <CreateIncidentPanel
+      position={pickPosition}
+      onLocate={(point) => {
+        setPickPosition(point);
+        setPickFlyKey((k) => k + 1);
+      }}
+      nearby={nearby}
+      onViewIncident={handleViewNearby}
+      onClose={closeCreate}
+      onCreated={handleCreated}
+    />
+  ) : null;
 
   const handleSelectVehicle = (id: string) => {
     setSelectedVehicleId((cur) => (cur === id ? null : id));
@@ -132,8 +214,8 @@ export const LiveMapPage: React.FC = () => {
 
       {/* ── CỘT TRÁI: Danh sách sự cố (300px cố định) ── */}
       {/* Desktop: luôn hiện. Tablet: ẩn trong bottom sheet. */}
-      <div className="hidden lg:flex lg:w-[300px] lg:shrink-0 h-full flex-col">
-        <DispatchIncidentList
+      <div className={`hidden lg:flex lg:shrink-0 h-full flex-col ${createOpen ? 'lg:w-[440px]' : 'lg:w-[300px]'}`}>
+        {(isDesktop && createPanel) || <DispatchIncidentList
           selectedIncidentId={selectedIncidentId}
           onSelectIncident={handleSelectIncident}
           panelError={panelError}
@@ -143,7 +225,7 @@ export const LiveMapPage: React.FC = () => {
           onCancelVehicle={handleCancelVehicle}
           onCancelIncident={handleCancelIncident}
           onDismissNotice={(incidentId, noticeId) => dismissResponseNotice(incidentId, noticeId)}
-        />
+        />}
       </div>
 
       {/* ── CỘT GIỮA: Bản đồ (flex-1) ── */}
@@ -162,7 +244,37 @@ export const LiveMapPage: React.FC = () => {
           vehiclesById={vehiclesById}
           incidentsById={incidentsById}
           serviceArea={serviceArea}
+          pickLocation={createOpen ? { position: pickPosition, onPick: setPickPosition, flyKey: pickFlyKey } : null}
+          nearbyIncidents={nearbyIncidents}
         />
+        {createdNotice && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[1001] w-[min(420px,calc(100%-2rem))]">
+            <div
+              role="status"
+              className={`flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border shadow-lg text-xs ${
+                createdNotice.dispatchSucceeded === false
+                  ? 'bg-amber-50 border-amber-300 text-amber-800'
+                  : 'bg-emerald-50 border-emerald-300 text-emerald-800'
+              }`}
+            >
+              {createdNotice.dispatchSucceeded === false ? (
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-px" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-bold">{createdNotice.message || t('liveMap.create.created')}</p>
+                <p className="truncate opacity-80">{createdNotice.title}</p>
+                {createdNotice.dispatchSucceeded === false && createdNotice.dispatchMessage && (
+                  <p className="mt-0.5">{createdNotice.dispatchMessage}</p>
+                )}
+              </div>
+              <button onClick={() => setCreatedNotice(null)} aria-label={t('common.close')} className="shrink-0 opacity-60 hover:opacity-100">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
         {GpsSimulatorPanel && (
           <Suspense fallback={null}>
             <GpsSimulatorPanel vehicles={vehicles} />
@@ -171,7 +283,7 @@ export const LiveMapPage: React.FC = () => {
       </div>
 
       {/* ── CỘT PHẢI: Gợi ý tổ (340px cố định) ── */}
-      <div className="hidden lg:flex lg:w-[340px] lg:shrink-0 h-full flex-col">
+      <div className={`hidden lg:w-[340px] lg:shrink-0 h-full flex-col ${createOpen ? '' : 'lg:flex'}`}>
         <DispatchRecommendPanel
           selectedIncidentId={selectedIncidentId}
           assigningVehicleId={assigningVehicleId}
@@ -183,7 +295,7 @@ export const LiveMapPage: React.FC = () => {
       <div
         className={`lg:hidden z-[1100] bg-white flex flex-col transition-[height] duration-300
           absolute inset-x-0 bottom-0 rounded-t-2xl shadow-[0_-8px_24px_rgba(15,23,42,0.18)]
-          ${sheetOpen ? 'h-[55%]' : 'h-11'}`}
+          ${sheetOpen ? (createOpen ? 'h-[70%]' : 'h-[55%]') : 'h-11'}`}
       >
         <button
           onClick={() => setSheetOpen((v) => !v)}
@@ -191,11 +303,14 @@ export const LiveMapPage: React.FC = () => {
           aria-label={sheetOpen ? t('liveMap.page.collapse') : t('liveMap.page.openPanel')}
         >
           <span className="w-10 h-1 rounded-full bg-slate-300" />
-          {t('liveMap.page.panelTitle')}
+          {createOpen ? t('liveMap.create.title') : t('liveMap.page.panelTitle')}
         </button>
-        {sheetOpen && (
+        {!isDesktop && createPanel ? (
+          // Giữ form mounted khi thu sheet (để xem bản đồ chọn vị trí) — không mất dữ liệu đang nhập.
+          <div className={`flex-1 min-h-0 ${sheetOpen ? '' : 'hidden'}`}>{createPanel}</div>
+        ) : sheetOpen && (
           <div className="flex-1 min-h-0">
-            <DispatchIncidentList
+            {<DispatchIncidentList
               selectedIncidentId={selectedIncidentId}
               onSelectIncident={handleSelectIncident}
               panelError={panelError}
@@ -205,7 +320,7 @@ export const LiveMapPage: React.FC = () => {
               onCancelVehicle={handleCancelVehicle}
               onCancelIncident={handleCancelIncident}
               onDismissNotice={(incidentId, noticeId) => dismissResponseNotice(incidentId, noticeId)}
-            />
+            />}
           </div>
         )}
       </div>
