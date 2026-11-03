@@ -129,6 +129,10 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
     },
     yes: 'Yes',
     no: 'No',
+    trafficJamAction: {
+      Confirmed: 'Traffic congestion confirmed',
+      Dismissed: 'Congestion alert dismissed',
+    },
     incidentAction: {
       Created: 'Incident created',
       AiAnalyzed: 'AI analyzed',

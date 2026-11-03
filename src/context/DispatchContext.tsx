@@ -31,6 +31,7 @@ import {
   type IncidentResponseDto,
   type OperatorCancellationCode,
   type SeverityLevel,
+  type TrafficJamDecision,
   type TrafficJamReport,
 } from '../types/incident';
 import type { BackendDispatchStatus, DispatchAssignmentResponseDto } from '../types/dispatch';
@@ -223,8 +224,12 @@ interface DispatchContextValue {
     id: string,
     confirmedSeverity: SeverityLevel,
     operatorNotes?: string,
-    category?: IncidentCategory
+    category?: IncidentCategory,
+    /** Thẩm định ùn tắc gửi kèm (confirmedTrafficJamStatus); bỏ trống = giữ nhận định hiện tại. */
+    trafficJam?: TrafficJamDecision
   ) => Promise<ActionResult>;
+  /** Chốt cảnh báo ùn tắc của một sự cố đã xác minh (PUT /api/incidents/{id}/traffic-jam-status). */
+  reviewTrafficJam: (id: string, decision: TrafficJamDecision, notes?: string) => Promise<ActionResult>;
   rejectIncident: (
     id: string,
     reason: string,
@@ -718,7 +723,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     assignments.forEach((a) => byIncident.set(a.incidentId, [...(byIncident.get(a.incidentId) ?? []), a]));
 
     const list = [...incidentDtos.values()].map((dto): Incident => {
-      const incident = mapIncidentResponseToIncident(dto);
+      // `t` đổi khi đổi ngôn ngữ → tính lại để chọn tóm tắt / căn cứ ùn tắc AI đúng ngôn ngữ.
+      const incident = mapIncidentResponseToIncident(dto, getLanguage());
       const own = byIncident.get(dto.id) ?? [];
       const notices: CrewResponseNotice[] = own
         .filter((a) => a.status === 'Rejected' && !dismissedNoticeIds.has(a.id))
@@ -769,13 +775,15 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     id: string,
     confirmedSeverity: SeverityLevel,
     operatorNotes?: string,
-    category?: IncidentCategory
+    category?: IncidentCategory,
+    trafficJam?: TrafficJamDecision
   ) => {
     try {
       const res = await incidentService.verify(id, {
         confirmedSeverity: severityToBackend(confirmedSeverity),
         confirmedEventType: category && category !== 'unknown' ? EVENT_TYPE_FROM_CATEGORY[category] : undefined,
         operatorNotes,
+        confirmedTrafficJamStatus: trafficJam,
       });
       if (!res.success) return { ok: false, message: res.message || i18n.t('context.verifyFailed') };
       // Không tự gán xe: sự cố đã duyệt chờ Operator chọn xe từ gợi ý điều phối trên Live Map.
@@ -784,6 +792,18 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (err) {
       if (isConflict(err)) refreshBoard();
       return { ok: false, message: getApiErrorMessage(err, i18n.t('context.verifyFailed')) };
+    }
+  };
+
+  const reviewTrafficJam = async (id: string, decision: TrafficJamDecision, notes?: string): Promise<ActionResult> => {
+    try {
+      const res = await incidentService.updateTrafficJamStatus(id, { status: decision, notes: notes || undefined });
+      if (!res.success) return { ok: false, message: res.message || i18n.t('context.trafficJamReviewFailed') };
+      upsertIncidents([res.data]);
+      return { ok: true };
+    } catch (err) {
+      if (isConflict(err)) refreshBoard();
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('context.trafficJamReviewFailed')) };
     }
   };
 
@@ -1022,6 +1042,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incidentDrawerOpen,
         setIncidentDrawerOpen,
         approveIncident,
+        reviewTrafficJam,
         rejectIncident,
         transferIncident,
         lockIncident,

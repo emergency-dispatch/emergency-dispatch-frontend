@@ -3,6 +3,7 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowRightLeft,
+  GitCompareArrows,
   Ban,
   BrainCircuit,
   Building2,
@@ -24,6 +25,7 @@ import { IncidentAuditTimeline } from './IncidentAuditTimeline';
 import { IncidentMediaGallery } from './IncidentMediaGallery';
 import { ReporterMedicalCard } from './ReporterMedicalCard';
 import { SeverityBadge } from './SeverityBadge';
+import { TrafficJamReview } from './TrafficJamReview';
 import {
   BLOCK_DURATION_OPTIONS,
   CANCELLATION_REASON_OPTIONS,
@@ -41,6 +43,7 @@ import type {
   IncidentCategory,
   OperatorCancellationCode,
   SeverityLevel,
+  TrafficJamDecision,
 } from '../../../types/incident';
 import type { Station } from '../../../types/vehicle';
 import { dateLocale, useTranslation } from '../../../i18n';
@@ -64,7 +67,9 @@ interface IncidentDetailDrawerProps {
     id: string,
     confirmedSeverity: SeverityLevel,
     overrideReason: string | undefined,
-    category: IncidentCategory | undefined
+    category: IncidentCategory | undefined,
+    /** Thẩm định ùn tắc gửi kèm; undefined = giữ nguyên nhận định hiện tại. */
+    trafficJam: TrafficJamDecision | undefined
   ) => void;
   onReject: (id: string, reason: string, blockDuration: BlockDuration | null, reasonCode: OperatorCancellationCode) => void;
   /** Chuyển sự cố sang trạm khác. Không truyền → ẩn nút "Chuyển trạm". */
@@ -113,6 +118,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const [revealingPhone, setRevealingPhone] = useState(false);
   // Thẻ nguy cơ: mặc định chỉ hiện vài thẻ đầu, phần mô tả AI bên dưới đã nói chi tiết.
   const [showAllTags, setShowAllTags] = useState(false);
+  // Thẩm định ùn tắc chưa lưu — gửi kèm verify (confirmedTrafficJamStatus).
+  const [trafficJamDecision, setTrafficJamDecision] = useState<TrafficJamDecision | null>(null);
 
   // Sync severity khi mở drawer mới HOẶC khi AI xong (aiPending → false).
   // Dùng ref để không ghi đè khi Operator đã tự tay chọn cấp khác.
@@ -136,6 +143,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     setBlockDuration('30d');
     setRevealedPhone(null);
     setShowAllTags(false);
+    setTrafficJamDecision(null);
   }, [incident?.id]);
 
   // AI vừa xong phân tích (aiPending false → severity mới) — cập nhật nếu Operator chưa override.
@@ -183,7 +191,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
       incident.id,
       confirmedSeverity,
       isOverride ? overrideReason.trim() : undefined,
-      incident.needsEventType ? (confirmedCategory ?? undefined) : undefined
+      incident.needsEventType ? (confirmedCategory ?? undefined) : undefined,
+      trafficJamDecision && trafficJamDecision !== incident.trafficJam?.status ? trafficJamDecision : undefined
     );
   };
 
@@ -406,6 +415,26 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 </div>
               )}
 
+              {!incident.aiPending && incident.aiFlags.preliminaryYolo && (
+                <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3 text-xs text-amber-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>{t('incidents.drawer.preliminaryYoloTitle')}</strong>
+                    {t('incidents.drawer.preliminaryYoloBody')}
+                  </span>
+                </div>
+              )}
+
+              {!incident.aiPending && incident.aiFlags.engineDisagreement && (
+                <div className="flex items-start gap-2 rounded-xl border border-violet-300 bg-violet-50 px-3.5 py-3 text-xs text-violet-800">
+                  <GitCompareArrows className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>{t('incidents.drawer.engineDisagreementTitle')}</strong>
+                    {t('incidents.drawer.engineDisagreementBody')}
+                  </span>
+                </div>
+              )}
+
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
                 <div className="flex items-center gap-2 text-xs font-mono-data uppercase tracking-widest text-slate-500 font-bold">
                   <BrainCircuit className="w-3.5 h-3.5 text-red-600 shrink-0" />
@@ -470,14 +499,39 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                         </div>
                       </div>
                     )}
+                    {incident.aiEngine && (
+                      <div className="min-w-0">
+                        <p className="text-slate-500 mb-1">{t('incidents.engine.label')}</p>
+                        <p className="font-semibold text-slate-700 truncate" title={incident.aiEngine.modelName}>
+                          {incident.aiEngine.mode === 'legacy'
+                            ? incident.aiEngine.modelName
+                            : t(`incidents.engine.${incident.aiEngine.mode}`)}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
                 {incident.aiSummary && (
-                  <p className="text-sm text-slate-600 leading-relaxed border-t border-slate-200 pt-3">
-                    {incident.aiSummary}
-                  </p>
+                  <div className="border-t border-slate-200 pt-3">
+                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line break-words">
+                      {incident.aiSummary}
+                    </p>
+                    {incident.aiSummaryIsFallback && (
+                      <p className="text-[11px] text-slate-400 mt-1">{t('incidents.drawer.summaryFallback')}</p>
+                    )}
+                  </div>
                 )}
               </div>
+
+              {!incident.aiPending && incident.trafficJam && (
+                <TrafficJamReview
+                  trafficJam={incident.trafficJam}
+                  currentOperatorId={currentOperatorId}
+                  decision={trafficJamDecision}
+                  onDecisionChange={setTrafficJamDecision}
+                  readOnly={!canAct || mode !== 'review'}
+                />
+              )}
 
               {rejecting ? (
                 <div className="rounded-xl border border-red-200 bg-red-50/60 p-4 space-y-3">

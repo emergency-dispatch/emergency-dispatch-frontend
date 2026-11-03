@@ -4,7 +4,13 @@ import { IncidentDetailDrawer } from '../../components/operator/incidents/Incide
 import { IncidentQueueList } from '../../components/operator/incidents/IncidentQueueList';
 import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
 import { useDispatchStore } from '../../context/DispatchContext';
-import type { BlockDuration, IncidentCategory, OperatorCancellationCode, SeverityLevel } from '../../types/incident';
+import type {
+  BlockDuration,
+  IncidentCategory,
+  OperatorCancellationCode,
+  SeverityLevel,
+  TrafficJamDecision,
+} from '../../types/incident';
 import { useTranslation } from '../../i18n';
 
 // Backend giữ khóa mềm 2 phút; gia hạn mỗi 60 giây khi Operator vẫn đang mở ca.
@@ -92,11 +98,12 @@ export const IncidentQueuePage: React.FC = () => {
     id: string,
     confirmedSeverity: SeverityLevel,
     overrideReason: string | undefined,
-    category: IncidentCategory | undefined
+    category: IncidentCategory | undefined,
+    trafficJam: TrafficJamDecision | undefined
   ) => {
     setSubmittingId(id);
     setActionError(null);
-    const result = await approveIncident(id, confirmedSeverity, overrideReason, category);
+    const result = await approveIncident(id, confirmedSeverity, overrideReason, category, trafficJam);
     setSubmittingId(null);
     if (result.ok) {
       setSelectedId(null);

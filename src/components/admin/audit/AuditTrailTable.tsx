@@ -38,7 +38,7 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ entries, loadi
           </tr>
         )}
         {entries.map((e) => {
-          const action = auditActionMeta(e.action);
+          const action = auditActionMeta(e.action, e.newStateJson);
           const Icon = action.icon;
           return (
             <tr

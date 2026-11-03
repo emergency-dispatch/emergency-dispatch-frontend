@@ -110,7 +110,16 @@ export interface Incident {
   aiPending: boolean;
   /** AI chạy lỗi / quá thời gian chờ (aiClassification.isSuccess = false) — % tin cậy và cấp đề xuất vô nghĩa. */
   aiFailed: boolean;
+  /** Tóm tắt AI theo ngôn ngữ giao diện (summaryVi / summaryEn), có thể nhiều dòng. */
   aiSummary: string | null;
+  /** Giao diện tiếng Anh nhưng mô hình chưa sinh bản dịch → aiSummary chỉ là câu thay thế (summaryEnIsFallback). */
+  aiSummaryIsFallback: boolean;
+  /** Bộ máy AI đã chạy (YOLO + Qwen-VL); null = không có kết quả AI. */
+  aiEngine: AiEngineInfo | null;
+  /** Cảnh báo hệ thống AI tự gắn (rút từ hazardTags, không phải mối nguy thật). */
+  aiFlags: AiFlags;
+  /** Tình trạng ùn tắc tại hiện trường; null = không có kết quả AI / không có dấu hiệu (NoEvidence). */
+  trafficJam: IncidentTrafficJam | null;
   status: IncidentStatus;
   /** Backend đã leo thang (status Escalated): sự cố quá ngưỡng chưa có đội nhận. */
   escalated: boolean;
@@ -141,6 +150,45 @@ export interface Incident {
   responseNotices: CrewResponseNotice[];
   completedAt?: string;
   lock: IncidentLock | null;
+}
+
+/**
+ * Trạng thái ùn tắc (backend TrafficJamStatus). AI chỉ dừng ở Suspected / Disputed / Unverified;
+ * Confirmed / Dismissed chỉ do Operator / Admin chốt.
+ */
+export type TrafficJamStatus = 'NoEvidence' | 'Suspected' | 'Disputed' | 'Confirmed' | 'Dismissed' | 'Unverified';
+
+/** Hai quyết định Operator được gửi (PUT /traffic-jam-status, hoặc confirmedTrafficJamStatus khi verify). */
+export type TrafficJamDecision = Extract<TrafficJamStatus, 'Confirmed' | 'Dismissed'>;
+
+export interface IncidentTrafficJam {
+  status: TrafficJamStatus;
+  /** Căn cứ của AI, hoặc ghi chú của Operator sau khi đã thẩm định (theo ngôn ngữ giao diện). */
+  evidence: string | null;
+  /** Đã có người thẩm định (Confirmed / Dismissed). */
+  reviewed: boolean;
+  verifiedByUserId: string | null;
+  verifiedAt: string | null;
+}
+
+/**
+ * Cách Dual-Engine đã chạy (suy từ modelName):
+ * dual = YOLO + Qwen-VL; dualJamOnly = Qwen-VL + YOLO chỉ chạy được phần ùn tắc;
+ * yoloOnly / qwenOnly = engine kia lỗi; bothFailed = cả hai lỗi; legacy = mô hình đơn đời cũ.
+ */
+export type AiEngineMode = 'dual' | 'dualJamOnly' | 'yoloOnly' | 'qwenOnly' | 'bothFailed' | 'legacy';
+
+export interface AiEngineInfo {
+  mode: AiEngineMode;
+  /** modelName gốc (hiện trong tooltip). */
+  modelName: string;
+}
+
+export interface AiFlags {
+  /** Chỉ có kết quả sơ bộ của YOLO (Qwen-VL không khả dụng) — AI không đề xuất mức độ. */
+  preliminaryYolo: boolean;
+  /** YOLO và Qwen-VL không thống nhất (loại sự cố hoặc ùn tắc). */
+  engineDisagreement: boolean;
 }
 
 export interface TrafficJamReport {
@@ -184,13 +232,27 @@ export interface AiClassificationResultDto {
   severityScore: number;
   incidentType?: string | null;
   eventType?: BackendEventType;
+  /** Chỉ true khi trafficJamStatus = Confirmed (Operator đã xác nhận). */
   isTrafficJam?: boolean;
+  trafficJamStatus?: TrafficJamStatus;
+  /** Bản theo Accept-Language của request; qua SignalR thì dùng bản Vi / En tường minh. */
+  trafficJamEvidence?: string | null;
+  trafficJamEvidenceVi?: string | null;
+  trafficJamEvidenceEn?: string | null;
+  trafficJamVerifiedByUserId?: string | null;
+  trafficJamVerifiedAt?: string | null;
   summary?: string;
+  summaryVi?: string | null;
+  summaryEn?: string | null;
+  /** Mô hình chưa sinh tiếng Anh → summaryEn chỉ là câu thay thế, không phải bản dịch. */
+  summaryEnIsFallback?: boolean;
   confidenceScore?: number;
   isSuccess: boolean;
   modelName?: string;
   rawResponse?: string;
   errorMessage?: string;
+  errorMessageVi?: string | null;
+  errorMessageEn?: string | null;
   processingDurationMs: number;
 }
 
@@ -355,6 +417,14 @@ export interface VerifyIncidentRequestDto {
   confirmedEventType?: Exclude<BackendEventType, 'None'>;
   adjustedTitle?: string;
   operatorNotes?: string;
+  /** Thẩm định ùn tắc cùng lúc với xác minh; bỏ trống = giữ nguyên nhận định hiện tại. */
+  confirmedTrafficJamStatus?: TrafficJamDecision;
+}
+
+/** Body PUT /api/incidents/{id}/traffic-jam-status. */
+export interface UpdateTrafficJamStatusDto {
+  status: TrafficJamDecision;
+  notes?: string;
 }
 
 // Unclassified (AI không phân loại được) giữ số 1 cho kiểu dữ liệu, UI hiện "Chưa phân loại" qua Incident.aiUnclassified.
@@ -407,7 +477,48 @@ export function normalizeHazardTag(tag: string): string {
  */
 export const AI_FALLBACK_TAGS: ReadonlySet<string> = new Set(['unclassified', 'needshumanreview', 'needs_human_review']);
 
-export const isAiFallbackTag = (tag: string) => AI_FALLBACK_TAGS.has(normalizeHazardTag(tag));
+/**
+ * Tag Dual-Engine (YOLO + Qwen-VL) tự gắn để báo trạng thái xử lý, đã chuẩn hóa. Đã thể hiện bằng khối "Tình trạng
+ * giao thông" / cảnh báo AI → không hiện như thẻ nguy cơ.
+ */
+const AI_ENGINE_TAGS = {
+  suspectedTrafficJam: 'suspectedtrafficjam',
+  trafficJamDisputed: 'trafficjamdisputed',
+  trafficJamUnverified: 'trafficjamunverified',
+  preliminaryYolo: 'preliminaryyolodetection',
+  yoloAccidentFireUnverified: 'yoloaccidentfireunverified',
+  engineDisagreement: 'enginedisagreement',
+} as const;
+
+const AI_SYSTEM_TAGS: ReadonlySet<string> = new Set([...AI_FALLBACK_TAGS, ...Object.values(AI_ENGINE_TAGS)]);
+
+export const isAiFallbackTag = (tag: string) => AI_SYSTEM_TAGS.has(normalizeHazardTag(tag));
+
+/** modelName của DualEngineAiService → cách các engine đã chạy. */
+function parseAiEngine(modelName: string | undefined): AiEngineInfo | null {
+  if (!modelName) return null;
+  const name = modelName.toLowerCase();
+  const mode: AiEngineMode = name.startsWith('dual-engine (both failed)')
+    ? 'bothFailed'
+    : name.startsWith('dual-engine (qwen-vl + yolo jam only)')
+      ? 'dualJamOnly'
+      : name.startsWith('dual-engine')
+        ? 'dual'
+        : name.startsWith('yolo only')
+          ? 'yoloOnly'
+          : name.startsWith('qwen-vl only')
+            ? 'qwenOnly'
+            : 'legacy';
+  return { mode, modelName };
+}
+
+/** Văn bản AI theo ngôn ngữ giao diện: ưu tiên bản tường minh (SignalR luôn gửi cả hai), rồi tới bản theo Accept-Language. */
+const pickLocalized = (
+  language: 'vi' | 'en',
+  vi: string | null | undefined,
+  en: string | null | undefined,
+  selected: string | null | undefined
+): string | null => (language === 'en' ? en || selected || vi : vi || selected || en) || null;
 
 const ACTIVE_DISPATCH_STATUSES: BackendIncidentStatus[] = ['Verified', 'Dispatched', 'InProgress'];
 
@@ -424,11 +535,15 @@ export function toOperatorStatus(dto: Pick<IncidentResponseDto, 'status' | 'veri
  * Maps an incident from GET /api/Incidents/queue, GET /api/Incidents or a SignalR push
  * to the UI's Incident shape. Xe đã giao / báo cáo / phản hồi đội được DispatchContext
  * ghép từ các lượt phân công (DispatchAssignment).
+ * `language` chọn bản tóm tắt / căn cứ ùn tắc của AI (backend trả cả tiếng Việt và tiếng Anh).
  */
-export function mapIncidentResponseToIncident(dto: IncidentResponseDto): Incident {
+export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language: 'vi' | 'en' = 'vi'): Incident {
   const firstMedia = dto.mediaItems[0] ?? null;
   const ai = dto.aiClassification;
-  const hazardTags = (ai?.hazardTags ?? []).map(normalizeHazardTag);
+  const allTags = (ai?.hazardTags ?? []).map(normalizeHazardTag);
+  const hazardTags = allTags.filter((tag) => !AI_SYSTEM_TAGS.has(tag));
+  const jamStatus = ai?.trafficJamStatus ?? 'NoEvidence';
+  const jamReviewed = jamStatus === 'Confirmed' || jamStatus === 'Dismissed';
   // Loại sự cố: đã xác nhận / AI xác định → dùng luôn; chưa rõ → gợi ý theo loại SOS người dân chọn; không suy được → 'unknown'.
   const knownCategory =
     CATEGORY_FROM_EVENT_TYPE[dto.eventType ?? 'None'] ??
@@ -449,7 +564,23 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto): Inciden
     confidenceScore: Math.round((ai?.confidenceScore ?? 0) * 100),
     aiPending: !ai && (dto.status === 'Pending' || dto.status === 'AiProcessing'),
     aiFailed: !!ai && ai.isSuccess === false,
-    aiSummary: ai?.summary ?? null,
+    aiSummary: ai ? pickLocalized(language, ai.summaryVi, ai.summaryEn, ai.summary) : null,
+    aiSummaryIsFallback: language === 'en' && !!ai?.summaryEnIsFallback,
+    aiEngine: parseAiEngine(ai?.modelName),
+    aiFlags: {
+      preliminaryYolo: allTags.includes(AI_ENGINE_TAGS.preliminaryYolo),
+      engineDisagreement: allTags.includes(AI_ENGINE_TAGS.engineDisagreement),
+    },
+    trafficJam:
+      ai && jamStatus !== 'NoEvidence'
+        ? {
+            status: jamStatus,
+            evidence: pickLocalized(language, ai.trafficJamEvidenceVi, ai.trafficJamEvidenceEn, ai.trafficJamEvidence),
+            reviewed: jamReviewed,
+            verifiedByUserId: ai.trafficJamVerifiedByUserId ?? null,
+            verifiedAt: ai.trafficJamVerifiedAt ?? null,
+          }
+        : null,
     status: toOperatorStatus(dto) ?? 'pending',
     escalated: dto.status === 'Escalated',
     aiUnclassified: dto.severity === 'Unclassified',

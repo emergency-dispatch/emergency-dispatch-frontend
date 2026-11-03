@@ -10,6 +10,7 @@ import type {
   IncidentResponseDto,
   OperatorCancellationCode,
   PaginatedResultDto,
+  UpdateTrafficJamStatusDto,
   VerifyIncidentRequestDto,
   MyReportDto,
 } from '../types/incident';
@@ -147,6 +148,15 @@ export const incidentService = {
    */
   async verify(id: string, dto: VerifyIncidentRequestDto): Promise<ApiResponse<IncidentResponseDto>> {
     const response = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/verify`, dto);
+    return response.data;
+  },
+
+  /**
+   * Operator / Admin chốt cảnh báo ùn tắc AI gợi ý: Confirmed (có ùn tắc) hoặc Dismissed (đường thông).
+   * Dùng khi đã xác minh xong; lúc duyệt thì gửi kèm confirmedTrafficJamStatus trong verify.
+   */
+  async updateTrafficJamStatus(id: string, dto: UpdateTrafficJamStatusDto): Promise<ApiResponse<IncidentResponseDto>> {
+    const response = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/traffic-jam-status`, dto);
     return response.data;
   },
 

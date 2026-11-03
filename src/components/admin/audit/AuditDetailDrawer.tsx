@@ -22,7 +22,7 @@ const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, ch
 /** Chi tiết một bản ghi — chỉ đọc. */
 export const AuditDetailDrawer: React.FC<AuditDetailDrawerProps> = ({ entry, onClose, onFilterIncident }) => {
   const { t } = useTranslation();
-  const action = auditActionMeta(entry.action);
+  const action = auditActionMeta(entry.action, entry.newStateJson);
   const Icon = action.icon;
   const changes = stateChanges(entry.oldStateJson, entry.newStateJson);
 

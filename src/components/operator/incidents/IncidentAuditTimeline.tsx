@@ -19,12 +19,14 @@ import {
   SlidersHorizontal,
   ThumbsDown,
   ThumbsUp,
+  TrafficCone,
   Truck,
   UserPlus,
   type LucideIcon,
 } from 'lucide-react';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { incidentService } from '../../../services/incidentService';
+import { trafficJamAuditDecision } from '../../../utils/trafficJamAudit';
 import type { IncidentAuditAction, IncidentAuditEntryDto } from '../../../types/incident';
 import i18n, { dateLocale, useTranslation } from '../../../i18n';
 
@@ -62,8 +64,15 @@ const formatTime = (iso: string) =>
 
 const TimelineItem: React.FC<{ entry: IncidentAuditEntryDto; isLast: boolean }> = ({ entry, isLast }) => {
   const { t } = useTranslation();
-  const meta = ACTION_META[entry.action] ?? UNKNOWN_ACTION;
-  const label = entry.action in ACTION_META ? t(`incidents.audit.actions.${entry.action}`) : t('incidents.audit.unknownAction');
+  const jamDecision = trafficJamAuditDecision(entry.action, entry.newStateJson);
+  const meta = jamDecision
+    ? { icon: TrafficCone, color: jamDecision === 'Confirmed' ? '#DC2626' : '#059669' }
+    : (ACTION_META[entry.action] ?? UNKNOWN_ACTION);
+  const label = jamDecision
+    ? t(jamDecision === 'Confirmed' ? 'incidents.audit.trafficJamConfirmed' : 'incidents.audit.trafficJamDismissed')
+    : entry.action in ACTION_META
+      ? t(`incidents.audit.actions.${entry.action}`)
+      : t('incidents.audit.unknownAction');
   const Icon = meta.icon;
   const role = entry.actorRole
     ? isKnownRole(entry.actorRole)
