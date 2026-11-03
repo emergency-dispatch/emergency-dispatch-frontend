@@ -59,8 +59,11 @@ export const layoutEn: Messages<typeof layoutVi> = {
     location: 'Location',
     waitTime: 'Waiting time',
     reporter: 'Reporter:',
-    skip: 'Skip',
+    skip: 'Keep in queue',
     verifyNow: 'Verify now',
+    transferredKicker: 'INCIDENT TRANSFERRED TO YOUR STATION',
+    transferredFrom: 'Transferred from {{station}}{{by}}',
+    transferReason: 'Reason: {{reason}}',
   },
   operatorAlerts: {
     verify: 'Verify',
@@ -75,6 +78,8 @@ export const layoutEn: Messages<typeof layoutVi> = {
     transferredTitle: 'Incident transferred',
     transferredMessage: '{{incident}} → {{station}}{{by}}: {{reason}}',
     transferredBy: ' (by {{name}})',
+    transferredInTitle: 'Incident transferred to your station',
+    transferredInMessage: '{{incident}} ← {{station}}{{by}}: {{reason}}',
     otherStation: 'another station',
   },
   stationNotAssigned: {

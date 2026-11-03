@@ -42,8 +42,7 @@ export const OperatorSidebar: React.FC = () => {
               <NavLink
                 key={item.path}
                 to={item.path}
-                title={item.path in NAV_LABEL_KEY ? t(NAV_LABEL_KEY[item.path as keyof typeof NAV_LABEL_KEY]) : item.label}
-                className={({ isActive }) =>
+                title={item.path in NAV_LABEL_KEY ? t(NAV_LABEL_KEY[item.path as keyof typeof NAV_LABEL_KEY]) : item.label}                className={({ isActive }) =>
                   `relative flex items-center justify-center w-10 h-10 rounded-xl border transition-all ${
                     isActive
                       ? 'bg-red-50 border-red-200 text-red-600 shadow-sm'

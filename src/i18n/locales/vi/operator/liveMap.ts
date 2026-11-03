@@ -170,4 +170,18 @@ export const liveMapVi = {
     otherStationCoverage: 'Phủ sóng trạm khác',
     approximateRoute: 'Tuyến ước lượng',
   },
+  gpsSim: {
+    minimize: 'Thu nhỏ',
+    noVehicles: 'Chưa có xe nào đang được điều đi.',
+    vehicle: 'Xe',
+    speed: 'Tốc độ',
+    stop: 'Dừng',
+    resume: 'Tiếp tục',
+    run: 'Chạy',
+    jumpToEnd: 'Tới nơi',
+    remaining: '{{pct}}% · còn {{left}} / {{total}} km',
+    arrived: 'Xe đã tới hiện trường. Bấm "Đã tới hiện trường" trên app Staff.',
+    sendFailed: 'Gửi vị trí thất bại.',
+    routeFailed: 'Không lấy được tuyến đường.',
+  },
 } as const;

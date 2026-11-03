@@ -1,8 +1,8 @@
 export const layoutVi = {
   nav: {
-    liveMap: 'Live Map',
-    incidentQueue: 'Incident Queue',
-    stationTeams: 'Station Teams',
+    liveMap: 'Bản đồ điều phối',
+    incidentQueue: 'Hàng đợi sự cố',
+    stationTeams: 'Trạm & Tổ',
     vehicles: 'Đội xe',
   },
   hubStatus: {
@@ -56,8 +56,11 @@ export const layoutVi = {
     location: 'Địa điểm',
     waitTime: 'Thời gian chờ',
     reporter: 'Người báo:',
-    skip: 'Bỏ qua',
+    skip: 'Giữ trong hàng đợi',
     verifyNow: 'Thẩm định ngay',
+    transferredKicker: 'SỰ CỐ ĐƯỢC CHUYỂN TỚI TRẠM BẠN',
+    transferredFrom: 'Chuyển từ {{station}}{{by}}',
+    transferReason: 'Lý do: {{reason}}',
   },
   operatorAlerts: {
     verify: 'Thẩm định',
@@ -72,6 +75,8 @@ export const layoutVi = {
     transferredTitle: 'Sự cố đã chuyển trạm',
     transferredMessage: '{{incident}} → {{station}}{{by}}: {{reason}}',
     transferredBy: ' (bởi {{name}})',
+    transferredInTitle: 'Sự cố được chuyển tới trạm bạn',
+    transferredInMessage: '{{incident}} ← {{station}}{{by}}: {{reason}}',
     otherStation: 'trạm khác',
   },
   stationNotAssigned: {

@@ -2,6 +2,7 @@ import type { Messages } from '../types';
 import type { commonVi } from '../vi/common';
 
 export const commonEn: Messages<typeof commonVi> = {
+  documentTitle: 'ResQ-AI | National Emergency Reporting & Rescue Dispatch System',
   close: 'Close',
   cancel: 'Cancel',
   saving: 'Saving...',

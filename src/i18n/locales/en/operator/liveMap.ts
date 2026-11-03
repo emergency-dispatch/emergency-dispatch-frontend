@@ -173,4 +173,18 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     otherStationCoverage: 'Other station coverage',
     approximateRoute: 'Estimated route',
   },
+  gpsSim: {
+    minimize: 'Minimize',
+    noVehicles: 'No vehicle is currently dispatched.',
+    vehicle: 'Vehicle',
+    speed: 'Speed',
+    stop: 'Stop',
+    resume: 'Resume',
+    run: 'Run',
+    jumpToEnd: 'Arrive',
+    remaining: '{{pct}}% · {{left}} / {{total}} km left',
+    arrived: 'Vehicle has arrived on scene. Tap "Arrived on scene" in the Staff app.',
+    sendFailed: 'Failed to send location.',
+    routeFailed: 'Could not load the route.',
+  },
 };

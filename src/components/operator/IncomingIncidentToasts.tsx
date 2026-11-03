@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import {
+  ArrowRightLeft,
   BellRing,
   CheckCircle2,
   Clock,
@@ -14,7 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { INCIDENT_CATEGORY_META } from '../../data/incidentMock';
 import { SeverityBadge } from './incidents/SeverityBadge';
 import { useNow } from '../../hooks/useNow';
-import { useDispatchStore } from '../../context/DispatchContext';
+import { useDispatchStore, type IncomingTransferNote } from '../../context/DispatchContext';
 import type { Incident } from '../../types/incident';
 import { useTranslation } from '../../i18n';
 
@@ -32,11 +33,13 @@ const formatWaitTime = (totalSeconds: number) => {
 
 interface ModalProps {
   incident: Incident;
+  /** Có khi sự cố được trạm khác chuyển tới. */
+  transfer?: IncomingTransferNote;
   onDismiss: () => void;
   onGoToQueue: () => void;
 }
 
-const IncidentModal: React.FC<ModalProps> = ({ incident, onDismiss, onGoToQueue }) => {
+const IncidentModal: React.FC<ModalProps> = ({ incident, transfer, onDismiss, onGoToQueue }) => {
   const { t } = useTranslation();
   // Thời gian chờ kể từ lúc backend nhận SOS, đếm từng giây.
   const now = useNow(1000);
@@ -59,7 +62,7 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, onDismiss, onGoToQueue 
             </div>
             <div>
               <div className="text-[10px] font-mono-data uppercase tracking-widest text-red-100 font-bold">
-                {t('layout.incomingIncident.kicker')}
+                {transfer ? t('layout.incomingIncident.transferredKicker') : t('layout.incomingIncident.kicker')}
               </div>
               <h2 className="text-base font-black text-white leading-tight">{t('layout.incomingIncident.title')}</h2>
             </div>
@@ -96,6 +99,26 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, onDismiss, onGoToQueue 
               </span>
             )}
           </div>
+
+          {/* Chuyển từ trạm khác: trạm gửi, người chuyển, lý do */}
+          {transfer && (
+            <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2.5 text-xs">
+              <ArrowRightLeft className="w-4 h-4 shrink-0 mt-0.5 text-blue-600" />
+              <div className="space-y-0.5 min-w-0">
+                <p className="font-bold text-slate-900">
+                  {t('layout.incomingIncident.transferredFrom', {
+                    station: transfer.fromStationName ?? t('layout.operatorAlerts.otherStation'),
+                    by: transfer.transferredByName
+                      ? t('layout.operatorAlerts.transferredBy', { name: transfer.transferredByName })
+                      : '',
+                  })}
+                </p>
+                <p className="text-slate-600 break-words">
+                  {t('layout.incomingIncident.transferReason', { reason: transfer.reason })}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Tiêu đề + mô tả */}
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
@@ -174,7 +197,7 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, onDismiss, onGoToQueue 
  * Hiện từng tin báo một (FIFO), dismiss thì chuyển sang tin tiếp theo.
  */
 export const IncomingIncidentToasts: React.FC = () => {
-  const { incomingIncidents, dismissIncomingIncident } = useDispatchStore();
+  const { incomingIncidents, dismissIncomingIncident, incomingTransferNotes } = useDispatchStore();
   const navigate = useNavigate();
 
   // Chỉ hiện tin báo đầu tiên trong queue; dismiss → tin tiếp theo tự lên
@@ -193,6 +216,7 @@ export const IncomingIncidentToasts: React.FC = () => {
     <IncidentModal
       key={current.id}
       incident={current}
+      transfer={incomingTransferNotes.get(current.id)}
       onDismiss={handleDismiss}
       onGoToQueue={handleGoToQueue}
     />

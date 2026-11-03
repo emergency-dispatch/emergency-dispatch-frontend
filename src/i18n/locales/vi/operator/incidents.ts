@@ -5,7 +5,7 @@ export const incidentsVi = {
     transferFailed: 'Chuyển trạm thất bại. Vui lòng thử lại.',
   },
   queue: {
-    title: 'Incident Queue',
+    title: 'Hàng đợi sự cố',
     waitingCount: '<b>{{count}}</b> đang chờ',
     escalatedCount: '<b>{{count}}</b> leo thang',
     columnIncident: 'Sự cố',

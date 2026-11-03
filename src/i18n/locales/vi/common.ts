@@ -1,4 +1,5 @@
 export const commonVi = {
+  documentTitle: 'ResQ-AI | Hệ Thống Tiếp Nhận & Điều Phối Cứu Hộ Khẩn Cấp Quốc Gia',
   close: 'Đóng',
   cancel: 'Hủy',
   saving: 'Đang lưu...',
