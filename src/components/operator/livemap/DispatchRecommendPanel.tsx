@@ -227,6 +227,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                 parentIncidentId={selectedIncident.id}
                 linkedReportCount={selectedIncident.linkedReportCount}
                 onUnlink={unlinkLinkedReport}
+                // Hết báo cáo gộp → đóng hộp thoại, Operator quay lại điều phối.
+                onAllHandled={() => setLinkedOpen(false)}
               />
             </div>
           </div>

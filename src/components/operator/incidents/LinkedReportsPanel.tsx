@@ -39,6 +39,11 @@ interface LinkedReportsPanelProps {
    * "tin báo mới". Không truyền → gọi thẳng API.
    */
   onUnlink?: (reportId: string, reason?: string) => Promise<{ ok: boolean; message?: string }>;
+  /**
+   * Vừa tách / xác nhận xong và không còn báo cáo nào đang gộp → nơi dùng đưa Operator về việc chính
+   * (drawer quay về tab Thẩm định, hộp thoại Live Map đóng). `message` = thông báo thành công.
+   */
+  onAllHandled?: (message: string) => void;
 }
 
 const eventTypeLabel = (type: BackendEventType | null | undefined): string | null => {
@@ -56,6 +61,7 @@ export const LinkedReportsPanel: React.FC<LinkedReportsPanelProps> = ({
   linkedReportCount,
   readOnly = false,
   onUnlink,
+  onAllHandled,
 }) => {
   const { t } = useTranslation();
   const [reports, setReports] = useState<LinkedReportDto[]>([]);
@@ -66,13 +72,17 @@ export const LinkedReportsPanel: React.FC<LinkedReportsPanelProps> = ({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
 
-  const load = useCallback(async () => {
+  /** Tải danh sách; trả danh sách mới (null nếu lỗi) để submit biết còn báo cáo đang gộp không. */
+  const load = useCallback(async (): Promise<LinkedReportDto[] | null> => {
     setLoading(true);
     setLoadError(null);
     try {
-      setReports(await incidentService.getLinkedReports(parentIncidentId));
+      const list = await incidentService.getLinkedReports(parentIncidentId);
+      setReports(list);
+      return list;
     } catch (err) {
       setLoadError(getApiErrorMessage(err, i18n.t('incidents.linked.loadFailed')));
+      return null;
     } finally {
       setLoading(false);
     }
@@ -93,6 +103,7 @@ export const LinkedReportsPanel: React.FC<LinkedReportsPanelProps> = ({
     const { reportId, kind } = pending;
     setBusyId(reportId);
     setNotice(null);
+    let doneMessage: string | null = null;
     try {
       if (kind === 'unlink') {
         if (onUnlink) {
@@ -106,14 +117,17 @@ export const LinkedReportsPanel: React.FC<LinkedReportsPanelProps> = ({
       }
       setPending(null);
       setNote('');
-      setNotice({ kind: 'ok', text: t(kind === 'unlink' ? 'incidents.linked.unlinkDone' : 'incidents.linked.confirmDone') });
+      doneMessage = t(kind === 'unlink' ? 'incidents.linked.unlinkDone' : 'incidents.linked.confirmDone');
+      setNotice({ kind: 'ok', text: doneMessage });
     } catch (err) {
       // 400 = báo cáo đã được tách / xác nhận ở nơi khác → tải lại cho khớp.
       setNotice({ kind: 'error', text: getApiErrorMessage(err, t('incidents.linked.actionFailed')) });
     } finally {
       setBusyId(null);
-      load();
     }
+    const list = await load();
+    // Xử lý xong báo cáo cuối cùng → không để Operator kẹt ở danh sách trống.
+    if (doneMessage && list && !list.some((r) => r.status === 'Linked')) onAllHandled?.(doneMessage);
   };
 
   const activeCount = reports.filter((r) => r.status === 'Linked').length;

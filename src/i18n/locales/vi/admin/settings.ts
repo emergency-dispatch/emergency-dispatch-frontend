@@ -14,6 +14,8 @@ export const adminSettingsVi = {
     areaNameRequired: 'Vui lòng nhập tên khu vực.',
     areaCenterRequired: 'Vui lòng chọn tâm khu vực trên bản đồ.',
     areaRadiusRange: 'Bán kính phải từ {{min}} đến {{max}} km.',
+    duplicateRadiusRange: 'Bán kính phải từ {{min}} đến {{max}} m.',
+    duplicateWindowRange: 'Khung thời gian phải từ {{min}} đến {{max}} phút.',
     notifyRolesRequired: 'Chọn ít nhất 1 vai trò nhận cảnh báo.',
     descriptionTooLong: 'Mô tả tối đa {{max}} ký tự.',
   },
@@ -141,5 +143,28 @@ export const adminSettingsVi = {
     centerHint: 'Bấm lên bản đồ hoặc kéo chấm đỏ để đặt tâm ·',
     outsideStations:
       'Trạm nằm ngoài khu vực: <b>{{stations}}</b>. Vẫn lưu được, nhưng nên mở rộng bán kính hoặc dời tâm để các trạm nằm trong vùng phục vụ.',
+  },
+  // BR-07: tự gộp SOS trùng của người dân vào sự cố đang mở.
+  duplicateDetection: {
+    scopeNote:
+      'Hệ thống tự gộp SOS của người dân gửi gần nhau, cùng lúc vào một sự cố đang xử lý, để Operator không phải xử lý nhiều ca trùng. Không áp dụng cho sự cố do Operator tự tạo.',
+    enable: 'Bật tự gộp báo cáo trùng',
+    enableHint: 'Tắt: mọi SOS đều vào hàng đợi như một sự cố riêng.',
+    radius: 'Bán kính gộp',
+    radiusHint: 'Từ {{min}} đến {{max}} m, tính từ vị trí sự cố đang mở.',
+    window: 'Khung thời gian',
+    windowHint: 'Từ {{min}} đến {{max}} phút, tính từ lần báo gần nhất của sự cố đang mở.',
+    minutesUnit: 'phút',
+    summaryTitle: 'Áp dụng',
+    summaryRule:
+      'SOS mới được gộp khi cách một sự cố đang mở không quá {{meters}} m, sự cố đó có người báo trong {{minutes}} phút gần nhất và cùng loại sự cố (nếu đã biết loại).',
+    summaryOutlier: 'Báo cáo ở rìa bán kính hoặc khác loại được đánh dấu "Cần kiểm tra" cho Operator.',
+    summaryOperator: 'Operator thấy "+N người cùng báo" trên sự cố gốc và có thể tách ra hoặc xác nhận trùng.',
+    savedEnabled: 'Đã lưu cấu hình gộp báo cáo trùng.',
+    savedDisabled: 'Đã lưu cấu hình gộp báo cáo trùng (đang tắt).',
+    disableTitle: 'Tắt tự gộp báo cáo trùng?',
+    disableBody:
+      'Sau khi tắt, mọi SOS của người dân đều vào hàng đợi như sự cố riêng, kể cả nhiều người cùng báo một vụ. Áp dụng ngay cho tất cả các trạm.',
+    disableConfirm: 'Tắt và lưu',
   },
 } as const;

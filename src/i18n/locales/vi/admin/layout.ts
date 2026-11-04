@@ -25,6 +25,7 @@ export const adminLayoutVi = {
     escalation: 'Leo thang',
     dispatch: 'Tham số điều phối',
     serviceArea: 'Khu vực phục vụ',
+    duplicateDetection: 'Gộp báo cáo trùng',
     reports: 'Báo cáo sự cố',
     auditTrail: 'Audit Trail',
   },
