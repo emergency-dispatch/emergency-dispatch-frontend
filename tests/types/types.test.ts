@@ -63,6 +63,8 @@ describe('incident helpers', () => {
 
   it.each([
     ['Cancelled', undefined, null],
+    // BR-07: báo cáo đã gộp vào sự cố gốc không phải ca riêng → không vào hàng đợi / bảng điều phối.
+    ['Linked', undefined, null],
     ['Completed', undefined, 'completed'],
     ['Verified', undefined, 'approved'],
     ['Dispatched', undefined, 'approved'],
@@ -108,7 +110,9 @@ describe('mapIncidentResponseToIncident', () => {
       reporterMedical: null,
       emergencySmsLog: null,
       lock: null,
+      linkedReportCount: 0,
     });
+    expect(mapIncidentResponseToIncident(dto({ linkedReportCount: 3 })).linkedReportCount).toBe(3);
   });
 
   it('loại sự cố: eventType backend > AI > tiêu đề', () => {

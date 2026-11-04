@@ -7,6 +7,7 @@ import {
   Loader2,
   Route,
   Siren,
+  Users,
   X,
 } from 'lucide-react';
 import { SeverityBadge } from '../incidents/SeverityBadge';
@@ -113,6 +114,14 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
           <div className="mb-1">
             <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-[9px] font-bold text-red-700">
               {t('liveMap.incidentList.outOfArea')}
+            </span>
+          </div>
+        )}
+        {incident.linkedReportCount > 0 && (
+          <div className="mb-1">
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-[9px] font-bold text-blue-700">
+              <Users className="w-2.5 h-2.5" />
+              {t('liveMap.incidentList.linkedReports', { count: incident.linkedReportCount })}
             </span>
           </div>
         )}

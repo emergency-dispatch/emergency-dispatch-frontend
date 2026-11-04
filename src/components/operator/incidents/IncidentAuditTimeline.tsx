@@ -6,6 +6,7 @@ import {
   BrainCircuit,
   CheckCircle2,
   CircleDot,
+  CopyCheck,
   Eye,
   FilePlus2,
   Flag,
@@ -14,14 +15,17 @@ import {
   PhoneOff,
   RefreshCw,
   Repeat,
+  RotateCcw,
   ShieldCheck,
   Siren,
   SlidersHorizontal,
+  Split,
   ThumbsDown,
   ThumbsUp,
   TrafficCone,
   Truck,
   UserPlus,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import { getApiErrorMessage } from '../../../services/apiClient';
@@ -51,6 +55,10 @@ const ACTION_META: Record<IncidentAuditAction, { icon: LucideIcon; color: string
   TransferredStation: { icon: ArrowRightLeft, color: '#2563EB' },
   OutOfServiceArea: { icon: MapPinOff, color: '#DC2626' },
   CreatedByOperator: { icon: UserPlus, color: '#4F46E5' },
+  ReportLinked: { icon: Users, color: '#2563EB' },
+  ReportUnlinked: { icon: Split, color: '#2563EB' },
+  DuplicateConfirmed: { icon: CopyCheck, color: '#64748B' },
+  LinkedReportsRestored: { icon: RotateCcw, color: '#D97706' },
 };
 
 const UNKNOWN_ACTION = { icon: CircleDot, color: '#64748B' };

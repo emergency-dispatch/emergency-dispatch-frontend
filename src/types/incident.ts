@@ -150,6 +150,8 @@ export interface Incident {
   responseNotices: CrewResponseNotice[];
   completedAt?: string;
   lock: IncidentLock | null;
+  /** BR-07: số báo cáo trùng backend đang gom vào sự cố này (0 = không có). */
+  linkedReportCount: number;
 }
 
 /**
@@ -215,7 +217,9 @@ export type BackendIncidentStatus =
   | 'InProgress'
   | 'Completed'
   | 'Cancelled'
-  | 'Escalated';
+  | 'Escalated'
+  /** BR-07: báo cáo trùng đã được backend tự gom vào một sự cố gốc (linkedToIncidentId) — không phải ca riêng. */
+  | 'Linked';
 
 export type BackendSeverityLevel = 'Unclassified' | 'Level1' | 'Level2' | 'Level3';
 
@@ -294,6 +298,37 @@ export interface IncidentResponseDto {
   aiClassification?: AiClassificationResultDto | null;
   reporterMedicalProfile?: (ReporterMedicalProfile & { userId: string; fullName: string; phoneNumber: string }) | null;
   emergencySmsDispatchLog?: string | null;
+  /** Loại sự cố người báo tự chọn khi gửi SOS (nếu có). */
+  reportedEventType?: BackendEventType | null;
+  /** (Sự cố gốc) Số báo cáo đang được gom vào sự cố này — hiện "+N người cùng báo". */
+  linkedReportCount?: number;
+  /** (Báo cáo đã gom / đã xác nhận trùng) Sự cố gốc. */
+  linkedToIncidentId?: string | null;
+}
+
+/**
+ * Mirror LinkedReportDto (GET /api/incidents/{id}/linked-reports): một báo cáo đã gom vào sự cố gốc (BR-07).
+ * Danh sách gồm cả báo cáo đang gom (`Linked`) và đã xác nhận trùng (`Cancelled`), cũ nhất trước.
+ */
+export interface LinkedReportDto {
+  incidentId: string;
+  status: BackendIncidentStatus;
+  reportedAt: string;
+  linkedAt?: string | null;
+  /** Khoảng cách tới sự cố gốc (m). */
+  distanceMeters?: number | null;
+  description: string;
+  locationAddress: string;
+  latitude: number;
+  longitude: number;
+  reporterName?: string | null;
+  maskedReporterPhone?: string | null;
+  reportedEventType?: BackendEventType | null;
+  /** Kết quả YOLO kiểm tra nhanh ảnh; null = chưa kiểm tra / không có ảnh. */
+  quickCheckEventType?: BackendEventType | null;
+  /** Backend nghi gom nhầm: ở rìa bán kính, hoặc loại tự chọn / YOLO khác loại sự cố gốc. */
+  isOutlier: boolean;
+  mediaUrls: string[];
 }
 
 /** AuditAction của backend (nhật ký thao tác trên sự cố). */
@@ -316,7 +351,13 @@ export type IncidentAuditAction =
   | 'ReporterBlocked'
   | 'TransferredStation'
   | 'OutOfServiceArea'
-  | 'CreatedByOperator';
+  | 'CreatedByOperator'
+  // 19–25 (đổi mức độ, yêu cầu hiện trường) và 29 (người báo bổ sung) chưa có trên web → hiện "Thao tác khác".
+  // BR-07 gom báo cáo trùng:
+  | 'ReportLinked'
+  | 'ReportUnlinked'
+  | 'DuplicateConfirmed'
+  | 'LinkedReportsRestored';
 
 /** Mirror AuditTrailEntryDto (GET /api/incidents/{id}/audit-trail). */
 export interface IncidentAuditEntryDto {
@@ -435,7 +476,7 @@ const SEVERITY_FROM_BACKEND: Record<BackendSeverityLevel, SeverityLevel> = {
   Level3: 3,
 };
 
-const CATEGORY_FROM_EVENT_TYPE: Partial<Record<BackendEventType, Exclude<IncidentCategory, 'unknown'>>> = {
+export const CATEGORY_FROM_EVENT_TYPE: Partial<Record<BackendEventType, Exclude<IncidentCategory, 'unknown'>>> = {
   FireExplosion: 'fire',
   TrafficAccident: 'accident',
 };
@@ -524,7 +565,8 @@ const ACTIVE_DISPATCH_STATUSES: BackendIncidentStatus[] = ['Verified', 'Dispatch
 
 /** null = sự cố đã hủy (không còn hiện ở phân hệ Operator). */
 export function toOperatorStatus(dto: Pick<IncidentResponseDto, 'status' | 'verifiedAt'>): IncidentStatus | null {
-  if (dto.status === 'Cancelled') return null;
+  // Linked: báo cáo trùng đã gom vào sự cố gốc — không phải ca riêng, chỉ xem / tách từ sự cố gốc.
+  if (dto.status === 'Cancelled' || dto.status === 'Linked') return null;
   if (dto.status === 'Completed') return 'completed';
   if (ACTIVE_DISPATCH_STATUSES.includes(dto.status)) return 'approved';
   if (dto.status === 'Escalated') return dto.verifiedAt ? 'approved' : 'pending';
@@ -609,5 +651,6 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
           expiresAt: dto.lockExpiresAt!,
         }
       : null,
+    linkedReportCount: dto.linkedReportCount ?? 0,
   };
 }

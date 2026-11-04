@@ -13,6 +13,7 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       Completed: 'Completed',
       Cancelled: 'Cancelled',
       Escalated: 'Escalated',
+      Linked: 'Linked to an ongoing incident',
     },
     unclassified: 'Unclassified',
     levelShort: 'Level {{level}}',

@@ -41,6 +41,7 @@ export function makeIncident(overrides: Partial<Incident> = {}): Incident {
     reportedVehicleIds: [],
     responseNotices: [],
     lock: null,
+    linkedReportCount: 0,
     ...overrides,
   };
 }

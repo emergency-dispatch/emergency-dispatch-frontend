@@ -79,6 +79,14 @@ describe('IncidentRow', () => {
     expect(screen.getByText(t(key))).toBeInTheDocument();
   });
 
+  it('BR-07: có báo cáo trùng đang gộp → badge "+N người cùng báo"; không có → ẩn', () => {
+    const { unmount } = renderRow({ linkedReportCount: 2 });
+    expect(screen.getByText(t('incidents.row.linkedReports', { count: 2 }))).toBeInTheDocument();
+    unmount();
+    renderRow();
+    expect(screen.queryByText(t('incidents.row.linkedReports', { count: 0 }))).not.toBeInTheDocument();
+  });
+
   it('ùn tắc đã bác bỏ → không hiện chip', () => {
     renderRow({ trafficJam: { status: 'Dismissed', evidence: null, reviewed: true, verifiedAt: null, verifiedByUserId: null } });
     expect(screen.queryByText(t('incidents.row.trafficConfirmed'))).not.toBeInTheDocument();

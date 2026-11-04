@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, Lock, MapPin, Siren, TrafficCone } from 'lucide-react';
+import { Loader2, Lock, MapPin, Siren, TrafficCone, Users } from 'lucide-react';
 import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { IncidentThumbnail } from './IncidentThumbnail';
 import { ConfidenceBadge } from './ConfidenceBadge';
@@ -91,6 +91,15 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
           {incident.isOutOfServiceArea && (
             <span className="inline-flex items-center px-1.5 py-px rounded bg-red-50 border border-red-200 text-[10px] font-bold text-red-700 shrink-0">
               {t('incidents.row.outOfArea')}
+            </span>
+          )}
+          {incident.linkedReportCount > 0 && (
+            <span
+              title={t('incidents.row.linkedReportsTitle')}
+              className="inline-flex items-center gap-1 px-1.5 py-px rounded bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-700 shrink-0"
+            >
+              <Users className="w-3 h-3" />
+              {t('incidents.row.linkedReports', { count: incident.linkedReportCount })}
             </span>
           )}
           {jamChip && jamStatus && (

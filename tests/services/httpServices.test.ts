@@ -167,6 +167,24 @@ describe('incidentService', () => {
     api.get.mockResolvedValue(apiFail('Cấm'));
     await expect(incidentService.getAuditTrail('i1', 2, 10)).rejects.toThrow('Cấm');
   });
+
+  it('BR-07: getLinkedReports / unlinkReport / confirmDuplicate', async () => {
+    api.get.mockResolvedValue(apiOk([{ incidentId: 'r1' }]));
+    await expect(incidentService.getLinkedReports('p1')).resolves.toEqual([{ incidentId: 'r1' }]);
+    expect(api.get).toHaveBeenCalledWith('/Incidents/p1/linked-reports');
+
+    api.put.mockResolvedValue(apiOk({ id: 'r1' }));
+    await incidentService.unlinkReport('r1', 'nhà khác');
+    expect(api.put).toHaveBeenLastCalledWith('/Incidents/r1/unlink', { reason: 'nhà khác' });
+    // Bỏ trống lý do → không gửi, backend tự ghi lý do mặc định.
+    await incidentService.unlinkReport('r1', '');
+    expect(api.put).toHaveBeenLastCalledWith('/Incidents/r1/unlink', { reason: undefined });
+    await incidentService.confirmDuplicate('r1');
+    expect(api.put).toHaveBeenLastCalledWith('/Incidents/r1/confirm-duplicate', { note: undefined });
+
+    api.put.mockResolvedValue(apiFail('Báo cáo này không nằm trong nhóm gom nào.'));
+    await expect(incidentService.confirmDuplicate('r1', 'x')).rejects.toThrow('Báo cáo này không nằm trong nhóm gom nào.');
+  });
 });
 
 describe('dispatchService', () => {

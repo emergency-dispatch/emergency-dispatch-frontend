@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient, unwrapApi } from './apiClient';
 import type { ApiResponse } from '../types/auth';
 import type {
   BackendIncidentStatus,
@@ -8,6 +8,7 @@ import type {
   OperatorIncidentResultDto,
   IncidentAuditEntryDto,
   IncidentResponseDto,
+  LinkedReportDto,
   OperatorCancellationCode,
   PaginatedResultDto,
   UpdateTrafficJamStatusDto,
@@ -218,6 +219,26 @@ export const incidentService = {
     });
     if (!res.data.success) throw new Error(res.data.message || 'Không tải được lịch sử xử lý.');
     return res.data.data;
+  },
+
+  /** BR-07: các báo cáo trùng backend đã gom vào sự cố gốc (đang gom + đã xác nhận trùng). */
+  async getLinkedReports(parentId: string): Promise<LinkedReportDto[]> {
+    return unwrapApi(apiClient.get<ApiResponse<LinkedReportDto[]>>(`/Incidents/${parentId}/linked-reports`));
+  },
+
+  /**
+   * Tách báo cáo khỏi sự cố gốc (gom nhầm): báo cáo quay lại hàng đợi như SOS mới, giữ thời điểm báo gốc.
+   * Lý do tùy chọn — bỏ trống thì backend ghi "Điều phối viên tách báo cáo".
+   */
+  async unlinkReport(reportId: string, reason?: string): Promise<IncidentResponseDto> {
+    return unwrapApi(apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${reportId}/unlink`, { reason: reason || undefined }));
+  },
+
+  /** Xác nhận báo cáo đã gom đúng là trùng → đóng báo cáo (Cancelled, lý do Duplicate). Ghi chú tùy chọn. */
+  async confirmDuplicate(reportId: string, note?: string): Promise<IncidentResponseDto> {
+    return unwrapApi(
+      apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${reportId}/confirm-duplicate`, { note: note || undefined })
+    );
   },
 
   /** Giữ / gia hạn khóa mềm 2 phút. Operator khác đang giữ → HTTP 409. */

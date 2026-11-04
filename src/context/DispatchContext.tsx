@@ -45,6 +45,8 @@ const TIER2_SIREN_MS = 4000;
 // Thông báo "xe trạm bạn đi hỗ trợ" / "sự cố đã chuyển trạm" tự đóng sau khoảng này; cảnh báo ngoài khu vực giữ tới khi đóng.
 const INFO_ALERT_MS = 15000;
 const HIGHLIGHT_DURATION_MS = 2200;
+// Thời gian giữ đánh dấu "mình vừa tách" chờ ReceiveNewIncident (BR-07).
+const SELF_UNLINK_MARK_MS = 30000;
 
 const ACTIVE_ASSIGNMENT_STATUSES: BackendDispatchStatus[] = ['Dispatched', 'Accepted', 'EnRoute', 'OnScene'];
 const ASSIGNMENT_TO_VEHICLE_STATUS: Partial<Record<BackendDispatchStatus, VehicleStatus>> = {
@@ -247,6 +249,11 @@ interface DispatchContextValue {
   ) => Promise<ActionResult>;
   /** Chuyển sự cố sang trạm khác phụ trách (lý do ≥ 5 ký tự). */
   transferIncident: (id: string, stationId: string, reason: string) => Promise<ActionResult>;
+  /**
+   * BR-07: tách báo cáo đã gộp khỏi sự cố gốc (PUT /api/incidents/{id}/unlink). Báo cáo quay lại hàng đợi qua
+   * ReceiveNewIncident — người vừa tách không bị bật popup "tin báo mới" / bíp.
+   */
+  unlinkLinkedReport: (reportId: string, reason?: string) => Promise<ActionResult>;
   lockIncident: (id: string) => Promise<ActionResult>;
   releaseIncident: (id: string) => void;
   /** Operator tự tạo sự cố (tin báo qua điện thoại, bộ đàm, camera…) — sự cố được xác minh ngay. */
@@ -319,6 +326,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [incomingTransferNotes, setIncomingTransferNotes] = useState<Map<string, IncomingTransferNote>>(new Map());
   // Chuyển trạm tới mình, đang chờ ReceiveNewIncident (backend gửi ngay sau) để biết sự cố có lên modal không.
   const awaitingTransferredRef = useRef<Map<string, IncomingTransferNote>>(new Map());
+  // Báo cáo chính mình vừa tách (BR-07): ReceiveNewIncident của nó không bật popup / bíp.
+  // Ghi trước khi gọi API vì event có thể tới trước HTTP response.
+  const selfUnlinkedIdsRef = useRef<Set<string>>(new Set());
   const myStationIdRef = useRef(user?.stationId ?? null);
   myStationIdRef.current = user?.stationId ?? null;
   const myUserIdRef = useRef(user?.id ?? null);
@@ -447,7 +457,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const known = knownIncidentIdsRef.current;
         const arrived = queueRes.data.filter((dto) => !known.has(dto.id)).map((dto) => dto.id);
         highlight(arrived);
-        announceIncoming(arrived);
+        // Báo cáo chính mình vừa tách (BR-07) → không bật popup.
+        announceIncoming(arrived.filter((id) => !selfUnlinkedIdsRef.current.delete(id)));
       }
       knownIncidentIdsRef.current = new Set([...(knownIncidentIdsRef.current ?? []), ...freshIds]);
       setIncidentsError(null);
@@ -515,7 +526,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         highlight([dto.id]);
         // Sự cố chính mình vừa tạo (event có thể tới trước cả HTTP response) → không bíp báo tin mới.
         const createdByMe = !!dto.source && dto.source !== 'CitizenApp' && dto.verifiedByUserId === myUserIdRef.current;
-        if (!createdByMe) announceIncoming([dto.id]);
+        // Báo cáo chính mình vừa tách khỏi sự cố gốc → vẫn vào hàng đợi (đã tô sáng), không bật popup.
+        const unlinkedByMe = selfUnlinkedIdsRef.current.delete(dto.id);
+        if (!createdByMe && !unlinkedByMe) announceIncoming([dto.id]);
         // Sự cố chuyển tới đã qua thẩm định → không lên modal (chỉ hiện sự cố chờ duyệt) → báo bằng toast.
         const transfer = awaitingTransferredRef.current.get(dto.id);
         if (transfer) {
@@ -892,6 +905,19 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return { ok: true };
   };
 
+  const unlinkLinkedReport = async (reportId: string, reason?: string): Promise<ActionResult> => {
+    selfUnlinkedIdsRef.current.add(reportId);
+    // Không có ReceiveNewIncident (VD báo cáo thuộc trạm khác) → bỏ đánh dấu để không giữ mãi.
+    setTimeout(() => selfUnlinkedIdsRef.current.delete(reportId), SELF_UNLINK_MARK_MS);
+    try {
+      await incidentService.unlinkReport(reportId, reason);
+      return { ok: true };
+    } catch (err) {
+      selfUnlinkedIdsRef.current.delete(reportId);
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('incidents.linked.actionFailed')) };
+    }
+  };
+
   const transferIncident = async (id: string, stationId: string, reason: string): Promise<ActionResult> => {
     try {
       const res = await incidentService.transfer(id, stationId, reason);
@@ -1098,6 +1124,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         reviewTrafficJam,
         rejectIncident,
         transferIncident,
+        unlinkLinkedReport,
         lockIncident,
         releaseIncident,
         createOperatorIncident,

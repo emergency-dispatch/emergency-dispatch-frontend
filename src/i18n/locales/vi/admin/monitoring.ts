@@ -11,6 +11,7 @@ export const adminMonitoringVi = {
       Completed: 'Hoàn thành',
       Cancelled: 'Đã hủy',
       Escalated: 'Leo thang',
+      Linked: 'Đã gộp vào sự cố đang xử lý',
     },
     unclassified: 'Chưa phân loại',
     levelShort: 'Cấp {{level}}',

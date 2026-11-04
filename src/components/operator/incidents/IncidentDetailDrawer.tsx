@@ -23,6 +23,7 @@ import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { IncidentAuditTimeline } from './IncidentAuditTimeline';
 import { IncidentMediaGallery } from './IncidentMediaGallery';
+import { LinkedReportsPanel } from './LinkedReportsPanel';
 import { ReporterMedicalCard } from './ReporterMedicalCard';
 import { SeverityBadge } from './SeverityBadge';
 import { TrafficJamReview } from './TrafficJamReview';
@@ -79,6 +80,8 @@ interface IncidentDetailDrawerProps {
   onRelock: (id: string) => void;
   /** Trả số đầy đủ (backend ghi vết Audit Trail), null nếu thất bại. */
   onRevealPhone: (id: string) => Promise<string | null>;
+  /** BR-07: tách báo cáo đã gộp qua store (không bật popup tin báo mới cho chính mình). */
+  onUnlinkReport?: (reportId: string, reason?: string) => Promise<{ ok: boolean; message?: string }>;
   isSubmitting?: boolean;
   errorMsg?: string | null;
 }
@@ -95,6 +98,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   transferStations = [],
   onRelock,
   onRevealPhone,
+  onUnlinkReport,
   isSubmitting = false,
   errorMsg = null,
 }) => {
@@ -104,8 +108,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const [confirmedCategory, setConfirmedCategory] = useState<IncidentCategory | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
   const [mode, setMode] = useState<DrawerMode>('review');
-  // Tab nội dung: thẩm định (media + AI) hoặc lịch sử xử lý (audit trail).
-  const [tab, setTab] = useState<'review' | 'history'>('review');
+  // Tab nội dung: thẩm định (media + AI), báo cáo trùng đã gom (BR-07) hoặc lịch sử xử lý (audit trail).
+  const [tab, setTab] = useState<'review' | 'linked' | 'history'>('review');
   const rejecting = mode === 'reject';
   const [rejectReason, setRejectReason] = useState('');
   const [rejectCode, setRejectCode] = useState<OperatorCancellationCode>('FalseReport');
@@ -300,6 +304,10 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
           {(
             [
               ['review', t('incidents.drawer.tabReview')],
+              // Chỉ hiện khi có báo cáo trùng đang gom; giữ tab khi đang mở dù vừa xác nhận / tách hết.
+              ...(incident.linkedReportCount > 0 || tab === 'linked'
+                ? ([['linked', t('incidents.drawer.tabLinked', { count: incident.linkedReportCount })]] as const)
+                : []),
               ['history', t('incidents.drawer.tabHistory')],
             ] as const
           ).map(([key, label]) => (
@@ -321,6 +329,16 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
           {tab === 'history' ? (
             <div className="p-5 max-w-2xl">
               <IncidentAuditTimeline key={incident.id} incidentId={incident.id} />
+            </div>
+          ) : tab === 'linked' ? (
+            <div className="p-5 max-w-3xl">
+              <LinkedReportsPanel
+                key={incident.id}
+                parentIncidentId={incident.id}
+                linkedReportCount={incident.linkedReportCount}
+                readOnly={lockedByOther}
+                onUnlink={onUnlinkReport}
+              />
             </div>
           ) : (
           <div className="grid md:grid-cols-2 gap-5 p-5">
