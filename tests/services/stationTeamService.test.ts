@@ -46,7 +46,8 @@ describe('stationTeamService', () => {
         id: 't1',
         stationId: 's1',
         name: 'Tổ t1',
-        vehicleId: null,
+        vehicleIds: [],
+        vehiclePlates: [],
         members: [
           { staffId: 'u1', crewRole: 'commander', fullName: 'u1' },
           { staffId: 'u2', crewRole: 'medic', fullName: 'u2' },
@@ -139,13 +140,36 @@ describe('stationTeamService', () => {
     expect(svc.getSnapshot().teams.map((t) => t.id)).toEqual(['b', 'a2']);
   });
 
+  it('map tổ nhiều xe (rescueUnitIds) và tương thích backend cũ chỉ có rescueUnitId', async () => {
+    api.get.mockImplementation((url: string) =>
+      Promise.resolve(
+        apiOk(
+          url === '/stations/s1/teams'
+            ? [{ ...teamDto('t1', 's1'), rescueUnitIds: ['v1', 'v2'], rescueUnitPlates: ['51A-1', '51A-2'], rescueUnitId: 'v1', rescueUnitPlate: '51A-1' }]
+            : [{ ...teamDto('t2', 's2'), rescueUnitId: 'v9', rescueUnitPlate: '51A-9' }],
+        ),
+      ),
+    );
+    await svc.loadTeams(['s1', 's2']);
+    expect(svc.getSnapshot().teams.map((t) => [t.id, t.vehicleIds, t.vehiclePlates])).toEqual([
+      ['t1', ['v1', 'v2'], ['51A-1', '51A-2']],
+      ['t2', ['v9'], ['51A-9']],
+    ]);
+  });
+
+  it('saveTeam gửi rescueUnitIds rỗng khi bỏ hết xe', async () => {
+    api.put.mockResolvedValue(apiOk(teamDto('t1', 's1')));
+    await svc.saveTeam('s1', { name: 'x', vehicleIds: [], members: [] }, 't1');
+    expect(api.put).toHaveBeenCalledWith('/stations/s1/teams/t1', { name: 'x', rescueUnitIds: [], members: [] });
+  });
+
   it('saveTeam tạo mới (POST) và cập nhật (PUT)', async () => {
-    const input = { name: '  Tổ 1  ', vehicleId: 'v1', members: [{ staffId: 'u1', crewRole: 'firefighter' as const }] };
+    const input = { name: '  Tổ 1  ', vehicleIds: ['v1', 'v2'], members: [{ staffId: 'u1', crewRole: 'firefighter' as const }] };
     api.post.mockResolvedValue(apiOk(teamDto('t1', 's1', [['u1', 'Firefighter']])));
     const created = await svc.saveTeam('s1', input, null);
     expect(api.post).toHaveBeenCalledWith('/stations/s1/teams', {
       name: 'Tổ 1',
-      rescueUnitId: 'v1',
+      rescueUnitIds: ['v1', 'v2'],
       members: [{ staffId: 'u1', crewRole: 'Firefighter' }],
     });
     expect(created.members[0].crewRole).toBe('firefighter');
@@ -159,7 +183,7 @@ describe('stationTeamService', () => {
 
   it('deleteTeam xóa khỏi store; hủy đăng ký thì không nhận thông báo', async () => {
     api.post.mockResolvedValue(apiOk(teamDto('t1', 's1')));
-    await svc.saveTeam('s1', { name: 'x', vehicleId: null, members: [] }, null);
+    await svc.saveTeam('s1', { name: 'x', vehicleIds: [], members: [] }, null);
     const listener = vi.fn();
     const unsubscribe = svc.subscribe(listener);
     api.delete.mockResolvedValue(apiOk(true));

@@ -19,12 +19,12 @@ vi.mock('@/services/incidentService', () => ({ incidentService: { getAuditTrail:
 const rec = vi.mocked(dispatchService.getRecommendations);
 
 const v = (o: Partial<Vehicle>): Vehicle =>
-  ({ id: 'v', plate: 'X', type: 'fire_truck', status: 'available', stationId: 'st-1', stationName: 'Trạm 1', incidentId: null, assignmentId: null, lat: 0, lng: 0, ...o }) as Vehicle;
+  ({ id: 'v', plate: 'X', type: 'fire_truck', unitType: 'FireTruck', status: 'available', stationId: 'st-1', stationName: 'Trạm 1', incidentId: null, assignmentId: null, lat: 0, lng: 0, ...o }) as Vehicle;
 
 const unit = (o: Partial<RecommendedUnitResponseDto>): RecommendedUnitResponseDto =>
   ({ rescueUnitId: 'v1', stationName: 'Trạm 1', distanceKm: 2.04, roadDistanceKm: 2.6, estimatedEtaMinutes: 4.4, cost: 0.31, stationLoad: 0.25, searchRadiusKm: 10, radiusExpanded: false, ...o }) as RecommendedUnitResponseDto;
 
-const team = (vehicleId: string, name: string) => ({ id: `t-${vehicleId}`, stationId: 'st-1', name, vehicleId, members: [{ staffId: 'a', crewRole: 'commander' as const }, { staffId: 'b', crewRole: 'driver' as const }] });
+const team = (vehicleId: string, name: string) => ({ id: `t-${vehicleId}`, stationId: 'st-1', name, vehicleIds: [vehicleId], vehiclePlates: [vehicleId], members: [{ staffId: 'a', crewRole: 'commander' as const }, { staffId: 'b', crewRole: 'driver' as const }] });
 
 beforeEach(() => {
   vi.clearAllMocks();

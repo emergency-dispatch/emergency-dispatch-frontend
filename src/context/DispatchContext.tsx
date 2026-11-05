@@ -757,6 +757,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           id: unit.id,
           plate: unit.plateNumber,
           type,
+          unitType: unit.unitType,
           status,
           stationId: unit.stationId,
           stationName: unit.stationName,

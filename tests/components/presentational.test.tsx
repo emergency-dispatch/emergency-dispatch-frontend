@@ -157,7 +157,7 @@ describe('DispatchTeamLabel', () => {
   it('tổ đủ người có tổ trưởng', () => {
     render(
       <DispatchTeamLabel
-        team={{ id: 't', stationId: 's', name: 'Tổ 1', vehicleId: 'v', members: [{ staffId: 'a', crewRole: 'commander', fullName: 'Bình' }, { staffId: 'b', crewRole: 'driver' }] }}
+        team={{ id: 't', stationId: 's', name: 'Tổ 1', vehicleIds: ['v'], vehiclePlates: ['51A-1'], members: [{ staffId: 'a', crewRole: 'commander', fullName: 'Bình' }, { staffId: 'b', crewRole: 'driver' }] }}
         vehicle={vehicle}
         detail={<span> · 2 km</span>}
       />,
@@ -170,8 +170,20 @@ describe('DispatchTeamLabel', () => {
   });
 
   it('tổ thiếu người → cảnh báo', () => {
-    render(<DispatchTeamLabel team={{ id: 't', stationId: 's', name: 'Tổ 2', vehicleId: 'v', members: [{ staffId: 'a', crewRole: 'driver' }] }} vehicle={vehicle} />);
+    render(<DispatchTeamLabel team={{ id: 't', stationId: 's', name: 'Tổ 2', vehicleIds: ['v'], vehiclePlates: ['51A-1'], members: [{ staffId: 'a', crewRole: 'driver' }] }} vehicle={vehicle} />);
     expect(screen.getByText(t('liveMap.teamLabel.understaffed', { size: 1, min: 2 }))).toBeInTheDocument();
+    expect(screen.queryByText(/\(\+/)).not.toBeInTheDocument();
+  });
+
+  it('tổ nhiều xe → hiện biển số các xe còn lại của tổ', () => {
+    render(
+      <DispatchTeamLabel
+        team={{ id: 't', stationId: 's', name: 'Tổ 3', vehicleIds: ['v', 'v2', 'v3'], vehiclePlates: ['51A-123', '51A-2', '51A-3'], members: [] }}
+        vehicle={vehicle}
+      />,
+    );
+    const others = screen.getByText(t('liveMap.teamLabel.sameTeam', { plates: '51A-2, 51A-3' }));
+    expect(others).toHaveAttribute('title', t('liveMap.teamLabel.sameTeamTitle', { plates: '51A-2, 51A-3' }));
   });
 });
 

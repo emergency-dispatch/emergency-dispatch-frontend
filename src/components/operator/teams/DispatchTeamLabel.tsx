@@ -21,6 +21,8 @@ export const DispatchTeamLabel: React.FC<DispatchTeamLabelProps> = ({ team, vehi
   const leader = team.members.find((m) => m.crewRole === 'commander');
   const size = team.members.length;
   const understaffed = size < MIN_TEAM_SIZE;
+  // Tổ nhiều xe: các xe còn lại của tổ (cùng nhân sự) — để Operator biết giao xe này là dùng tổ đó.
+  const otherPlates = team.vehiclePlates.filter((_, i) => team.vehicleIds[i] !== vehicle.id);
 
   return (
     <div className="min-w-0 space-y-0.5">
@@ -52,6 +54,12 @@ export const DispatchTeamLabel: React.FC<DispatchTeamLabelProps> = ({ team, vehi
       </p>
       <p className="text-[10px] text-slate-400 truncate">
         <span className="font-mono-data">{vehicle.plate}</span>
+        {otherPlates.length > 0 && (
+          <span title={t('liveMap.teamLabel.sameTeamTitle', { plates: otherPlates.join(', ') })}>
+            {' '}
+            {t('liveMap.teamLabel.sameTeam', { plates: otherPlates.join(', ') })}
+          </span>
+        )}
         {detail}
       </p>
     </div>

@@ -426,7 +426,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                       // Xe hỗ trợ trạm khác: không xem được tổ → hiện theo xe.
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-slate-900 truncate">
-                          {t(`enums.vehicleType.${vehicle.type}`)}
+                          {t(`enums.unitType.${vehicle.unitType}`)}
                         </p>
                         <p className="text-[10px] text-slate-400 truncate">
                           <span className="font-mono-data">{vehicle.plate}</span>

@@ -27,7 +27,7 @@ const refreshProfile = vi.fn();
 
 const staff = (o: Partial<StationStaff>): StationStaff => ({ id: 's', fullName: 'X', phoneNumber: '', isLocked: false, stationId: 'st-1', teamId: null, ...o });
 const vehicle = (o: Partial<Vehicle>): Vehicle =>
-  ({ id: 'v1', plate: '51A-1', type: 'fire_truck', status: 'available', stationId: 'st-1', ...o }) as Vehicle;
+  ({ id: 'v1', plate: '51A-1', type: 'fire_truck', unitType: 'FireTruck', status: 'available', stationId: 'st-1', ...o }) as Vehicle;
 
 const staffList: StationStaff[] = [
   staff({ id: 'a', fullName: 'Anh Tuấn', teamId: 't1' }),
@@ -37,7 +37,7 @@ const staffList: StationStaff[] = [
   staff({ id: 'e', fullName: 'Em Khóa', stationId: null, isLocked: true }),
 ];
 const teams: StationTeam[] = [
-  { id: 't1', stationId: 'st-1', name: 'Tổ Alpha', vehicleId: 'v1', members: [{ staffId: 'a', crewRole: 'commander' }, { staffId: 'b', crewRole: 'driver' }] },
+  { id: 't1', stationId: 'st-1', name: 'Tổ Alpha', vehicleIds: ['v1'], vehiclePlates: ['51A-1'], members: [{ staffId: 'a', crewRole: 'commander' }, { staffId: 'b', crewRole: 'driver' }] },
 ];
 
 const renderPage = (stationId: string | null = 'st-1') =>
@@ -120,6 +120,27 @@ describe('StationTeamsPage', () => {
     expect(screen.getByRole('button', { name: t('teams.staff.removeLabel', { name: 'Anh Tuấn' }) })).toBeDisabled();
   });
 
+  it('tổ nhiều xe: thẻ hiện đủ biển số; một xe bận → khóa sửa tổ', async () => {
+    mockStore.current = makeDispatchStore({
+      vehicles: [vehicle({}), vehicle({ id: 'v2', plate: '51A-2', type: 'ambulance', status: 'en_route' })],
+    });
+    vi.mocked(useStationTeams).mockReturnValue({
+      staff: staffList,
+      teams: [{ ...teams[0], vehicleIds: ['v1', 'v2', 'gone'], vehiclePlates: ['51A-1', '51A-2', '51A-9'] }],
+    });
+    renderPage();
+    await screen.findByRole('heading', { name: 'Trạm Thủ Đức' });
+    expect(screen.getAllByText('51A-1').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('51A-2').length).toBeGreaterThan(0);
+    expect(screen.getByText('51A-9')).toBeInTheDocument();
+    expect(screen.getByText(t('teams.card.vehicleGone'), { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(t('enums.teamFunction.fire_truck'))).toBeInTheDocument();
+    expect(screen.getByText(t('enums.teamFunction.ambulance'))).toBeInTheDocument();
+    // Cả hai xe đều có tổ → không còn cảnh báo "xe chưa có tổ"
+    expect(screen.queryByText(t('teams.page.vehiclesWithoutTeam'), { exact: false })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: t('teams.card.editLabel', { name: 'Tổ Alpha' }) })).toBeDisabled();
+  });
+
   it('xóa tổ lỗi → thông báo lỗi', async () => {
     svc.deleteTeam.mockRejectedValue(new Error('Tổ đang làm nhiệm vụ'));
     renderPage();
@@ -129,20 +150,25 @@ describe('StationTeamsPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Tổ đang làm nhiệm vụ');
   });
 
-  it('tạo tổ: chọn xe, thành viên, tổ trưởng', async () => {
+  it('tạo tổ: chọn nhiều xe, thành viên, tổ trưởng', async () => {
+    mockStore.current = makeDispatchStore({
+      vehicles: [vehicle({}), vehicle({ id: 'v2', plate: '51A-2', type: 'ambulance' }), vehicle({ id: 'v3', plate: '51A-3', type: 'rescue' })],
+    });
     svc.saveTeam.mockResolvedValue({ ...teams[0], id: 't2', name: 'Tổ 2' });
     renderPage();
     await screen.findByRole('heading', { name: 'Trạm Thủ Đức' });
     await userEvent.click(screen.getByRole('button', { name: t('teams.page.createTeam') }));
     const drawer = screen.getByRole('heading', { name: t('teams.form.createTitle') }).closest('aside')!;
-    const vehicleSelect = within(drawer).getAllByRole('combobox')[0];
     // xe v1 đã có tổ Alpha → bị khóa
-    expect(within(vehicleSelect).getByRole('option', { name: /51A-1/ })).toBeDisabled();
-    await userEvent.selectOptions(vehicleSelect, 'v2');
+    expect(within(drawer).getByRole('checkbox', { name: /51A-1/ })).toBeDisabled();
+    expect(within(drawer).getByText(t('teams.form.hasTeam', { team: 'Tổ Alpha' }))).toBeInTheDocument();
+    await userEvent.click(within(drawer).getByRole('checkbox', { name: /51A-2/ }));
+    await userEvent.click(within(drawer).getByRole('checkbox', { name: /51A-3/ }));
+    expect(within(drawer).getByText(t('teams.form.vehicles', { count: 2 }))).toBeInTheDocument();
     await userEvent.click(within(drawer).getByRole('checkbox', { name: /Chí Thanh/ }));
     await userEvent.selectOptions(within(drawer).getByRole('combobox', { name: t('teams.form.roleOf', { name: 'Chí Thanh' }) }), 'commander');
     await userEvent.click(within(drawer).getByRole('button', { name: t('teams.form.save') }));
-    expect(svc.saveTeam).toHaveBeenCalledWith('st-1', { name: t('teams.form.defaultName', { index: 2 }), vehicleId: 'v2', members: [{ staffId: 'c', crewRole: 'commander' }] }, null);
+    expect(svc.saveTeam).toHaveBeenCalledWith('st-1', { name: t('teams.form.defaultName', { index: 2 }), vehicleIds: ['v2', 'v3'], members: [{ staffId: 'c', crewRole: 'commander' }] }, null);
     expect(await screen.findByRole('status')).toHaveTextContent(t('teams.page.teamCreated', { name: 'Tổ 2' }));
   });
 

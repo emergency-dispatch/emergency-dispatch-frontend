@@ -84,13 +84,15 @@ export const StationTeamsPage: React.FC = () => {
   const staffById = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
   const teamsById = useMemo(() => new Map(stationTeams.map((team) => [team.id, team])), [stationTeams]);
   const vehiclesById = useMemo(() => new Map(stationVehicles.map((v) => [v.id, v])), [stationVehicles]);
-  const vehiclesWithoutTeam = stationVehicles.filter((v) => !stationTeams.some((team) => team.vehicleId === v.id));
+  const vehiclesWithoutTeam = stationVehicles.filter((v) => !stationTeams.some((team) => team.vehicleIds.includes(v.id)));
 
-  // Xe của tổ đang làm nhiệm vụ / hồi sức → khóa sửa tổ và gỡ thành viên cho tới khi xe về Sẵn sàng.
+  // Một xe bất kỳ của tổ đang làm nhiệm vụ / hồi sức → khóa sửa tổ và gỡ thành viên cho tới khi xe về Sẵn sàng.
   const teamLockedReason = (team: StationTeam): string | null => {
-    const vehicle = team.vehicleId ? vehiclesById.get(team.vehicleId) : undefined;
-    if (!vehicle || vehicle.status === 'available') return null;
-    return t('teams.page.vehicleBusy', { plate: vehicle.plate, status: t(`enums.vehicleStatus.${vehicle.status}`) });
+    const busy = team.vehicleIds
+      .map((id) => vehiclesById.get(id))
+      .find((vehicle) => vehicle && vehicle.status !== 'available');
+    if (!busy) return null;
+    return t('teams.page.vehicleBusy', { plate: busy.plate, status: t(`enums.vehicleStatus.${busy.status}`) });
   };
   const staffLockedReason = (s: StationStaff) => {
     const team = s.teamId ? teamsById.get(s.teamId) : undefined;
@@ -226,7 +228,7 @@ export const StationTeamsPage: React.FC = () => {
                     key={team.id}
                     team={team}
                     staffById={staffById}
-                    vehicle={team.vehicleId ? vehiclesById.get(team.vehicleId) : undefined}
+                    vehiclesById={vehiclesById}
                     lockedReason={teamLockedReason(team)}
                     onEdit={() => setTeamDrawer({ mode: 'edit', team })}
                     onDelete={() => setDeletingTeam(team)}
@@ -302,7 +304,8 @@ export const StationTeamsPage: React.FC = () => {
         >
           <p>
             {t('teams.page.deleteBody', { count: deletingTeam.members.length })}
-            {deletingTeam.vehicleId && t('teams.page.deleteBodyVehicle')}
+            {deletingTeam.vehicleIds.length > 0 &&
+              t('teams.page.deleteBodyVehicle', { count: deletingTeam.vehicleIds.length })}
           </p>
         </ConfirmModal>
       )}

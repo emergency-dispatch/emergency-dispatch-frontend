@@ -27,6 +27,10 @@ interface StationTeamDto {
   id: string;
   stationId: string;
   name: string;
+  /** Tổ nhiều xe (§26.1). Backend cũ chưa có → dùng rescueUnitId. */
+  rescueUnitIds?: string[];
+  rescueUnitPlates?: string[];
+  /** [Cũ] Xe đầu tiên của tổ. */
   rescueUnitId: string | null;
   rescueUnitPlate: string | null;
   members: Array<{ staffId: string; fullName: string; phoneNumber: string | null; crewRole: BackendCrewRole }>;
@@ -43,7 +47,8 @@ const mapTeam = (dto: StationTeamDto): StationTeam => ({
   id: dto.id,
   stationId: dto.stationId,
   name: dto.name,
-  vehicleId: dto.rescueUnitId,
+  vehicleIds: dto.rescueUnitIds ?? (dto.rescueUnitId ? [dto.rescueUnitId] : []),
+  vehiclePlates: dto.rescueUnitPlates ?? (dto.rescueUnitPlate ? [dto.rescueUnitPlate] : []),
   members: dto.members.map((m) => ({ staffId: m.staffId, crewRole: toCrewRole(m.crewRole), fullName: m.fullName })),
 });
 
@@ -104,7 +109,8 @@ async function assignStation(staffId: string, stationId: string | null) {
 
 const toInputDto = (input: StationTeamInput) => ({
   name: input.name.trim(),
-  rescueUnitId: input.vehicleId,
+  // Gửi danh sách (kể cả rỗng = gỡ hết xe); backend chỉ dùng rescueUnitId cũ khi không có rescueUnitIds.
+  rescueUnitIds: input.vehicleIds,
   members: input.members.map((m) => ({ staffId: m.staffId, crewRole: toBackendCrewRole(m.crewRole) })),
 });
 

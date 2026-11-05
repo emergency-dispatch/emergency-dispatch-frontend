@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { isAxiosError } from 'axios';
 import { AlertTriangle, Crown, Lock } from 'lucide-react';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../../admin/common/ui';
 import { inputClass } from '../../admin/common/styles';
@@ -44,13 +45,15 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
 }) => {
   const { t } = useTranslation();
   const [name, setName] = useState(team?.name ?? t('teams.form.defaultName', { index: stationTeams.length + 1 }));
-  const [vehicleId, setVehicleId] = useState<string | null>(team?.vehicleId ?? null);
+  const [vehicleIds, setVehicleIds] = useState<string[]>(team?.vehicleIds ?? []);
   const [members, setMembers] = useState<TeamMember[]>(team?.members ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const vehicleOfOtherTeam = new Map(
-    stationTeams.filter((other) => other.id !== team?.id && other.vehicleId).map((other) => [other.vehicleId!, other.name])
+    stationTeams
+      .filter((other) => other.id !== team?.id)
+      .flatMap((other) => other.vehicleIds.map((id) => [id, other.name] as const))
   );
   // Người đã thuộc tổ khác không chọn được; người bị khóa chỉ hiện nếu đang là thành viên (để gỡ ra).
   const memberIds = new Set(members.map((m) => m.staffId));
@@ -59,9 +62,14 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
     .sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'));
   const otherTeamCount = stationStaff.filter((s) => s.teamId && s.teamId !== team?.id).length;
 
-  const selectedVehicle = stationVehicles.find((v) => v.id === vehicleId);
-  const defaultRole: CrewRole = selectedVehicle ? DEFAULT_ROLE_BY_VEHICLE[selectedVehicle.type] : 'rescuer';
+  // Giữ thứ tự xe của trạm để vai trò gợi ý / chức năng hiện ổn định.
+  const selectedVehicles = stationVehicles.filter((v) => vehicleIds.includes(v.id));
+  const selectedTypes = [...new Set(selectedVehicles.map((v) => v.type))];
+  const defaultRole: CrewRole = selectedVehicles[0] ? DEFAULT_ROLE_BY_VEHICLE[selectedVehicles[0].type] : 'rescuer';
   const commanderCount = members.filter((m) => m.crewRole === 'commander').length;
+
+  const toggleVehicle = (id: string) =>
+    setVehicleIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const toggleMember = (staffId: string) =>
     setMembers((prev) =>
@@ -87,11 +95,15 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
     setSubmitting(true);
     setError(null);
     try {
-      const saved = await stationTeamService.saveTeam(stationId, { name, vehicleId, members }, team?.id ?? null);
+      const saved = await stationTeamService.saveTeam(stationId, { name, vehicleIds, members }, team?.id ?? null);
       onSaved(saved);
     } catch (err) {
       setError(getApiErrorMessage(err));
       setSubmitting(false);
+      // 409: xe / nhân sự vừa được tổ khác nhận → tải lại tổ để danh sách hiện đúng "đã có tổ khác".
+      if (isAxiosError(err) && err.response?.status === 409) {
+        stationTeamService.reloadStationTeams(stationId).catch(() => undefined);
+      }
     }
   };
 
@@ -111,35 +123,52 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
       </FormField>
 
       <FormField
-        label={t('teams.form.vehicle')}
+        label={t('teams.form.vehicles', { count: vehicleIds.length })}
         hint={t('teams.form.vehicleHint')}
       >
-        <select
-          value={vehicleId ?? ''}
-          onChange={(e) => setVehicleId(e.target.value || null)}
-          className={inputClass}
-        >
-          <option value="">{t('teams.form.atStationOption')}</option>
-          {stationVehicles.map((v) => {
-            const otherTeam = vehicleOfOtherTeam.get(v.id);
-            const busy = v.status !== 'available' && v.id !== team?.vehicleId;
-            const suffix = otherTeam
-              ? t('teams.form.hasTeam', { team: otherTeam })
-              : busy
-                ? ` — ${t(`enums.vehicleStatus.${v.status}`)}`
-                : '';
-            return (
-              <option key={v.id} value={v.id} disabled={!!otherTeam || busy}>
-                {v.plate} · {t(`enums.vehicleType.${v.type}`)}
-                {suffix}
-              </option>
-            );
-          })}
-        </select>
-        {selectedVehicle ? (
+        <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
+          {stationVehicles.length === 0 ? (
+            <p className="text-center text-xs text-slate-500 py-6">{t('teams.form.noVehicles')}</p>
+          ) : (
+            stationVehicles.map((v) => {
+              const otherTeam = vehicleOfOtherTeam.get(v.id);
+              const checked = vehicleIds.includes(v.id);
+              // Xe đang bận chỉ bỏ chọn được nếu vốn đã thuộc tổ này; không thêm xe bận vào tổ.
+              const busy = v.status !== 'available' && !team?.vehicleIds.includes(v.id);
+              const disabled = !!otherTeam || (busy && !checked);
+              return (
+                <label
+                  key={v.id}
+                  className={`flex items-center gap-3 px-3 py-2.5 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-50'}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={disabled}
+                    onChange={() => toggleVehicle(v.id)}
+                    className="accent-red-600"
+                  />
+                  <span className="flex-1 min-w-0 text-sm text-slate-900 truncate">
+                    <span className="font-mono-data font-bold">{v.plate}</span> · {t(`enums.unitType.${v.unitType}`)}
+                  </span>
+                  {(otherTeam || busy) && (
+                    <span className="text-[11px] text-slate-500 whitespace-nowrap">
+                      {otherTeam
+                        ? t('teams.form.hasTeam', { team: otherTeam })
+                        : t(`enums.vehicleStatus.${v.status}`)}
+                    </span>
+                  )}
+                </label>
+              );
+            })
+          )}
+        </div>
+        {selectedTypes.length > 0 ? (
           <p className="text-xs text-slate-600">
             {t('teams.form.function')}{' '}
-            <span className="font-bold text-slate-900">{t(`enums.teamFunction.${selectedVehicle.type}`)}</span>
+            <span className="font-bold text-slate-900">
+              {selectedTypes.map((type) => t(`enums.teamFunction.${type}`)).join(', ')}
+            </span>
           </p>
         ) : (
           <p className="flex items-start gap-1.5 text-xs text-amber-700">

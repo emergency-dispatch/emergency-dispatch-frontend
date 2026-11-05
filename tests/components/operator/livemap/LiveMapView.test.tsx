@@ -17,7 +17,7 @@ vi.mock('@/hooks/useStationTeams', () => ({ useTeamByVehicle: vi.fn() }));
 
 const station = (o: Partial<Station>): Station => ({ id: 'st-1', name: 'Trạm 1', address: '', lat: 10.84, lng: 106.8, coverageRadiusKm: 5, vehicleIds: [], ...o });
 const v = (o: Partial<Vehicle>): Vehicle =>
-  ({ id: 'v', plate: 'X', type: 'fire_truck', status: 'available', unitStatus: 'Available', stationId: 'st-1', stationName: 'Trạm 1', incidentId: null, assignmentId: null, lat: 10.85, lng: 106.81, heading: 0, etaMinutes: null, hasLiveGps: false, lastUpdated: '', ...o }) as Vehicle;
+  ({ id: 'v', plate: 'X', type: 'fire_truck', unitType: 'FireTruck', status: 'available', unitStatus: 'Available', stationId: 'st-1', stationName: 'Trạm 1', incidentId: null, assignmentId: null, lat: 10.85, lng: 106.81, heading: 0, etaMinutes: null, hasLiveGps: false, lastUpdated: '', ...o }) as Vehicle;
 
 const baseProps = () => {
   const vehicles = [

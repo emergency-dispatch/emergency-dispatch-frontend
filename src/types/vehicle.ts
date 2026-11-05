@@ -1,3 +1,5 @@
+import type { RescueUnitType } from './rescueUnit';
+
 // Vòng đời nhiệm vụ của xe phía Command Center: giao xe → chờ đội Chấp nhận / Từ chối (không giới hạn giờ) →
 // Accepted → EnRoute → OnScene → nộp báo cáo → hồi sức → Available.
 // 'unavailable' = xe Bảo trì / Ngừng hoạt động (Admin đặt), không điều được.
@@ -18,7 +20,10 @@ export type DispatchVehicleType = Exclude<VehicleType, 'police'>;
 export interface Vehicle {
   id: string;
   plate: string;
+  /** Nhóm chức năng (chọn icon, chức năng tổ, lọc) — nhiều loại xe backend gộp chung 1 nhóm. */
   type: DispatchVehicleType;
+  /** Loại xe gốc của backend (RescueUnitType) — dùng làm tên loại xe hiển thị (Xe thang ≠ Xe chữa cháy). */
+  unitType: RescueUnitType;
   status: VehicleStatus;
   stationId: string;
   stationName: string;
