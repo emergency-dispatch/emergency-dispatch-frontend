@@ -5,6 +5,57 @@ import { MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE } from '../../../services/mapboxServi
 
 const COVERAGE_SOURCE_ID = 'station-coverage';
 const DEFAULT_COVERAGE_COLOR = '#DC2626';
+// Lớp tham chiếu (không bấm được): cùng màu với Live Map của Operator —
+// khu vực phục vụ xanh nét đứt (MapServiceAreaLayer), trạm khác tím nét liền (MapStationCoverageLayer).
+const REFERENCE_SOURCE_ID = 'picker-reference';
+const SERVICE_AREA_COLOR = '#2563EB';
+const OTHER_STATION_COLOR = '#7C3AED';
+const INACTIVE_STATION_COLOR = '#64748B';
+
+export interface MapReferenceStation {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radiusKm: number;
+  /** Trạm tạm ngưng → vẽ màu xám. */
+  inactive?: boolean;
+}
+
+export interface MapReferenceArea {
+  lat: number;
+  lng: number;
+  radiusKm: number;
+}
+
+const toReferenceCollection = (area: MapReferenceArea | null, stations: MapReferenceStation[]) => ({
+  type: 'FeatureCollection' as const,
+  features: [
+    ...stations
+      .filter((s) => s.radiusKm > 0)
+      .map((s) => ({
+        ...buildCoveragePolygon(s.lat, s.lng, s.radiusKm),
+        properties: { kind: 'station', color: s.inactive ? INACTIVE_STATION_COLOR : OTHER_STATION_COLOR },
+      })),
+    ...(area && area.radiusKm > 0
+      ? [{ ...buildCoveragePolygon(area.lat, area.lng, area.radiusKm, 96), properties: { kind: 'area', color: SERVICE_AREA_COLOR } }]
+      : []),
+  ],
+});
+
+/** Chấm + tên trạm khác; pointer-events:none để bấm lên vẫn đặt được vị trí. */
+const createReferenceStationElement = (name: string, color: string) => {
+  const el = document.createElement('div');
+  el.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;';
+  const dot = document.createElement('div');
+  dot.style.cssText = `width:10px;height:10px;border-radius:9999px;background:${color};border:2px solid #FFFFFF;box-shadow:0 0 4px rgba(15,23,42,0.45);`;
+  const label = document.createElement('div');
+  label.textContent = name;
+  label.style.cssText =
+    'padding:1px 6px;border-radius:4px;background:rgba(255,255,255,0.92);color:#334155;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 2px rgba(15,23,42,0.25);';
+  el.append(dot, label);
+  return el;
+};
 
 const boundsOfCircle = (lat: number, lng: number, radiusKm: number) =>
   buildCoveragePolygon(lat, lng, radiusKm, 32).geometry.coordinates[0].reduce(
@@ -57,6 +108,10 @@ interface StationMapPickerProps {
   color?: string;
   /** Vòng tròn lớn (khu vực phục vụ): mở bản đồ và recenter thì thu vừa cả vòng thay vì zoom sát vào tâm. */
   fitToRadius?: boolean;
+  /** Khu vực phục vụ để tham chiếu (null/bỏ trống = không vẽ). Truyền giá trị đã memo. */
+  referenceArea?: MapReferenceArea | null;
+  /** Các trạm khác để tham chiếu (vòng phủ sóng + tên). Truyền mảng đã memo. */
+  referenceStations?: MapReferenceStation[];
 }
 
 /**
@@ -72,6 +127,8 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
   recenterKey,
   color = DEFAULT_COVERAGE_COLOR,
   fitToRadius = false,
+  referenceArea = null,
+  referenceStations,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -164,6 +221,70 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
     const source = mapRef.current?.getSource(COVERAGE_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
     source?.setData(buildCoveragePolygon(lat, lng, radiusKm));
   }, [lat, lng, radiusKm]);
+
+  // Lớp tham chiếu nằm dưới vòng phủ sóng của trạm đang sửa. Dữ liệu về sau (gọi API) nên đợi style sẵn sàng.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const stations = referenceStations ?? [];
+    const update = () => {
+      if (!map.getSource(REFERENCE_SOURCE_ID)) {
+        const ownFill = `${COVERAGE_SOURCE_ID}-fill`;
+        const beforeId = map.getLayer(ownFill) ? ownFill : undefined;
+        map.addSource(REFERENCE_SOURCE_ID, { type: 'geojson', data: toReferenceCollection(null, []) });
+        map.addLayer(
+          {
+            id: `${REFERENCE_SOURCE_ID}-fill`,
+            type: 'fill',
+            source: REFERENCE_SOURCE_ID,
+            filter: ['==', ['get', 'kind'], 'station'],
+            paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.06 },
+          },
+          beforeId
+        );
+        map.addLayer(
+          {
+            id: `${REFERENCE_SOURCE_ID}-station-line`,
+            type: 'line',
+            source: REFERENCE_SOURCE_ID,
+            filter: ['==', ['get', 'kind'], 'station'],
+            paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.9 },
+          },
+          beforeId
+        );
+        map.addLayer(
+          {
+            id: `${REFERENCE_SOURCE_ID}-area-line`,
+            type: 'line',
+            source: REFERENCE_SOURCE_ID,
+            filter: ['==', ['get', 'kind'], 'area'],
+            paint: { 'line-color': SERVICE_AREA_COLOR, 'line-width': 2.5, 'line-dasharray': [3, 2] },
+          },
+          beforeId
+        );
+      }
+      (map.getSource(REFERENCE_SOURCE_ID) as mapboxgl.GeoJSONSource).setData(toReferenceCollection(referenceArea, stations));
+    };
+
+    // isStyleLoaded() còn false lúc tile đang tải → đợi 'idle' (luôn bắn lại), giống MapServiceAreaLayer.
+    if (map.isStyleLoaded()) update();
+    else map.once('idle', update);
+
+    const markers = stations.map((s) =>
+      new mapboxgl.Marker({
+        element: createReferenceStationElement(s.name, s.inactive ? INACTIVE_STATION_COLOR : OTHER_STATION_COLOR),
+        anchor: 'top',
+        offset: [0, -5],
+      })
+        .setLngLat([s.lng, s.lat])
+        .addTo(map)
+    );
+
+    return () => {
+      map.off('idle', update);
+      markers.forEach((m) => m.remove());
+    };
+  }, [referenceArea, referenceStations]);
 
   useEffect(() => {
     if (!recenterKey) return;

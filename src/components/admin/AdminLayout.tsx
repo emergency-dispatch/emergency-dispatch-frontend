@@ -31,7 +31,11 @@ export const AdminLayout: React.FC = () => {
   }, [menuOpen]);
 
   return (
-    <div className="h-screen w-screen flex bg-white text-slate-900 overflow-hidden">
+    <div
+      className="h-screen w-screen flex bg-white text-slate-900 overflow-hidden"
+      // Độ rộng sidebar (khớp AdminSidebar: w-64 / w-[76px]) — panel phụ của DrawerShell canh theo biến này.
+      style={{ '--admin-sidebar-w': collapsed ? '76px' : '16rem' } as React.CSSProperties}
+    >
       <div className="hidden lg:flex h-full">
         <AdminSidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
       </div>

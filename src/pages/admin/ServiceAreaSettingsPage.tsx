@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { AlertTriangle, LocateFixed } from 'lucide-react';
 import { SettingsForm } from '../../components/admin/settings/SettingsForm';
 import { sameSettings, toNumber } from '../../components/admin/settings/settingsDraft';
-import { StationMapPicker } from '../../components/admin/stations/StationMapPicker';
+import { StationMapPicker, type MapReferenceStation } from '../../components/admin/stations/StationMapPicker';
 import { MAP_CENTER } from '../../components/admin/fleetMeta';
 import { Notice, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass, labelClass } from '../../components/admin/common/styles';
@@ -132,6 +132,20 @@ const ServiceAreaForm: React.FC<{
     [stations, values.centerLat, values.centerLng, values.radiusKm, radiusValid]
   );
 
+  // Hiện các trạm (vòng phủ sóng + tên) trên bản đồ để thấy trạm nào lọt ngoài khu vực.
+  const referenceStations = useMemo<MapReferenceStation[]>(
+    () =>
+      stations.map((s) => ({
+        id: s.id,
+        name: s.name,
+        lat: s.latitude,
+        lng: s.longitude,
+        radiusKm: s.coverageRadiusKm,
+        inactive: !s.isActive,
+      })),
+    [stations]
+  );
+
   const set = <K extends keyof ServiceAreaDraft>(key: K, value: ServiceAreaDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
   const handleSave = async () => {
@@ -255,6 +269,7 @@ const ServiceAreaForm: React.FC<{
             recenterKey={recenterKey}
             color={AREA_COLOR}
             fitToRadius
+            referenceStations={referenceStations}
           />
         </div>
         <p className="text-[11px] text-slate-500">
