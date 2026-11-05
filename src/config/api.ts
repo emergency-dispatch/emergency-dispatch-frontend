@@ -1,5 +1,14 @@
+const getNormalizedBaseUrl = (): string => {
+  const envUrl = (import.meta.env.VITE_API_URL || '').trim();
+  if (!envUrl) {
+    return 'http://localhost:5000/api';
+  }
+  const cleanUrl = envUrl.replace(/\/+$/, '');
+  return cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
+};
+
 export const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  BASE_URL: getNormalizedBaseUrl(),
   TIMEOUT_MS: 30000,
   TOKEN_KEY: 'resq_access_token',
   REFRESH_TOKEN_KEY: 'resq_refresh_token',
