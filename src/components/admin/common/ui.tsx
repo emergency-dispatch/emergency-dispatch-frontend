@@ -102,11 +102,25 @@ export const DrawerShell: React.FC<{
   children: React.ReactNode;
   footer: React.ReactNode;
   onSubmit: (e: React.FormEvent) => void;
-}> = ({ title, onClose, children, footer, onSubmit }) => {
+  /**
+   * Panel phụ (VD bản đồ lớn) đặt ở vùng trống giữa sidebar Admin và drawer — chỉ hiện ≥ xl (1280px).
+   * Bấm vào panel không đóng drawer (chỉ bấm nền mờ còn lại mới đóng).
+   */
+  aside?: React.ReactNode;
+}> = ({ title, onClose, children, footer, onSubmit, aside }) => {
   const { t } = useTranslation();
   return (
   <>
     <div className="fixed inset-0 bg-black/60 z-[1400]" onClick={onClose} />
+    {aside && (
+      <div
+        className="hidden xl:flex fixed z-[1401] flex-col"
+        // Drawer rộng max-w-lg (32rem); --admin-sidebar-w do AdminLayout đặt (ngoài Admin thì 0).
+        style={{ top: 24, bottom: 24, left: 'calc(var(--admin-sidebar-w, 0px) + 24px)', right: 'calc(32rem + 24px)' }}
+      >
+        {aside}
+      </div>
+    )}
     <aside className="fixed top-0 right-0 h-full w-full max-w-lg bg-white border-l border-slate-200 z-[1401] flex flex-col shadow-2xl shadow-slate-900/20 animate-drawer-in">
       <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-slate-200">
         <h2 className="text-base font-bold text-slate-900">{title}</h2>
