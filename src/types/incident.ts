@@ -193,6 +193,9 @@ export interface AiFlags {
   engineDisagreement: boolean;
 }
 
+/** Mức kẹt backend (TrafficCongestionLevel). */
+export type TrafficCongestionLevel = 'Low' | 'Moderate' | 'Severe' | 'Blocked';
+
 export interface TrafficJamReport {
   id: string;
   area: string;
@@ -201,6 +204,18 @@ export interface TrafficJamReport {
   note: string;
   reportedAt: string;
   mediaUrl: string | null;
+  /** §20: chỉ điểm còn trên bản đồ — Active (chưa có đội) hoặc Assigned (đã giao xe giải tỏa). */
+  status: 'active' | 'assigned';
+  congestionLevel: TrafficCongestionLevel | null;
+  /** Hết hạn hiển thị (chỉ áp dụng khi Active; Assigned không tự hết hạn). */
+  expiresAt: string;
+  responsibleStationId: string | null;
+  responsibleStationName: string | null;
+  assignedUnitId: string | null;
+  assignedUnitPlate: string | null;
+  assignedAt: string | null;
+  /** §24: Blocked chưa có đội quá ngưỡng → backend leo thang; null = chưa leo thang. */
+  escalatedAt: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -310,6 +325,20 @@ export interface IncidentResponseDto {
  * Mirror LinkedReportDto (GET /api/incidents/{id}/linked-reports): một báo cáo đã gom vào sự cố gốc (BR-07).
  * Danh sách gồm cả báo cáo đang gom (`Linked`) và đã xác nhận trùng (`Cancelled`), cũ nhất trước.
  */
+/**
+ * Mirror IncidentSupplementDto (GET /api/incidents/{id}/supplements, sự kiện ReceiveIncidentSupplement) — §21.4.
+ * Người báo bổ sung ghi chú / ảnh. Bổ sung từ báo cáo đã gom: `incidentId` là báo cáo đó, `targetIncidentId` là sự cố gốc.
+ */
+export interface IncidentSupplementDto {
+  id: string;
+  incidentId: string;
+  targetIncidentId: string;
+  note: string;
+  mediaUrls: string[];
+  reporterName?: string | null;
+  createdAt: string;
+}
+
 export interface LinkedReportDto {
   incidentId: string;
   status: BackendIncidentStatus;
@@ -352,7 +381,17 @@ export type IncidentAuditAction =
   | 'TransferredStation'
   | 'OutOfServiceArea'
   | 'CreatedByOperator'
-  // 19–25 (đổi mức độ, yêu cầu hiện trường) và 29 (người báo bổ sung) chưa có trên web → hiện "Thao tác khác".
+  // §21.1 đổi mức độ sau xác minh:
+  | 'SeverityChanged'
+  // §21.4 người báo bổ sung thông tin:
+  | 'SupplementAdded'
+  // §21.2 yêu cầu từ hiện trường (20–25):
+  | 'FieldRequestCreated'
+  | 'FieldRequestAcknowledged'
+  | 'FieldRequestFulfilled'
+  | 'FieldRequestDeclined'
+  | 'FieldRequestCancelled'
+  | 'FieldRequestEscalated'
   // BR-07 gom báo cáo trùng:
   | 'ReportLinked'
   | 'ReportUnlinked'
@@ -462,6 +501,16 @@ export interface VerifyIncidentRequestDto {
   confirmedTrafficJamStatus?: TrafficJamDecision;
 }
 
+/**
+ * Body PUT /api/incidents/{id}/severity (§21.1): đổi mức độ (và tùy chọn loại) sự cố ĐÃ xác minh.
+ * Lý do bắt buộc ≥ 5 ký tự; mức và loại đều giữ nguyên → backend báo lỗi.
+ */
+export interface ChangeSeverityRequestDto {
+  newSeverity: Exclude<BackendSeverityLevel, 'Unclassified'>;
+  newEventType?: Exclude<BackendEventType, 'None'>;
+  reason: string;
+}
+
 /** Body PUT /api/incidents/{id}/traffic-jam-status. */
 export interface UpdateTrafficJamStatusDto {
   status: TrafficJamDecision;
@@ -497,13 +546,13 @@ export function inferCategoryFromTitle(title: string): Exclude<IncidentCategory,
   return null;
 }
 
-const SEVERITY_TO_BACKEND: Record<SeverityLevel, BackendSeverityLevel> = {
+const SEVERITY_TO_BACKEND: Record<SeverityLevel, Exclude<BackendSeverityLevel, 'Unclassified'>> = {
   1: 'Level1',
   2: 'Level2',
   3: 'Level3',
 };
 
-export function severityToBackend(severity: SeverityLevel): BackendSeverityLevel {
+export function severityToBackend(severity: SeverityLevel): Exclude<BackendSeverityLevel, 'Unclassified'> {
   return SEVERITY_TO_BACKEND[severity];
 }
 

@@ -108,6 +108,14 @@ export const incidentsVi = {
       TransferredStation: 'Chuyển trạm phụ trách',
       OutOfServiceArea: 'SOS ngoài khu vực phục vụ',
       CreatedByOperator: 'Operator tạo sự cố',
+      SeverityChanged: 'Đổi mức độ sau xác minh',
+      SupplementAdded: 'Người báo bổ sung thông tin',
+      FieldRequestCreated: 'Đội hiện trường gửi yêu cầu',
+      FieldRequestAcknowledged: 'Tiếp nhận yêu cầu hiện trường',
+      FieldRequestFulfilled: 'Đáp ứng yêu cầu hiện trường',
+      FieldRequestDeclined: 'Từ chối yêu cầu hiện trường',
+      FieldRequestCancelled: 'Đội hủy yêu cầu hiện trường',
+      FieldRequestEscalated: 'Yêu cầu hiện trường quá hạn chờ',
       ReportLinked: 'Gộp báo cáo trùng',
       ReportUnlinked: 'Tách báo cáo khỏi sự cố gốc',
       DuplicateConfirmed: 'Xác nhận báo cáo trùng',
@@ -200,6 +208,18 @@ export const incidentsVi = {
     approve: 'Duyệt lên bản đồ',
   },
   // BR-07: báo cáo trùng hệ thống tự gộp vào sự cố gốc.
+  // §21.4: người báo gửi thêm ghi chú / ảnh sau SOS.
+  supplements: {
+    heading: 'Thông tin bổ sung từ người báo ({{count}})',
+    loading: 'Đang tải thông tin bổ sung...',
+    loadFailed: 'Không tải được thông tin bổ sung.',
+    retry: 'Thử lại',
+    empty: 'Người báo chưa gửi thêm thông tin.',
+    anonymous: 'Người báo ẩn danh',
+    fromLinked: 'Từ báo cáo đã gộp',
+    mediaOnly: 'Chỉ gửi ảnh / video',
+    openMedia: 'Mở ảnh / video',
+  },
   linked: {
     heading: '{{count}} báo cáo đang được gộp vào sự cố này',
     help:

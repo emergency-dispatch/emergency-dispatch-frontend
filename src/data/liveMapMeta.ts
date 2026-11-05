@@ -27,5 +27,13 @@ export const VEHICLE_TYPE_META: Record<VehicleType, { label: string; icon: Vehic
 // Loại xe Operator điều phối (VEHICLE_TYPE_META vẫn giữ 'police' cho trang Admin).
 export const DISPATCH_VEHICLE_TYPES: DispatchVehicleType[] = ['fire_truck', 'ambulance', 'rescue'];
 
+// §20/§24: màu điểm ùn tắc theo trạng thái — chưa có đội (cam), đang có đội giải tỏa (xanh dương),
+// tê liệt quá ngưỡng chưa có đội (viền đỏ nhấp nháy).
+export const TRAFFIC_JAM_STATUS_COLOR = {
+  active: '#EA580C',
+  assigned: '#2563EB',
+  escalated: '#DC2626',
+} as const;
+
 // Khu Công nghệ cao TP. HCM (TP. Thủ Đức) — bối cảnh triển khai của đề tài.
 export const MAP_CENTER: [number, number] = [10.8405, 106.8035];

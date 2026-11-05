@@ -1,12 +1,17 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRightLeft, HandHelping, MapPinOff, X } from 'lucide-react';
+import { ArrowRightLeft, HandHelping, MapPinOff, MessageSquarePlus, Radio, TrafficCone, X } from 'lucide-react';
 import { useDispatchStore, type OperatorAlert } from '../../context/DispatchContext';
 import { useTranslation } from '../../i18n';
 
 const KIND_META: Record<
   OperatorAlert['kind'],
-  { icon: React.ElementType; className: string; iconClassName: string; action?: 'verify' | 'viewOnMap' }
+  {
+    icon: React.ElementType;
+    className: string;
+    iconClassName: string;
+    action?: 'verify' | 'viewOnMap' | 'viewDetail' | 'assignTrafficTeam' | 'openFieldRequest';
+  }
 > = {
   out_of_area: {
     icon: MapPinOff,
@@ -30,11 +35,35 @@ const KIND_META: Record<
     className: 'border-blue-200 bg-white text-slate-800',
     iconClassName: 'text-blue-600',
   },
+  supplement: {
+    icon: MessageSquarePlus,
+    className: 'border-amber-300 bg-white text-slate-800',
+    iconClassName: 'text-amber-600',
+    action: 'viewDetail',
+  },
+  traffic_escalation: {
+    icon: TrafficCone,
+    className: 'border-red-300 bg-red-600 text-white',
+    iconClassName: 'text-white',
+    action: 'assignTrafficTeam',
+  },
+  field_request: {
+    icon: Radio,
+    className: 'border-orange-300 bg-white text-slate-800',
+    iconClassName: 'text-orange-600',
+    action: 'openFieldRequest',
+  },
+  field_request_escalated: {
+    icon: Radio,
+    className: 'border-red-300 bg-red-600 text-white',
+    iconClassName: 'text-white',
+    action: 'openFieldRequest',
+  },
 };
 
 /**
  * Thông báo vận hành theo trạm (từ SignalR): SOS ngoài khu vực phục vụ (đỏ, giữ tới khi đóng),
- * xe trạm mình được điều hỗ trợ trạm khác, sự cố chuyển đi / chuyển tới trạm mình (tự đóng).
+ * xe trạm mình được điều hỗ trợ trạm khác, sự cố chuyển đi / chuyển tới trạm mình, người báo bổ sung thông tin (tự đóng).
  */
 export const OperatorAlerts: React.FC = () => {
   const { operatorAlerts, dismissOperatorAlert, incidents } = useDispatchStore();
@@ -45,8 +74,20 @@ export const OperatorAlerts: React.FC = () => {
 
   const open = (alert: OperatorAlert) => {
     dismissOperatorAlert(alert.id);
+    if (alert.trafficJamId) {
+      navigate('/dashboard/command-center/live-map', { state: { focusTrafficJamId: alert.trafficJamId } });
+      return;
+    }
+    // §21.2: mở Live Map, làm nổi yêu cầu trong mục "Yêu cầu từ hiện trường".
+    if (alert.fieldRequestId) {
+      navigate('/dashboard/command-center/live-map', {
+        state: { focusFieldRequestId: alert.fieldRequestId, focusIncidentId: alert.incidentId },
+      });
+      return;
+    }
     const incident = incidents.find((i) => i.id === alert.incidentId);
-    if (alert.kind === 'out_of_area' && incident?.status === 'pending') {
+    // Sự cố chưa duyệt → mở drawer thẩm định ở hàng đợi; đã duyệt → chọn trên Live Map.
+    if ((alert.kind === 'out_of_area' || alert.kind === 'supplement') && incident?.status === 'pending') {
       navigate('/dashboard/command-center/incidents', { state: { openIncidentId: alert.incidentId } });
     } else {
       navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: alert.incidentId } });
@@ -59,7 +100,8 @@ export const OperatorAlerts: React.FC = () => {
       {operatorAlerts.map((alert) => {
         const meta = KIND_META[alert.kind];
         const Icon = meta.icon;
-        const isDanger = alert.kind === 'out_of_area';
+        const isDanger =
+          alert.kind === 'out_of_area' || alert.kind === 'traffic_escalation' || alert.kind === 'field_request_escalated';
         return (
           <div
             key={alert.id}

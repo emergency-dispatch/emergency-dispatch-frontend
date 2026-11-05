@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { Building2, CheckCircle2, Clock, Compass, Crown, ExternalLink, Loader2, LocateFixed, MapPin, Radius, Users } from 'lucide-react';
+import { Building2, Clock, Compass, Crown, ExternalLink, LocateFixed, MapPin, Radius, TrafficCone, Users } from 'lucide-react';
 import { MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import { MAPBOX_ACCESS_TOKEN } from '../../../services/mapboxService';
@@ -16,6 +16,9 @@ import {
   vehicleMarkerHtml,
 } from './mapIcons';
 import { MapMarker } from './MapMarker';
+import { TrafficJamPopup } from './TrafficJamPopup';
+import type { ActionResult } from '../../../context/DispatchContext';
+import type { RescueUnitResponseDto } from '../../../types/rescueUnit';
 import { MapRouteLayer } from './MapRouteLayer';
 import { MapServiceAreaLayer } from './MapServiceAreaLayer';
 import { MapStationCoverageLayer } from './MapStationCoverageLayer';
@@ -97,7 +100,11 @@ const PopupRow: React.FC<{ icon: React.ElementType; children: React.ReactNode }>
 );
 
 /** Popup xe (RescueUnit): biển số, loại xe, trạng thái, trạm, tổ phụ trách, nhiệm vụ đang chạy, lần cập nhật vị trí. */
-const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident }> = ({ vehicle, incident }) => {
+const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam?: TrafficJamReport }> = ({
+  vehicle,
+  incident,
+  trafficJam,
+}) => {
   const { t } = useTranslation();
   const team = useTeamByVehicle().get(vehicle.id);
   const statusMeta =
@@ -150,6 +157,12 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident }> = ({ veh
             )}
           </PopupRow>
         )}
+        {trafficJam && (
+          <PopupRow icon={TrafficCone}>
+            {t('liveMap.traffic.vehicleTask')}
+            <span className="font-semibold text-slate-800">{trafficJam.area}</span>
+          </PopupRow>
+        )}
         <PopupRow icon={Clock}>
           {vehicle.incidentId && !vehicle.hasLiveGps
             ? t('liveMap.map.noGps')
@@ -167,51 +180,6 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident }> = ({ veh
   );
 };
 
-const TrafficJamPopup: React.FC<{
-  jam: TrafficJamReport;
-  onResolve?: (id: string) => Promise<{ ok: boolean; message?: string }>;
-}> = ({ jam, onResolve }) => {
-  const { t } = useTranslation();
-  const [resolving, setResolving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleResolve = async () => {
-    if (!onResolve) return;
-    setResolving(true);
-    setError(null);
-    const result = await onResolve(jam.id);
-    // Thành công → điểm ùn tắc bị gỡ khỏi bản đồ cùng popup này.
-    if (!result.ok) {
-      setResolving(false);
-      setError(result.message ?? t('liveMap.map.resolveFailed'));
-    }
-  };
-
-  return (
-    <div className="min-w-[200px] space-y-1">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600">{t('liveMap.map.trafficJam')}</p>
-      <p className="text-sm font-bold text-slate-900">{jam.area}</p>
-      <p className="text-xs text-slate-600">{jam.note}</p>
-      <p className="text-[11px] text-slate-400">
-        {t('liveMap.map.reportedAt', {
-          time: new Date(jam.reportedAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' }),
-        })}
-      </p>
-      {onResolve && (
-        <button
-          onClick={handleResolve}
-          disabled={resolving}
-          className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-colors disabled:opacity-60"
-        >
-          {resolving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-          {t('liveMap.map.markResolved')}
-        </button>
-      )}
-      {error && <p className="text-[11px] text-red-600">{error}</p>}
-    </div>
-  );
-};
-
 // Xe đậu tại trạm xếp hàng ngay dưới ghim trạm (pixel), mỗi hàng tối đa PARKED_PER_ROW xe.
 const PARKED_PER_ROW = 4;
 const PARKED_SPACING_PX = 26;
@@ -222,6 +190,8 @@ interface VehicleMarkersProps {
   vehicles: Vehicle[];
   placements: Map<string, VehiclePlacement>;
   incidentsById?: Map<string, Incident>;
+  /** Xe đang giải tỏa điểm ùn tắc (§20) → popup xe ghi nhiệm vụ giải tỏa. */
+  trafficJamByUnit?: Map<string, TrafficJamReport>;
   selectedVehicleId: string | null;
   onSelectVehicle: (id: string) => void;
 }
@@ -277,6 +247,7 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
   vehicles,
   placements,
   incidentsById,
+  trafficJamByUnit,
   selectedVehicleId,
   onSelectVehicle,
 }) => {
@@ -297,7 +268,11 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
             popupOffset={isSelected ? 18 : 14}
             onClick={() => onSelectVehicle(vehicle.id)}
           >
-            <VehiclePopup vehicle={vehicle} incident={vehicle.incidentId ? incidentsById?.get(vehicle.incidentId) : undefined} />
+            <VehiclePopup
+              vehicle={vehicle}
+              incident={vehicle.incidentId ? incidentsById?.get(vehicle.incidentId) : undefined}
+              trafficJam={trafficJamByUnit?.get(vehicle.id)}
+            />
           </MapMarker>
         );
       })}
@@ -314,7 +289,14 @@ interface LiveMapViewProps {
   onSelectIncident?: (id: string) => void;
   stations?: Station[];
   trafficJams?: TrafficJamReport[];
-  onResolveTrafficJam?: (id: string) => Promise<{ ok: boolean; message?: string }>;
+  onResolveTrafficJam?: (id: string, note?: string) => Promise<ActionResult>;
+  /** §20: giao / rút xe giải tỏa điểm ùn tắc. */
+  onAssignTrafficJam?: (id: string, rescueUnitId: string, notes?: string) => Promise<ActionResult>;
+  onUnassignTrafficJam?: (id: string, reason: string) => Promise<ActionResult>;
+  /** Xe Sẵn sàng của trạm mình để giao giải tỏa (gồm PolicePatrol). */
+  trafficAssignableUnits?: RescueUnitResponseDto[];
+  /** Bay tới + mở popup điểm ùn tắc (bấm cảnh báo leo thang §24); `key` đổi mỗi lần yêu cầu. */
+  focusTrafficJam?: { id: string; key: number } | null;
   /** Lộ trình xe đang tới hiện trường. */
   routes?: DispatchRoute[];
   vehiclesById?: Map<string, Vehicle>;
@@ -337,6 +319,10 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   stations = [],
   trafficJams = [],
   onResolveTrafficJam,
+  onAssignTrafficJam,
+  onUnassignTrafficJam,
+  trafficAssignableUnits = [],
+  focusTrafficJam = null,
   routes = [],
   serviceArea = null,
   vehiclesById,
@@ -390,6 +376,10 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   const placements = useMemo(() => computeVehiclePlacements(movingVehicles, stations), [movingVehicles, stations]);
   const selectedIncident = dispatchIncidents.find((i) => i.id === selectedIncidentId) ?? null;
   const nearbyIds = useMemo(() => new Set(nearbyIncidents.map((i) => i.id)), [nearbyIncidents]);
+  const trafficJamByUnit = useMemo(
+    () => new Map(trafficJams.filter((j) => j.assignedUnitId).map((j) => [j.assignedUnitId!, j])),
+    [trafficJams]
+  );
   const nearbyOffMap = useMemo(() => {
     const onMap = new Set(dispatchIncidents.map((i) => i.id));
     return nearbyIncidents.filter((i) => !onMap.has(i.id));
@@ -431,6 +421,15 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
     if (map.isStyleLoaded()) applyTileMode(map, tileMode);
     else map.once('style.load', () => applyTileMode(map, appliedTileModeRef.current));
   }, [map, tileMode]);
+
+  // Cảnh báo điểm ùn tắc leo thang → bay tới điểm đó (popup mở qua popupOpenKey của marker).
+  const focusJam = focusTrafficJam ? trafficJams.find((j) => j.id === focusTrafficJam.id) : undefined;
+  useEffect(() => {
+    if (!map || !focusJam) return;
+    map.flyTo({ center: [focusJam.lng, focusJam.lat], zoom: Math.max(map.getZoom(), 16), duration: 800 });
+    // Chỉ bay khi có yêu cầu mới, không bay lại mỗi lần dữ liệu điểm ùn tắc đổi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, focusTrafficJam?.key, !!focusJam]);
 
   const handleOpenDirections = () => {
     if (!selectedVehicle) return;
@@ -501,8 +500,23 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
           })}
 
           {trafficJams.map((jam) => (
-            <MapMarker key={jam.id} map={map} lat={jam.lat} lng={jam.lng} html={trafficJamMarkerHtml()} popupOffset={14}>
-              <TrafficJamPopup jam={jam} onResolve={onResolveTrafficJam} />
+            <MapMarker
+              key={jam.id}
+              map={map}
+              lat={jam.lat}
+              lng={jam.lng}
+              html={trafficJamMarkerHtml(jam.status, !!jam.escalatedAt)}
+              popupOffset={14}
+              popupOpenKey={focusTrafficJam?.id === jam.id ? focusTrafficJam.key : undefined}
+            >
+              <TrafficJamPopup
+                jam={jam}
+                myStationId={user?.stationId ?? null}
+                assignableUnits={trafficAssignableUnits}
+                onAssign={onAssignTrafficJam}
+                onUnassign={onUnassignTrafficJam}
+                onResolve={onResolveTrafficJam}
+              />
             </MapMarker>
           ))}
 
@@ -511,6 +525,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
             vehicles={movingVehicles}
             placements={placements}
             incidentsById={incidentsById}
+            trafficJamByUnit={trafficJamByUnit}
             selectedVehicleId={selectedVehicleId}
             onSelectVehicle={onSelectVehicle}
           />

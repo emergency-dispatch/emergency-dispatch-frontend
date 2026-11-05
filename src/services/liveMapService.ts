@@ -1,11 +1,11 @@
 import { apiClient, unwrapApi } from './apiClient';
 import type { ApiResponse } from '../types/auth';
-import type { TrafficJamReport } from '../types/incident';
+import type { TrafficCongestionLevel, TrafficJamReport } from '../types/incident';
 import type { CreateRescueUnitDto, RescueUnitResponseDto, UpdateRescueUnitDto } from '../types/rescueUnit';
 import type { StationResponseDto } from '../types/station';
 import type { Station } from '../types/vehicle';
 
-/** Mirror TrafficHotspotResponseDto. */
+/** Mirror TrafficHotspotResponseDto (§20, §24). */
 export interface TrafficHotspotResponseDto {
   id: string;
   title: string;
@@ -13,12 +13,38 @@ export interface TrafficHotspotResponseDto {
   latitude: number;
   longitude: number;
   locationAddress: string;
+  congestionLevel?: TrafficCongestionLevel;
   congestionLevelName: string;
   mediaUrl: string | null;
   createdAt: string;
   expiresAt: string;
+  /** true khi Active (chưa hết hạn) hoặc Assigned. */
   isActive: boolean;
+  status?: 'Active' | 'Assigned' | 'Resolved' | 'Expired';
+  responsibleStationId?: string | null;
+  responsibleStationName?: string | null;
+  assignedRescueUnitId?: string | null;
+  assignedUnitPlate?: string | null;
+  assignedUnitStationId?: string | null;
+  assignedAt?: string | null;
+  escalatedAt?: string | null;
+  resolvedAt?: string | null;
+  resolutionNote?: string | null;
+  sourceIncidentId?: string | null;
 }
+
+/** Mirror TrafficTaskEventDto — sự kiện ReceiveTrafficTaskAssigned. */
+export interface TrafficTaskEventDto {
+  action: 'Assigned' | 'Unassigned' | 'Resolved';
+  rescueUnitId: string;
+  plateNumber?: string | null;
+  unitStationId: string;
+  notes?: string | null;
+  hotspot: TrafficHotspotResponseDto;
+  changedAt: string;
+}
+
+const CONGESTION_LEVELS: readonly TrafficCongestionLevel[] = ['Low', 'Moderate', 'Severe', 'Blocked'];
 
 /** Mirror EscalationSettingsDto (GET /api/settings/escalation). */
 export interface EscalationSettingsDto {
@@ -70,6 +96,19 @@ export function mapTrafficHotspot(dto: TrafficHotspotResponseDto): TrafficJamRep
     note: dto.description || dto.title,
     reportedAt: dto.createdAt,
     mediaUrl: dto.mediaUrl,
+    // Backend cũ chưa có `status` → suy từ xe được giao.
+    status: (dto.status ?? (dto.assignedRescueUnitId ? 'Assigned' : 'Active')) === 'Assigned' ? 'assigned' : 'active',
+    congestionLevel:
+      dto.congestionLevel ??
+      (CONGESTION_LEVELS.find((l) => l === dto.congestionLevelName) as TrafficCongestionLevel | undefined) ??
+      null,
+    expiresAt: dto.expiresAt,
+    responsibleStationId: dto.responsibleStationId ?? null,
+    responsibleStationName: dto.responsibleStationName ?? null,
+    assignedUnitId: dto.assignedRescueUnitId ?? null,
+    assignedUnitPlate: dto.assignedUnitPlate ?? null,
+    assignedAt: dto.assignedAt ?? null,
+    escalatedAt: dto.escalatedAt ?? null,
   };
 }
 
@@ -120,8 +159,29 @@ export const liveMapService = {
     return hotspots.map(mapTrafficHotspot);
   },
 
-  async resolveTrafficJam(id: string): Promise<void> {
-    await unwrapApi(apiClient.put<ApiResponse<unknown>>(`/traffic/${id}/resolve`));
+  /** Ghi chú tùy chọn (≤ 500 ký tự). Điểm đang có đội: chỉ trạm phụ trách / đội được giao (khác → 403). */
+  async resolveTrafficJam(id: string, note?: string): Promise<TrafficHotspotResponseDto> {
+    return unwrapApi(
+      apiClient.put<ApiResponse<TrafficHotspotResponseDto>>(`/traffic/${id}/resolve`, { note: note || undefined })
+    );
+  },
+
+  /**
+   * §20: giao một xe Sẵn sàng của trạm xuống giải tỏa điểm ùn tắc Active → Assigned.
+   * 409: điểm đã có xe / xe vừa bận; 400: điểm đã giải tỏa / hết hạn.
+   */
+  async assignTrafficJam(id: string, rescueUnitId: string, notes?: string): Promise<TrafficHotspotResponseDto> {
+    return unwrapApi(
+      apiClient.put<ApiResponse<TrafficHotspotResponseDto>>(`/traffic/${id}/assign`, {
+        rescueUnitId,
+        notes: notes || undefined,
+      })
+    );
+  },
+
+  /** §20: rút xe khỏi điểm ùn tắc (lý do ≥ 5 ký tự) → điểm về Active, xe về Sẵn sàng. */
+  async unassignTrafficJam(id: string, reason: string): Promise<TrafficHotspotResponseDto> {
+    return unwrapApi(apiClient.put<ApiResponse<TrafficHotspotResponseDto>>(`/traffic/${id}/unassign`, { reason }));
   },
 
   /** Có thể bọc trong SettingsRecordDto { values } như các cấu hình khác → đọc được cả hai dạng. */

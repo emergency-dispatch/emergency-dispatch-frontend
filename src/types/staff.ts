@@ -53,6 +53,9 @@ export interface DigitalClosureReport {
   handoverNotes?: string;
   handoverQrData: string;
   signatureDataUrl: string;
+  signatureUrl?: string;
+  signerName?: string;
+  signedAt?: string;
   dispatchApprovalStatus: 'submitted' | 'verified';
 }
 
@@ -69,6 +72,7 @@ export interface StaffMission {
   incidentLng: number;
   callerName: string;
   callerPhone: string;
+  dispatcherName?: string;
   assignedAt: string;
   acceptedAt?: string;
   enRouteAt?: string;

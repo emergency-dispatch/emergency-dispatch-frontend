@@ -23,6 +23,7 @@ import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { IncidentAuditTimeline } from './IncidentAuditTimeline';
 import { IncidentMediaGallery } from './IncidentMediaGallery';
+import { IncidentSupplementList } from './IncidentSupplementList';
 import { LinkedReportsPanel } from './LinkedReportsPanel';
 import { ReporterMedicalCard } from './ReporterMedicalCard';
 import { SeverityBadge } from './SeverityBadge';
@@ -36,6 +37,7 @@ import {
   OVERRIDE_REASON_MIN_LENGTH,
   SEVERITY_LEVEL_META,
 } from '../../../data/incidentMock';
+import { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
 import { useNow } from '../../../hooks/useNow';
 import { formatCountdown } from '../../../utils/incidentFormat';
 import type {
@@ -82,6 +84,8 @@ interface IncidentDetailDrawerProps {
   onRevealPhone: (id: string) => Promise<string | null>;
   /** BR-07: tách báo cáo đã gộp qua store (không bật popup tin báo mới cho chính mình). */
   onUnlinkReport?: (reportId: string, reason?: string) => Promise<{ ok: boolean; message?: string }>;
+  /** §21.4: tăng khi nhận ReceiveIncidentSupplement cho sự cố này → tải lại thông tin bổ sung. */
+  supplementVersion?: number;
   isSubmitting?: boolean;
   errorMsg?: string | null;
 }
@@ -99,11 +103,13 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   onRelock,
   onRevealPhone,
   onUnlinkReport,
+  supplementVersion = 0,
   isSubmitting = false,
   errorMsg = null,
 }) => {
   const now = useNow();
   const { t } = useTranslation();
+  const supplements = useIncidentSupplements(incident?.id ?? null, supplementVersion);
   const [confirmedSeverity, setConfirmedSeverity] = useState<SeverityLevel | null>(null);
   const [confirmedCategory, setConfirmedCategory] = useState<IncidentCategory | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
@@ -379,6 +385,21 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 </p>
                 <p className="text-sm text-slate-600 leading-relaxed">{incident.description}</p>
               </div>
+
+              {/* §21.4: chỉ hiện khi người báo đã gửi thêm (hoặc tải lỗi). */}
+              {(supplements.items.length > 0 || supplements.error) && (
+                <div>
+                  <p className="text-xs font-mono-data uppercase tracking-widest text-amber-600 font-bold mb-1.5">
+                    {t('incidents.supplements.heading', { count: supplements.items.length })}
+                  </p>
+                  <IncidentSupplementList
+                    items={supplements.items}
+                    loading={supplements.loading}
+                    error={supplements.error}
+                    onReload={supplements.reload}
+                  />
+                </div>
+              )}
 
               <div className="rounded-xl border border-slate-200 p-3.5 space-y-2.5">
                 <div className="flex items-center gap-2 text-sm text-slate-700 min-w-0">

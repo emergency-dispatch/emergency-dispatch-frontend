@@ -10,8 +10,11 @@ import {
   type EscalationSettingsDto,
   type ServiceAreaDto,
   type TrafficHotspotResponseDto,
+  type TrafficTaskEventDto,
 } from '../services/liveMapService';
 import { stationTeamService } from '../services/stationTeamService';
+import { fieldRequestService } from '../services/fieldRequestService';
+import { isOpenFieldRequest, type FieldRequestDto, type FieldRequestEventDto } from '../types/fieldRequest';
 import { staffAudioService } from '../services/staffAudioService';
 import { HubEvents, incidentHubService, trackingHubService } from '../services/realtime/incidentHubService';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +32,7 @@ import {
   type Incident,
   type IncidentCategory,
   type IncidentResponseDto,
+  type IncidentSupplementDto,
   type OperatorCancellationCode,
   type SeverityLevel,
   type TrafficJamDecision,
@@ -44,6 +48,8 @@ const POLL_MS = 60000;
 const TIER2_SIREN_MS = 4000;
 // Thông báo "xe trạm bạn đi hỗ trợ" / "sự cố đã chuyển trạm" tự đóng sau khoảng này; cảnh báo ngoài khu vực giữ tới khi đóng.
 const INFO_ALERT_MS = 15000;
+// Độ dài ghi chú bổ sung hiện trong thông báo; xem đủ trong chi tiết sự cố.
+const SUPPLEMENT_PREVIEW_CHARS = 120;
 const HIGHLIGHT_DURATION_MS = 2200;
 // Thời gian giữ đánh dấu "mình vừa tách" chờ ReceiveNewIncident (BR-07).
 const SELF_UNLINK_MARK_MS = 30000;
@@ -148,11 +154,26 @@ export interface IncomingTransferNote {
   reason: string;
 }
 
-/** Thông báo vận hành theo trạm (ngoài tin báo mới): SOS ngoài khu vực, xe đi hỗ trợ, sự cố chuyển trạm. */
+/**
+ * Thông báo vận hành theo trạm (ngoài tin báo mới): SOS ngoài khu vực, xe đi hỗ trợ, sự cố chuyển trạm,
+ * người báo bổ sung, điểm ùn tắc tê liệt chưa có đội (§24).
+ */
 export interface OperatorAlert {
   id: string;
-  kind: 'out_of_area' | 'support_dispatched' | 'transferred' | 'transferred_in';
+  kind:
+    | 'out_of_area'
+    | 'support_dispatched'
+    | 'transferred'
+    | 'transferred_in'
+    | 'supplement'
+    | 'traffic_escalation'
+    | 'field_request'
+    | 'field_request_escalated';
+  /** Sự cố liên quan; `traffic_escalation` dùng `trafficJamId` (incidentId = id điểm ùn tắc). */
   incidentId: string;
+  trafficJamId?: string;
+  /** §21.2: yêu cầu hiện trường — đóng / đã xử lý thì gỡ thông báo. */
+  fieldRequestId?: string;
   title: string;
   message: string;
   at: string;
@@ -164,7 +185,7 @@ export interface AssignOptions {
   notes?: string;
 }
 
-type ActionResult = { ok: boolean; message?: string };
+export type ActionResult = { ok: boolean; message?: string };
 
 /** Kết quả Operator tự tạo sự cố: `errors` = lỗi kiểm tra từng trường backend trả kèm HTTP 400. */
 export type CreateIncidentResult =
@@ -208,8 +229,34 @@ interface DispatchContextValue {
   vehicles: Vehicle[];
   stations: Station[];
   trafficJams: TrafficJamReport[];
-  /** Đánh dấu điểm ùn tắc đã giải tỏa (PUT /api/traffic/{id}/resolve). */
-  resolveTrafficJam: (id: string) => Promise<ActionResult>;
+  /** Đánh dấu điểm ùn tắc đã giải tỏa (PUT /api/traffic/{id}/resolve), ghi chú tùy chọn. */
+  resolveTrafficJam: (id: string, note?: string) => Promise<ActionResult>;
+  /** §20: giao xe giải tỏa điểm ùn tắc (PUT /api/traffic/{id}/assign). 409 → tải lại điểm ùn tắc. */
+  assignTrafficJam: (id: string, rescueUnitId: string, notes?: string) => Promise<ActionResult>;
+  /** §20: rút xe khỏi điểm ùn tắc (lý do ≥ 5 ký tự). */
+  unassignTrafficJam: (id: string, reason: string) => Promise<ActionResult>;
+  /**
+   * Xe Sẵn sàng của trạm mình để giao giải tỏa ùn tắc — gồm cả PolicePatrol (ẩn khỏi Live Map nhưng là loại xe
+   * backend gợi ý cho việc phân luồng), xếp PolicePatrol trước.
+   */
+  trafficAssignableUnits: RescueUnitResponseDto[];
+  /** §21.2: yêu cầu từ hiện trường đang mở (Open / Acknowledged), cũ nhất trước. */
+  fieldRequests: FieldRequestDto[];
+  acknowledgeFieldRequest: (id: string) => Promise<ActionResult>;
+  /** Đánh dấu đã đáp ứng (ghi chú tùy chọn). */
+  fulfillFieldRequest: (id: string, note?: string) => Promise<ActionResult>;
+  /** Từ chối (lý do ≥ 5 ký tự). */
+  declineFieldRequest: (id: string, note: string) => Promise<ActionResult>;
+  /**
+   * Giao xe đáp ứng yêu cầu chi viện (POST /dispatch/assign kèm fieldRequestId, nhiều xe một lần) — vượt giới hạn
+   * Cấp 1–2 không cần lý do, yêu cầu tự Fulfilled. Thành công → `message` của backend.
+   */
+  assignForFieldRequest: (
+    requestId: string,
+    incidentId: string,
+    vehicleIds: string[],
+    algorithm: DispatchAlgorithm
+  ) => Promise<ActionResult>;
   /** Màn Đội xe: đặt xe Bảo trì / đưa trở lại Sẵn sàng (xe đang làm nhiệm vụ bị backend chặn). */
   setVehicleStatus: (id: string, status: 'Available' | 'Maintenance') => Promise<ActionResult>;
   /**
@@ -254,6 +301,16 @@ interface DispatchContextValue {
    * ReceiveNewIncident — người vừa tách không bị bật popup "tin báo mới" / bíp.
    */
   unlinkLinkedReport: (reportId: string, reason?: string) => Promise<ActionResult>;
+  /**
+   * §21.1: đổi mức độ (và tùy chọn loại) sự cố đã xác minh (PUT /api/incidents/{id}/severity), lý do ≥ 5 ký tự.
+   * Thành công → `message` là câu backend trả (có thể nhắc rút bớt xe khi hạ mức).
+   */
+  changeIncidentSeverity: (
+    id: string,
+    severity: SeverityLevel,
+    category: Exclude<IncidentCategory, 'unknown'> | undefined,
+    reason: string
+  ) => Promise<ActionResult>;
   lockIncident: (id: string) => Promise<ActionResult>;
   releaseIncident: (id: string) => void;
   /** Operator tự tạo sự cố (tin báo qua điện thoại, bộ đàm, camera…) — sự cố được xác minh ngay. */
@@ -280,6 +337,11 @@ interface DispatchContextValue {
   serviceArea: ServiceAreaDto | null;
   operatorAlerts: OperatorAlert[];
   dismissOperatorAlert: (id: string) => void;
+  /**
+   * §21.4: số lần nhận ReceiveIncidentSupplement theo sự cố gốc trong phiên — dùng làm khóa tải lại
+   * danh sách "Thông tin bổ sung từ người báo" (backend không trả bộ đếm trong IncidentResponseDto).
+   */
+  supplementVersions: Map<string, number>;
   /** Tài khoản chưa được Admin gán trạm phụ trách → các màn Operator hiện hướng dẫn thay vì dữ liệu. */
   stationNotAssigned: string | null;
 }
@@ -321,6 +383,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [escalationTiers, setEscalationTiers] = useState<Map<string, number>>(new Map());
   const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(null);
   const [operatorAlerts, setOperatorAlerts] = useState<OperatorAlert[]>([]);
+  const [supplementVersions, setSupplementVersions] = useState<Map<string, number>>(new Map());
+  const [fieldRequests, setFieldRequests] = useState<FieldRequestDto[]>([]);
   const [stationNotAssigned, setStationNotAssigned] = useState<string | null>(null);
   const knownIncidentIdsRef = useRef<Set<string> | null>(null);
   const [incomingTransferNotes, setIncomingTransferNotes] = useState<Map<string, IncomingTransferNote>>(new Map());
@@ -336,6 +400,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Lượt điều phối hiện có — để biết lượt nào vừa kết thúc giữa hai lần poll.
   const assignmentsRef = useRef(assignments);
   assignmentsRef.current = assignments;
+  // Sự cố hiện có — handler SignalR cần tiêu đề sự cố (payload bổ sung thông tin không kèm tiêu đề).
+  const incidentDtosRef = useRef(incidentDtos);
+  incidentDtosRef.current = incidentDtos;
   // Lần tải đầu / sau khi nối lại SignalR: tải đủ lịch sử lượt điều phối từng sự cố (cả lượt đã xong / bị từ chối).
   const fullAssignmentSyncRef = useRef(true);
 
@@ -362,6 +429,42 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const id = `${alert.kind}-${alert.incidentId}-${Date.now()}`;
     setOperatorAlerts((prev) => [{ ...alert, id, at: new Date().toISOString() }, ...prev].slice(0, 5));
     if (autoDismissMs) setTimeout(() => setOperatorAlerts((prev) => prev.filter((a) => a.id !== id)), autoDismissMs);
+  }, []);
+
+  /** Áp điểm ùn tắc mới nhất từ API / SignalR; hết trên bản đồ hoặc đã có đội → gỡ cảnh báo leo thang của nó. */
+  const applyTrafficHotspot = useCallback((dto: TrafficHotspotResponseDto) => {
+    setTrafficJams((prev) => {
+      const rest = prev.filter((j) => j.id !== dto.id);
+      return dto.isActive ? [...rest, mapTrafficHotspot(dto)] : rest;
+    });
+    const stillEscalated = dto.isActive && (dto.status ?? 'Active') === 'Active' && !!dto.escalatedAt;
+    if (!stillEscalated) setOperatorAlerts((prev) => prev.filter((a) => a.trafficJamId !== dto.id));
+  }, []);
+
+  const reloadTrafficJams = useCallback(() => {
+    liveMapService
+      .getActiveTrafficJams()
+      .then(setTrafficJams)
+      .catch(() => undefined);
+  }, []);
+
+  /** §21.2: áp yêu cầu hiện trường mới nhất — còn mở thì thêm / cập nhật, đã đóng thì gỡ (kèm thông báo của nó). */
+  const applyFieldRequest = useCallback((request: FieldRequestDto) => {
+    setFieldRequests((prev) => {
+      const rest = prev.filter((r) => r.id !== request.id);
+      if (!isOpenFieldRequest(request)) return rest;
+      return [...rest, request].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    });
+    if (!isOpenFieldRequest(request)) {
+      setOperatorAlerts((prev) => prev.filter((a) => a.fieldRequestId !== request.id));
+    }
+  }, []);
+
+  const reloadFieldRequests = useCallback(() => {
+    fieldRequestService
+      .getOpen()
+      .then(setFieldRequests)
+      .catch(() => undefined);
   }, []);
 
   const setIncidentLock = useCallback(
@@ -476,10 +579,13 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [highlight, announceIncoming]);
 
+  // Poll dự phòng + sau khi nối lại SignalR: tải lại cả điểm ùn tắc và yêu cầu hiện trường (có thể lỡ sự kiện).
   const refreshAll = useCallback(() => {
     refreshBoard();
     refreshUnits();
-  }, [refreshBoard, refreshUnits]);
+    reloadTrafficJams();
+    reloadFieldRequests();
+  }, [refreshBoard, refreshUnits, reloadTrafficJams, reloadFieldRequests]);
 
   // Dữ liệu ít thay đổi: trạm, tổ của các trạm, điểm ùn tắc, ngưỡng leo thang.
   useEffect(() => {
@@ -490,10 +596,6 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return stationTeamService.loadTeams(list.map((s) => s.id));
       })
       .catch((err) => console.warn('Không tải được trạm / tổ:', err));
-    liveMapService
-      .getActiveTrafficJams()
-      .then(setTrafficJams)
-      .catch((err) => console.warn('Không tải được điểm ùn tắc:', err));
     liveMapService
       .getEscalationSettings()
       .then(setEscalationSettings)
@@ -607,6 +709,30 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           lockExpiresAt: evt.lockExpiresAt ?? undefined,
         })
       ),
+      // §21.4: người báo bổ sung ghi chú / ảnh → tải lại danh sách bổ sung + báo nhẹ (không bíp).
+      incidentHubService.on<IncidentSupplementDto>(HubEvents.ReceiveIncidentSupplement, (s) => {
+        const targetId = s.targetIncidentId;
+        setSupplementVersions((prev) => new Map(prev).set(targetId, (prev.get(targetId) ?? 0) + 1));
+        const incident = incidentDtosRef.current.get(targetId);
+        if (!incident) return;
+        const note = s.note.trim();
+        pushOperatorAlert(
+          {
+            kind: 'supplement',
+            incidentId: targetId,
+            title: i18n.t('layout.operatorAlerts.supplementTitle'),
+            message: i18n.t('layout.operatorAlerts.supplementMessage', {
+              incident: incident.title,
+              content: note
+                ? note.length > SUPPLEMENT_PREVIEW_CHARS
+                  ? `${note.slice(0, SUPPLEMENT_PREVIEW_CHARS)}…`
+                  : note
+                : i18n.t('layout.operatorAlerts.supplementMediaOnly', { count: s.mediaUrls.length }),
+            }),
+          },
+          INFO_ALERT_MS
+        );
+      }),
       incidentHubService.on<TeamChangedEvent>(HubEvents.ReceiveTeamChanged, (evt) => {
         stationTeamService.reloadStationTeams(evt.stationId).catch(() => undefined);
         if (evt.action === 'MembersChanged') stationTeamService.loadStaff().catch(() => undefined);
@@ -690,12 +816,64 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // Xe đổi trạng thái theo lượt phân công (hoàn tất → hồi sức, hủy → sẵn sàng).
         if (!isActiveAssignment(a)) refreshUnits();
       }),
-      incidentHubService.on<TrafficHotspotResponseDto>(HubEvents.ReceiveTrafficHotspot, (dto) =>
-        setTrafficJams((prev) => {
-          const rest = prev.filter((j) => j.id !== dto.id);
-          return dto.isActive ? [...rest, mapTrafficHotspot(dto)] : rest;
-        })
+      incidentHubService.on<TrafficHotspotResponseDto>(HubEvents.ReceiveTrafficHotspot, applyTrafficHotspot),
+      // §21.2: đội gửi / hủy yêu cầu, Operator khác xử lý, quá hạn → cập nhật panel; yêu cầu mới / quá hạn → bíp + thông báo.
+      incidentHubService.on<FieldRequestEventDto>(HubEvents.ReceiveFieldRequest, (evt) => {
+        const r = evt.request;
+        applyFieldRequest(r);
+        if (evt.action !== 'Created' && evt.action !== 'Escalated') return;
+        staffAudioService.playPriorityBeep();
+        const escalated = evt.action === 'Escalated';
+        setOperatorAlerts((prev) => prev.filter((a) => a.fieldRequestId !== r.id));
+        pushOperatorAlert(
+          {
+            kind: escalated ? 'field_request_escalated' : 'field_request',
+            incidentId: r.incidentId,
+            fieldRequestId: r.id,
+            title: i18n.t(
+              escalated
+                ? 'layout.operatorAlerts.fieldRequestEscalatedTitle'
+                : r.type === 'Backup'
+                  ? 'layout.operatorAlerts.fieldRequestBackupTitle'
+                  : 'layout.operatorAlerts.fieldRequestOtherTitle'
+            ),
+            message: i18n.t('layout.operatorAlerts.fieldRequestMessage', {
+              plate: r.plateNumber ?? '',
+              incident: r.incidentTitle ?? '',
+              content:
+                r.type === 'Backup'
+                  ? i18n
+                      .t('layout.operatorAlerts.fieldRequestBackupContent', {
+                        count: r.quantity,
+                        type: r.requestedUnitType ? i18n.t(`enums.unitType.${r.requestedUnitType}`) : '',
+                      })
+                      .trim()
+                  : (r.description ?? ''),
+            }),
+          },
+          // Quá hạn: giữ tới khi đóng / yêu cầu được xử lý; yêu cầu mới vẫn nằm trong panel nên tự tắt.
+          escalated ? undefined : INFO_ALERT_MS
+        );
+      }),
+      // §20: giao / rút / giải tỏa — payload kèm điểm ùn tắc mới nhất (trạng thái xe tới qua ReceiveRescueUnitStatus).
+      incidentHubService.on<TrafficTaskEventDto>(HubEvents.ReceiveTrafficTaskAssigned, (evt) =>
+        applyTrafficHotspot(evt.hotspot)
       ),
+      // §24: điểm Blocked chưa có đội quá ngưỡng → bíp + cảnh báo đỏ (giữ tới khi đóng hoặc đã giao đội).
+      incidentHubService.on<TrafficHotspotResponseDto>(HubEvents.ReceiveTrafficHotspotEscalation, (dto) => {
+        applyTrafficHotspot(dto);
+        staffAudioService.playPriorityBeep();
+        setOperatorAlerts((prev) => prev.filter((a) => a.trafficJamId !== dto.id));
+        pushOperatorAlert({
+          kind: 'traffic_escalation',
+          incidentId: dto.id,
+          trafficJamId: dto.id,
+          title: i18n.t('layout.operatorAlerts.trafficEscalationTitle'),
+          message: i18n.t('layout.operatorAlerts.trafficEscalationMessage', {
+            area: dto.locationAddress || dto.title,
+          }),
+        });
+      }),
       trackingHubService.on<UnitLocationMessage>(HubEvents.ReceiveRescueUnitLocation, (msg) =>
         setPositions((prev) =>
           new Map(prev).set(msg.rescueUnitId, {
@@ -719,7 +897,18 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       incidentHubService.stop();
       trackingHubService.stop();
     };
-  }, [upsertIncidents, highlight, announceIncoming, refreshUnits, refreshAll, setIncidentLock, removeIncident, pushOperatorAlert]);
+  }, [
+    upsertIncidents,
+    highlight,
+    announceIncoming,
+    refreshUnits,
+    refreshAll,
+    setIncidentLock,
+    removeIncident,
+    pushOperatorAlert,
+    applyTrafficHotspot,
+    applyFieldRequest,
+  ]);
 
   // ---------------------------------------------------------------------------
   // Derived view models
@@ -734,6 +923,18 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
     return map;
   }, [assignments]);
+
+  const trafficAssignableUnits = useMemo(
+    () =>
+      units
+        .filter((u) => u.status === 'Available' && !!user?.stationId && u.stationId === user.stationId)
+        .sort(
+          (a, b) =>
+            Number(b.unitType === 'PolicePatrol') - Number(a.unitType === 'PolicePatrol') ||
+            a.plateNumber.localeCompare(b.plateNumber)
+        ),
+    [units, user?.stationId]
+  );
 
   const vehicles = useMemo<Vehicle[]>(() => {
     const now = Date.now();
@@ -931,6 +1132,27 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const changeIncidentSeverity = async (
+    id: string,
+    severity: SeverityLevel,
+    category: Exclude<IncidentCategory, 'unknown'> | undefined,
+    reason: string
+  ): Promise<ActionResult> => {
+    try {
+      const { incident, message } = await incidentService.changeSeverity(id, {
+        newSeverity: severityToBackend(severity),
+        newEventType: category ? EVENT_TYPE_FROM_CATEGORY[category] : undefined,
+        reason,
+      });
+      upsertIncidents([incident]);
+      return { ok: true, message };
+    } catch (err) {
+      // 409: Operator khác đang giữ khóa — tải lại để hiện đúng người giữ.
+      if (isConflict(err)) refreshBoard();
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('liveMap.severityChange.failed')) };
+    }
+  };
+
   const lockIncident = async (id: string): Promise<ActionResult> => {
     try {
       const res = await incidentService.lock(id);
@@ -1027,6 +1249,52 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const assignForFieldRequest = async (
+    requestId: string,
+    incidentId: string,
+    vehicleIds: string[],
+    algorithm: DispatchAlgorithm
+  ): Promise<ActionResult> => {
+    if (vehicleIds.length === 0) return { ok: false, message: i18n.t('context.incidentOrVehicleNotFound') };
+    try {
+      const res = await dispatchService.assignUnit({
+        incidentId,
+        rescueUnitIds: vehicleIds,
+        algorithm: BACKEND_ALGORITHM[algorithm],
+        fieldRequestId: requestId,
+      });
+      if (!res.success) return { ok: false, message: res.message || i18n.t('context.assignFailed') };
+      setAssignments((prev) => upsert(prev, res.data));
+      // Backend đã chuyển yêu cầu sang Fulfilled (ReceiveFieldRequest tới sau) → gỡ ngay khỏi panel.
+      setFieldRequests((prev) => prev.filter((r) => r.id !== requestId));
+      setOperatorAlerts((prev) => prev.filter((a) => a.fieldRequestId !== requestId));
+      return { ok: true, message: res.message };
+    } catch (err) {
+      refreshUnits();
+      reloadFieldRequests();
+      if (isConflict(err)) refreshBoard();
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('context.assignFailed')) };
+    }
+  };
+
+  const respondFieldRequest = async (call: () => Promise<FieldRequestDto>): Promise<ActionResult> => {
+    try {
+      applyFieldRequest(await call());
+      return { ok: true };
+    } catch (err) {
+      // Yêu cầu có thể vừa được Operator khác / đội xử lý → tải lại danh sách.
+      reloadFieldRequests();
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('liveMap.fieldRequests.actionFailed')) };
+    }
+  };
+
+  const acknowledgeFieldRequest = (id: string) =>
+    respondFieldRequest(() => fieldRequestService.acknowledge(id));
+  const fulfillFieldRequest = (id: string, note?: string) =>
+    respondFieldRequest(() => fieldRequestService.fulfill(id, note));
+  const declineFieldRequest = (id: string, note: string) =>
+    respondFieldRequest(() => fieldRequestService.decline(id, note));
+
   // Hủy lệnh điều phối của một xe — không tự gán xe thay thế, Operator chọn lại từ gợi ý.
   const cancelAssignment = async (vehicleId: string): Promise<ActionResult> => {
     const vehicle = vehicles.find((v) => v.id === vehicleId);
@@ -1085,13 +1353,40 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const resolveTrafficJam = async (id: string): Promise<ActionResult> => {
+  const resolveTrafficJam = async (id: string, note?: string): Promise<ActionResult> => {
     try {
-      await liveMapService.resolveTrafficJam(id);
-      setTrafficJams((prev) => prev.filter((j) => j.id !== id));
+      const dto = await liveMapService.resolveTrafficJam(id, note);
+      // Backend cũ không trả dữ liệu → vẫn gỡ điểm khỏi bản đồ.
+      if (dto) applyTrafficHotspot(dto);
+      else setTrafficJams((prev) => prev.filter((j) => j.id !== id));
       return { ok: true };
     } catch (err) {
+      if (isConflict(err)) reloadTrafficJams();
       return { ok: false, message: getApiErrorMessage(err, i18n.t('context.resolveTrafficFailed')) };
+    }
+  };
+
+  const assignTrafficJam = async (id: string, rescueUnitId: string, notes?: string): Promise<ActionResult> => {
+    try {
+      applyTrafficHotspot(await liveMapService.assignTrafficJam(id, rescueUnitId, notes));
+      return { ok: true };
+    } catch (err) {
+      // 409: điểm đã có xe / xe vừa bận → tải lại cả điểm ùn tắc và xe.
+      if (isConflict(err)) {
+        reloadTrafficJams();
+        refreshUnits();
+      }
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('liveMap.traffic.assignFailed')) };
+    }
+  };
+
+  const unassignTrafficJam = async (id: string, reason: string): Promise<ActionResult> => {
+    try {
+      applyTrafficHotspot(await liveMapService.unassignTrafficJam(id, reason));
+      return { ok: true };
+    } catch (err) {
+      if (isConflict(err)) reloadTrafficJams();
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('liveMap.traffic.unassignFailed')) };
     }
   };
 
@@ -1111,6 +1406,14 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         stations,
         trafficJams,
         resolveTrafficJam,
+        assignTrafficJam,
+        unassignTrafficJam,
+        trafficAssignableUnits,
+        fieldRequests,
+        acknowledgeFieldRequest,
+        fulfillFieldRequest,
+        declineFieldRequest,
+        assignForFieldRequest,
         setVehicleStatus,
         saveVehicle,
         escalationSettings,
@@ -1126,6 +1429,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         rejectIncident,
         transferIncident,
         unlinkLinkedReport,
+        changeIncidentSeverity,
         lockIncident,
         releaseIncident,
         createOperatorIncident,
@@ -1140,6 +1444,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         serviceArea,
         operatorAlerts,
         dismissOperatorAlert,
+        supplementVersions,
         stationNotAssigned,
       }}
     >

@@ -34,6 +34,7 @@ export const IncidentQueuePage: React.FC = () => {
     revealReporterPhone,
     setIncidentDrawerOpen,
     unlinkLinkedReport,
+    supplementVersions,
   } = useDispatchStore();
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -176,6 +177,7 @@ export const IncidentQueuePage: React.FC = () => {
         }}
         onRevealPhone={revealReporterPhone}
         onUnlinkReport={unlinkLinkedReport}
+        supplementVersion={selectedId ? supplementVersions.get(selectedId) ?? 0 : 0}
         isSubmitting={submittingId === selectedId}
         errorMsg={actionError}
       />

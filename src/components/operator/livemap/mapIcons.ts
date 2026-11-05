@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Building2 } from 'lucide-react';
-import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
+import { TRAFFIC_JAM_STATUS_COLOR, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { HAZARD_TAG_META, INCIDENT_CATEGORY_META, SEVERITY_LEVEL_COLOR } from '../../../data/incidentMock';
 import type { VehicleStatus, VehicleType } from '../../../types/vehicle';
 import type { IncidentCategory, SeverityLevel } from '../../../types/incident';
@@ -72,12 +72,25 @@ export function incidentMarkerHtml(category: IncidentCategory, severity: Severit
 }
 
 // Điểm ùn tắc nội khu (#Traffic_Jam) — chỉ là cảnh báo, không có cấp độ.
-export function trafficJamMarkerHtml(): string {
-  const { color, icon } = HAZARD_TAG_META.traffic_jam;
+/**
+ * Marker điểm ùn tắc: cam = chưa có đội, xanh dương = đang có đội giải tỏa.
+ * `escalated` (§24: tê liệt quá ngưỡng, còn Active) → viền đỏ + vòng đỏ nhấp nháy; hết khi đã giao đội.
+ */
+export function trafficJamMarkerHtml(status: 'active' | 'assigned' = 'active', escalated = false): string {
+  const { icon } = HAZARD_TAG_META.traffic_jam;
+  const color = TRAFFIC_JAM_STATUS_COLOR[status];
+  const alarm = escalated && status === 'active';
+  const border = alarm ? TRAFFIC_JAM_STATUS_COLOR.escalated : '#FFFFFF';
   const svg = renderToStaticMarkup(createElement(icon, { width: 13, height: 13, color: '#FFFFFF', strokeWidth: 2.5 }));
+  const pulse = alarm
+    ? `<span class="absolute -inset-1.5 rounded-lg animate-ping pointer-events-none" style="background:${TRAFFIC_JAM_STATUS_COLOR.escalated};opacity:0.55;"></span>`
+    : '';
   return `
-    <div class="flex items-center justify-center rounded-md border-2 cursor-pointer" style="width:22px;height:22px;background:${color};border-color:#FFFFFF;box-shadow:0 1px 6px rgba(0,0,0,0.35);">
-      ${svg}
+    <div class="relative cursor-pointer" style="width:22px;height:22px;">
+      ${pulse}
+      <div class="relative flex items-center justify-center rounded-md border-2 pointer-events-none" style="width:22px;height:22px;background:${color};border-color:${border};box-shadow:0 1px 6px rgba(0,0,0,0.35);">
+        ${svg}
+      </div>
     </div>
   `;
 }

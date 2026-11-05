@@ -9,6 +9,7 @@ import {
   ListOrdered,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from 'lucide-react';
 import type { MissionStatus, StaffMission } from '../../types/staff';
 import { staffAudioService } from '../../services/staffAudioService';
@@ -68,6 +69,7 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
 }) => {
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [showTimeline, setShowTimeline] = useState<boolean>(false);
+  const [isSubmittingStatus, setIsSubmittingStatus] = useState<boolean>(false);
 
   const currentIndex = STEPS.findIndex((s) => s.key === mission.status);
 
@@ -85,18 +87,35 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleNextStep = () => {
-    if (mission.status === 'accepted') {
+  const handleNextStep = async (targetStatus?: MissionStatus) => {
+    if (isSubmittingStatus) return;
+
+    // Chỉ cho phép chuyển đúng sang bước kế tiếp (+1)
+    const targetIdx = targetStatus ? STEPS.findIndex((s) => s.key === targetStatus) : currentIndex + 1;
+    if (targetIdx !== currentIndex + 1) {
+      return;
+    }
+
+    setIsSubmittingStatus(true);
+    try {
       staffAudioService.playSuccessChime();
-      onStatusChange('en_route');
-    } else if (mission.status === 'en_route') {
-      staffAudioService.playSuccessChime();
-      onStatusChange('on_scene');
-    } else if (mission.status === 'on_scene') {
-      // Prompt report modal
-      onOpenReportModal();
-    } else if (mission.status === 'completed') {
-      onOpenReportModal();
+      if (targetStatus) {
+        if (targetStatus === 'completed') {
+          onOpenReportModal();
+        } else {
+          await onStatusChange(targetStatus);
+        }
+      } else if (mission.status === 'accepted') {
+        await onStatusChange('en_route');
+      } else if (mission.status === 'en_route') {
+        await onStatusChange('on_scene');
+      } else if (mission.status === 'on_scene' || mission.status === 'completed') {
+        onOpenReportModal();
+      }
+    } finally {
+      setTimeout(() => {
+        setIsSubmittingStatus(false);
+      }, 500);
     }
   };
 
@@ -121,32 +140,41 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
         </div>
       </div>
 
-      {/* 4-Step Visual Progress Bar */}
+      {/* 4-Step Visual Progress Bar - Forward Only */}
       <div className="grid grid-cols-4 gap-1.5 sm:gap-2 relative">
         {STEPS.map((step, idx) => {
           const Icon = step.icon;
           const isDone = idx < currentIndex;
           const isCurrent = idx === currentIndex;
+          const isNext = idx === currentIndex + 1;
+          const canClick = isNext && !isSubmittingStatus;
 
           return (
             <div
               key={step.key}
               onClick={() => {
-                if (idx <= currentIndex + 1 && idx !== currentIndex) {
-                  if (step.key === 'completed') {
-                    onOpenReportModal();
-                  } else {
-                    onStatusChange(step.key);
-                  }
+                if (canClick) {
+                  handleNextStep(step.key);
                 }
               }}
-              className={`relative flex flex-col items-center text-center p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer select-none ${
+              className={`relative flex flex-col items-center text-center p-1.5 sm:p-2 rounded-xl border transition-all select-none ${
                 isCurrent
-                  ? 'bg-red-50/70 border-red-500 shadow-xs'
+                  ? 'bg-red-50/70 border-red-500 shadow-xs cursor-default pointer-events-none'
                   : isDone
-                  ? 'bg-slate-50 border-slate-200 text-slate-700'
-                  : 'bg-slate-50/40 border-slate-200/60 text-slate-400 opacity-60'
+                  ? 'bg-slate-50 border-slate-200 text-slate-700 cursor-default pointer-events-none'
+                  : isNext
+                  ? 'bg-white border-red-200 text-slate-900 hover:border-red-400 hover:bg-red-50/30 cursor-pointer shadow-xs'
+                  : 'bg-slate-50/40 border-slate-200/60 text-slate-400 opacity-60 cursor-not-allowed pointer-events-none'
               }`}
+              title={
+                isDone
+                  ? 'Bước đã hoàn tất'
+                  : isCurrent
+                  ? 'Bước hiện tại'
+                  : isNext
+                  ? 'Nhấn để chuyển sang bước kế tiếp'
+                  : 'Chưa thể chuyển tới bước này'
+              }
             >
               {/* Step indicator circle */}
               <div
@@ -155,6 +183,8 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
                     ? 'bg-red-600 text-white shadow-xs'
                     : isDone
                     ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                    : isNext
+                    ? 'bg-red-50 text-red-600 border border-red-300'
                     : 'bg-slate-100 text-slate-400'
                 }`}
               >
@@ -176,30 +206,41 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
       <div className="pt-0.5">
         {mission.status === 'accepted' && (
           <button
-            onClick={handleNextStep}
-            className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+            onClick={() => handleNextStep('en_route')}
+            disabled={isSubmittingStatus}
+            className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
           >
-            <Navigation className="w-4 h-4 text-white fill-current" />
-            <span>XUẤT PHÁT TỚI HIỆN TRƯỜNG (EN ROUTE)</span>
+            {isSubmittingStatus ? (
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+            ) : (
+              <Navigation className="w-4 h-4 text-white fill-current" />
+            )}
+            <span>{isSubmittingStatus ? 'ĐANG CHUYỂN TRẠNG THÁI...' : 'XUẤT PHÁT TỚI HIỆN TRƯỜNG (EN ROUTE)'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         )}
 
         {mission.status === 'en_route' && (
           <button
-            onClick={handleNextStep}
-            className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+            onClick={() => handleNextStep('on_scene')}
+            disabled={isSubmittingStatus}
+            className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
           >
-            <Flame className="w-4 h-4 text-white" />
-            <span>XÁC NHẬN ĐÃ TỚI HIỆN TRƯỜNG (ON SCENE)</span>
+            {isSubmittingStatus ? (
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+            ) : (
+              <Flame className="w-4 h-4 text-white" />
+            )}
+            <span>{isSubmittingStatus ? 'ĐANG CHUYỂN TRẠNG THÁI...' : 'XÁC NHẬN ĐÃ TỚI HIỆN TRƯỜNG (ON SCENE)'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         )}
 
         {mission.status === 'on_scene' && (
           <button
-            onClick={handleNextStep}
-            className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+            onClick={() => handleNextStep('completed')}
+            disabled={isSubmittingStatus}
+            className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
           >
             <FileCheck2 className="w-4 h-4 text-white" />
             <span>HOÀN TẤT XỬ LÝ &amp; LẬP BÁO CÁO (COMPLETED)</span>
