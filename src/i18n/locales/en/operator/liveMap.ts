@@ -40,6 +40,8 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     linkedReports: 'Merged reports ({{count}})',
     linkedDialog: 'Reports merged into the incident',
     changeSeverity: 'Change severity',
+    supplements: 'Reporter updates ({{count}})',
+    supplementsDialog: 'More information from the reporter',
     escalated: 'Escalated',
     title: 'Vehicle Dispatch',
     chooseIncident: 'Select an incident on the left',

@@ -5,6 +5,7 @@ import {
   GripVertical,
   HandHelping,
   History,
+  MessageSquarePlus,
   X,
   Loader2,
   Plus,
@@ -14,11 +15,13 @@ import {
 import { ChangeSeverityDialog } from './ChangeSeverityDialog';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
+import { IncidentSupplementList } from '../incidents/IncidentSupplementList';
 import { LinkedReportsPanel } from '../incidents/LinkedReportsPanel';
 import { SourceChip } from '../incidents/SourceChip';
 import { INCIDENT_CATEGORY_META, OVERRIDE_REASON_MIN_LENGTH } from '../../../data/incidentMock';
 import { DISPATCH_ALGORITHM_META, MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
 import { useDispatchStore, type AssignOptions } from '../../../context/DispatchContext';
+import { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { dispatchService } from '../../../services/dispatchService';
@@ -102,6 +105,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     unlinkLinkedReport,
     changeIncidentSeverity,
     currentOperatorId,
+    supplementVersions,
   } = useDispatchStore();
   const [algorithm, setAlgorithm] = useState<DispatchAlgorithm>('nearest');
   // Cấp 1–2 đã đủ 1 tổ: backend cho giao thêm khi có lý do ≥ 5 ký tự.
@@ -113,6 +117,12 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   // §21.1: hộp thoại đổi mức độ + câu backend trả sau khi đổi (có thể nhắc rút bớt xe).
   const [severityOpen, setSeverityOpen] = useState(false);
   const [severityNotice, setSeverityNotice] = useState<string | null>(null);
+  // §21.4: hộp thoại thông tin người báo bổ sung (nút chỉ hiện khi đã có bổ sung).
+  const [supplementsOpen, setSupplementsOpen] = useState(false);
+  const supplements = useIncidentSupplements(
+    selectedIncidentId,
+    selectedIncidentId ? supplementVersions.get(selectedIncidentId) ?? 0 : 0
+  );
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
 
@@ -123,6 +133,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     setLinkedOpen(false);
     setSeverityOpen(false);
     setSeverityNotice(null);
+    setSupplementsOpen(false);
   }, [selectedIncidentId]);
 
   const selectedIncident = useMemo(
@@ -250,6 +261,44 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
           </div>
         </div>
       )}
+      {supplementsOpen && selectedIncident && (
+        <div
+          className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('liveMap.recommend.supplementsDialog')}
+          onClick={() => setSupplementsOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="shrink-0 flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200">
+              <div className="min-w-0">
+                <p className="text-[11px] font-mono-data uppercase tracking-widest text-slate-500">
+                  {t('liveMap.recommend.supplementsDialog')}
+                </p>
+                <p className="text-sm font-bold text-slate-900 truncate mt-0.5">{selectedIncident.title}</p>
+              </div>
+              <button
+                onClick={() => setSupplementsOpen(false)}
+                aria-label={t('common.close')}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              <IncidentSupplementList
+                items={supplements.items}
+                loading={supplements.loading}
+                error={supplements.error}
+                onReload={supplements.reload}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {severityOpen && selectedIncident && (
         <ChangeSeverityDialog
           key={selectedIncident.id}
@@ -306,6 +355,15 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                 >
                   <Users className="w-3 h-3" />
                   {t('liveMap.recommend.linkedReports', { count: selectedIncident.linkedReportCount })}
+                </button>
+              )}
+              {(supplements.items.length > 0 || supplements.error) && (
+                <button
+                  onClick={() => setSupplementsOpen(true)}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-amber-300 bg-amber-50 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+                >
+                  <MessageSquarePlus className="w-3 h-3" />
+                  {t('liveMap.recommend.supplements', { count: supplements.items.length })}
                 </button>
               )}
             </div>

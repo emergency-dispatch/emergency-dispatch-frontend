@@ -310,6 +310,20 @@ export interface IncidentResponseDto {
  * Mirror LinkedReportDto (GET /api/incidents/{id}/linked-reports): một báo cáo đã gom vào sự cố gốc (BR-07).
  * Danh sách gồm cả báo cáo đang gom (`Linked`) và đã xác nhận trùng (`Cancelled`), cũ nhất trước.
  */
+/**
+ * Mirror IncidentSupplementDto (GET /api/incidents/{id}/supplements, sự kiện ReceiveIncidentSupplement) — §21.4.
+ * Người báo bổ sung ghi chú / ảnh. Bổ sung từ báo cáo đã gom: `incidentId` là báo cáo đó, `targetIncidentId` là sự cố gốc.
+ */
+export interface IncidentSupplementDto {
+  id: string;
+  incidentId: string;
+  targetIncidentId: string;
+  note: string;
+  mediaUrls: string[];
+  reporterName?: string | null;
+  createdAt: string;
+}
+
 export interface LinkedReportDto {
   incidentId: string;
   status: BackendIncidentStatus;
@@ -354,7 +368,9 @@ export type IncidentAuditAction =
   | 'CreatedByOperator'
   // §21.1 đổi mức độ sau xác minh:
   | 'SeverityChanged'
-  // 20–25 (yêu cầu hiện trường) và 29 (người báo bổ sung) chưa có trên web → hiện "Thao tác khác".
+  // §21.4 người báo bổ sung thông tin:
+  | 'SupplementAdded'
+  // 20–25 (yêu cầu hiện trường) chưa có trên web → hiện "Thao tác khác".
   // BR-07 gom báo cáo trùng:
   | 'ReportLinked'
   | 'ReportUnlinked'

@@ -37,6 +37,8 @@ export const liveMapVi = {
     linkedReports: 'Báo cáo đã gộp ({{count}})',
     linkedDialog: 'Báo cáo đã gộp vào sự cố',
     changeSeverity: 'Đổi mức độ',
+    supplements: 'Người báo bổ sung ({{count}})',
+    supplementsDialog: 'Thông tin bổ sung từ người báo',
     escalated: 'Leo thang',
     title: 'Điều Phối Xe',
     chooseIncident: 'Chọn sự cố ở bảng bên trái',

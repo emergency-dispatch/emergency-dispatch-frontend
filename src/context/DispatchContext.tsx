@@ -29,6 +29,7 @@ import {
   type Incident,
   type IncidentCategory,
   type IncidentResponseDto,
+  type IncidentSupplementDto,
   type OperatorCancellationCode,
   type SeverityLevel,
   type TrafficJamDecision,
@@ -44,6 +45,8 @@ const POLL_MS = 60000;
 const TIER2_SIREN_MS = 4000;
 // Thông báo "xe trạm bạn đi hỗ trợ" / "sự cố đã chuyển trạm" tự đóng sau khoảng này; cảnh báo ngoài khu vực giữ tới khi đóng.
 const INFO_ALERT_MS = 15000;
+// Độ dài ghi chú bổ sung hiện trong thông báo; xem đủ trong chi tiết sự cố.
+const SUPPLEMENT_PREVIEW_CHARS = 120;
 const HIGHLIGHT_DURATION_MS = 2200;
 // Thời gian giữ đánh dấu "mình vừa tách" chờ ReceiveNewIncident (BR-07).
 const SELF_UNLINK_MARK_MS = 30000;
@@ -151,7 +154,7 @@ export interface IncomingTransferNote {
 /** Thông báo vận hành theo trạm (ngoài tin báo mới): SOS ngoài khu vực, xe đi hỗ trợ, sự cố chuyển trạm. */
 export interface OperatorAlert {
   id: string;
-  kind: 'out_of_area' | 'support_dispatched' | 'transferred' | 'transferred_in';
+  kind: 'out_of_area' | 'support_dispatched' | 'transferred' | 'transferred_in' | 'supplement';
   incidentId: string;
   title: string;
   message: string;
@@ -290,6 +293,11 @@ interface DispatchContextValue {
   serviceArea: ServiceAreaDto | null;
   operatorAlerts: OperatorAlert[];
   dismissOperatorAlert: (id: string) => void;
+  /**
+   * §21.4: số lần nhận ReceiveIncidentSupplement theo sự cố gốc trong phiên — dùng làm khóa tải lại
+   * danh sách "Thông tin bổ sung từ người báo" (backend không trả bộ đếm trong IncidentResponseDto).
+   */
+  supplementVersions: Map<string, number>;
   /** Tài khoản chưa được Admin gán trạm phụ trách → các màn Operator hiện hướng dẫn thay vì dữ liệu. */
   stationNotAssigned: string | null;
 }
@@ -331,6 +339,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [escalationTiers, setEscalationTiers] = useState<Map<string, number>>(new Map());
   const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(null);
   const [operatorAlerts, setOperatorAlerts] = useState<OperatorAlert[]>([]);
+  const [supplementVersions, setSupplementVersions] = useState<Map<string, number>>(new Map());
   const [stationNotAssigned, setStationNotAssigned] = useState<string | null>(null);
   const knownIncidentIdsRef = useRef<Set<string> | null>(null);
   const [incomingTransferNotes, setIncomingTransferNotes] = useState<Map<string, IncomingTransferNote>>(new Map());
@@ -346,6 +355,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Lượt điều phối hiện có — để biết lượt nào vừa kết thúc giữa hai lần poll.
   const assignmentsRef = useRef(assignments);
   assignmentsRef.current = assignments;
+  // Sự cố hiện có — handler SignalR cần tiêu đề sự cố (payload bổ sung thông tin không kèm tiêu đề).
+  const incidentDtosRef = useRef(incidentDtos);
+  incidentDtosRef.current = incidentDtos;
   // Lần tải đầu / sau khi nối lại SignalR: tải đủ lịch sử lượt điều phối từng sự cố (cả lượt đã xong / bị từ chối).
   const fullAssignmentSyncRef = useRef(true);
 
@@ -617,6 +629,30 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           lockExpiresAt: evt.lockExpiresAt ?? undefined,
         })
       ),
+      // §21.4: người báo bổ sung ghi chú / ảnh → tải lại danh sách bổ sung + báo nhẹ (không bíp).
+      incidentHubService.on<IncidentSupplementDto>(HubEvents.ReceiveIncidentSupplement, (s) => {
+        const targetId = s.targetIncidentId;
+        setSupplementVersions((prev) => new Map(prev).set(targetId, (prev.get(targetId) ?? 0) + 1));
+        const incident = incidentDtosRef.current.get(targetId);
+        if (!incident) return;
+        const note = s.note.trim();
+        pushOperatorAlert(
+          {
+            kind: 'supplement',
+            incidentId: targetId,
+            title: i18n.t('layout.operatorAlerts.supplementTitle'),
+            message: i18n.t('layout.operatorAlerts.supplementMessage', {
+              incident: incident.title,
+              content: note
+                ? note.length > SUPPLEMENT_PREVIEW_CHARS
+                  ? `${note.slice(0, SUPPLEMENT_PREVIEW_CHARS)}…`
+                  : note
+                : i18n.t('layout.operatorAlerts.supplementMediaOnly', { count: s.mediaUrls.length }),
+            }),
+          },
+          INFO_ALERT_MS
+        );
+      }),
       incidentHubService.on<TeamChangedEvent>(HubEvents.ReceiveTeamChanged, (evt) => {
         stationTeamService.reloadStationTeams(evt.stationId).catch(() => undefined);
         if (evt.action === 'MembersChanged') stationTeamService.loadStaff().catch(() => undefined);
@@ -1172,6 +1208,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         serviceArea,
         operatorAlerts,
         dismissOperatorAlert,
+        supplementVersions,
         stationNotAssigned,
       }}
     >

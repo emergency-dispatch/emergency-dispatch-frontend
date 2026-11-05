@@ -65,6 +65,7 @@ export const layoutVi = {
   operatorAlerts: {
     verify: 'Thẩm định',
     viewOnMap: 'Xem trên bản đồ',
+    viewDetail: 'Xem chi tiết',
     dismiss: 'Đóng thông báo',
     outOfAreaTitle: 'SOS ngoài khu vực phục vụ',
     outOfAreaMessage: '{{title}} — {{address}} (cách {{area}} {{km}} km).',
@@ -78,6 +79,9 @@ export const layoutVi = {
     transferredInTitle: 'Sự cố được chuyển tới trạm bạn',
     transferredInMessage: '{{incident}} ← {{station}}{{by}}: {{reason}}',
     otherStation: 'trạm khác',
+    supplementTitle: 'Người báo bổ sung thông tin',
+    supplementMessage: '{{incident}}: {{content}}',
+    supplementMediaOnly: '{{count}} ảnh / video mới',
   },
   stationNotAssigned: {
     title: 'Chưa có trạm phụ trách',

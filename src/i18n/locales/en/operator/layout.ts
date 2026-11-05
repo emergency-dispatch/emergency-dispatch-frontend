@@ -68,6 +68,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
   operatorAlerts: {
     verify: 'Verify',
     viewOnMap: 'View on map',
+    viewDetail: 'View details',
     dismiss: 'Dismiss notification',
     outOfAreaTitle: 'SOS outside the service area',
     outOfAreaMessage: '{{title}} — {{address}} ({{km}} km outside {{area}}).',
@@ -81,6 +82,9 @@ export const layoutEn: Messages<typeof layoutVi> = {
     transferredInTitle: 'Incident transferred to your station',
     transferredInMessage: '{{incident}} ← {{station}}{{by}}: {{reason}}',
     otherStation: 'another station',
+    supplementTitle: 'Reporter sent more information',
+    supplementMessage: '{{incident}}: {{content}}',
+    supplementMediaOnly: '{{count}} new photo(s) / video(s)',
   },
   stationNotAssigned: {
     title: 'No assigned station',

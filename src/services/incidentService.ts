@@ -9,6 +9,7 @@ import type {
   OperatorIncidentResultDto,
   IncidentAuditEntryDto,
   IncidentResponseDto,
+  IncidentSupplementDto,
   LinkedReportDto,
   OperatorCancellationCode,
   PaginatedResultDto,
@@ -231,6 +232,11 @@ export const incidentService = {
     const { data } = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/severity`, dto);
     if (!data.success) throw new Error(data.message || 'Không đổi được mức độ sự cố.');
     return { incident: data.data, message: data.message };
+  },
+
+  /** §21.4: thông tin người báo bổ sung (kể cả từ các báo cáo đã gom vào sự cố), cũ nhất trước. */
+  async getSupplements(id: string): Promise<IncidentSupplementDto[]> {
+    return unwrapApi(apiClient.get<ApiResponse<IncidentSupplementDto[]>>(`/Incidents/${id}/supplements`));
   },
 
   /** BR-07: các báo cáo trùng backend đã gom vào sự cố gốc (đang gom + đã xác nhận trùng). */
