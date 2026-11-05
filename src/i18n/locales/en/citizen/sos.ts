@@ -103,5 +103,10 @@ export const citizenSosEn: Messages<typeof citizenSosVi> = {
   phoneModalSaveSuccess: 'Phone number saved to your profile successfully!',
   phoneModalProcessing: 'Processing...',
   phoneModalInvalidError: 'Emergency contact phone number is not valid in Vietnam format (e.g., 0912345678).',
+  authRequiredTitle: 'Sign-in Required',
+  authRequiredDesc: 'The emergency CAD dispatch system requires reporter identification to verify incident scenes and prevent false alarms.',
+  authRequiredPrompt: 'Please sign in to send emergency SOS signals.',
+  loginNowBtn: 'Sign In Now',
+  registerBtn: 'Create New Account',
 };
 

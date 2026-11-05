@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { HeroSection } from '../components/landing/HeroSection';
 import { FeaturesSection } from '../components/landing/FeaturesSection';
@@ -16,11 +17,22 @@ import { mapboxService } from '../services/mapboxService';
 import { useTranslation } from '../i18n';
 
 export const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, isAuthenticated } = useAuth();
   const [sosModalOpen, setSosModalOpen] = useState(false);
   const [reportsModalOpen, setReportsModalOpen] = useState(false);
   const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+
+  const handleOpenSos = () => {
+    if (!isAuthenticated) {
+      navigate('/login', {
+        state: { message: t('citizen.sos.authRequiredPrompt') },
+      });
+      return;
+    }
+    setSosModalOpen(true);
+  };
 
   const roleClean = String(user?.role || '').toLowerCase();
   const isCitizen = !user?.role || roleClean === 'citizen' || user?.role === UserRole.Citizen;
@@ -61,7 +73,7 @@ export const HomePage: React.FC = () => {
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-red-600 selection:text-white flex flex-col">
       {/* Sticky Navbar */}
       <Navbar
-        onOpenSos={() => setSosModalOpen(true)}
+        onOpenSos={handleOpenSos}
         onOpenReports={() => setReportsModalOpen(true)}
       />
 
@@ -112,7 +124,7 @@ export const HomePage: React.FC = () => {
       <main className="flex-grow">
         {/* Hero Section */}
         <HeroSection
-          onOpenSos={() => setSosModalOpen(true)}
+          onOpenSos={handleOpenSos}
           onOpenReports={() => setReportsModalOpen(true)}
         />
 
@@ -126,20 +138,20 @@ export const HomePage: React.FC = () => {
         <HowItWorksSection />
 
         {/* Role-Based Solution Cards */}
-        <RoleSolutionsSection onOpenSos={() => setSosModalOpen(true)} />
+        <RoleSolutionsSection onOpenSos={handleOpenSos} />
 
         {/* National Hotlines Direct Contact Banner */}
-        <HotlineBannerSection onOpenSos={() => setSosModalOpen(true)} />
+        <HotlineBannerSection onOpenSos={handleOpenSos} />
       </main>
 
       {/* Footer */}
-      <Footer onOpenSos={() => setSosModalOpen(true)} />
+      <Footer onOpenSos={handleOpenSos} />
 
       {/* Mobile Floating Sticky SOS Action Bar for Citizen Web */}
       <div className="fixed bottom-3 left-3 right-3 z-40 sm:hidden animate-fadeIn">
         <button
           type="button"
-          onClick={() => setSosModalOpen(true)}
+          onClick={handleOpenSos}
           className="w-full py-3 px-4 rounded-2xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs uppercase tracking-wider shadow-xl shadow-red-600/40 border border-red-500 flex items-center justify-center gap-2 transition-all cursor-pointer"
         >
           <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />

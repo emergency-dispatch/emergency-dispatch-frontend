@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   X,
   AlertTriangle,
@@ -21,6 +22,7 @@ import {
   RefreshCw,
   Video,
   Navigation,
+  LogIn,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSosCooldown } from '../../hooks/useSosCooldown';
@@ -58,6 +60,7 @@ const formatIncidentStatus = (status: string) => {
 
 
 export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenReports }) => {
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { user, isAuthenticated, updateProfile } = useAuth();
   const { isCooldown, cooldownLabel, triggerCooldown, clearCooldown } = useSosCooldown();
@@ -403,6 +406,12 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     e.preventDefault();
     setErrorMsg('');
 
+    // Authentication validation
+    if (!isAuthenticated) {
+      setErrorMsg(t('citizen.sos.authRequiredPrompt'));
+      return;
+    }
+
     // Cooldown validation
     if (isCooldown) {
       setErrorMsg(t('citizen.sos.cooldownWaitError', { time: cooldownLabel }));
@@ -574,6 +583,57 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
       setIsCancelling(false);
     }
   };
+
+  if (!isAuthenticated) {
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
+        <div className="relative w-full max-w-md rounded-2xl bg-white p-6 sm:p-7 shadow-2xl border border-slate-200 text-center animate-scaleIn">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="w-16 h-16 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4 shadow-inner">
+            <ShieldAlert className="w-8 h-8 animate-pulse" />
+          </div>
+          <h3 className="text-xl font-black text-slate-900 mb-2">
+            {t('citizen.sos.authRequiredTitle')}
+          </h3>
+          <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+            {t('citizen.sos.authRequiredDesc')}
+          </p>
+          <div className="flex flex-col gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                navigate('/login', {
+                  state: { message: t('citizen.sos.authRequiredPrompt') },
+                });
+              }}
+              className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>{t('citizen.sos.loginNowBtn')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                navigate('/register');
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-all cursor-pointer"
+            >
+              <span>{t('citizen.sos.registerBtn')}</span>
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">

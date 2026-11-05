@@ -100,4 +100,9 @@ export const citizenSosVi = {
   phoneModalSaveSuccess: 'Đã lưu số điện thoại vào hồ sơ của bạn thành công!',
   phoneModalProcessing: 'Đang xử lý...',
   phoneModalInvalidError: 'Số điện thoại không đúng định dạng Việt Nam (ví dụ: 0912345678).',
+  authRequiredTitle: 'Yêu Cầu Đăng Nhập',
+  authRequiredDesc: 'Hệ thống điều phối cứu nạn khẩn cấp CAD yêu cầu định danh người báo để xác thực hiện trường và phòng chống báo động giả.',
+  authRequiredPrompt: 'Vui lòng đăng nhập để gửi tín hiệu cứu nạn khẩn cấp SOS.',
+  loginNowBtn: 'Đăng nhập ngay',
+  registerBtn: 'Tạo tài khoản mới',
 } as const;
