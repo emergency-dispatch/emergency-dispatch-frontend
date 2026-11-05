@@ -72,6 +72,8 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
   teamLabel: {
     understaffed: 'understaffed ({{size}}/{{min}})',
     members: '{{count}} member(s)',
+    sameTeam: '(+ {{plates}})',
+    sameTeamTitle: 'Same team as: {{plates}}',
   },
   map: {
     vehicle: 'Rescue vehicle',

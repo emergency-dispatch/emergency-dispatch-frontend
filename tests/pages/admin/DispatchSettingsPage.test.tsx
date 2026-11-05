@@ -69,7 +69,12 @@ describe('DispatchSettingsPage', () => {
   });
 
   it('khôi phục mặc định (có xác nhận)', async () => {
-    svc.getDefaults.mockResolvedValue({ dispatch: { ...dispatch, recoveryMinutes: 10 }, escalation: {} as never });
+    svc.getDefaults.mockResolvedValue({
+      dispatch: { ...dispatch, recoveryMinutes: 10 },
+      escalation: {} as never,
+      serviceArea: {} as never,
+      duplicateDetection: {} as never,
+    });
     renderWithRouter(<DispatchSettingsPage />);
     await screen.findByText(t('admin.settings.dispatch.weightsTitle'));
     await userEvent.click(screen.getByRole('button', { name: t('admin.common.settings.restoreDefaults') }));

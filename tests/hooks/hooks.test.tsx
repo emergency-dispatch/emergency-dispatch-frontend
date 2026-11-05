@@ -88,14 +88,16 @@ describe('useAuth', () => {
 describe('useStationTeams / useTeamByVehicle', () => {
   it('đọc snapshot từ store và map tổ theo xe', () => {
     const teams = [
-      { id: 't1', stationId: 's', name: 'A', vehicleId: 'v1', members: [] },
-      { id: 't2', stationId: 's', name: 'B', vehicleId: null, members: [] },
+      { id: 't1', stationId: 's', name: 'A', vehicleIds: ['v1', 'v3'], vehiclePlates: ['P1', 'P3'], members: [] },
+      { id: 't2', stationId: 's', name: 'B', vehicleIds: [], vehiclePlates: [], members: [] },
     ];
     vi.spyOn(stationTeamService, 'getSnapshot').mockReturnValue({ staff: [], teams });
     expect(renderHook(() => useStationTeams()).result.current.teams).toBe(teams);
     const map = renderHook(() => useTeamByVehicle()).result.current;
-    expect([...map.keys()]).toEqual(['v1']);
+    // Tổ nhiều xe: mỗi xe đều trỏ về cùng tổ; tổ không có xe không xuất hiện.
+    expect([...map.keys()]).toEqual(['v1', 'v3']);
     expect(map.get('v1')!.id).toBe('t1');
+    expect(map.get('v3')!.id).toBe('t1');
   });
 });
 
@@ -187,6 +189,7 @@ describe('useDispatchRoutes', () => {
     id: 'v1',
     plate: '51A',
     type: 'fire_truck',
+    unitType: 'FireTruck',
     status: 'en_route',
     stationId: 's1',
     stationName: 'Trạm',

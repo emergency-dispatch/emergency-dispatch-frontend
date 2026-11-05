@@ -69,6 +69,8 @@ export const liveMapVi = {
   teamLabel: {
     understaffed: 'thiếu người ({{size}}/{{min}})',
     members: '{{count}} người',
+    sameTeam: '(+ {{plates}})',
+    sameTeamTitle: 'Cùng tổ với các xe: {{plates}}',
   },
   map: {
     vehicle: 'Phương tiện cứu hộ',

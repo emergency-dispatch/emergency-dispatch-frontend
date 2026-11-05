@@ -19,13 +19,13 @@ vi.mock('@/services/liveMapService', async (orig) => ({
 }));
 
 const v = (o: Partial<Vehicle>): Vehicle =>
-  ({ id: 'v', plate: 'X', type: 'fire_truck', status: 'available', unitStatus: 'Available', stationId: 'st-1', stationName: 'Trạm 1', incidentId: null, assignmentId: null, lat: 0, lng: 0, ...o }) as Vehicle;
+  ({ id: 'v', plate: 'X', type: 'fire_truck', unitType: 'FireTruck', status: 'available', unitStatus: 'Available', stationId: 'st-1', stationName: 'Trạm 1', incidentId: null, assignmentId: null, lat: 0, lng: 0, ...o }) as Vehicle;
 
 const vehicles = [
   v({ id: 'a', plate: '51A-001' }),
   v({ id: 'b', plate: '51A-002', status: 'en_route', unitStatus: 'Dispatched', incidentId: 'inc-1', assignmentId: 'as' }),
   v({ id: 'c', plate: '51A-003', status: 'unavailable', unitStatus: 'Maintenance' }),
-  v({ id: 'd', plate: '51A-004', status: 'recovering', unitStatus: 'CoolDown' }),
+  v({ id: 'd', plate: '51A-004', unitType: 'LadderTruck', status: 'recovering', unitStatus: 'CoolDown' }),
   v({ id: 'e', plate: '51A-005', status: 'unavailable', unitStatus: 'OutOfService' }),
   v({ id: 'z', plate: '99Z-999', stationId: 'st-2' }),
 ];
@@ -53,7 +53,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockStore.current = makeDispatchStore({ vehicles, incidents: [makeIncident({ id: 'inc-1', title: 'Cháy xưởng', status: 'approved' })] });
   vi.mocked(useTeamByVehicle).mockReturnValue(
-    new Map([['a', { id: 't1', stationId: 'st-1', name: 'Tổ Alpha', vehicleId: 'a', members: [{ staffId: 'x', crewRole: 'commander', fullName: 'Tuấn' }] }]]),
+    new Map([['a', { id: 't1', stationId: 'st-1', name: 'Tổ Alpha', vehicleIds: ['a'], vehiclePlates: ['51A-1'], members: [{ staffId: 'x', crewRole: 'commander', fullName: 'Tuấn' }] }]]),
   );
   vi.mocked(liveMapService.getRescueUnit).mockResolvedValue({ unitType: 'LadderTruck' } as never);
 });
@@ -71,6 +71,15 @@ describe('Operator VehiclesPage', () => {
     expect(within(row('51A-003')).getByText(t('vehicles.page.noTeam'))).toBeInTheDocument();
     await userEvent.click(within(row('51A-002')).getByText('Cháy xưởng'));
     expect(screen.getByTestId('loc')).toHaveTextContent('/dashboard/command-center/live-map{"focusIncidentId":"inc-1"}');
+  });
+
+  it('hiện đúng loại xe gốc: xe thang không bị ghi thành xe chữa cháy', () => {
+    renderPage();
+    expect(within(row('51A-004')).getByText(t('enums.unitType.LadderTruck'), { exact: false })).toBeInTheDocument();
+    expect(within(row('51A-004')).queryByText(t('enums.unitType.FireTruck'), { exact: false })).not.toBeInTheDocument();
+    // Chức năng vẫn theo nhóm: xe thang thuộc nhóm chữa cháy
+    expect(within(row('51A-004')).getByText(t('enums.teamFunction.fire_truck'), { exact: false })).toBeInTheDocument();
+    expect(within(row('51A-001')).getByText(t('enums.unitType.FireTruck'), { exact: false })).toBeInTheDocument();
   });
 
   it('bộ lọc trạng thái + tìm kiếm', async () => {

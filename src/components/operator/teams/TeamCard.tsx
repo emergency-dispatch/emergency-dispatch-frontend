@@ -12,60 +12,82 @@ import { useTranslation } from '../../../i18n';
 interface TeamCardProps {
   team: StationTeam;
   staffById: Map<string, StationStaff>;
-  vehicle: Vehicle | undefined;
+  /** Xe của trạm theo id — tra từng xe trong `team.vehicleIds`. */
+  vehiclesById: Map<string, Vehicle>;
   /** Lý do khóa sửa/xóa (xe của tổ đang làm nhiệm vụ), null = thao tác được. */
   lockedReason: string | null;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-export const TeamCard: React.FC<TeamCardProps> = ({ team, staffById, vehicle, lockedReason, onEdit, onDelete }) => {
+export const TeamCard: React.FC<TeamCardProps> = ({ team, staffById, vehiclesById, lockedReason, onEdit, onDelete }) => {
   const { t } = useTranslation();
   const members = [...team.members].sort(
     (a, b) => Number(b.crewRole === 'commander') - Number(a.crewRole === 'commander')
   );
   const understaffed = team.members.length < MIN_TEAM_SIZE;
-  const TypeIcon = vehicle ? VEHICLE_TYPE_META[vehicle.type].icon : Building2;
+  // Biển số từ backend dùng khi xe không còn trong danh sách xe của trạm (đã xóa / chuyển trạm).
+  const vehicles = team.vehicleIds.map((id, i) => ({ id, vehicle: vehiclesById.get(id), plate: team.vehiclePlates[i] }));
+  const functionTypes = [...new Set(vehicles.flatMap(({ vehicle }) => (vehicle ? [vehicle.type] : [])))];
 
   return (
     <div className={`rounded-xl border bg-white p-4 space-y-3 ${understaffed ? 'border-amber-300' : 'border-slate-200'}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <h3 className="text-sm font-bold text-slate-900 truncate">{team.name}</h3>
-            {vehicle ? (
-              <span
-                className={`px-1.5 py-0.5 rounded border text-[10px] font-bold whitespace-nowrap shrink-0 ${TEAM_FUNCTION_META[vehicle.type].badgeClass}`}
-              >
-                {t(`enums.teamFunction.${vehicle.type}`)}
-              </span>
+            {functionTypes.length > 0 ? (
+              functionTypes.map((type) => (
+                <span
+                  key={type}
+                  className={`px-1.5 py-0.5 rounded border text-[10px] font-bold whitespace-nowrap shrink-0 ${TEAM_FUNCTION_META[type].badgeClass}`}
+                >
+                  {t(`enums.teamFunction.${type}`)}
+                </span>
+              ))
             ) : (
               <span className="px-1.5 py-0.5 rounded border border-amber-200 bg-amber-50 text-[10px] font-bold text-amber-700 whitespace-nowrap shrink-0">
                 {t('teams.card.noVehicle')}
               </span>
             )}
           </div>
-          <div className="mt-1 flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1 text-[11px] text-slate-600">
-              <TypeIcon className="w-3.5 h-3.5 shrink-0" />
-              {vehicle ? (
-                <>
-                  <span className="font-mono-data font-bold text-red-600">{vehicle.plate}</span>·{' '}
-                  {t(`enums.vehicleType.${vehicle.type}`)}
-                </>
-              ) : team.vehicleId ? (
-                t('teams.card.vehicleGone')
-              ) : (
-                t('teams.card.atStation')
-              )}
-            </span>
-            {vehicle && (
-              <VehicleStatusBadge
-                label={t(`enums.vehicleStatus.${vehicle.status}`)}
-                color={VEHICLE_STATUS_META[vehicle.status].color}
-              />
-            )}
-          </div>
+          {vehicles.length === 0 ? (
+            <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-slate-600">
+              <Building2 className="w-3.5 h-3.5 shrink-0" />
+              {t('teams.card.atStation')}
+            </p>
+          ) : (
+            <ul className="mt-1 space-y-1">
+              {vehicles.map(({ id, vehicle, plate }) => {
+                const TypeIcon = vehicle ? VEHICLE_TYPE_META[vehicle.type].icon : Building2;
+                return (
+                  <li key={id} className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1 text-[11px] text-slate-600">
+                      <TypeIcon className="w-3.5 h-3.5 shrink-0" />
+                      {vehicle ? (
+                        <>
+                          <span className="font-mono-data font-bold text-red-600">{vehicle.plate}</span>·{' '}
+                          {t(`enums.unitType.${vehicle.unitType}`)}
+                        </>
+                      ) : (
+                        <>
+                          {plate && <span className="font-mono-data font-bold text-slate-500">{plate}</span>}
+                          {plate && '· '}
+                          {t('teams.card.vehicleGone')}
+                        </>
+                      )}
+                    </span>
+                    {vehicle && (
+                      <VehicleStatusBadge
+                        label={t(`enums.vehicleStatus.${vehicle.status}`)}
+                        color={VEHICLE_STATUS_META[vehicle.status].color}
+                      />
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
           <LockableButton

@@ -27,7 +27,7 @@ vi.mock('@/components/operator/IncomingIncidentToasts', () => ({ IncomingInciden
 vi.mock('@/components/operator/OperatorAlerts', () => ({ OperatorAlerts: () => null }));
 
 const v = (o: Partial<Vehicle>): Vehicle =>
-  ({ id: 'v1', plate: '51A-1', type: 'fire_truck', status: 'en_route', incidentId: 'i1', stationId: 's', stationName: 'Trạm', lat: 0, lng: 0, ...o }) as Vehicle;
+  ({ id: 'v1', plate: '51A-1', type: 'fire_truck', unitType: 'FireTruck', status: 'en_route', incidentId: 'i1', stationId: 's', stationName: 'Trạm', lat: 0, lng: 0, ...o }) as Vehicle;
 
 beforeEach(() => {
   vi.clearAllMocks();

@@ -12,7 +12,7 @@ vi.mock('@/context/DispatchContext', () => ({ useDispatchStore: () => mockStore.
 vi.mock('@/hooks/useStationTeams', () => ({ useTeamByVehicle: vi.fn() }));
 
 const v = (o: Partial<Vehicle>): Vehicle =>
-  ({ id: 'v', plate: 'X', type: 'fire_truck', status: 'en_route', stationId: 'st-1', stationName: 'Trạm 1', incidentId: 'i1', assignmentId: 'as', etaMinutes: 4, lat: 0, lng: 0, ...o }) as Vehicle;
+  ({ id: 'v', plate: 'X', type: 'fire_truck', unitType: 'FireTruck', status: 'en_route', stationId: 'st-1', stationName: 'Trạm 1', incidentId: 'i1', assignmentId: 'as', etaMinutes: 4, lat: 0, lng: 0, ...o }) as Vehicle;
 
 const props = () => ({
   selectedIncidentId: null as string | null,
@@ -28,7 +28,7 @@ const props = () => ({
 
 beforeEach(() => {
   vi.mocked(useTeamByVehicle).mockReturnValue(
-    new Map([['v1', { id: 't', stationId: 'st-1', name: 'Tổ Alpha', vehicleId: 'v1', members: [{ staffId: 'a', crewRole: 'commander', fullName: 'Tuấn' }, { staffId: 'b', crewRole: 'driver' }] }]]),
+    new Map([['v1', { id: 't', stationId: 'st-1', name: 'Tổ Alpha', vehicleIds: ['v1'], vehiclePlates: ['51A-1'], members: [{ staffId: 'a', crewRole: 'commander', fullName: 'Tuấn' }, { staffId: 'b', crewRole: 'driver' }] }]]),
   );
   mockStore.current = makeDispatchStore({
     vehicles: [v({ id: 'v1', plate: '51A-1' }), v({ id: 'v2', plate: '51A-2', status: 'on_scene' }), v({ id: 'v3', plate: '51A-3', incidentId: null, assignmentId: null })],
