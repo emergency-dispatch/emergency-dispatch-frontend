@@ -29,7 +29,7 @@ describe('avatar.getAvatarUrl', () => {
     expect(getAvatarUrl('https://cdn/a.png', 'An')).toBe('https://cdn/a.png');
   });
 
-  it.each([undefined, null, '', '   ', 'null', 'undefined'])('URL rỗng (%s) + có tên → SVG chữ cái đầu', (url) => {
+  it.each([undefined, null, '', '   ', 'null', 'undefined'])('URL rỗng (%s) + có tên → SVG chữ cái đầu', (url: string | null | undefined) => {
     const result = getAvatarUrl(url as string | null | undefined, ' bình ');
     expect(result.startsWith('data:image/svg+xml')).toBe(true);
     expect(result).toContain(`>${encodeURIComponent('B')}</text>`);
@@ -157,7 +157,7 @@ describe('incidentFormat', () => {
     ['AiProcessed', 'Chờ tiếp nhận'],
     [null, 'Chờ tiếp nhận'],
     ['Weird', 'Chờ tiếp nhận'],
-  ])('formatCitizenIncidentStatus(%s) → %s', (status, label) => {
+  ])('formatCitizenIncidentStatus(%s) → %s', (status: string | null, label: string) => {
     expect(formatCitizenIncidentStatus(status)).toBe(label);
   });
 });
@@ -198,7 +198,7 @@ describe('routeUtils', () => {
     [UserRole.Admin, '/admin/overview'],
     [UserRole.Citizen, '/'],
     [undefined, '/'],
-  ])('getDefaultRouteForRole(%s) → %s', (role, path) => {
+  ])('getDefaultRouteForRole(%s) → %s', (role: UserRole | undefined, path: string) => {
     expect(getDefaultRouteForRole(role)).toBe(path);
   });
 
@@ -210,7 +210,7 @@ describe('routeUtils', () => {
 
   it.each(['/login', '/register', '/signup', '/forgot-password', '/unauthorized', '/login/x'])(
     'không redirect về trang auth %s',
-    (path) => {
+    (path: string) => {
       expect(isRouteAllowedForRole(path, UserRole.Admin)).toBe(false);
     },
   );
@@ -241,9 +241,9 @@ describe('serviceArea', () => {
     });
   });
 
-  it('resolveServiceArea lấy tâm từ Admin nhưng bán kính luôn cố định', () => {
+  it('resolveServiceArea lấy tâm và bán kính từ cấu hình', () => {
     const area = resolveServiceArea({ enabled: true, name: 'X', centerLat: 10, centerLng: 106, radiusKm: 99 });
-    expect(area).toEqual({ name: 'X', lat: 10, lng: 106, radiusKm: KCN_RADIUS_KM });
+    expect(area).toEqual({ name: 'X', lat: 10, lng: 106, radiusKm: 99 });
   });
 
   it('resolveServiceArea coi tọa độ 0 là chưa cấu hình', () => {

@@ -20,6 +20,7 @@ import {
   PhoneCall,
   RefreshCw,
   Video,
+  Navigation,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSosCooldown } from '../../hooks/useSosCooldown';
@@ -32,6 +33,7 @@ import { mapboxService } from '../../services/mapboxService';
 import { UserRole } from '../../types/auth';
 import type { CreateIncidentDto, IncidentResponseDto } from '../../types/incident';
 import { CitizenPhoneModal } from './CitizenPhoneModal';
+import { CitizenLiveTrackingMapModal } from './CitizenLiveTrackingMapModal';
 import { formatCitizenIncidentStatus } from '../../utils/incidentFormat';
 // Vùng phục vụ dùng chung với form Operator tạo sự cố (cùng tâm, cùng bán kính chặn).
 import { DEFAULT_SERVICE_AREA, KCN_RADIUS_KM, haversineDistanceKm } from '../../utils/serviceArea';
@@ -92,6 +94,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
   const [createdIncident, setCreatedIncident] = useState<IncidentResponseDto | null>(null);
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
+  const [showLiveTrackingModal, setShowLiveTrackingModal] = useState<boolean>(false);
 
   // Out of service area notice modal & real-time monitoring
   const [showOutOfAreaModal, setShowOutOfAreaModal] = useState<boolean>(false);
@@ -109,12 +112,13 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
           const rawLat = area.centerLat ?? (area as any).CenterLat;
           const rawLng = area.centerLng ?? (area as any).CenterLng;
           const rawRad = area.radiusKm ?? (area as any).RadiusKm;
+          const rawEnabled = area.enabled ?? (area as any).Enabled ?? true;
           setServiceArea({
-            enabled: true,
+            enabled: rawEnabled,
             name: area.name || DEFAULT_SERVICE_AREA.name,
             centerLat: typeof rawLat === 'number' && rawLat !== 0 ? rawLat : DEFAULT_SERVICE_AREA.centerLat,
             centerLng: typeof rawLng === 'number' && rawLng !== 0 ? rawLng : DEFAULT_SERVICE_AREA.centerLng,
-            radiusKm: typeof rawRad === 'number' && rawRad > 0 ? Math.min(rawRad, KCN_RADIUS_KM) : KCN_RADIUS_KM,
+            radiusKm: typeof rawRad === 'number' && rawRad > 0 ? rawRad : DEFAULT_SERVICE_AREA.radiusKm,
           });
         }
       }).catch(() => undefined);
@@ -123,9 +127,9 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
 
   const effectiveCenterLat = (serviceArea.centerLat && serviceArea.centerLat !== 0) ? serviceArea.centerLat : DEFAULT_SERVICE_AREA.centerLat;
   const effectiveCenterLng = (serviceArea.centerLng && serviceArea.centerLng !== 0) ? serviceArea.centerLng : DEFAULT_SERVICE_AREA.centerLng;
-  const effectiveRadiusKm = KCN_RADIUS_KM;
+  const effectiveRadiusKm = (typeof serviceArea.radiusKm === 'number' && serviceArea.radiusKm > 0) ? serviceArea.radiusKm : DEFAULT_SERVICE_AREA.radiusKm;
   const currentDistanceKm = haversineDistanceKm(latitude, longitude, effectiveCenterLat, effectiveCenterLng);
-  const isOutsideArea = currentDistanceKm > effectiveRadiusKm;
+  const isOutsideArea = serviceArea.enabled && currentDistanceKm > effectiveRadiusKm;
   const outsideDistanceKm = isOutsideArea ? Math.round((currentDistanceKm - effectiveRadiusKm) * 10) / 10 : 0;
 
   const isCitizen = !user || user.role === UserRole.Citizen;
@@ -456,7 +460,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
 
     // Service area boundary validation - STRICT BLOCK FIRST
     const finalDistKm = haversineDistanceKm(finalLat, finalLng, effectiveCenterLat, effectiveCenterLng);
-    const finalOutside = finalDistKm > effectiveRadiusKm;
+    const finalOutside = serviceArea.enabled && finalDistKm > effectiveRadiusKm;
     const finalOutsideKm = finalOutside ? Math.round((finalDistKm - effectiveRadiusKm) * 10) / 10 : 0;
 
     if (finalOutside) {
@@ -685,6 +689,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                     <MapboxLocationPicker
                       latitude={latitude}
                       longitude={longitude}
+                      serviceArea={serviceArea}
                       onChange={(lat, lng, addr) => {
                         setLatitude(lat);
                         setLongitude(lng);
@@ -1064,6 +1069,18 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 </div>
               </div>
 
+              {/* Real-time Rescue Tracking Launcher */}
+              <div className="max-w-xl mx-auto w-full pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowLiveTrackingModal(true)}
+                  className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider font-mono shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Navigation className="w-4 h-4 animate-pulse text-white" />
+                  <span>{t('citizen.sos.trackRescueUnitLiveBtn')}</span>
+                </button>
+              </div>
+
               {/* Cancel Alarm Action / Inline Confirmation */}
               {createdIncident.status === 'Cancelled' ? (
                 <div className="p-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 text-xs font-mono font-bold flex items-center justify-center gap-2 max-w-xl mx-auto">
@@ -1166,6 +1183,13 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
             </button>
           </div>
         </div>
+      )}
+      {/* Live Vehicle Tracking Modal */}
+      {showLiveTrackingModal && createdIncident && (
+        <CitizenLiveTrackingMapModal
+          incident={createdIncident}
+          onClose={() => setShowLiveTrackingModal(false)}
+        />
       )}
     </div>,
     document.body

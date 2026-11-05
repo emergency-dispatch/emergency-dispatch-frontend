@@ -11,7 +11,7 @@ export const DEFAULT_SERVICE_AREA: ServiceAreaDto = {
   radiusKm: KCN_RADIUS_KM,
 };
 
-/** Vùng phục vụ áp dụng thật: tâm theo cấu hình Admin (nếu có), bán kính luôn là KCN_RADIUS_KM. */
+/** Vùng phục vụ áp dụng: tâm và bán kính theo cấu hình Admin (nếu có), mặc định là KCN SHTP. */
 export interface EffectiveServiceArea {
   name: string;
   lat: number;
@@ -20,11 +20,12 @@ export interface EffectiveServiceArea {
 }
 
 export function resolveServiceArea(area?: ServiceAreaDto | null): EffectiveServiceArea {
+  const radius = typeof area?.radiusKm === 'number' && area.radiusKm > 0 ? area.radiusKm : DEFAULT_SERVICE_AREA.radiusKm;
   return {
     name: area?.name || DEFAULT_SERVICE_AREA.name!,
     lat: area?.centerLat ? area.centerLat : DEFAULT_SERVICE_AREA.centerLat,
     lng: area?.centerLng ? area.centerLng : DEFAULT_SERVICE_AREA.centerLng,
-    radiusKm: KCN_RADIUS_KM,
+    radiusKm: radius,
   };
 }
 
