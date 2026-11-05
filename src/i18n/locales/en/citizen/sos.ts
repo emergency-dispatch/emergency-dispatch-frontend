@@ -78,6 +78,7 @@ export const citizenSosEn: Messages<typeof citizenSosVi> = {
   dispatchedBadge: 'EMERGENCY RESCUE SIGNAL RECEIVED SUCCESSFULLY',
   dispatchedTitle: 'Dispatch center is allocating emergency forces',
   trackRescueUnitLiveBtn: 'Track rescue vehicle in realtime',
+  trackOnRadarDirectly: 'Track on CAD Radar',
   sceneLocationLabel: 'SCENE LOCATION:',
   timeReceivedLabel: 'TIME RECEIVED:',
   cancelSuccessNotice: 'This incident has been cancelled successfully',

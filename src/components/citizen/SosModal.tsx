@@ -35,7 +35,6 @@ import { mapboxService } from '../../services/mapboxService';
 import { UserRole } from '../../types/auth';
 import type { CreateIncidentDto, IncidentResponseDto } from '../../types/incident';
 import { CitizenPhoneModal } from './CitizenPhoneModal';
-import { CitizenLiveTrackingMapModal } from './CitizenLiveTrackingMapModal';
 import { formatCitizenIncidentStatus } from '../../utils/incidentFormat';
 // Vùng phục vụ dùng chung với form Operator tạo sự cố (cùng tâm, cùng bán kính chặn).
 import { DEFAULT_SERVICE_AREA, KCN_RADIUS_KM, haversineDistanceKm } from '../../utils/serviceArea';
@@ -97,7 +96,6 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
   const [createdIncident, setCreatedIncident] = useState<IncidentResponseDto | null>(null);
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
-  const [showLiveTrackingModal, setShowLiveTrackingModal] = useState<boolean>(false);
 
   // Out of service area notice modal & real-time monitoring
   const [showOutOfAreaModal, setShowOutOfAreaModal] = useState<boolean>(false);
@@ -1129,18 +1127,6 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 </div>
               </div>
 
-              {/* Real-time Rescue Tracking Launcher */}
-              <div className="max-w-xl mx-auto w-full pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowLiveTrackingModal(true)}
-                  className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider font-mono shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <Navigation className="w-4 h-4 animate-pulse text-white" />
-                  <span>{t('citizen.sos.trackRescueUnitLiveBtn')}</span>
-                </button>
-              </div>
-
               {/* Cancel Alarm Action / Inline Confirmation */}
               {createdIncident.status === 'Cancelled' ? (
                 <div className="p-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 text-xs font-mono font-bold flex items-center justify-center gap-2 max-w-xl mx-auto">
@@ -1202,9 +1188,10 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider font-mono shadow-sm transition-all cursor-pointer"
+                  className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider font-mono shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  {t('citizen.sos.closeKeepSafeBtn')}
+                  <Navigation className="w-4 h-4 text-white" />
+                  <span>{t('citizen.sos.trackOnRadarDirectly', 'Theo dõi trên Radar CAD')}</span>
                 </button>
               </div>
             </div>
@@ -1243,13 +1230,6 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
             </button>
           </div>
         </div>
-      )}
-      {/* Live Vehicle Tracking Modal */}
-      {showLiveTrackingModal && createdIncident && (
-        <CitizenLiveTrackingMapModal
-          incident={createdIncident}
-          onClose={() => setShowLiveTrackingModal(false)}
-        />
       )}
     </div>,
     document.body
