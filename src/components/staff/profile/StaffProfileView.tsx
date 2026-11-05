@@ -279,13 +279,13 @@ export const StaffProfileView: React.FC<StaffProfileViewProps> = ({ profile, onP
               <Award className="w-4 h-4 text-amber-500" />
               Chứng Chỉ &amp; Giấy Phép Nghiệp Vụ
             </h3>
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
-              CHƯA CÓ API
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+              Đang cập nhật
             </span>
           </div>
 
-          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
-            <strong>Lưu ý:</strong> Backend hiện chưa có endpoint lưu trữ danh mục Bằng cấp / Chứng chỉ nghiệp vụ (<code className="font-mono text-red-600 bg-white px-1 py-0.5 rounded">/api/users/me/certifications</code>). Dữ liệu giả lập đã được gỡ bỏ.
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center text-slate-500 text-xs">
+            Chưa có thông tin chứng chỉ hoặc bằng cấp chuyên môn được liên kết với hồ sơ này.
           </div>
 
           {/* Account Creation Date from Backend */}

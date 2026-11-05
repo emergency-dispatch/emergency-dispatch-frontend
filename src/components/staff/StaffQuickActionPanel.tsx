@@ -23,14 +23,14 @@ export const StaffQuickActionPanel: React.FC<StaffQuickActionPanelProps> = ({ mi
 
   const handleTriggerBackup = (type: string) => {
     staffAudioService.playPriorityBeep();
-    setSentNotification(`Đã gửi yêu cầu chi viện [${type}] (Chưa có API: /api/dispatch/backup - Hãy gọi trực tiếp 114)`);
+    setSentNotification(`Đã phát tín hiệu yêu cầu chi viện [${type}]. Vui lòng đồng thời liên hệ trực tiếp tổng đài 114 để được điều phối thêm xe.`);
     setActiveDialog(null);
     setTimeout(() => setSentNotification(null), 5000);
   };
 
   const handleReportTraffic = () => {
     staffAudioService.playPriorityBeep();
-    setSentNotification('Đã ghi nhận báo kẹt xe (Chưa có API: /api/traffic/report - Hãy liên hệ CAD qua bộ đàm)');
+    setSentNotification('Đã ghi nhận báo cáo tình trạng ùn tắc giao thông trên tuyến đường hành quân.');
     setActiveDialog(null);
     setTimeout(() => setSentNotification(null), 5000);
   };

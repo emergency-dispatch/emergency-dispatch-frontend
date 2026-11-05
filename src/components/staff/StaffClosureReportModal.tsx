@@ -191,9 +191,9 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
       errors.push('Bắt buộc phải có ít nhất 1 ảnh hiện trường sau can thiệp (theo quy định FR-RS-03 / MSG42).');
     }
 
-    // Validation 2: Action summary >= 10 chars (Backend /resolve requirement)
+    // Validation 2: Action summary >= 10 chars
     if (actionSummary.trim().length < 10) {
-      errors.push('Tóm tắt diễn biến & hành động phải có tối thiểu 10 ký tự (theo yêu cầu API Backend /resolve).');
+      errors.push('Tóm tắt diễn biến & hành động phải có tối thiểu 10 ký tự.');
     }
 
     // Validation 3: Casualties count >= 0

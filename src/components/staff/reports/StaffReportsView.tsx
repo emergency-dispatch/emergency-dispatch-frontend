@@ -52,13 +52,13 @@ export const StaffReportsView: React.FC<StaffReportsViewProps> = ({
         </div>
         <div>
           <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
-            DỮ LIỆU TỪ GET /api/dispatch/my-assignments
+            HỒ SƠ TÁC CHIẾN
           </span>
           <h3 className="text-base sm:text-lg font-black text-slate-900 mt-2">
             Chưa Có Hồ Sơ Báo Cáo Nghiệm Thu Nào
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
-            Hệ thống chưa ghi nhận lượt phân công nào đã hoàn tất nghiệm thu trong phiên trực này. Khi kíp xe nghiệm thu hiện trường qua API <code className="font-mono text-red-600 bg-red-50 px-1 py-0.5 rounded">POST /api/dispatch/assignments/:id/resolve</code>, hồ sơ sẽ tự động lưu trữ tại đây.
+            Hệ thống chưa ghi nhận lượt phân công nào đã hoàn tất nghiệm thu trong phiên trực này. Khi kíp xe hoàn thành nhiệm vụ và nghiệm thu hiện trường, hồ sơ biên bản sẽ tự động lưu trữ tại đây.
           </p>
         </div>
       </div>
