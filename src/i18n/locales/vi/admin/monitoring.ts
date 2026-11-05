@@ -11,6 +11,7 @@ export const adminMonitoringVi = {
       Completed: 'Hoàn thành',
       Cancelled: 'Đã hủy',
       Escalated: 'Leo thang',
+      Linked: 'Đã gộp vào sự cố đang xử lý',
     },
     unclassified: 'Chưa phân loại',
     levelShort: 'Cấp {{level}}',
@@ -127,6 +128,10 @@ export const adminMonitoringVi = {
     },
     yes: 'Có',
     no: 'Không',
+    trafficJamAction: {
+      Confirmed: 'Xác nhận ùn tắc giao thông',
+      Dismissed: 'Bác bỏ cảnh báo ùn tắc',
+    },
     incidentAction: {
       Created: 'Tạo sự cố',
       AiAnalyzed: 'AI phân tích',

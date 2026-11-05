@@ -22,6 +22,8 @@ import { MapStationCoverageLayer } from './MapStationCoverageLayer';
 import type { ServiceAreaDto } from '../../../services/liveMapService';
 import type { DispatchRoute } from '../../../hooks/useDispatchRoutes';
 import { MapLegend } from './MapLegend';
+import { MapPickLocation, type PickedPoint } from './MapPickLocation';
+import { SourceChip } from '../incidents/SourceChip';
 import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } from './MapLayerToggle';
 import { dateLocale, useTranslation } from '../../../i18n';
 
@@ -319,6 +321,10 @@ interface LiveMapViewProps {
   incidentsById?: Map<string, Incident>;
   /** Khu vực phục vụ (vẽ vòng tròn khi Admin bật). */
   serviceArea?: ServiceAreaDto | null;
+  /** Đang tạo sự cố: click bản đồ để đặt ghim hiện trường. */
+  pickLocation?: { position: PickedPoint | null; onPick: (point: PickedPoint) => void; flyKey: number } | null;
+  /** Sự cố nghi trùng quanh ghim — chưa có trên bản đồ (VD đang chờ duyệt) thì vẽ thêm. */
+  nearbyIncidents?: Incident[];
 }
 
 export const LiveMapView: React.FC<LiveMapViewProps> = ({
@@ -335,6 +341,8 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   serviceArea = null,
   vehiclesById,
   incidentsById,
+  pickLocation = null,
+  nearbyIncidents = [],
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
@@ -381,6 +389,11 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   // Xe không vẽ thì không có vị trí marker → đường đi (VD xe chờ đội xác nhận) bắt đầu từ điểm đầu của tuyến (trạm).
   const placements = useMemo(() => computeVehiclePlacements(movingVehicles, stations), [movingVehicles, stations]);
   const selectedIncident = dispatchIncidents.find((i) => i.id === selectedIncidentId) ?? null;
+  const nearbyIds = useMemo(() => new Set(nearbyIncidents.map((i) => i.id)), [nearbyIncidents]);
+  const nearbyOffMap = useMemo(() => {
+    const onMap = new Set(dispatchIncidents.map((i) => i.id));
+    return nearbyIncidents.filter((i) => !onMap.has(i.id));
+  }, [nearbyIncidents, dispatchIncidents]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -505,7 +518,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
           {dispatchIncidents.map((incident) => {
             const severityMeta = SEVERITY_LEVEL_META[incident.severity];
             const category = INCIDENT_CATEGORY_META[incident.category];
-            const isSelected = incident.id === selectedIncidentId;
+            const isSelected = incident.id === selectedIncidentId || nearbyIds.has(incident.id);
             const assigned = incident.assignedVehicleIds
               .map((id) => vehiclesById?.get(id))
               .filter((v): v is Vehicle => !!v);
@@ -522,9 +535,12 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
                 onClick={() => onSelectIncident?.(incident.id)}
               >
                 <div className="min-w-[200px] space-y-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: category.color }}>
-                    {t(`enums.category.${incident.category}`)}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: category.color }}>
+                      {t(`enums.category.${incident.category}`)}
+                    </span>
+                    <SourceChip source={incident.source} />
+                  </div>
                   <p className="text-sm font-bold text-slate-900">{incident.title}</p>
                   <span
                     className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${severityMeta.badgeClass}`}
@@ -545,7 +561,45 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
               </MapMarker>
             );
           })}
+
+          {nearbyOffMap.map((incident) => (
+            <MapMarker
+              key={`nearby-${incident.id}`}
+              map={map}
+              lat={incident.lat}
+              lng={incident.lng}
+              html={incidentMarkerHtml(incident.category, incident.severity, true)}
+              zIndex={INCIDENT_Z_INDEX}
+              popupOffset={20}
+            >
+              <div className="min-w-[200px] space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-amber-600">
+                  {t('liveMap.create.pendingIncident')}
+                </span>
+                <p className="text-sm font-bold text-slate-900">{incident.title}</p>
+                <p className="text-xs text-slate-600">{incident.area}</p>
+              </div>
+            </MapMarker>
+          ))}
+
+          {pickLocation && (
+            <MapPickLocation
+              map={map}
+              position={pickLocation.position}
+              onPick={pickLocation.onPick}
+              flyKey={pickLocation.flyKey}
+            />
+          )}
         </>
+      )}
+
+      {pickLocation && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none max-w-[calc(100%-8rem)]">
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 text-white text-xs font-semibold shadow-lg">
+            <MapPin className="w-3.5 h-3.5 text-red-400 shrink-0" />
+            <span className="truncate">{t('liveMap.create.pickHint')}</span>
+          </div>
+        </div>
       )}
 
       <MapLegend />

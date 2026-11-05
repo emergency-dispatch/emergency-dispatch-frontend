@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import {
   Ban,
   CircleDashed,
+  Combine,
   FileBarChart,
   Building2,
   LayoutDashboard,
@@ -52,6 +53,7 @@ export const adminNavGroups: AdminNavGroup[] = [
       { key: 'escalation', path: '/admin/settings/escalation', icon: Siren },
       { key: 'dispatch', path: '/admin/settings/dispatch', icon: SlidersHorizontal },
       { key: 'serviceArea', path: '/admin/settings/service-area', icon: CircleDashed },
+      { key: 'duplicateDetection', path: '/admin/settings/duplicate-detection', icon: Combine },
     ],
   },
   {

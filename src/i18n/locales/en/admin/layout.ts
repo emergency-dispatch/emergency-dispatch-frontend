@@ -28,6 +28,7 @@ export const adminLayoutEn: Messages<typeof adminLayoutVi> = {
     escalation: 'Escalation',
     dispatch: 'Dispatch parameters',
     serviceArea: 'Service area',
+    duplicateDetection: 'Merge duplicate reports',
     reports: 'Incident reports',
     auditTrail: 'Audit Trail',
   },

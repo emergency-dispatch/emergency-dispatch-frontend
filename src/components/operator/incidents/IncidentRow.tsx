@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, Lock, MapPin, Siren } from 'lucide-react';
+import { Loader2, Lock, MapPin, Siren, TrafficCone, Users } from 'lucide-react';
 import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { IncidentThumbnail } from './IncidentThumbnail';
 import { ConfidenceBadge } from './ConfidenceBadge';
@@ -9,6 +9,7 @@ import {
   AI_UNCLASSIFIED_RAIL,
   INCIDENT_CATEGORY_META,
   SEVERITY_LEVEL_COLOR,
+  TRAFFIC_JAM_STATUS_CLASS,
 } from '../../../data/incidentMock';
 import { QUEUE_COLUMNS } from './queueColumns';
 import { formatCountdown, formatDateTime, formatWaitDuration } from '../../../utils/incidentFormat';
@@ -46,6 +47,16 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
 
   // Tag hệ thống đã được thể hiện bằng badge "Chưa phân loại" → không lặp lại dưới tiêu đề.
   const visibleTags = incident.hazardTags.filter((tag) => !isAiFallbackTag(tag));
+  // Chỉ báo ùn tắc khi cần Operator thẩm định (nghi ngờ / bất đồng) hoặc đã xác nhận; bác bỏ / chưa xác minh không hiện.
+  const jamStatus = incident.trafficJam?.status;
+  const jamChip =
+    jamStatus === 'Suspected'
+      ? { label: t('incidents.row.trafficSuspected'), title: t('incidents.row.trafficNeedsReview') }
+      : jamStatus === 'Disputed'
+        ? { label: t('incidents.row.trafficDisputed'), title: t('incidents.row.trafficNeedsReview') }
+        : jamStatus === 'Confirmed'
+          ? { label: t('incidents.row.trafficConfirmed'), title: t('incidents.row.trafficConfirmedTitle') }
+          : null;
   const railStyle: React.CSSProperties =
     incident.aiPending
       ? { background: AI_PENDING_RAIL_COLOR }
@@ -80,6 +91,24 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
           {incident.isOutOfServiceArea && (
             <span className="inline-flex items-center px-1.5 py-px rounded bg-red-50 border border-red-200 text-[10px] font-bold text-red-700 shrink-0">
               {t('incidents.row.outOfArea')}
+            </span>
+          )}
+          {incident.linkedReportCount > 0 && (
+            <span
+              title={t('incidents.row.linkedReportsTitle')}
+              className="inline-flex items-center gap-1 px-1.5 py-px rounded bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-700 shrink-0"
+            >
+              <Users className="w-3 h-3" />
+              {t('incidents.row.linkedReports', { count: incident.linkedReportCount })}
+            </span>
+          )}
+          {jamChip && jamStatus && (
+            <span
+              title={jamChip.title}
+              className={`inline-flex items-center gap-1 px-1.5 py-px rounded border text-[10px] font-bold shrink-0 ${TRAFFIC_JAM_STATUS_CLASS[jamStatus]}`}
+            >
+              <TrafficCone className="w-3 h-3" />
+              {jamChip.label}
             </span>
           )}
         </div>

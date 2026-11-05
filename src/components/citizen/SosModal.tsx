@@ -33,6 +33,8 @@ import { UserRole } from '../../types/auth';
 import type { CreateIncidentDto, IncidentResponseDto } from '../../types/incident';
 import { CitizenPhoneModal } from './CitizenPhoneModal';
 import { formatCitizenIncidentStatus } from '../../utils/incidentFormat';
+// Vùng phục vụ dùng chung với form Operator tạo sự cố (cùng tâm, cùng bán kính chặn).
+import { DEFAULT_SERVICE_AREA, KCN_RADIUS_KM, haversineDistanceKm } from '../../utils/serviceArea';
 import { useTranslation, dateLocale } from '../../i18n';
 
 interface SosModalProps {
@@ -47,31 +49,11 @@ const DEFAULT_COORDS = {
   address: 'Đường D1, Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh',
 };
 
-// Bán kính hoạt động thực tế của nền tảng tại Khu Công nghệ cao (SHTP)
-const KCN_RADIUS_KM = 4.5;
-
-const DEFAULT_SERVICE_AREA: ServiceAreaDto = {
-  enabled: true,
-  name: 'Khu Công nghệ cao, TP. Thủ Đức (SHTP)',
-  centerLat: 10.8441,
-  centerLng: 106.8089,
-  radiusKm: KCN_RADIUS_KM,
-};
 
 const formatIncidentStatus = (status: string) => {
   return formatCitizenIncidentStatus(status);
 };
 
-function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const r = 6371.0;
-  const rad = (deg: number) => (deg * Math.PI) / 180.0;
-  const dLat = rad(lat2 - lat1);
-  const dLon = rad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenReports }) => {
   const { t, i18n } = useTranslation();

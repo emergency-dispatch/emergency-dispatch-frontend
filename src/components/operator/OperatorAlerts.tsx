@@ -25,11 +25,16 @@ const KIND_META: Record<
     className: 'border-slate-200 bg-white text-slate-800',
     iconClassName: 'text-slate-500',
   },
+  transferred_in: {
+    icon: ArrowRightLeft,
+    className: 'border-blue-200 bg-white text-slate-800',
+    iconClassName: 'text-blue-600',
+  },
 };
 
 /**
  * Thông báo vận hành theo trạm (từ SignalR): SOS ngoài khu vực phục vụ (đỏ, giữ tới khi đóng),
- * xe trạm mình được điều hỗ trợ trạm khác, sự cố bị chuyển sang trạm khác (tự đóng).
+ * xe trạm mình được điều hỗ trợ trạm khác, sự cố chuyển đi / chuyển tới trạm mình (tự đóng).
  */
 export const OperatorAlerts: React.FC = () => {
   const { operatorAlerts, dismissOperatorAlert, incidents } = useDispatchStore();
@@ -49,7 +54,8 @@ export const OperatorAlerts: React.FC = () => {
   };
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-[1502] w-[min(24rem,calc(100vw-2rem))] space-y-2">
+    // Trên cả modal tin báo mới (z-[9999]): chuyển trạm / SOS ngoài khu vực luôn tới cùng lúc với modal đó.
+    <div className="pointer-events-none fixed bottom-4 right-4 z-[10000] w-[min(24rem,calc(100vw-2rem))] space-y-2">
       {operatorAlerts.map((alert) => {
         const meta = KIND_META[alert.kind];
         const Icon = meta.icon;

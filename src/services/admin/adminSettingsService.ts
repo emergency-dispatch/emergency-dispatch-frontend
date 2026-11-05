@@ -38,6 +38,27 @@ export interface ServiceAreaSettings {
 /** Giới hạn bán kính của StationAssignment.ValidateServiceArea. */
 export const SERVICE_AREA_RADIUS_KM = { min: 1, max: 100 };
 
+/**
+ * BR-07 — tự gộp SOS trùng của người dân vào sự cố đang mở (DuplicateDetectionSettingsDto).
+ * Tắt (enabled = false) thì mọi SOS vào hàng đợi như sự cố riêng.
+ */
+export interface DuplicateDetectionSettings {
+  enabled: boolean;
+  /** Khoảng cách tối đa tới sự cố gốc (m). */
+  radiusMeters: number;
+  /** Khung thời gian (phút) tính từ lần báo gần nhất của sự cố gốc. */
+  windowMinutes: number;
+}
+
+/**
+ * Giới hạn của SystemSettingsService.ValidateDuplicateDetection (backend không có API trả giới hạn) —
+ * lặp lại để báo lỗi theo ô; backend vẫn kiểm tra lại khi lưu.
+ */
+export const DUPLICATE_DETECTION_LIMITS = {
+  radiusMeters: { min: 20, max: 2000 },
+  windowMinutes: { min: 1, max: 120 },
+} as const;
+
 export interface SettingsRecord<T> {
   values: T;
   /** null = chưa ai chỉnh, đang dùng giá trị mặc định. */
@@ -46,6 +67,14 @@ export interface SettingsRecord<T> {
 }
 
 export type SettingsErrors<T> = Partial<Record<keyof T, string>>;
+
+/** Mirror SettingsDefaultsDto (GET /api/settings/defaults). */
+export interface SettingsDefaults {
+  escalation: EscalationSettings;
+  dispatch: DispatchSettings;
+  serviceArea: ServiceAreaSettings;
+  duplicateDetection: DuplicateDetectionSettings;
+}
 
 export const WEIGHT_SUM_TOLERANCE = 0.001;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -117,6 +146,19 @@ export function validateServiceArea(s: ServiceAreaSettings): SettingsErrors<Serv
   return stripEmpty(errors);
 }
 
+export function validateDuplicateDetection(s: DuplicateDetectionSettings): SettingsErrors<DuplicateDetectionSettings> {
+  const errors: SettingsErrors<DuplicateDetectionSettings> = {};
+  const { radiusMeters: radius, windowMinutes: window } = DUPLICATE_DETECTION_LIMITS;
+  // NaN (ô trống) cũng rơi vào nhánh lỗi.
+  if (!(s.radiusMeters >= radius.min && s.radiusMeters <= radius.max)) {
+    errors.radiusMeters = i18n.t('admin.settings.validation.duplicateRadiusRange', radius);
+  }
+  if (!(s.windowMinutes >= window.min && s.windowMinutes <= window.max)) {
+    errors.windowMinutes = i18n.t('admin.settings.validation.duplicateWindowRange', window);
+  }
+  return stripEmpty(errors);
+}
+
 function stripEmpty<T>(errors: SettingsErrors<T>): SettingsErrors<T> {
   return Object.fromEntries(Object.entries(errors).filter(([, v]) => v)) as SettingsErrors<T>;
 }
@@ -146,10 +188,18 @@ export const adminSettingsService = {
     return unwrapApi(apiClient.put<ApiResponse<SettingsRecord<ServiceAreaSettings>>>('/settings/service-area', values));
   },
 
-  /** Giá trị mặc định theo SRS cho nút "Khôi phục mặc định" (điền vào form, Admin vẫn phải bấm Lưu). */
-  async getDefaults(): Promise<{ escalation: EscalationSettings; dispatch: DispatchSettings }> {
+  async getDuplicateDetection(): Promise<SettingsRecord<DuplicateDetectionSettings>> {
+    return unwrapApi(apiClient.get<ApiResponse<SettingsRecord<DuplicateDetectionSettings>>>('/settings/duplicate-detection'));
+  },
+
+  async updateDuplicateDetection(values: DuplicateDetectionSettings): Promise<SettingsRecord<DuplicateDetectionSettings>> {
     return unwrapApi(
-      apiClient.get<ApiResponse<{ escalation: EscalationSettings; dispatch: DispatchSettings }>>('/settings/defaults')
+      apiClient.put<ApiResponse<SettingsRecord<DuplicateDetectionSettings>>>('/settings/duplicate-detection', values)
     );
+  },
+
+  /** Giá trị mặc định theo SRS cho nút "Khôi phục mặc định" (điền vào form, Admin vẫn phải bấm Lưu). */
+  async getDefaults(): Promise<SettingsDefaults> {
+    return unwrapApi(apiClient.get<ApiResponse<SettingsDefaults>>('/settings/defaults'));
   },
 };

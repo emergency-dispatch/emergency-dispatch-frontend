@@ -20,6 +20,7 @@ import type {
   IncidentSeverity,
   OperatorCancellationCode,
   SeverityLevel,
+  TrafficJamStatus,
 } from '../types/incident';
 
 export const HAZARD_TAG_META: Record<HazardTag, { label: string; color: string; icon: LucideIcon }> = {
@@ -125,3 +126,13 @@ export const SEVERITY_COLOR: Record<IncidentSeverity, string> = {
   3: '#DC2626',
 };
 
+// Màu theo bảng TrafficJamStatus trong FE_MOBILE_HANDOFF (§1.3): nghi ngờ vàng/cam, bất đồng tím, xác nhận đỏ,
+// bác bỏ xanh lá, chưa xác minh xám.
+export const TRAFFIC_JAM_STATUS_CLASS: Record<TrafficJamStatus, string> = {
+  NoEvidence: 'bg-slate-50 text-slate-600 border-slate-200',
+  Suspected: 'bg-amber-50 text-amber-800 border-amber-300',
+  Disputed: 'bg-violet-50 text-violet-700 border-violet-300',
+  Confirmed: 'bg-red-50 text-red-700 border-red-300',
+  Dismissed: 'bg-emerald-50 text-emerald-700 border-emerald-300',
+  Unverified: 'bg-slate-100 text-slate-600 border-slate-300',
+};

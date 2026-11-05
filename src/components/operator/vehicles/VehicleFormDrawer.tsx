@@ -58,7 +58,8 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ vehicle, s
       ? t('vehicles.form.plateDuplicate', { plate: duplicatePlate })
       : null;
   const shownPlateError = plateTouched ? plateError : null;
-  const canSubmit = !!unitType;
+  // Chỉ khóa nút khi chưa nhập biển số; biển số trùng vẫn cho bấm để backend báo lỗi dưới ô.
+  const canSubmit = !!unitType && !!plate;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

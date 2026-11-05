@@ -3,6 +3,7 @@ import { ChevronDown, Pause, Play, Satellite, SkipForward } from 'lucide-react';
 import { apiClient, getApiErrorMessage } from '../../../services/apiClient';
 import { incidentService } from '../../../services/incidentService';
 import type { Vehicle } from '../../../types/vehicle';
+import i18n, { useTranslation } from '../../../i18n';
 
 /**
  * DEV ONLY — giả lập GPS xe chạy tới hiện trường khi chưa có điện thoại Staff gửi vị trí thật.
@@ -10,7 +11,7 @@ import type { Vehicle } from '../../../types/vehicle';
  *
  * Đẩy xe dọc tuyến backend tính sẵn (GET /dispatch/tracking/incident/{id}) qua PUT /rescue-units/{id}/location.
  * Backend phát ReceiveRescueUnitLocation → bản đồ Operator, dẫn đường Staff, theo dõi Citizen cùng cập nhật.
- * Chuỗi hiển thị để tiếng Việt cố định: công cụ test, không vào từ điển i18n.
+ * Chuỗi hiển thị nằm trong từ điển liveMap.gpsSim (vi / en).
  */
 
 const INTERVAL_MS = 2000;
@@ -52,6 +53,7 @@ interface Run {
 }
 
 export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles }) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(true);
   const [vehicleId, setVehicleId] = useState('');
   const [speedKmh, setSpeedKmh] = useState(40);
@@ -100,12 +102,12 @@ export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles 
     try {
       await sendPosition(run, nextKm);
     } catch (err) {
-      setMessage(getApiErrorMessage(err, 'Gửi vị trí thất bại.'));
+      setMessage(getApiErrorMessage(err, i18n.t('liveMap.gpsSim.sendFailed')));
       stop();
       return;
     }
     if (nextKm >= run.totalKm) {
-      setMessage('Xe đã tới hiện trường. Bấm "Đã tới hiện trường" trên app Staff.');
+      setMessage(i18n.t('liveMap.gpsSim.arrived'));
       stop();
       return;
     }
@@ -114,7 +116,7 @@ export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles 
 
   const loadRoute = async (vehicle: Vehicle): Promise<Run> => {
     const res = await incidentService.getTracking(vehicle.incidentId!);
-    if (!res.success) throw new Error(res.message || 'Không lấy được tuyến đường.');
+    if (!res.success) throw new Error(res.message || i18n.t('liveMap.gpsSim.routeFailed'));
     const unit = res.data.units?.find((u) => u.rescueUnitId === vehicle.id);
     const raw = unit?.routeTrajectory?.length ? unit.routeTrajectory : res.data.routeTrajectory ?? [];
     let route = raw.map((p) => ({ lat: p.latitude, lng: p.longitude }));
@@ -139,7 +141,7 @@ export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles 
       setRunning(true);
       tick();
     } catch (err) {
-      setMessage(getApiErrorMessage(err, 'Không lấy được tuyến đường.'));
+      setMessage(getApiErrorMessage(err, i18n.t('liveMap.gpsSim.routeFailed')));
     }
   };
 
@@ -151,9 +153,9 @@ export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles 
       const run = runRef.current?.vehicleId === selected.id ? runRef.current : await loadRoute(selected);
       runRef.current = run;
       await sendPosition(run, run.totalKm);
-      setMessage('Xe đã tới hiện trường. Bấm "Đã tới hiện trường" trên app Staff.');
+      setMessage(i18n.t('liveMap.gpsSim.arrived'));
     } catch (err) {
-      setMessage(getApiErrorMessage(err, 'Gửi vị trí thất bại.'));
+      setMessage(getApiErrorMessage(err, i18n.t('liveMap.gpsSim.sendFailed')));
     }
   };
 
@@ -188,17 +190,17 @@ export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles 
           GPS Simulator
           <span className="px-1.5 py-px rounded bg-violet-100 text-violet-700 text-[9px] font-mono-data">DEV</span>
         </p>
-        <button onClick={() => setOpen(false)} className="p-0.5 text-slate-400 hover:text-slate-700" aria-label="Thu nhỏ">
+        <button onClick={() => setOpen(false)} className="p-0.5 text-slate-400 hover:text-slate-700" aria-label={t('liveMap.gpsSim.minimize')}>
           <ChevronDown className="w-4 h-4" />
         </button>
       </div>
 
       {candidates.length === 0 ? (
-        <p className="text-slate-500">Chưa có xe nào đang được điều đi.</p>
+        <p className="text-slate-500">{t('liveMap.gpsSim.noVehicles')}</p>
       ) : (
         <>
           <label className="block space-y-1">
-            <span className="text-[10px] font-mono-data uppercase text-slate-500">Xe</span>
+            <span className="text-[10px] font-mono-data uppercase text-slate-500">{t('liveMap.gpsSim.vehicle')}</span>
             <select
               value={vehicleId}
               onChange={(e) => changeVehicle(e.target.value)}
@@ -207,7 +209,7 @@ export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles 
             >
               {candidates.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.plate} · {v.status}
+                  {v.plate} · {t(`enums.vehicleStatus.${v.status}`)}
                 </option>
               ))}
             </select>
@@ -215,7 +217,7 @@ export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles 
 
           <label className="block space-y-1">
             <span className="flex justify-between text-[10px] font-mono-data uppercase text-slate-500">
-              Tốc độ <span className="text-slate-800">{speedKmh} km/h</span>
+              {t('liveMap.gpsSim.speed')} <span className="text-slate-800">{speedKmh} km/h</span>
             </span>
             <input
               type="range"
@@ -234,7 +236,7 @@ export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles 
                 onClick={stop}
                 className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-amber-500 px-2 py-1.5 font-bold text-white hover:bg-amber-600"
               >
-                <Pause className="w-3.5 h-3.5" /> Dừng
+                <Pause className="w-3.5 h-3.5" /> {t('liveMap.gpsSim.stop')}
               </button>
             ) : (
               <button
@@ -242,7 +244,7 @@ export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles 
                 disabled={!selected}
                 className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-violet-600 px-2 py-1.5 font-bold text-white hover:bg-violet-700 disabled:opacity-50"
               >
-                <Play className="w-3.5 h-3.5" /> {progress && pct > 0 && pct < 100 ? 'Tiếp tục' : 'Chạy'}
+                <Play className="w-3.5 h-3.5" /> {progress && pct > 0 && pct < 100 ? t('liveMap.gpsSim.resume') : t('liveMap.gpsSim.run')}
               </button>
             )}
             <button
@@ -250,7 +252,7 @@ export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles 
               disabled={!selected}
               className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
-              <SkipForward className="w-3.5 h-3.5" /> Tới nơi
+              <SkipForward className="w-3.5 h-3.5" /> {t('liveMap.gpsSim.jumpToEnd')}
             </button>
           </div>
 
@@ -260,7 +262,11 @@ export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles 
                 <div className="h-full bg-violet-600 transition-[width] duration-500" style={{ width: `${pct}%` }} />
               </div>
               <p className="font-mono-data text-[10px] text-slate-500">
-                {pct}% · còn {(progress.totalKm - progress.doneKm).toFixed(2)} / {progress.totalKm.toFixed(2)} km
+                {t('liveMap.gpsSim.remaining', {
+                  pct,
+                  left: (progress.totalKm - progress.doneKm).toFixed(2),
+                  total: progress.totalKm.toFixed(2),
+                })}
               </p>
             </div>
           )}

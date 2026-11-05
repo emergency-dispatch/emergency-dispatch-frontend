@@ -1,13 +1,17 @@
-import { apiClient } from './apiClient';
+import { apiClient, unwrapApi } from './apiClient';
 import type { ApiResponse } from '../types/auth';
 import type {
   BackendIncidentStatus,
   BlockDuration,
   CreateIncidentDto,
+  CreateOperatorIncidentDto,
+  OperatorIncidentResultDto,
   IncidentAuditEntryDto,
   IncidentResponseDto,
+  LinkedReportDto,
   OperatorCancellationCode,
   PaginatedResultDto,
+  UpdateTrafficJamStatusDto,
   VerifyIncidentRequestDto,
   MyReportDto,
 } from '../types/incident';
@@ -96,6 +100,15 @@ export const incidentService = {
   },
 
   /**
+   * Operator tự tạo sự cố khi biết tin từ bên ngoài (điện thoại, bộ đàm, camera…) — POST /api/incidents/operator.
+   * Sự cố được xác minh ngay, thuộc trạm của Operator.
+   */
+  async createByOperator(dto: CreateOperatorIncidentDto): Promise<ApiResponse<OperatorIncidentResultDto>> {
+    const response = await apiClient.post<ApiResponse<OperatorIncidentResultDto>>('/Incidents/operator', dto);
+    return response.data;
+  },
+
+  /**
    * Lấy danh sách sự cố có phân trang và bộ lọc (hỗ trợ Citizen xem lịch sử báo cáo)
    */
   async getIncidents(params?: {
@@ -136,6 +149,15 @@ export const incidentService = {
    */
   async verify(id: string, dto: VerifyIncidentRequestDto): Promise<ApiResponse<IncidentResponseDto>> {
     const response = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/verify`, dto);
+    return response.data;
+  },
+
+  /**
+   * Operator / Admin chốt cảnh báo ùn tắc AI gợi ý: Confirmed (có ùn tắc) hoặc Dismissed (đường thông).
+   * Dùng khi đã xác minh xong; lúc duyệt thì gửi kèm confirmedTrafficJamStatus trong verify.
+   */
+  async updateTrafficJamStatus(id: string, dto: UpdateTrafficJamStatusDto): Promise<ApiResponse<IncidentResponseDto>> {
+    const response = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/traffic-jam-status`, dto);
     return response.data;
   },
 
@@ -197,6 +219,26 @@ export const incidentService = {
     });
     if (!res.data.success) throw new Error(res.data.message || 'Không tải được lịch sử xử lý.');
     return res.data.data;
+  },
+
+  /** BR-07: các báo cáo trùng backend đã gom vào sự cố gốc (đang gom + đã xác nhận trùng). */
+  async getLinkedReports(parentId: string): Promise<LinkedReportDto[]> {
+    return unwrapApi(apiClient.get<ApiResponse<LinkedReportDto[]>>(`/Incidents/${parentId}/linked-reports`));
+  },
+
+  /**
+   * Tách báo cáo khỏi sự cố gốc (gom nhầm): báo cáo quay lại hàng đợi như SOS mới, giữ thời điểm báo gốc.
+   * Lý do tùy chọn — bỏ trống thì backend ghi "Điều phối viên tách báo cáo".
+   */
+  async unlinkReport(reportId: string, reason?: string): Promise<IncidentResponseDto> {
+    return unwrapApi(apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${reportId}/unlink`, { reason: reason || undefined }));
+  },
+
+  /** Xác nhận báo cáo đã gom đúng là trùng → đóng báo cáo (Cancelled, lý do Duplicate). Ghi chú tùy chọn. */
+  async confirmDuplicate(reportId: string, note?: string): Promise<IncidentResponseDto> {
+    return unwrapApi(
+      apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${reportId}/confirm-duplicate`, { note: note || undefined })
+    );
   },
 
   /** Giữ / gia hạn khóa mềm 2 phút. Operator khác đang giữ → HTTP 409. */

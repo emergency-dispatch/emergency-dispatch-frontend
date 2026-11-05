@@ -8,9 +8,12 @@ import {
   Loader2,
   Plus,
   Radar,
+  Users,
 } from 'lucide-react';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
+import { LinkedReportsPanel } from '../incidents/LinkedReportsPanel';
+import { SourceChip } from '../incidents/SourceChip';
 import { INCIDENT_CATEGORY_META, OVERRIDE_REASON_MIN_LENGTH } from '../../../data/incidentMock';
 import { DISPATCH_ALGORITHM_META, MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
 import { useDispatchStore, type AssignOptions } from '../../../context/DispatchContext';
@@ -90,12 +93,14 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   assigningVehicleId,
   onAssign,
 }) => {
-  const { vehicles, incidents, escalatedIncidentIds } = useDispatchStore();
+  const { vehicles, incidents, escalatedIncidentIds, unlinkLinkedReport } = useDispatchStore();
   const [algorithm, setAlgorithm] = useState<DispatchAlgorithm>('nearest');
   // Cấp 1–2 đã đủ 1 tổ: backend cho giao thêm khi có lý do ≥ 5 ký tự.
   const [extraMode, setExtraMode] = useState(false);
   const [extraReason, setExtraReason] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
+  // BR-07: hộp thoại báo cáo trùng đã gom vào sự cố đang chọn.
+  const [linkedOpen, setLinkedOpen] = useState(false);
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
 
@@ -103,6 +108,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     setExtraMode(false);
     setExtraReason('');
     setHistoryOpen(false);
+    setLinkedOpen(false);
   }, [selectedIncidentId]);
 
   const selectedIncident = useMemo(
@@ -188,6 +194,46 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
           </div>
         </div>
       )}
+      {linkedOpen && selectedIncident && (
+        <div
+          className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('liveMap.recommend.linkedDialog')}
+          onClick={() => setLinkedOpen(false)}
+        >
+          <div
+            className="w-full max-w-xl max-h-[85vh] flex flex-col rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="shrink-0 flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200">
+              <div className="min-w-0">
+                <p className="text-[11px] font-mono-data uppercase tracking-widest text-slate-500">
+                  {t('liveMap.recommend.linkedDialog')}
+                </p>
+                <p className="text-sm font-bold text-slate-900 truncate mt-0.5">{selectedIncident.title}</p>
+              </div>
+              <button
+                onClick={() => setLinkedOpen(false)}
+                aria-label={t('common.close')}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              <LinkedReportsPanel
+                key={selectedIncident.id}
+                parentIncidentId={selectedIncident.id}
+                linkedReportCount={selectedIncident.linkedReportCount}
+                onUnlink={unlinkLinkedReport}
+                // Hết báo cáo gộp → đóng hộp thoại, Operator quay lại điều phối.
+                onAllHandled={() => setLinkedOpen(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header: sự cố đang chọn */}
       <div className="shrink-0 px-4 py-3.5 border-b border-slate-200">
         {selectedIncident && category ? (
@@ -195,6 +241,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
             <div className="flex items-center gap-1.5 mb-1">
               <category.icon className="w-3.5 h-3.5 shrink-0" style={{ color: category.color }} />
               <span className="text-[10px] font-bold" style={{ color: category.color }}>{t(`enums.category.${selectedIncident.category}`)}</span>
+              <SourceChip source={selectedIncident.source} />
               {isEscalated && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white uppercase animate-pulse">
                   {t('liveMap.recommend.escalated')}
@@ -203,13 +250,24 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
             </div>
             <p className="text-sm font-bold text-slate-900 truncate leading-snug">{selectedIncident.title}</p>
             <p className="text-[10px] text-slate-500 truncate mt-0.5">{selectedIncident.area}</p>
-            <button
-              onClick={() => setHistoryOpen(true)}
-              className="mt-1.5 inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
-            >
-              <History className="w-3 h-3" />
-              {t('liveMap.recommend.history')}
-            </button>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setHistoryOpen(true)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                <History className="w-3 h-3" />
+                {t('liveMap.recommend.history')}
+              </button>
+              {selectedIncident.linkedReportCount > 0 && (
+                <button
+                  onClick={() => setLinkedOpen(true)}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-blue-200 bg-blue-50 text-[11px] font-semibold text-blue-700 hover:bg-blue-100"
+                >
+                  <Users className="w-3 h-3" />
+                  {t('liveMap.recommend.linkedReports', { count: selectedIncident.linkedReportCount })}
+                </button>
+              )}
+            </div>
           </>
         ) : (
           <>

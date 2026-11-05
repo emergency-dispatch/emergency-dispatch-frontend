@@ -8,7 +8,8 @@ const SOURCE_ID = 'station-coverage';
 const FILL_LAYER_ID = 'station-coverage-fill';
 const LINE_LAYER_ID = 'station-coverage-line';
 const MY_STATION_COLOR = '#DC2626';
-const OTHER_STATION_COLOR = '#64748B';
+// Tím: nổi trên cả nền vệ tinh lẫn đường phố, không trùng màu cấp sự cố / khu vực phục vụ.
+const OTHER_STATION_COLOR = '#7C3AED';
 
 const toFeatureCollection = (stations: Station[], myStationId: string | null) => ({
   type: 'FeatureCollection' as const,
@@ -34,7 +35,7 @@ interface MapStationCoverageLayerProps {
 
 /**
  * Vòng phủ sóng của từng trạm (Station.coverageRadiusKm — backend chọn trạm phụ trách SOS theo vòng này).
- * Trạm của Operator màu đỏ, trạm khác màu xám; nét liền mảnh để không lẫn với vòng khu vực phục vụ (nét đứt xanh).
+ * Trạm của Operator màu đỏ, trạm khác màu tím; nét liền để không lẫn với vòng khu vực phục vụ (nét đứt xanh).
  */
 export const MapStationCoverageLayer: React.FC<MapStationCoverageLayerProps> = ({ map, stations, myStationId, visible }) => {
   useEffect(() => {
@@ -56,7 +57,7 @@ export const MapStationCoverageLayer: React.FC<MapStationCoverageLayerProps> = (
             id: LINE_LAYER_ID,
             type: 'line',
             source: SOURCE_ID,
-            paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.85 },
+            paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-opacity': 0.9 },
           },
           beforeId
         );

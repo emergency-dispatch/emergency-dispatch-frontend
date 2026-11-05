@@ -11,6 +11,7 @@ import {
   Settings,
   ShieldAlert,
   Siren,
+  TrafficCone,
   Trash2,
   TriangleAlert,
   Truck,
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react';
 import type { AuditAction, SystemAuditAction, SystemAuditEntityType } from '../../../types/auditTrail';
 import i18n from '../../../i18n';
+import { trafficJamAuditDecision } from '../../../utils/trafficJamAudit';
 import { adminMonitoringVi } from '../../../i18n/locales/vi/admin/monitoring';
 
 // Nhóm chỉ để tô màu / gắn icon — backend lọc theo từng hành động, không theo nhóm.
@@ -56,8 +58,25 @@ const ACTION_GROUP: Record<AuditAction, AuditGroup> = {
 
 const has = <T extends object>(obj: T, key: string): key is Extract<keyof T, string> => Object.prototype.hasOwnProperty.call(obj, key);
 
-/** Nhãn + icon + màu của một hành động; hành động lạ (backend thêm sau) hiện nguyên tên. */
-export function auditActionMeta(action: string): { label: string; icon: LucideIcon; badgeClass: string } {
+/**
+ * Nhãn + icon + màu của một hành động; hành động lạ (backend thêm sau) hiện nguyên tên.
+ * Truyền `newStateJson` để nhận ra thẩm định ùn tắc (backend ghi là StatusChanged).
+ */
+export function auditActionMeta(
+  action: string,
+  newStateJson?: string | null
+): { label: string; icon: LucideIcon; badgeClass: string } {
+  const jamDecision = trafficJamAuditDecision(action, newStateJson);
+  if (jamDecision) {
+    return {
+      label: i18n.t(`admin.monitoring.audit.trafficJamAction.${jamDecision}`),
+      icon: TrafficCone,
+      badgeClass:
+        jamDecision === 'Confirmed'
+          ? 'bg-red-50 text-red-700 border-red-200'
+          : 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    };
+  }
   const known = has(ACTION_GROUP, action);
   const group = GROUP_META[known ? ACTION_GROUP[action] : 'incident'];
   return { label: known ? i18n.t(`admin.monitoring.audit.incidentAction.${action}`) : action, ...group };

@@ -15,6 +15,10 @@ interface AddressSearchFieldProps {
   maxLength: number;
   disabled?: boolean;
   placeholder?: string;
+  /** Hàm tìm thay thế (VD giới hạn trong khu vực phục vụ). Mặc định tìm toàn quốc. */
+  search?: (query: string, signal: AbortSignal) => Promise<AddressSuggestion[]>;
+  /** Số ký tự tối thiểu mới tìm (tìm toàn quốc cần dài hơn để bớt kết quả nhiễu). */
+  minQueryLength?: number;
 }
 
 /** Ô địa chỉ kèm gợi ý: gõ địa chỉ → chọn một gợi ý để bản đồ dời tới đó. */
@@ -25,6 +29,8 @@ export const AddressSearchField: React.FC<AddressSearchFieldProps> = ({
   maxLength,
   disabled,
   placeholder,
+  search = searchAddress,
+  minQueryLength = MIN_QUERY_LENGTH,
 }) => {
   const { t } = useTranslation();
   // Chỉ tìm khi Admin tự gõ — địa chỉ tự điền từ bản đồ thì không mở gợi ý.
@@ -34,7 +40,7 @@ export const AddressSearchField: React.FC<AddressSearchFieldProps> = ({
   const [result, setResult] = useState<{ query: string; items: AddressSuggestion[]; error: boolean } | null>(null);
   const query = useDebouncedValue(value.trim(), 500);
   // Gõ chưa đủ dài hoặc vừa chọn gợi ý → không tìm, không hiện danh sách.
-  const active = typed && query.length >= MIN_QUERY_LENGTH;
+  const active = typed && query.length >= minQueryLength;
   const current = result?.query === query ? result : null;
   const searching = active && !current;
   const suggestions = current?.items ?? [];
@@ -43,7 +49,7 @@ export const AddressSearchField: React.FC<AddressSearchFieldProps> = ({
   useEffect(() => {
     if (!active) return;
     const controller = new AbortController();
-    searchAddress(query, controller.signal)
+    search(query, controller.signal)
       .then((items) => {
         setResult({ query, items, error: false });
         setOpen(true);
@@ -52,6 +58,8 @@ export const AddressSearchField: React.FC<AddressSearchFieldProps> = ({
         if (!controller.signal.aborted) setResult({ query, items: [], error: true });
       });
     return () => controller.abort();
+    // `search` là hàm của trang gọi — chỉ tìm lại khi câu tìm đổi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, active]);
 
   const pick = (s: AddressSuggestion) => {

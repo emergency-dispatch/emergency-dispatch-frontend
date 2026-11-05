@@ -6,6 +6,7 @@ import {
   BrainCircuit,
   CheckCircle2,
   CircleDot,
+  CopyCheck,
   Eye,
   FilePlus2,
   Flag,
@@ -14,16 +15,22 @@ import {
   PhoneOff,
   RefreshCw,
   Repeat,
+  RotateCcw,
   ShieldCheck,
   Siren,
   SlidersHorizontal,
+  Split,
   ThumbsDown,
   ThumbsUp,
+  TrafficCone,
   Truck,
+  UserPlus,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { incidentService } from '../../../services/incidentService';
+import { trafficJamAuditDecision } from '../../../utils/trafficJamAudit';
 import type { IncidentAuditAction, IncidentAuditEntryDto } from '../../../types/incident';
 import i18n, { dateLocale, useTranslation } from '../../../i18n';
 
@@ -47,6 +54,11 @@ const ACTION_META: Record<IncidentAuditAction, { icon: LucideIcon; color: string
   ReporterBlocked: { icon: PhoneOff, color: '#DC2626' },
   TransferredStation: { icon: ArrowRightLeft, color: '#2563EB' },
   OutOfServiceArea: { icon: MapPinOff, color: '#DC2626' },
+  CreatedByOperator: { icon: UserPlus, color: '#4F46E5' },
+  ReportLinked: { icon: Users, color: '#2563EB' },
+  ReportUnlinked: { icon: Split, color: '#2563EB' },
+  DuplicateConfirmed: { icon: CopyCheck, color: '#64748B' },
+  LinkedReportsRestored: { icon: RotateCcw, color: '#D97706' },
 };
 
 const UNKNOWN_ACTION = { icon: CircleDot, color: '#64748B' };
@@ -60,8 +72,15 @@ const formatTime = (iso: string) =>
 
 const TimelineItem: React.FC<{ entry: IncidentAuditEntryDto; isLast: boolean }> = ({ entry, isLast }) => {
   const { t } = useTranslation();
-  const meta = ACTION_META[entry.action] ?? UNKNOWN_ACTION;
-  const label = entry.action in ACTION_META ? t(`incidents.audit.actions.${entry.action}`) : t('incidents.audit.unknownAction');
+  const jamDecision = trafficJamAuditDecision(entry.action, entry.newStateJson);
+  const meta = jamDecision
+    ? { icon: TrafficCone, color: jamDecision === 'Confirmed' ? '#DC2626' : '#059669' }
+    : (ACTION_META[entry.action] ?? UNKNOWN_ACTION);
+  const label = jamDecision
+    ? t(jamDecision === 'Confirmed' ? 'incidents.audit.trafficJamConfirmed' : 'incidents.audit.trafficJamDismissed')
+    : entry.action in ACTION_META
+      ? t(`incidents.audit.actions.${entry.action}`)
+      : t('incidents.audit.unknownAction');
   const Icon = meta.icon;
   const role = entry.actorRole
     ? isKnownRole(entry.actorRole)

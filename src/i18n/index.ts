@@ -30,6 +30,15 @@ i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 });
 
+// Tiêu đề tab và <html lang> theo ngôn ngữ đang hiển thị (index.html chỉ có bản tiếng Việt lúc tải trang).
+const syncDocumentLanguage = () => {
+  document.title = i18n.t('common.documentTitle');
+  document.documentElement.lang = i18n.language === 'en' ? 'en' : 'vi';
+};
+if (i18n.isInitialized) syncDocumentLanguage();
+i18n.on('initialized', syncDocumentLanguage);
+i18n.on('languageChanged', syncDocumentLanguage);
+
 export const getLanguage = (): AppLanguage => (i18n.language === 'en' ? 'en' : 'vi');
 
 export function setLanguage(language: AppLanguage) {

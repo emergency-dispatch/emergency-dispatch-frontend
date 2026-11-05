@@ -16,6 +16,8 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     areaNameRequired: 'Please enter the area name.',
     areaCenterRequired: 'Please pick the area center on the map.',
     areaRadiusRange: 'The radius must be from {{min}} to {{max}} km.',
+    duplicateRadiusRange: 'The radius must be from {{min}} to {{max}} m.',
+    duplicateWindowRange: 'The time window must be from {{min}} to {{max}} minutes.',
     notifyRolesRequired: 'Choose at least 1 role to notify.',
     descriptionTooLong: 'The description can be at most {{max}} characters.',
   },
@@ -143,5 +145,27 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     centerHint: 'Click the map or drag the red dot to set the center ·',
     outsideStations:
       'Stations outside the area: <b>{{stations}}</b>. You can still save, but consider widening the radius or moving the center so all stations are inside the service area.',
+  },
+  duplicateDetection: {
+    scopeNote:
+      'The system merges citizen SOS reports sent from nearby at about the same time into one ongoing incident, so Operators do not handle several duplicate cases. Does not apply to Operator-created incidents.',
+    enable: 'Merge duplicate reports automatically',
+    enableHint: 'Off: every SOS report enters the queue as a separate incident.',
+    radius: 'Merge radius',
+    radiusHint: 'From {{min}} to {{max}} m, measured from the open incident.',
+    window: 'Time window',
+    windowHint: 'From {{min}} to {{max}} minutes, counted from the latest report of the open incident.',
+    minutesUnit: 'min',
+    summaryTitle: 'How it applies',
+    summaryRule:
+      'A new SOS is merged when it is within {{meters}} m of an open incident that was reported in the last {{minutes}} minutes and has the same event type (if known).',
+    summaryOutlier: 'Reports near the edge of the radius or of a different type are flagged "Needs review" for the Operator.',
+    summaryOperator: 'Operators see "+N also reported" on the main incident and can split or confirm each report.',
+    savedEnabled: 'Duplicate report merging saved.',
+    savedDisabled: 'Duplicate report merging saved (turned off).',
+    disableTitle: 'Turn off duplicate report merging?',
+    disableBody:
+      'Once turned off, every citizen SOS enters the queue as a separate incident, even when several people report the same event. Applies immediately to all stations.',
+    disableConfirm: 'Turn off and save',
   },
 };

@@ -24,12 +24,14 @@ import {
   severityToBackend,
   toOperatorStatus,
   type BlockDuration,
+  type CreateOperatorIncidentDto,
   type CrewResponseNotice,
   type Incident,
   type IncidentCategory,
   type IncidentResponseDto,
   type OperatorCancellationCode,
   type SeverityLevel,
+  type TrafficJamDecision,
   type TrafficJamReport,
 } from '../types/incident';
 import type { BackendDispatchStatus, DispatchAssignmentResponseDto } from '../types/dispatch';
@@ -43,6 +45,8 @@ const TIER2_SIREN_MS = 4000;
 // Thông báo "xe trạm bạn đi hỗ trợ" / "sự cố đã chuyển trạm" tự đóng sau khoảng này; cảnh báo ngoài khu vực giữ tới khi đóng.
 const INFO_ALERT_MS = 15000;
 const HIGHLIGHT_DURATION_MS = 2200;
+// Thời gian giữ đánh dấu "mình vừa tách" chờ ReceiveNewIncident (BR-07).
+const SELF_UNLINK_MARK_MS = 30000;
 
 const ACTIVE_ASSIGNMENT_STATUSES: BackendDispatchStatus[] = ['Dispatched', 'Accepted', 'EnRoute', 'OnScene'];
 const ASSIGNMENT_TO_VEHICLE_STATUS: Partial<Record<BackendDispatchStatus, VehicleStatus>> = {
@@ -129,16 +133,25 @@ interface OutOfAreaAlertEvent {
 interface IncidentTransferredEvent {
   incidentId: string;
   incidentTitle: string;
+  fromStationId?: string | null;
+  fromStationName?: string | null;
   toStationId: string;
   toStationName?: string | null;
   reason: string;
   transferredByName?: string | null;
 }
 
+/** Sự cố trạm khác chuyển tới trạm mình: hiện trong modal tin báo mới. */
+export interface IncomingTransferNote {
+  fromStationName?: string | null;
+  transferredByName?: string | null;
+  reason: string;
+}
+
 /** Thông báo vận hành theo trạm (ngoài tin báo mới): SOS ngoài khu vực, xe đi hỗ trợ, sự cố chuyển trạm. */
 export interface OperatorAlert {
   id: string;
-  kind: 'out_of_area' | 'support_dispatched' | 'transferred';
+  kind: 'out_of_area' | 'support_dispatched' | 'transferred' | 'transferred_in';
   incidentId: string;
   title: string;
   message: string;
@@ -152,6 +165,11 @@ export interface AssignOptions {
 }
 
 type ActionResult = { ok: boolean; message?: string };
+
+/** Kết quả Operator tự tạo sự cố: `errors` = lỗi kiểm tra từng trường backend trả kèm HTTP 400. */
+export type CreateIncidentResult =
+  | { ok: true; incidentId: string; message?: string; dispatchSucceeded: boolean | null; dispatchMessage?: string | null }
+  | { ok: false; message: string; errors: string[] };
 
 /** Body thêm / sửa xe từ màn Đội xe. Khi sửa, `stationId` bị bỏ qua (giữ trạm hiện tại của xe). */
 export interface VehicleSaveInput {
@@ -217,8 +235,12 @@ interface DispatchContextValue {
     id: string,
     confirmedSeverity: SeverityLevel,
     operatorNotes?: string,
-    category?: IncidentCategory
+    category?: IncidentCategory,
+    /** Thẩm định ùn tắc gửi kèm (confirmedTrafficJamStatus); bỏ trống = giữ nhận định hiện tại. */
+    trafficJam?: TrafficJamDecision
   ) => Promise<ActionResult>;
+  /** Chốt cảnh báo ùn tắc của một sự cố đã xác minh (PUT /api/incidents/{id}/traffic-jam-status). */
+  reviewTrafficJam: (id: string, decision: TrafficJamDecision, notes?: string) => Promise<ActionResult>;
   rejectIncident: (
     id: string,
     reason: string,
@@ -227,8 +249,15 @@ interface DispatchContextValue {
   ) => Promise<ActionResult>;
   /** Chuyển sự cố sang trạm khác phụ trách (lý do ≥ 5 ký tự). */
   transferIncident: (id: string, stationId: string, reason: string) => Promise<ActionResult>;
+  /**
+   * BR-07: tách báo cáo đã gộp khỏi sự cố gốc (PUT /api/incidents/{id}/unlink). Báo cáo quay lại hàng đợi qua
+   * ReceiveNewIncident — người vừa tách không bị bật popup "tin báo mới" / bíp.
+   */
+  unlinkLinkedReport: (reportId: string, reason?: string) => Promise<ActionResult>;
   lockIncident: (id: string) => Promise<ActionResult>;
   releaseIncident: (id: string) => void;
+  /** Operator tự tạo sự cố (tin báo qua điện thoại, bộ đàm, camera…) — sự cố được xác minh ngay. */
+  createOperatorIncident: (dto: CreateOperatorIncidentDto) => Promise<CreateIncidentResult>;
   /** Số điện thoại đầy đủ (backend ghi vết), null nếu thất bại. */
   revealReporterPhone: (id: string) => Promise<string | null>;
   /** Giao 1 xe cho sự cố (1-click hoặc kéo-thả). Cấp 3 gọi nhiều lần, tối đa 5 xe. */
@@ -243,6 +272,8 @@ interface DispatchContextValue {
   /** Sự cố mới báo tới, còn chờ duyệt và Operator chưa đóng thông báo (mới nhất trước). */
   incomingIncidents: Incident[];
   dismissIncomingIncident: (id: string) => void;
+  /** Thông tin chuyển trạm của tin báo mới (theo incidentId) — chỉ có khi sự cố được trạm khác chuyển tới. */
+  incomingTransferNotes: Map<string, IncomingTransferNote>;
   /** Cấp leo thang mới nhất theo sự cố (1 hoặc 2); không có = chưa nhận cảnh báo leo thang nào. */
   escalationTiers: Map<string, number>;
   /** Khu vực phục vụ (vẽ vòng trên Live Map khi enabled). */
@@ -292,8 +323,16 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [operatorAlerts, setOperatorAlerts] = useState<OperatorAlert[]>([]);
   const [stationNotAssigned, setStationNotAssigned] = useState<string | null>(null);
   const knownIncidentIdsRef = useRef<Set<string> | null>(null);
+  const [incomingTransferNotes, setIncomingTransferNotes] = useState<Map<string, IncomingTransferNote>>(new Map());
+  // Chuyển trạm tới mình, đang chờ ReceiveNewIncident (backend gửi ngay sau) để biết sự cố có lên modal không.
+  const awaitingTransferredRef = useRef<Map<string, IncomingTransferNote>>(new Map());
+  // Báo cáo chính mình vừa tách (BR-07): ReceiveNewIncident của nó không bật popup / bíp.
+  // Ghi trước khi gọi API vì event có thể tới trước HTTP response.
+  const selfUnlinkedIdsRef = useRef<Set<string>>(new Set());
   const myStationIdRef = useRef(user?.stationId ?? null);
   myStationIdRef.current = user?.stationId ?? null;
+  const myUserIdRef = useRef(user?.id ?? null);
+  myUserIdRef.current = user?.id ?? null;
   // Lượt điều phối hiện có — để biết lượt nào vừa kết thúc giữa hai lần poll.
   const assignmentsRef = useRef(assignments);
   assignmentsRef.current = assignments;
@@ -418,7 +457,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const known = knownIncidentIdsRef.current;
         const arrived = queueRes.data.filter((dto) => !known.has(dto.id)).map((dto) => dto.id);
         highlight(arrived);
-        announceIncoming(arrived);
+        // Báo cáo chính mình vừa tách (BR-07) → không bật popup.
+        announceIncoming(arrived.filter((id) => !selfUnlinkedIdsRef.current.delete(id)));
       }
       knownIncidentIdsRef.current = new Set([...(knownIncidentIdsRef.current ?? []), ...freshIds]);
       setIncidentsError(null);
@@ -484,7 +524,34 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         upsertIncidents([dto]);
         knownIncidentIdsRef.current?.add(dto.id);
         highlight([dto.id]);
-        announceIncoming([dto.id]);
+        // Sự cố chính mình vừa tạo (event có thể tới trước cả HTTP response) → không bíp báo tin mới.
+        const createdByMe = !!dto.source && dto.source !== 'CitizenApp' && dto.verifiedByUserId === myUserIdRef.current;
+        // Báo cáo chính mình vừa tách khỏi sự cố gốc → vẫn vào hàng đợi (đã tô sáng), không bật popup.
+        const unlinkedByMe = selfUnlinkedIdsRef.current.delete(dto.id);
+        if (!createdByMe && !unlinkedByMe) announceIncoming([dto.id]);
+        // Sự cố chuyển tới đã qua thẩm định → không lên modal (chỉ hiện sự cố chờ duyệt) → báo bằng toast.
+        const transfer = awaitingTransferredRef.current.get(dto.id);
+        if (transfer) {
+          awaitingTransferredRef.current.delete(dto.id);
+          if (mapIncidentResponseToIncident(dto, getLanguage()).status !== 'pending') {
+            pushOperatorAlert(
+              {
+                kind: 'transferred_in',
+                incidentId: dto.id,
+                title: i18n.t('layout.operatorAlerts.transferredInTitle'),
+                message: i18n.t('layout.operatorAlerts.transferredInMessage', {
+                  incident: dto.title,
+                  station: transfer.fromStationName ?? i18n.t('layout.operatorAlerts.otherStation'),
+                  by: transfer.transferredByName
+                    ? i18n.t('layout.operatorAlerts.transferredBy', { name: transfer.transferredByName })
+                    : '',
+                  reason: transfer.reason,
+                }),
+              },
+              INFO_ALERT_MS
+            );
+          }
+        }
       }),
       incidentHubService.on<IncidentResponseDto>(HubEvents.ReceiveIncidentUpdate, (dto) => upsertIncidents([dto])),
       incidentHubService.on<EscalationAlertMessage>(HubEvents.ReceiveEscalationAlert, (alert) => {
@@ -581,8 +648,18 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         );
       }),
       incidentHubService.on<IncidentTransferredEvent>(HubEvents.ReceiveIncidentTransferred, (evt) => {
-        // Trạm nhận sẽ nhận thêm ReceiveNewIncident; trạm cũ bỏ sự cố khỏi danh sách.
-        if (evt.toStationId === myStationIdRef.current) return;
+        // Trạm nhận: sự cố vào hàng đợi qua ReceiveNewIncident; trạm gửi + lý do hiện trong modal tin báo mới.
+        if (evt.toStationId === myStationIdRef.current) {
+          const note: IncomingTransferNote = {
+            fromStationName: evt.fromStationName,
+            transferredByName: evt.transferredByName,
+            reason: evt.reason,
+          };
+          awaitingTransferredRef.current.set(evt.incidentId, note);
+          setIncomingTransferNotes((prev) => new Map(prev).set(evt.incidentId, note));
+          return;
+        }
+        // Trạm cũ bỏ sự cố khỏi danh sách.
         removeIncident(evt.incidentId);
         pushOperatorAlert(
           {
@@ -706,7 +783,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     assignments.forEach((a) => byIncident.set(a.incidentId, [...(byIncident.get(a.incidentId) ?? []), a]));
 
     const list = [...incidentDtos.values()].map((dto): Incident => {
-      const incident = mapIncidentResponseToIncident(dto);
+      // `t` đổi khi đổi ngôn ngữ → tính lại để chọn tóm tắt / căn cứ ùn tắc AI đúng ngôn ngữ.
+      const incident = mapIncidentResponseToIncident(dto, getLanguage());
       const own = byIncident.get(dto.id) ?? [];
       const notices: CrewResponseNotice[] = own
         .filter((a) => a.status === 'Rejected' && !dismissedNoticeIds.has(a.id))
@@ -742,6 +820,12 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const dismissIncomingIncident = useCallback((id: string) => {
     setIncomingIds((prev) => prev.filter((x) => x !== id));
+    setIncomingTransferNotes((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
   }, []);
 
   const escalatedIncidentIds = useMemo(
@@ -757,13 +841,15 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     id: string,
     confirmedSeverity: SeverityLevel,
     operatorNotes?: string,
-    category?: IncidentCategory
+    category?: IncidentCategory,
+    trafficJam?: TrafficJamDecision
   ) => {
     try {
       const res = await incidentService.verify(id, {
         confirmedSeverity: severityToBackend(confirmedSeverity),
         confirmedEventType: category && category !== 'unknown' ? EVENT_TYPE_FROM_CATEGORY[category] : undefined,
         operatorNotes,
+        confirmedTrafficJamStatus: trafficJam,
       });
       if (!res.success) return { ok: false, message: res.message || i18n.t('context.verifyFailed') };
       // Không tự gán xe: sự cố đã duyệt chờ Operator chọn xe từ gợi ý điều phối trên Live Map.
@@ -772,6 +858,18 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (err) {
       if (isConflict(err)) refreshBoard();
       return { ok: false, message: getApiErrorMessage(err, i18n.t('context.verifyFailed')) };
+    }
+  };
+
+  const reviewTrafficJam = async (id: string, decision: TrafficJamDecision, notes?: string): Promise<ActionResult> => {
+    try {
+      const res = await incidentService.updateTrafficJamStatus(id, { status: decision, notes: notes || undefined });
+      if (!res.success) return { ok: false, message: res.message || i18n.t('context.trafficJamReviewFailed') };
+      upsertIncidents([res.data]);
+      return { ok: true };
+    } catch (err) {
+      if (isConflict(err)) refreshBoard();
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('context.trafficJamReviewFailed')) };
     }
   };
 
@@ -805,6 +903,19 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setIncidentsError(i18n.t('context.blockAfterCancelFailed', { message: getApiErrorMessage(err) }));
     }
     return { ok: true };
+  };
+
+  const unlinkLinkedReport = async (reportId: string, reason?: string): Promise<ActionResult> => {
+    selfUnlinkedIdsRef.current.add(reportId);
+    // Không có ReceiveNewIncident (VD báo cáo thuộc trạm khác) → bỏ đánh dấu để không giữ mãi.
+    setTimeout(() => selfUnlinkedIdsRef.current.delete(reportId), SELF_UNLINK_MARK_MS);
+    try {
+      await incidentService.unlinkReport(reportId, reason);
+      return { ok: true };
+    } catch (err) {
+      selfUnlinkedIdsRef.current.delete(reportId);
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('incidents.linked.actionFailed')) };
+    }
   };
 
   const transferIncident = async (id: string, stationId: string, reason: string): Promise<ActionResult> => {
@@ -841,6 +952,28 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!dto?.lockedByOperatorId || dto.lockedByOperatorId !== operator.id) return;
     setIncidentLock(id, { lockedByOperatorId: undefined, lockedByOperatorName: undefined, lockExpiresAt: undefined });
     incidentService.unlock(id).catch(() => undefined);
+  };
+
+  const createOperatorIncident = async (dto: CreateOperatorIncidentDto): Promise<CreateIncidentResult> => {
+    try {
+      const res = await incidentService.createByOperator(dto);
+      if (!res.success) {
+        return { ok: false, message: res.message || i18n.t('context.createIncidentFailed'), errors: res.errors ?? [] };
+      }
+      const { incident, assignments: created, dispatchSucceeded, dispatchMessage } = res.data;
+      upsertIncidents([incident]);
+      knownIncidentIdsRef.current?.add(incident.id);
+      highlight([incident.id]);
+      if (created.length > 0) {
+        setAssignments((prev) => upsert(prev, created));
+        refreshUnits();
+      }
+      return { ok: true, incidentId: incident.id, message: res.message, dispatchSucceeded, dispatchMessage };
+    } catch (err) {
+      const data = isAxiosError(err) ? (err.response?.data as { errors?: unknown } | undefined) : undefined;
+      const errors = Array.isArray(data?.errors) ? data.errors.filter((e): e is string => typeof e === 'string') : [];
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('context.createIncidentFailed')), errors };
+    }
   };
 
   const revealReporterPhone = async (id: string): Promise<string | null> => {
@@ -988,16 +1121,20 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incidentDrawerOpen,
         setIncidentDrawerOpen,
         approveIncident,
+        reviewTrafficJam,
         rejectIncident,
         transferIncident,
+        unlinkLinkedReport,
         lockIncident,
         releaseIncident,
+        createOperatorIncident,
         revealReporterPhone,
         assignVehicle,
         cancelAssignment,
         dismissResponseNotice,
         incomingIncidents,
         dismissIncomingIncident,
+        incomingTransferNotes,
         escalationTiers,
         serviceArea,
         operatorAlerts,
