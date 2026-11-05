@@ -13,14 +13,14 @@ import {
   PackageCheck,
   AlertCircle,
   Building2,
-  Phone,
-  User,
   FileText,
   Sparkles,
+  Loader2,
 } from 'lucide-react';
 import type { DigitalClosureReport, ClosureEvidencePhoto, StaffMission } from '../../types/staff';
 import { StaffSignaturePad } from './StaffSignaturePad';
 import { staffAudioService } from '../../services/staffAudioService';
+import { mediaService } from '../../services/mediaService';
 import { useAuth } from '../../hooks/useAuth';
 
 interface StaffClosureReportModalProps {
@@ -48,6 +48,7 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const signatureSectionRef = useRef<HTMLDivElement>(null);
 
   // Evidence Photos (starts empty, validated >= 1 per FR-RS-03 / MSG42)
   const [photos, setPhotos] = useState<ClosureEvidencePhoto[]>(
@@ -102,33 +103,47 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
 
   // Validation error banner
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
-  // File upload handler
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // File upload handler - Upload trực tiếp lên server qua mediaService để có HTTPS URL hợp lệ
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file, idx) => {
-      const reader = new FileReader();
-      reader.onload = (loadEvent) => {
-        const result = loadEvent.target?.result as string;
-        if (result) {
+    setIsUploadingPhotos(true);
+    try {
+      const fileList = Array.from(files);
+      for (let idx = 0; idx < fileList.length; idx++) {
+        const file = fileList[idx];
+        let photoUrl = '';
+        try {
+          photoUrl = await mediaService.upload(file);
+        } catch (uploadErr) {
+          console.warn('[StaffClosureReportModal] Server upload fallback to dataUrl:', uploadErr);
+          photoUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (loadEvent) => resolve((loadEvent.target?.result as string) || '');
+            reader.readAsDataURL(file);
+          });
+        }
+
+        if (photoUrl) {
           const newPhoto: ClosureEvidencePhoto = {
             id: `photo-${Date.now()}-${idx}`,
-            url: result,
+            url: photoUrl,
             category: 'after_action',
             label: file.name.slice(0, 30),
             timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
           };
           setPhotos((prev) => [...prev, newPhoto]);
         }
-      };
-      reader.readAsDataURL(file);
-    });
-
-    e.target.value = '';
+      }
+    } finally {
+      setIsUploadingPhotos(false);
+      e.target.value = '';
+    }
   };
 
   // Quick sample photo for testing if user has no image file on hand
@@ -178,7 +193,9 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
     if (!handoverEntity) setHandoverEntity('Công an phường & Đội BV sở tại');
     if (!handoverContactName) setHandoverContactName('Đại úy Trần Văn Nam');
     if (!handoverContactPhone) setHandoverContactPhone('0908114115');
-    setValidationErrors([]);
+
+    // Không tự động ký thay người dùng - người dùng phải tự ký tay trên màn hình
+    setValidationErrors((prev) => prev.filter((e) => !e.includes('ảnh') && !e.includes('Tóm tắt')));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -201,9 +218,19 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
       errors.push('Số nạn nhân phải là số nguyên không âm.');
     }
 
+    // Validation 4: Chữ ký điện tử bắt buộc (quy định backend FR-RS-03, BR-25)
+    if (!signatureDataUrl || signatureDataUrl.trim() === '') {
+      errors.push('Bắt buộc phải ký tên xác nhận vào ô chữ ký bên dưới trước khi nộp báo cáo nghiệm thu.');
+      signatureSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
     if (errors.length > 0) {
       setValidationErrors(errors);
-      formRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      if (errors.some((e) => e.includes('chữ ký'))) {
+        signatureSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        formRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }
       return;
     }
 
@@ -333,11 +360,21 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
                   />
                   <button
                     type="button"
+                    disabled={isUploadingPhotos}
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
                   >
-                    <Upload className="w-3.5 h-3.5" />
-                    Tải Ảnh Từ Thiết Bị
+                    {isUploadingPhotos ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Đang Tải Lên...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5" />
+                        Tải Ảnh Từ Thiết Bị
+                      </>
+                    )}
                   </button>
 
                   <button
@@ -627,9 +664,36 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
             </div>
 
             {/* Section 5: Signature Pad Component */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <div
+              ref={signatureSectionRef}
+              className={`rounded-xl p-4 space-y-3 transition-all ${
+                validationErrors.some((e) => e.includes('chữ ký'))
+                  ? 'bg-rose-50 border-2 border-rose-500 shadow-md shadow-rose-500/10'
+                  : 'bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-mono font-bold uppercase text-slate-800 flex items-center gap-1.5">
+                  <PenTool className="w-4 h-4 text-red-600" />
+                  5. Chữ Ký Xác Nhận Của Thành Viên Tổ (Bắt buộc)
+                </label>
+                <span className={`text-[11px] font-mono font-bold ${signatureDataUrl ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {signatureDataUrl ? '✓ Đã ký' : '✕ Bắt buộc ký'}
+                </span>
+              </div>
+              {validationErrors.some((e) => e.includes('chữ ký')) && (
+                <div className="text-rose-700 font-semibold text-xs flex items-center gap-1.5 bg-white/80 p-2 rounded-lg border border-rose-200">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  Vui lòng ký tên bằng chuột hoặc cảm ứng vào khung trắng dưới đây trước khi nộp!
+                </div>
+              )}
               <StaffSignaturePad
-                onSaveSignature={(dataUrl) => setSignatureDataUrl(dataUrl)}
+                onSaveSignature={(dataUrl) => {
+                  setSignatureDataUrl(dataUrl);
+                  if (dataUrl) {
+                    setValidationErrors((prev) => prev.filter((e) => !e.includes('chữ ký')));
+                  }
+                }}
                 initialSignature={signatureDataUrl}
               />
             </div>
