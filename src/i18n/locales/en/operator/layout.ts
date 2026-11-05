@@ -69,6 +69,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
     verify: 'Verify',
     viewOnMap: 'View on map',
     viewDetail: 'View details',
+    assignTrafficTeam: 'Open hotspot',
     dismiss: 'Dismiss notification',
     outOfAreaTitle: 'SOS outside the service area',
     outOfAreaMessage: '{{title}} — {{address}} ({{km}} km outside {{area}}).',
@@ -85,6 +86,8 @@ export const layoutEn: Messages<typeof layoutVi> = {
     supplementTitle: 'Reporter sent more information',
     supplementMessage: '{{incident}}: {{content}}',
     supplementMediaOnly: '{{count}} new photo(s) / video(s)',
+    trafficEscalationTitle: 'Gridlocked hotspot has no clearing team',
+    trafficEscalationMessage: '{{area}} — past the wait threshold, assign a team to direct traffic.',
   },
   stationNotAssigned: {
     title: 'No assigned station',

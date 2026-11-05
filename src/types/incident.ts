@@ -193,6 +193,9 @@ export interface AiFlags {
   engineDisagreement: boolean;
 }
 
+/** Mức kẹt backend (TrafficCongestionLevel). */
+export type TrafficCongestionLevel = 'Low' | 'Moderate' | 'Severe' | 'Blocked';
+
 export interface TrafficJamReport {
   id: string;
   area: string;
@@ -201,6 +204,18 @@ export interface TrafficJamReport {
   note: string;
   reportedAt: string;
   mediaUrl: string | null;
+  /** §20: chỉ điểm còn trên bản đồ — Active (chưa có đội) hoặc Assigned (đã giao xe giải tỏa). */
+  status: 'active' | 'assigned';
+  congestionLevel: TrafficCongestionLevel | null;
+  /** Hết hạn hiển thị (chỉ áp dụng khi Active; Assigned không tự hết hạn). */
+  expiresAt: string;
+  responsibleStationId: string | null;
+  responsibleStationName: string | null;
+  assignedUnitId: string | null;
+  assignedUnitPlate: string | null;
+  assignedAt: string | null;
+  /** §24: Blocked chưa có đội quá ngưỡng → backend leo thang; null = chưa leo thang. */
+  escalatedAt: string | null;
 }
 
 // ---------------------------------------------------------------------------

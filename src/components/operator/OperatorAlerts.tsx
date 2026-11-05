@@ -1,12 +1,17 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRightLeft, HandHelping, MapPinOff, MessageSquarePlus, X } from 'lucide-react';
+import { ArrowRightLeft, HandHelping, MapPinOff, MessageSquarePlus, TrafficCone, X } from 'lucide-react';
 import { useDispatchStore, type OperatorAlert } from '../../context/DispatchContext';
 import { useTranslation } from '../../i18n';
 
 const KIND_META: Record<
   OperatorAlert['kind'],
-  { icon: React.ElementType; className: string; iconClassName: string; action?: 'verify' | 'viewOnMap' | 'viewDetail' }
+  {
+    icon: React.ElementType;
+    className: string;
+    iconClassName: string;
+    action?: 'verify' | 'viewOnMap' | 'viewDetail' | 'assignTrafficTeam';
+  }
 > = {
   out_of_area: {
     icon: MapPinOff,
@@ -36,6 +41,12 @@ const KIND_META: Record<
     iconClassName: 'text-amber-600',
     action: 'viewDetail',
   },
+  traffic_escalation: {
+    icon: TrafficCone,
+    className: 'border-red-300 bg-red-600 text-white',
+    iconClassName: 'text-white',
+    action: 'assignTrafficTeam',
+  },
 };
 
 /**
@@ -51,6 +62,10 @@ export const OperatorAlerts: React.FC = () => {
 
   const open = (alert: OperatorAlert) => {
     dismissOperatorAlert(alert.id);
+    if (alert.trafficJamId) {
+      navigate('/dashboard/command-center/live-map', { state: { focusTrafficJamId: alert.trafficJamId } });
+      return;
+    }
     const incident = incidents.find((i) => i.id === alert.incidentId);
     // Sự cố chưa duyệt → mở drawer thẩm định ở hàng đợi; đã duyệt → chọn trên Live Map.
     if ((alert.kind === 'out_of_area' || alert.kind === 'supplement') && incident?.status === 'pending') {
@@ -66,7 +81,7 @@ export const OperatorAlerts: React.FC = () => {
       {operatorAlerts.map((alert) => {
         const meta = KIND_META[alert.kind];
         const Icon = meta.icon;
-        const isDanger = alert.kind === 'out_of_area';
+        const isDanger = alert.kind === 'out_of_area' || alert.kind === 'traffic_escalation';
         return (
           <div
             key={alert.id}

@@ -10,6 +10,7 @@ import {
   type EscalationSettingsDto,
   type ServiceAreaDto,
   type TrafficHotspotResponseDto,
+  type TrafficTaskEventDto,
 } from '../services/liveMapService';
 import { stationTeamService } from '../services/stationTeamService';
 import { staffAudioService } from '../services/staffAudioService';
@@ -151,11 +152,16 @@ export interface IncomingTransferNote {
   reason: string;
 }
 
-/** Thông báo vận hành theo trạm (ngoài tin báo mới): SOS ngoài khu vực, xe đi hỗ trợ, sự cố chuyển trạm. */
+/**
+ * Thông báo vận hành theo trạm (ngoài tin báo mới): SOS ngoài khu vực, xe đi hỗ trợ, sự cố chuyển trạm,
+ * người báo bổ sung, điểm ùn tắc tê liệt chưa có đội (§24).
+ */
 export interface OperatorAlert {
   id: string;
-  kind: 'out_of_area' | 'support_dispatched' | 'transferred' | 'transferred_in' | 'supplement';
+  kind: 'out_of_area' | 'support_dispatched' | 'transferred' | 'transferred_in' | 'supplement' | 'traffic_escalation';
+  /** Sự cố liên quan; `traffic_escalation` dùng `trafficJamId` (incidentId = id điểm ùn tắc). */
   incidentId: string;
+  trafficJamId?: string;
   title: string;
   message: string;
   at: string;
@@ -211,8 +217,17 @@ interface DispatchContextValue {
   vehicles: Vehicle[];
   stations: Station[];
   trafficJams: TrafficJamReport[];
-  /** Đánh dấu điểm ùn tắc đã giải tỏa (PUT /api/traffic/{id}/resolve). */
-  resolveTrafficJam: (id: string) => Promise<ActionResult>;
+  /** Đánh dấu điểm ùn tắc đã giải tỏa (PUT /api/traffic/{id}/resolve), ghi chú tùy chọn. */
+  resolveTrafficJam: (id: string, note?: string) => Promise<ActionResult>;
+  /** §20: giao xe giải tỏa điểm ùn tắc (PUT /api/traffic/{id}/assign). 409 → tải lại điểm ùn tắc. */
+  assignTrafficJam: (id: string, rescueUnitId: string, notes?: string) => Promise<ActionResult>;
+  /** §20: rút xe khỏi điểm ùn tắc (lý do ≥ 5 ký tự). */
+  unassignTrafficJam: (id: string, reason: string) => Promise<ActionResult>;
+  /**
+   * Xe Sẵn sàng của trạm mình để giao giải tỏa ùn tắc — gồm cả PolicePatrol (ẩn khỏi Live Map nhưng là loại xe
+   * backend gợi ý cho việc phân luồng), xếp PolicePatrol trước.
+   */
+  trafficAssignableUnits: RescueUnitResponseDto[];
   /** Màn Đội xe: đặt xe Bảo trì / đưa trở lại Sẵn sàng (xe đang làm nhiệm vụ bị backend chặn). */
   setVehicleStatus: (id: string, status: 'Available' | 'Maintenance') => Promise<ActionResult>;
   /**
@@ -384,6 +399,23 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const id = `${alert.kind}-${alert.incidentId}-${Date.now()}`;
     setOperatorAlerts((prev) => [{ ...alert, id, at: new Date().toISOString() }, ...prev].slice(0, 5));
     if (autoDismissMs) setTimeout(() => setOperatorAlerts((prev) => prev.filter((a) => a.id !== id)), autoDismissMs);
+  }, []);
+
+  /** Áp điểm ùn tắc mới nhất từ API / SignalR; hết trên bản đồ hoặc đã có đội → gỡ cảnh báo leo thang của nó. */
+  const applyTrafficHotspot = useCallback((dto: TrafficHotspotResponseDto) => {
+    setTrafficJams((prev) => {
+      const rest = prev.filter((j) => j.id !== dto.id);
+      return dto.isActive ? [...rest, mapTrafficHotspot(dto)] : rest;
+    });
+    const stillEscalated = dto.isActive && (dto.status ?? 'Active') === 'Active' && !!dto.escalatedAt;
+    if (!stillEscalated) setOperatorAlerts((prev) => prev.filter((a) => a.trafficJamId !== dto.id));
+  }, []);
+
+  const reloadTrafficJams = useCallback(() => {
+    liveMapService
+      .getActiveTrafficJams()
+      .then(setTrafficJams)
+      .catch(() => undefined);
   }, []);
 
   const setIncidentLock = useCallback(
@@ -736,12 +768,26 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // Xe đổi trạng thái theo lượt phân công (hoàn tất → hồi sức, hủy → sẵn sàng).
         if (!isActiveAssignment(a)) refreshUnits();
       }),
-      incidentHubService.on<TrafficHotspotResponseDto>(HubEvents.ReceiveTrafficHotspot, (dto) =>
-        setTrafficJams((prev) => {
-          const rest = prev.filter((j) => j.id !== dto.id);
-          return dto.isActive ? [...rest, mapTrafficHotspot(dto)] : rest;
-        })
+      incidentHubService.on<TrafficHotspotResponseDto>(HubEvents.ReceiveTrafficHotspot, applyTrafficHotspot),
+      // §20: giao / rút / giải tỏa — payload kèm điểm ùn tắc mới nhất (trạng thái xe tới qua ReceiveRescueUnitStatus).
+      incidentHubService.on<TrafficTaskEventDto>(HubEvents.ReceiveTrafficTaskAssigned, (evt) =>
+        applyTrafficHotspot(evt.hotspot)
       ),
+      // §24: điểm Blocked chưa có đội quá ngưỡng → bíp + cảnh báo đỏ (giữ tới khi đóng hoặc đã giao đội).
+      incidentHubService.on<TrafficHotspotResponseDto>(HubEvents.ReceiveTrafficHotspotEscalation, (dto) => {
+        applyTrafficHotspot(dto);
+        staffAudioService.playPriorityBeep();
+        setOperatorAlerts((prev) => prev.filter((a) => a.trafficJamId !== dto.id));
+        pushOperatorAlert({
+          kind: 'traffic_escalation',
+          incidentId: dto.id,
+          trafficJamId: dto.id,
+          title: i18n.t('layout.operatorAlerts.trafficEscalationTitle'),
+          message: i18n.t('layout.operatorAlerts.trafficEscalationMessage', {
+            area: dto.locationAddress || dto.title,
+          }),
+        });
+      }),
       trackingHubService.on<UnitLocationMessage>(HubEvents.ReceiveRescueUnitLocation, (msg) =>
         setPositions((prev) =>
           new Map(prev).set(msg.rescueUnitId, {
@@ -765,7 +811,17 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       incidentHubService.stop();
       trackingHubService.stop();
     };
-  }, [upsertIncidents, highlight, announceIncoming, refreshUnits, refreshAll, setIncidentLock, removeIncident, pushOperatorAlert]);
+  }, [
+    upsertIncidents,
+    highlight,
+    announceIncoming,
+    refreshUnits,
+    refreshAll,
+    setIncidentLock,
+    removeIncident,
+    pushOperatorAlert,
+    applyTrafficHotspot,
+  ]);
 
   // ---------------------------------------------------------------------------
   // Derived view models
@@ -780,6 +836,18 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
     return map;
   }, [assignments]);
+
+  const trafficAssignableUnits = useMemo(
+    () =>
+      units
+        .filter((u) => u.status === 'Available' && !!user?.stationId && u.stationId === user.stationId)
+        .sort(
+          (a, b) =>
+            Number(b.unitType === 'PolicePatrol') - Number(a.unitType === 'PolicePatrol') ||
+            a.plateNumber.localeCompare(b.plateNumber)
+        ),
+    [units, user?.stationId]
+  );
 
   const vehicles = useMemo<Vehicle[]>(() => {
     const now = Date.now();
@@ -1152,13 +1220,40 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const resolveTrafficJam = async (id: string): Promise<ActionResult> => {
+  const resolveTrafficJam = async (id: string, note?: string): Promise<ActionResult> => {
     try {
-      await liveMapService.resolveTrafficJam(id);
-      setTrafficJams((prev) => prev.filter((j) => j.id !== id));
+      const dto = await liveMapService.resolveTrafficJam(id, note);
+      // Backend cũ không trả dữ liệu → vẫn gỡ điểm khỏi bản đồ.
+      if (dto) applyTrafficHotspot(dto);
+      else setTrafficJams((prev) => prev.filter((j) => j.id !== id));
       return { ok: true };
     } catch (err) {
+      if (isConflict(err)) reloadTrafficJams();
       return { ok: false, message: getApiErrorMessage(err, i18n.t('context.resolveTrafficFailed')) };
+    }
+  };
+
+  const assignTrafficJam = async (id: string, rescueUnitId: string, notes?: string): Promise<ActionResult> => {
+    try {
+      applyTrafficHotspot(await liveMapService.assignTrafficJam(id, rescueUnitId, notes));
+      return { ok: true };
+    } catch (err) {
+      // 409: điểm đã có xe / xe vừa bận → tải lại cả điểm ùn tắc và xe.
+      if (isConflict(err)) {
+        reloadTrafficJams();
+        refreshUnits();
+      }
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('liveMap.traffic.assignFailed')) };
+    }
+  };
+
+  const unassignTrafficJam = async (id: string, reason: string): Promise<ActionResult> => {
+    try {
+      applyTrafficHotspot(await liveMapService.unassignTrafficJam(id, reason));
+      return { ok: true };
+    } catch (err) {
+      if (isConflict(err)) reloadTrafficJams();
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('liveMap.traffic.unassignFailed')) };
     }
   };
 
@@ -1178,6 +1273,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         stations,
         trafficJams,
         resolveTrafficJam,
+        assignTrafficJam,
+        unassignTrafficJam,
+        trafficAssignableUnits,
         setVehicleStatus,
         saveVehicle,
         escalationSettings,

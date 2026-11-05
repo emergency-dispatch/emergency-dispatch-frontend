@@ -66,6 +66,7 @@ export const layoutVi = {
     verify: 'Thẩm định',
     viewOnMap: 'Xem trên bản đồ',
     viewDetail: 'Xem chi tiết',
+    assignTrafficTeam: 'Mở điểm ùn tắc',
     dismiss: 'Đóng thông báo',
     outOfAreaTitle: 'SOS ngoài khu vực phục vụ',
     outOfAreaMessage: '{{title}} — {{address}} (cách {{area}} {{km}} km).',
@@ -82,6 +83,8 @@ export const layoutVi = {
     supplementTitle: 'Người báo bổ sung thông tin',
     supplementMessage: '{{incident}}: {{content}}',
     supplementMediaOnly: '{{count}} ảnh / video mới',
+    trafficEscalationTitle: 'Điểm nghẽn tê liệt chưa có đội giải tỏa',
+    trafficEscalationMessage: '{{area}} — quá ngưỡng chờ, cần giao đội phân luồng.',
   },
   stationNotAssigned: {
     title: 'Chưa có trạm phụ trách',

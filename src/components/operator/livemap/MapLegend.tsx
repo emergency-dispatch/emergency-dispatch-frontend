@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { Building2, ChevronDown, Info } from 'lucide-react';
 import { HAZARD_TAG_META, INCIDENT_CATEGORY_META, SEVERITY_LEVEL_COLOR } from '../../../data/incidentMock';
-import { DISPATCH_VEHICLE_TYPES, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
+import {
+  DISPATCH_VEHICLE_TYPES,
+  TRAFFIC_JAM_STATUS_COLOR,
+  VEHICLE_STATUS_META,
+  VEHICLE_TYPE_META,
+} from '../../../data/liveMapMeta';
 import type { IncidentCategory } from '../../../types/incident';
 import { MAP_VISIBLE_VEHICLE_STATUSES } from './mapIcons';
 import { useTranslation } from '../../../i18n';
@@ -130,15 +135,19 @@ export const MapLegend: React.FC = () => {
           </span>
           <span className="text-xs text-slate-700">{t('liveMap.legend.otherStation')}</span>
         </span>
-        <span className="flex items-center gap-1.5">
-          <span
-            className="w-3.5 h-3.5 rounded flex items-center justify-center shrink-0"
-            style={{ backgroundColor: HAZARD_TAG_META.traffic_jam.color }}
-          >
-            <TrafficIcon className="w-2.5 h-2.5 text-white" />
+        {(['active', 'assigned'] as const).map((status) => (
+          <span key={status} className="flex items-center gap-1.5">
+            <span
+              className="w-3.5 h-3.5 rounded flex items-center justify-center shrink-0"
+              style={{ backgroundColor: TRAFFIC_JAM_STATUS_COLOR[status] }}
+            >
+              <TrafficIcon className="w-2.5 h-2.5 text-white" />
+            </span>
+            <span className="text-xs text-slate-700">
+              {status === 'active' ? t('liveMap.legend.trafficJam') : t('liveMap.legend.trafficJamAssigned')}
+            </span>
           </span>
-          <span className="text-xs text-slate-700">{t('liveMap.legend.trafficJam')}</span>
-        </span>
+        ))}
         <span className="flex items-center gap-1.5">
           <span className="w-3.5 h-3.5 rounded-full border-[1.5px] border-red-600 bg-red-600/10 shrink-0" />
           <span className="text-xs text-slate-700">{t('liveMap.legend.stationCoverage')}</span>

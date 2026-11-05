@@ -16,6 +16,8 @@ interface MapMarkerProps {
   /** Khoảng cách popup so với tâm marker (px). */
   popupOffset?: number;
   onClick?: () => void;
+  /** Đổi sang số > 0 khác → mở popup bằng code (VD bấm cảnh báo điểm ùn tắc leo thang). */
+  popupOpenKey?: number;
   /** Nội dung popup (React) — bấm marker để mở/đóng. Không truyền thì marker không có popup. */
   children?: React.ReactNode;
 }
@@ -53,6 +55,7 @@ export const MapMarker: React.FC<MapMarkerProps> = ({
   offset,
   popupOffset = 16,
   onClick,
+  popupOpenKey,
   children,
 }) => {
   const [element] = useState(() => document.createElement('div'));
@@ -98,6 +101,12 @@ export const MapMarker: React.FC<MapMarkerProps> = ({
   useEffect(() => {
     markerRef.current?.setLngLat([lng, lat]);
   }, [lng, lat]);
+
+  useEffect(() => {
+    if (!popupOpenKey) return;
+    const marker = markerRef.current;
+    if (marker?.getPopup() && !marker.getPopup()?.isOpen()) marker.togglePopup();
+  }, [popupOpenKey]);
 
   useEffect(() => {
     element.innerHTML = html;

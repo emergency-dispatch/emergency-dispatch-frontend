@@ -51,6 +51,9 @@ export const LiveMapPage: React.FC = () => {
     stations,
     trafficJams,
     resolveTrafficJam,
+    assignTrafficJam,
+    unassignTrafficJam,
+    trafficAssignableUnits,
     assignVehicle,
     cancelAssignment,
     rejectIncident,
@@ -111,6 +114,13 @@ export const LiveMapPage: React.FC = () => {
       setSheetOpen(true);
     }
   }, [focusIncidentId, location.key]);
+
+  // Cảnh báo điểm ùn tắc leo thang (§24) → bay tới và mở popup (có nút giao đội).
+  const focusTrafficJamId = (location.state as { focusTrafficJamId?: string } | null)?.focusTrafficJamId;
+  const [focusTrafficJam, setFocusTrafficJam] = useState<{ id: string; key: number } | null>(null);
+  useEffect(() => {
+    if (focusTrafficJamId) setFocusTrafficJam((prev) => ({ id: focusTrafficJamId, key: (prev?.key ?? 0) + 1 }));
+  }, [focusTrafficJamId, location.key]);
 
   const handleSelectIncident = (id: string | null) => {
     userClearedRef.current = id === null;
@@ -241,6 +251,10 @@ export const LiveMapPage: React.FC = () => {
           stations={stations}
           trafficJams={trafficJams}
           onResolveTrafficJam={resolveTrafficJam}
+          onAssignTrafficJam={assignTrafficJam}
+          onUnassignTrafficJam={unassignTrafficJam}
+          trafficAssignableUnits={trafficAssignableUnits}
+          focusTrafficJam={focusTrafficJam}
           routes={routes}
           vehiclesById={vehiclesById}
           incidentsById={incidentsById}
