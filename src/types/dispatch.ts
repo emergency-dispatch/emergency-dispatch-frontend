@@ -84,6 +84,11 @@ export interface AssignDispatchDto {
   algorithm?: BackendDispatchAlgorithm;
   allowExtraUnits?: boolean;
   notes?: string;
+  /**
+   * §21.2: giao xe đáp ứng yêu cầu chi viện (Backup) của đội hiện trường — được vượt giới hạn Cấp 1–2
+   * và yêu cầu tự chuyển Fulfilled. Cấp 3 vẫn tối đa 5 xe.
+   */
+  fieldRequestId?: string;
 }
 
 export interface RecommendedUnitResponseDto {

@@ -12,6 +12,7 @@ import { findNearbyIncidents } from '../../utils/nearbyIncidents';
 import { MAX_VEHICLES_BY_LEVEL } from '../../data/dispatchConfig';
 import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
 import type { AssignOptions } from '../../context/DispatchContext';
+import type { FieldRequestDto } from '../../types/fieldRequest';
 import type { OperatorCancellationCode } from '../../types/incident';
 import type { DispatchAlgorithm } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
@@ -60,6 +61,7 @@ export const LiveMapPage: React.FC = () => {
     dismissResponseNotice,
     serviceArea,
     stationNotAssigned,
+    fieldRequests,
   } = useDispatchStore();
   const { t } = useTranslation();
 
@@ -122,10 +124,37 @@ export const LiveMapPage: React.FC = () => {
     if (focusTrafficJamId) setFocusTrafficJam((prev) => ({ id: focusTrafficJamId, key: (prev?.key ?? 0) + 1 }));
   }, [focusTrafficJamId, location.key]);
 
+  // §21.2: thông báo yêu cầu hiện trường → làm nổi yêu cầu trong mục "Yêu cầu từ hiện trường".
+  const focusFieldRequestId = (location.state as { focusFieldRequestId?: string } | null)?.focusFieldRequestId ?? null;
+  const [highlightFieldRequestId, setHighlightFieldRequestId] = useState<string | null>(null);
+  useEffect(() => {
+    if (focusFieldRequestId) setHighlightFieldRequestId(focusFieldRequestId);
+  }, [focusFieldRequestId, location.key]);
+
+  // §21.2: yêu cầu chi viện đang được đáp ứng ở panel phải. Yêu cầu đóng (đã giao / Operator khác xử lý / đội hủy)
+  // hoặc chọn sự cố khác → tự thoát chế độ này.
+  const [servingRequestId, setServingRequestId] = useState<string | null>(null);
+  const servingRequest = useMemo(
+    () =>
+      fieldRequests.find(
+        (r) => r.id === servingRequestId && r.incidentId === selectedIncidentId && r.type === 'Backup'
+      ) ?? null,
+    [fieldRequests, servingRequestId, selectedIncidentId]
+  );
+
   const handleSelectIncident = (id: string | null) => {
     userClearedRef.current = id === null;
     setSelectedIncidentId(id);
+    setServingRequestId(null);
     if (id) setSheetOpen(true);
+  };
+
+  const handleServeFieldRequest = (request: FieldRequestDto) => {
+    userClearedRef.current = false;
+    setSelectedIncidentId(request.incidentId);
+    setServingRequestId(request.id);
+    setHighlightFieldRequestId(request.id);
+    setPanelError(null);
   };
 
   const closeCreate = () => {
@@ -236,6 +265,8 @@ export const LiveMapPage: React.FC = () => {
           onCancelVehicle={handleCancelVehicle}
           onCancelIncident={handleCancelIncident}
           onDismissNotice={(incidentId, noticeId) => dismissResponseNotice(incidentId, noticeId)}
+          onServeFieldRequest={handleServeFieldRequest}
+          highlightFieldRequestId={highlightFieldRequestId}
         />}
       </div>
 
@@ -303,6 +334,8 @@ export const LiveMapPage: React.FC = () => {
           selectedIncidentId={selectedIncidentId}
           assigningVehicleId={assigningVehicleId}
           onAssign={handleAssign}
+          fieldRequest={servingRequest}
+          onExitFieldRequest={() => setServingRequestId(null)}
         />
       </div>
 
@@ -335,6 +368,8 @@ export const LiveMapPage: React.FC = () => {
               onCancelVehicle={handleCancelVehicle}
               onCancelIncident={handleCancelIncident}
               onDismissNotice={(incidentId, noticeId) => dismissResponseNotice(incidentId, noticeId)}
+              onServeFieldRequest={handleServeFieldRequest}
+              highlightFieldRequestId={highlightFieldRequestId}
             />}
           </div>
         )}

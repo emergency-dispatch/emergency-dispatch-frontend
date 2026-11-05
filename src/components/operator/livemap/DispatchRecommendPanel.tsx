@@ -10,6 +10,7 @@ import {
   Loader2,
   Plus,
   Radar,
+  Radio,
   Users,
 } from 'lucide-react';
 import { ChangeSeverityDialog } from './ChangeSeverityDialog';
@@ -26,6 +27,7 @@ import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { dispatchService } from '../../../services/dispatchService';
 import type { DispatchAlgorithm, DispatchSuggestion, Vehicle } from '../../../types/vehicle';
+import type { FieldRequestDto } from '../../../types/fieldRequest';
 import i18n, { useTranslation } from '../../../i18n';
 
 const DRAG_MIME = 'application/x-resq-vehicle-id';
@@ -91,12 +93,20 @@ interface DispatchRecommendPanelProps {
   assigningVehicleId: string | null;
   /** vehicleId + algorithm đang chọn — để LiveMapPage gọi đúng thuật toán; options khi giao thêm tổ cho Cấp 1–2. */
   onAssign: (vehicleId: string, algorithm: DispatchAlgorithm, options?: AssignOptions) => void;
+  /**
+   * §21.2: yêu cầu chi viện (Backup) đang được đáp ứng cho sự cố đang chọn → chọn nhiều xe, giao một lần kèm
+   * fieldRequestId (vượt giới hạn Cấp 1–2 không cần lý do; Cấp 3 vẫn tối đa 5 xe).
+   */
+  fieldRequest?: FieldRequestDto | null;
+  onExitFieldRequest?: () => void;
 }
 
 export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   selectedIncidentId,
   assigningVehicleId,
   onAssign,
+  fieldRequest = null,
+  onExitFieldRequest,
 }) => {
   const {
     vehicles,
@@ -106,7 +116,12 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     changeIncidentSeverity,
     currentOperatorId,
     supplementVersions,
+    assignForFieldRequest,
   } = useDispatchStore();
+  // Xe đã chọn / lỗi gắn với id yêu cầu → đổi yêu cầu là tự bỏ, không cần effect reset.
+  const [requestSelection, setRequestSelection] = useState<{ requestId: string; ids: string[] }>({ requestId: '', ids: [] });
+  const [requestError, setRequestError] = useState<{ requestId: string; message: string } | null>(null);
+  const [requestBusy, setRequestBusy] = useState(false);
   const [algorithm, setAlgorithm] = useState<DispatchAlgorithm>('nearest');
   // Cấp 1–2 đã đủ 1 tổ: backend cho giao thêm khi có lý do ≥ 5 ký tự.
   const [extraMode, setExtraMode] = useState(false);
@@ -152,7 +167,11 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   const canChangeSeverity = selectedIncident?.status === 'approved';
   const canAddExtra = isFull && !isCompleted && !!selectedIncident && selectedIncident.severity !== 3;
   const extraReasonValid = extraReason.trim().length >= OVERRIDE_REASON_MIN_LENGTH;
-  const showSuggestions = !isCompleted && (!isFull || (canAddExtra && extraMode));
+  const serving = !!fieldRequest && !!selectedIncident && !isCompleted;
+  // Cấp 3 không vượt được 5 xe kể cả theo yêu cầu chi viện; Cấp 1–2 giao đủ số xe đội xin.
+  const level3Remaining = selectedIncident?.severity === 3 ? Math.max(0, maxVehicles - activeCount) : Infinity;
+  const pickMax = fieldRequest ? Math.min(fieldRequest.quantity, level3Remaining) : 0;
+  const showSuggestions = !isCompleted && (serving ? pickMax > 0 : !isFull || (canAddExtra && extraMode));
   const isEscalated = selectedIncident ? escalatedIncidentIds.has(selectedIncident.id) : false;
   const category = selectedIncident ? INCIDENT_CATEGORY_META[selectedIncident.category] : null;
 
@@ -172,8 +191,47 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   );
   // Điều phối theo tổ: xe trạm mình phải có tổ. Xe hỗ trợ của trạm khác thì Operator không xem được tổ (403) →
   // vẫn cho giao, hiện theo xe.
-  const candidates = readyCandidates.filter((c) => teamByVehicle.has(c.vehicleId) || c.isSupportUnit);
+  const teamedCandidates = readyCandidates.filter((c) => teamByVehicle.has(c.vehicleId) || c.isSupportUnit);
+  // Đáp ứng yêu cầu chi viện có chỉ định loại xe → đưa xe đúng loại lên đầu (sort ổn định, giữ thứ tự gợi ý).
+  const preferredType = serving ? fieldRequest?.requestedUnitType ?? null : null;
+  const candidates = preferredType
+    ? [...teamedCandidates].sort(
+        (a, b) =>
+          Number(vehiclesById.get(b.vehicleId)?.unitType === preferredType) -
+          Number(vehiclesById.get(a.vehicleId)?.unitType === preferredType)
+      )
+    : teamedCandidates;
   const vehiclesWithoutTeam = readyCandidates.length - candidates.length;
+  const selectedForRequest =
+    fieldRequest && requestSelection.requestId === fieldRequest.id
+      ? requestSelection.ids.filter((id) => candidates.some((c) => c.vehicleId === id))
+      : [];
+  const requestErrorMessage =
+    fieldRequest && requestError?.requestId === fieldRequest.id ? requestError.message : null;
+
+  const toggleRequestVehicle = (vehicleId: string) => {
+    if (!fieldRequest) return;
+    const ids = selectedForRequest.includes(vehicleId)
+      ? selectedForRequest.filter((id) => id !== vehicleId)
+      : selectedForRequest.length < pickMax
+        ? [...selectedForRequest, vehicleId]
+        : selectedForRequest;
+    setRequestSelection({ requestId: fieldRequest.id, ids });
+  };
+
+  const handleServeRequest = async () => {
+    if (!fieldRequest || !selectedIncident || selectedForRequest.length === 0) return;
+    setRequestBusy(true);
+    setRequestError(null);
+    const res = await assignForFieldRequest(fieldRequest.id, selectedIncident.id, selectedForRequest, algorithm);
+    setRequestBusy(false);
+    if (!res.ok) {
+      setRequestError({ requestId: fieldRequest.id, message: res.message ?? t('context.assignFailed') });
+      return;
+    }
+    setSeverityNotice(t('liveMap.fieldRequests.served'));
+    onExitFieldRequest?.();
+  };
   const assignOptions: AssignOptions | undefined =
     isFull && extraMode ? { allowExtraUnits: true, notes: extraReason.trim() } : undefined;
   const assignBlocked = isFull && extraMode && !extraReasonValid;
@@ -416,6 +474,47 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
 
       {/* Recommendations */}
       <div className="flex-1 overflow-y-auto p-3 min-h-0 space-y-2">
+        {serving && fieldRequest && (
+          <div className="rounded-lg border border-orange-300 bg-orange-50 p-2.5 space-y-1.5">
+            <p className="flex items-center gap-1 text-[11px] font-bold text-orange-800">
+              <Radio className="w-3.5 h-3.5" />
+              {t('liveMap.fieldRequests.serveTitle')}
+            </p>
+            <p className="text-[11px] text-orange-900 leading-snug">
+              {t('liveMap.fieldRequests.serveBody', {
+                plate: fieldRequest.plateNumber ?? '—',
+                count: fieldRequest.quantity,
+                type: fieldRequest.requestedUnitType
+                  ? t('liveMap.fieldRequests.serveTypeSuffix', {
+                      type: t(`enums.unitType.${fieldRequest.requestedUnitType}`),
+                    })
+                  : '',
+              })}
+            </p>
+            {fieldRequest.description && (
+              <p className="text-[11px] text-slate-600 italic break-words">“{fieldRequest.description}”</p>
+            )}
+            {pickMax === 0 ? (
+              <p className="text-[11px] font-semibold text-red-600">
+                {t('liveMap.fieldRequests.level3Full', { max: maxVehicles })}
+              </p>
+            ) : (
+              pickMax < fieldRequest.quantity && (
+                <p className="text-[11px] text-amber-700">
+                  {t('liveMap.fieldRequests.level3Remaining', { max: maxVehicles, count: pickMax })}
+                </p>
+              )
+            )}
+            {requestErrorMessage && <p className="text-[11px] text-red-600">{requestErrorMessage}</p>}
+            <button
+              onClick={onExitFieldRequest}
+              disabled={requestBusy}
+              className="text-[10px] font-bold text-slate-500 hover:text-slate-800 disabled:opacity-50"
+            >
+              {t('liveMap.fieldRequests.cancelServe')}
+            </button>
+          </div>
+        )}
         {!selectedIncident ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400 pb-8">
             <Radar className="w-10 h-10 text-slate-200" />
@@ -426,7 +525,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
             </p>
           </div>
         ) : !showSuggestions ? (
-          <div className="space-y-2 py-2">
+          // Đang đáp ứng yêu cầu nhưng Cấp 3 đã đủ xe → banner phía trên đã giải thích.
+          serving ? null : <div className="space-y-2 py-2">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
               <CheckCircle2 className="w-4 h-4" />
               {isCompleted ? t('liveMap.recommend.incidentClosed') : t('liveMap.recommend.maxReached', { max: maxVehicles })}
@@ -443,7 +543,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
           </div>
         ) : (
           <>
-            {isFull && extraMode && (
+            {isFull && extraMode && !serving && (
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 space-y-1.5 mb-1">
                 <p className="text-[11px] text-amber-800">
                   {t('liveMap.recommend.extraPrompt', { level: selectedIncident.severity, count: activeCount })}
@@ -507,6 +607,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
               const vehicle = vehiclesById.get(candidate.vehicleId)!;
               const team = teamByVehicle.get(vehicle.id);
               const isAssigning = assigningVehicleId === vehicle.id;
+              const isPicked = selectedForRequest.includes(vehicle.id);
               const distanceLabel = (
                 <>
                   {t('liveMap.recommend.distance', { km: candidate.km.toFixed(1) })}
@@ -518,7 +619,11 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
               return (
                 <div
                   key={vehicle.id}
-                  className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-2.5 py-2 hover:border-red-200 hover:bg-red-50/30 transition-colors"
+                  className={`flex items-center gap-2 border rounded-lg px-2.5 py-2 transition-colors ${
+                    isPicked
+                      ? 'border-orange-300 bg-orange-50'
+                      : 'bg-white border-slate-200 hover:border-red-200 hover:bg-red-50/30'
+                  }`}
                   title={
                     algorithm === 'load_aware'
                       ? t('liveMap.recommend.costTitle', { load: Math.round(candidate.stationLoad * 100) })
@@ -529,6 +634,11 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                     {index + 1}
                   </span>
                   <div className="min-w-0 flex-1">
+                    {preferredType && vehicle.unitType === preferredType && (
+                      <span className="inline-flex items-center mb-0.5 mr-1 px-1.5 py-px rounded bg-orange-50 border border-orange-200 text-[9px] font-bold text-orange-700">
+                        {t('liveMap.fieldRequests.preferredType')}
+                      </span>
+                    )}
                     {candidate.isSupportUnit && (
                       <span className="inline-flex items-center gap-0.5 mb-0.5 px-1.5 py-px rounded bg-blue-50 border border-blue-200 text-[9px] font-bold text-blue-700">
                         <HandHelping className="w-2.5 h-2.5" />
@@ -550,17 +660,46 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => onAssign(vehicle.id, algorithm, assignOptions)}
-                    disabled={!!assigningVehicleId || assignBlocked}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold shrink-0 transition-colors disabled:opacity-60"
-                  >
-                    {isAssigning && <Loader2 className="w-3 h-3 animate-spin" />}
-                    {t('liveMap.recommend.assign')}
-                  </button>
+                  {serving ? (
+                    <label className="flex items-center gap-1 px-2 py-1.5 rounded-md border border-orange-200 bg-white text-[10px] font-bold text-orange-700 shrink-0 cursor-pointer has-[:disabled]:opacity-50 has-[:disabled]:cursor-not-allowed">
+                      <input
+                        type="checkbox"
+                        checked={isPicked}
+                        onChange={() => toggleRequestVehicle(vehicle.id)}
+                        disabled={requestBusy || (!isPicked && selectedForRequest.length >= pickMax)}
+                        className="accent-orange-600"
+                      />
+                      {t('liveMap.fieldRequests.select')}
+                    </label>
+                  ) : (
+                    <button
+                      onClick={() => onAssign(vehicle.id, algorithm, assignOptions)}
+                      disabled={!!assigningVehicleId || assignBlocked}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold shrink-0 transition-colors disabled:opacity-60"
+                    >
+                      {isAssigning && <Loader2 className="w-3 h-3 animate-spin" />}
+                      {t('liveMap.recommend.assign')}
+                    </button>
+                  )}
                 </div>
               );
             })}
+
+            {serving && candidates.length > 0 && (
+              <div className="sticky bottom-0 -mx-3 -mb-3 px-3 py-2 bg-white/95 border-t border-orange-200 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-semibold text-slate-600">
+                  {t('liveMap.fieldRequests.selected', { count: selectedForRequest.length, max: pickMax })}
+                </span>
+                <button
+                  onClick={handleServeRequest}
+                  disabled={requestBusy || selectedForRequest.length === 0}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold transition-colors disabled:opacity-50"
+                >
+                  {requestBusy && <Loader2 className="w-3 h-3 animate-spin" />}
+                  {t('liveMap.fieldRequests.assignSelected', { count: selectedForRequest.length })}
+                </button>
+              </div>
+            )}
 
             {vehiclesWithoutTeam > 0 && (
               <p className="text-[10px] text-amber-600 px-0.5">

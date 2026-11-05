@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   FileCheck2,
   Loader2,
+  Radio,
   Route,
   Siren,
   Users,
@@ -13,6 +14,7 @@ import {
 import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
+import { FieldRequestSection } from './FieldRequestSection';
 import { CANCELLATION_REASON_OPTIONS, INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
@@ -20,6 +22,7 @@ import { useDispatchStore } from '../../../context/DispatchContext';
 import { useNow } from '../../../hooks/useNow';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { getApiErrorMessage } from '../../../services/apiClient';
+import type { FieldRequestDto } from '../../../types/fieldRequest';
 import type { Incident, OperatorCancellationCode } from '../../../types/incident';
 import type { StationTeam } from '../../../types/stationTeam';
 import type { Vehicle } from '../../../types/vehicle';
@@ -33,6 +36,8 @@ interface IncidentCardProps {
   isEscalated: boolean;
   /** Leo thang cấp 2: quá gấp đôi ngưỡng, đã báo mọi Operator — cần trạm khác hỗ trợ. */
   escalationTier: number;
+  /** §21.2: số yêu cầu hiện trường đang mở của sự cố. */
+  fieldRequestCount: number;
   now: number;
   isCancelling: boolean;
   cancellingVehicleId: string | null;
@@ -49,6 +54,7 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
   isSelected,
   isEscalated,
   escalationTier,
+  fieldRequestCount,
   now,
   isCancelling,
   cancellingVehicleId,
@@ -114,6 +120,14 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
           <div className="mb-1">
             <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-[9px] font-bold text-red-700">
               {t('liveMap.incidentList.outOfArea')}
+            </span>
+          </div>
+        )}
+        {fieldRequestCount > 0 && (
+          <div className="mb-1">
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-50 border border-orange-200 text-[9px] font-bold text-orange-700">
+              <Radio className="w-2.5 h-2.5" />
+              {t('liveMap.fieldRequests.incidentBadge', { count: fieldRequestCount })}
             </span>
           </div>
         )}
@@ -288,6 +302,10 @@ interface DispatchIncidentListProps {
   onCancelVehicle: (vehicleId: string) => void;
   onCancelIncident: (incidentId: string, reasonCode: OperatorCancellationCode) => void;
   onDismissNotice: (incidentId: string, noticeId: string) => void;
+  /** §21.2: "Giao thêm xe" theo yêu cầu chi viện → chọn sự cố, panel phải chuyển sang chế độ đáp ứng yêu cầu. */
+  onServeFieldRequest: (request: FieldRequestDto) => void;
+  /** Yêu cầu cần làm nổi (mở từ thông báo). */
+  highlightFieldRequestId: string | null;
 }
 
 export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
@@ -300,8 +318,10 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
   onCancelVehicle,
   onCancelIncident,
   onDismissNotice,
+  onServeFieldRequest,
+  highlightFieldRequestId,
 }) => {
-  const { vehicles, incidents, escalatedIncidentIds, escalationTiers } = useDispatchStore();
+  const { vehicles, incidents, escalatedIncidentIds, escalationTiers, fieldRequests } = useDispatchStore();
   const now = useNow();
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
@@ -314,6 +334,16 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
     [incidents]
   );
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
+  // Chỉ sự cố đang xử lý của trạm mình mới giao thêm xe được (backend kiểm trạm phụ trách).
+  const boardIncidentIds = useMemo(
+    () => new Set(incidents.filter((i) => i.status === 'approved').map((i) => i.id)),
+    [incidents]
+  );
+  const fieldRequestCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of fieldRequests) counts.set(r.incidentId, (counts.get(r.incidentId) ?? 0) + 1);
+    return counts;
+  }, [fieldRequests]);
 
   const handleToggle = (id: string) => {
     onSelectIncident(id === selectedIncidentId ? null : id);
@@ -345,6 +375,13 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
 
       {/* Incident cards */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
+        <FieldRequestSection
+          now={now}
+          boardIncidentIds={boardIncidentIds}
+          highlightRequestId={highlightFieldRequestId}
+          onServe={onServeFieldRequest}
+          onSelectIncident={(id) => onSelectIncident(id)}
+        />
         {dispatchIncidents.length === 0 ? (
           <div className="text-center text-xs text-slate-400 py-10">{t('liveMap.incidentList.empty')}</div>
         ) : (
@@ -357,6 +394,7 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
               isSelected={incident.id === selectedIncidentId}
               isEscalated={escalatedIncidentIds.has(incident.id)}
               escalationTier={escalationTiers.get(incident.id) ?? 1}
+              fieldRequestCount={fieldRequestCounts.get(incident.id) ?? 0}
               now={now}
               isCancelling={cancellingIncidentId === incident.id}
               cancellingVehicleId={cancellingVehicleId}

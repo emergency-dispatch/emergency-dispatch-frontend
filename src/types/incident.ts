@@ -385,7 +385,13 @@ export type IncidentAuditAction =
   | 'SeverityChanged'
   // §21.4 người báo bổ sung thông tin:
   | 'SupplementAdded'
-  // 20–25 (yêu cầu hiện trường) chưa có trên web → hiện "Thao tác khác".
+  // §21.2 yêu cầu từ hiện trường (20–25):
+  | 'FieldRequestCreated'
+  | 'FieldRequestAcknowledged'
+  | 'FieldRequestFulfilled'
+  | 'FieldRequestDeclined'
+  | 'FieldRequestCancelled'
+  | 'FieldRequestEscalated'
   // BR-07 gom báo cáo trùng:
   | 'ReportLinked'
   | 'ReportUnlinked'
