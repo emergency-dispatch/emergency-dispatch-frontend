@@ -31,6 +31,7 @@ export const StationTeamsPage: React.FC = () => {
   const [station, setStation] = useState<StationResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<NoticeState>(null);
   const myStationId = user?.stationId ?? null;
 
   // Lấy lại hồ sơ để nhận trạm Admin vừa gán (thông tin lưu lúc đăng nhập có thể đã cũ).
@@ -55,12 +56,19 @@ export const StationTeamsPage: React.FC = () => {
       .then(([dto]) => !cancelled && setStation(dto))
       .catch((err) => !cancelled && setLoadError(getApiErrorMessage(err, i18n.t('teams.page.loadFailed'))))
       .finally(() => !cancelled && setLoading(false));
+    // Ứng viên "Thêm nhân sự" (nhân viên chưa có trạm): lỗi chỉ ẩn nút thêm, không chặn cả trang.
+    stationTeamService
+      .loadUnassignedStaff()
+      .catch(
+        (err) =>
+          !cancelled &&
+          setNotice({ kind: 'error', message: getApiErrorMessage(err, i18n.t('teams.page.unassignedLoadFailed')) })
+      );
     return () => {
       cancelled = true;
     };
   }, [myStationId]);
 
-  const [notice, setNotice] = useState<NoticeState>(null);
   const [addingStaff, setAddingStaff] = useState(false);
   const [creatingStaff, setCreatingStaff] = useState(false);
   const [removingStaff, setRemovingStaff] = useState<StationStaff | null>(null);

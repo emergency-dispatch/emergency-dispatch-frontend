@@ -75,12 +75,35 @@ describe('stationTeamService', () => {
     ]);
   });
 
-  it('addStaff gán từng người rồi tải lại kể cả khi lỗi', async () => {
+  it('loadUnassignedStaff tải mọi trang và gộp vào staff (không trùng người)', async () => {
+    api.get.mockImplementation((url: string, config?: { params: { pageIndex: number } }) => {
+      if (url === '/users') {
+        return Promise.resolve(apiOk({ items: [{ id: 'u1', fullName: 'A', status: 'Active', stationId: 's1' }], hasNextPage: false }));
+      }
+      return Promise.resolve(
+        apiOk(
+          config!.params.pageIndex === 1
+            ? { items: [{ id: 'u2', fullName: 'B', status: 'Active', stationId: null }], hasNextPage: true }
+            : { items: [{ id: 'u1', fullName: 'A (cũ)', status: 'Active', stationId: null }], hasNextPage: false },
+        ),
+      );
+    });
+    await svc.loadStaff();
+    await svc.loadUnassignedStaff();
+    expect(api.get).toHaveBeenCalledWith('/users/unassigned-staff', { params: { pageIndex: 2, pageSize: 100 } });
+    expect(svc.getSnapshot().staff).toEqual([
+      { id: 'u1', fullName: 'A', phoneNumber: '', isLocked: false, stationId: 's1', teamId: null },
+      { id: 'u2', fullName: 'B', phoneNumber: '', isLocked: false, stationId: null, teamId: null },
+    ]);
+  });
+
+  it('addStaff gán từng người rồi tải lại cả 2 danh sách kể cả khi lỗi', async () => {
     api.put.mockResolvedValueOnce(apiOk({})).mockResolvedValueOnce(apiFail('Đã khóa'));
     api.get.mockResolvedValue(apiOk({ items: [], hasNextPage: false }));
     await expect(svc.addStaff('s1', ['u1', 'u2'])).rejects.toThrow('Đã khóa');
     expect(api.put).toHaveBeenNthCalledWith(1, '/users/u1/assign-station-team', { stationId: 's1', teamName: null });
     expect(api.get).toHaveBeenCalledWith('/users', expect.anything());
+    expect(api.get).toHaveBeenCalledWith('/users/unassigned-staff', expect.anything());
   });
 
   it('createStaff gửi role RescueStaff, SĐT rỗng → null', async () => {

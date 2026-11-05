@@ -19,7 +19,7 @@ vi.mock('@/services/liveMapService', async (orig) => ({
   liveMapService: { getStation: vi.fn() },
 }));
 vi.mock('@/services/stationTeamService', () => ({
-  stationTeamService: { loadStaff: vi.fn(), reloadStationTeams: vi.fn(), addStaff: vi.fn(), removeStaff: vi.fn(), deleteTeam: vi.fn(), saveTeam: vi.fn(), createStaff: vi.fn() },
+  stationTeamService: { loadStaff: vi.fn(), loadUnassignedStaff: vi.fn(), reloadStationTeams: vi.fn(), addStaff: vi.fn(), removeStaff: vi.fn(), deleteTeam: vi.fn(), saveTeam: vi.fn(), createStaff: vi.fn() },
 }));
 
 const svc = vi.mocked(stationTeamService);
@@ -55,6 +55,7 @@ beforeEach(() => {
   vi.mocked(useStationTeams).mockReturnValue({ staff: staffList, teams });
   vi.mocked(liveMapService.getStation).mockResolvedValue({ id: 'st-1', name: 'Trạm Thủ Đức', address: 'D1', phoneNumber: '114' } as never);
   svc.loadStaff.mockResolvedValue();
+  svc.loadUnassignedStaff.mockResolvedValue();
   svc.reloadStationTeams.mockResolvedValue();
 });
 
@@ -79,6 +80,14 @@ describe('StationTeamsPage', () => {
     expect(screen.getByText(t('teams.page.vehiclesWithoutTeam'), { exact: false })).toHaveTextContent('51A-2');
     expect(screen.getAllByText('Chí Thanh').length).toBeGreaterThan(0);
     expect(screen.queryByText('Dũng Rảnh')).not.toBeInTheDocument();
+    expect(svc.loadUnassignedStaff).toHaveBeenCalled();
+  });
+
+  it('lỗi tải nhân sự chưa có trạm → báo lỗi nhưng vẫn hiện trạm', async () => {
+    svc.loadUnassignedStaff.mockRejectedValue(new Error('500 boom'));
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Trạm Thủ Đức' })).toBeInTheDocument();
+    expect(await screen.findByText('500 boom')).toBeInTheDocument();
   });
 
   it('thêm nhân sự chưa thuộc trạm (bỏ người bị khóa)', async () => {

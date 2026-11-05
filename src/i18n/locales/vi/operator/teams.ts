@@ -8,6 +8,7 @@ export const teamsVi = {
   },
   page: {
     loadFailed: 'Không tải được thông tin trạm.',
+    unassignedLoadFailed: 'Không tải được danh sách nhân sự chưa có trạm.',
     vehicleBusy: 'Xe {{plate}} đang ở trạng thái "{{status}}" — chỉ sửa được khi xe sẵn sàng.',
     loading: 'Đang tải thông tin trạm…',
     notHead: 'Bạn chưa được phân công làm Trưởng trạm — liên hệ Admin để được gán trạm.',
@@ -74,7 +75,7 @@ export const teamsVi = {
   staff: {
     title: 'Nhân sự trạm ({{count}})',
     create: 'Tạo tài khoản',
-    add: 'Thêm người có sẵn',
+    add: 'Thêm nhân sự chưa có trạm',
     search: 'Tìm theo tên hoặc số điện thoại',
     onlyWithoutTeam: 'Chỉ hiện người chưa vào tổ ({{count}})',
     emptyStation: 'Trạm chưa có nhân sự — bấm "Tạo tài khoản".',

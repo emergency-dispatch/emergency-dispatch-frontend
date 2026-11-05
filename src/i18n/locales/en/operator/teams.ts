@@ -11,6 +11,7 @@ export const teamsEn: Messages<typeof teamsVi> = {
   },
   page: {
     loadFailed: 'Could not load station information.',
+    unassignedLoadFailed: 'Could not load staff without a station.',
     vehicleBusy: 'Vehicle {{plate}} is "{{status}}" — editable only when the vehicle is available.',
     loading: 'Loading station information…',
     notHead: 'You have not been assigned as a station head — contact an Admin to be assigned a station.',
@@ -77,7 +78,7 @@ export const teamsEn: Messages<typeof teamsVi> = {
   staff: {
     title: 'Station staff ({{count}})',
     create: 'Create account',
-    add: 'Add existing staff',
+    add: 'Add unassigned staff',
     search: 'Search by name or phone number',
     onlyWithoutTeam: 'Only show people without a team ({{count}})',
     emptyStation: 'This station has no staff yet — click "Create account".',

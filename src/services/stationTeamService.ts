@@ -4,8 +4,9 @@ import type { PaginatedResultDto } from '../types/incident';
 import type { CrewRole, StationStaff, StationTeam, StationTeamInput } from '../types/stationTeam';
 
 // Store dùng chung cho màn Trạm & Tổ và Dispatch Panel (tổ đi kèm xe khi giao xe).
-// Tổ: GET/POST/PUT/DELETE /api/stations/{id}/teams. Nhân sự: RescueStaff từ GET /api/users,
-// thêm/gỡ khỏi trạm qua PUT /api/users/{id}/assign-station-team.
+// Tổ: GET/POST/PUT/DELETE /api/stations/{id}/teams. Nhân sự: RescueStaff từ GET /api/users (với Operator chỉ trả
+// nhân viên trạm mình) + GET /api/users/unassigned-staff (nhân viên chưa có trạm, toàn hệ thống — ứng viên
+// "Thêm nhân sự"), thêm/gỡ khỏi trạm qua PUT /api/users/{id}/assign-station-team.
 
 export interface CreateStaffInput {
   fullName: string;
@@ -48,14 +49,18 @@ const mapTeam = (dto: StationTeamDto): StationTeam => ({
 
 let teams: StationTeam[] = [];
 let rescueStaff: UserResponseDto[] = [];
+let unassignedStaff: UserResponseDto[] = [];
 let snapshot: StationTeamsSnapshot = { staff: [], teams: [] };
 const listeners = new Set<() => void>();
 
 function commit() {
   const teamOf = new Map(teams.flatMap((t) => t.members.map((m) => [m.staffId, t.id] as const)));
+  // Một người có thể nằm ở cả hai danh sách khi vừa đổi trạm giữa hai lần tải → ưu tiên bản từ GET /users.
+  const known = new Set(rescueStaff.map((u) => u.id));
+  const allStaff = [...rescueStaff, ...unassignedStaff.filter((u) => !known.has(u.id))];
   snapshot = {
     teams,
-    staff: rescueStaff.map((u) => ({
+    staff: allStaff.map((u) => ({
       id: u.id,
       fullName: u.fullName,
       phoneNumber: u.phoneNumber ?? '',
@@ -74,6 +79,21 @@ async function fetchTeams(stationId: string): Promise<StationTeam[]> {
 
 function replaceStationTeams(stationId: string, next: StationTeam[]) {
   teams = [...teams.filter((t) => t.stationId !== stationId), ...next];
+}
+
+/** Tải mọi trang của một API danh sách người dùng phân trang. */
+async function fetchAllUsers(url: string, params: Record<string, string | number> = {}): Promise<UserResponseDto[]> {
+  const all: UserResponseDto[] = [];
+  for (let pageIndex = 1; ; pageIndex++) {
+    const page = await unwrapApi(
+      apiClient.get<ApiResponse<PaginatedResultDto<UserResponseDto>>>(url, {
+        params: { ...params, pageIndex, pageSize: USERS_PAGE_SIZE },
+      })
+    );
+    all.push(...page.items);
+    if (!page.hasNextPage) break;
+  }
+  return all;
 }
 
 async function assignStation(staffId: string, stationId: string | null) {
@@ -111,19 +131,18 @@ export const stationTeamService = {
     commit();
   },
 
-  /** Toàn bộ tài khoản RescueStaff (kèm trạm đang thuộc). */
+  /** Tài khoản RescueStaff mà người dùng được xem qua GET /api/users (Operator: nhân viên trạm mình). */
   async loadStaff(): Promise<void> {
-    const all: UserResponseDto[] = [];
-    for (let pageIndex = 1; ; pageIndex++) {
-      const page = await unwrapApi(
-        apiClient.get<ApiResponse<PaginatedResultDto<UserResponseDto>>>('/users', {
-          params: { role: UserRole.RescueStaff, pageIndex, pageSize: USERS_PAGE_SIZE },
-        })
-      );
-      all.push(...page.items);
-      if (!page.hasNextPage) break;
-    }
-    rescueStaff = all;
+    rescueStaff = await fetchAllUsers('/users', { role: UserRole.RescueStaff });
+    commit();
+  },
+
+  /**
+   * Nhân viên cứu hộ đang hoạt động chưa thuộc trạm nào, toàn hệ thống (GET /api/users/unassigned-staff) —
+   * ứng viên cho "Thêm nhân sự". Backend chỉ trả tài khoản Active, stationId = null.
+   */
+  async loadUnassignedStaff(): Promise<void> {
+    unassignedStaff = await fetchAllUsers('/users/unassigned-staff');
     commit();
   },
 
@@ -131,7 +150,7 @@ export const stationTeamService = {
     try {
       for (const id of staffIds) await assignStation(id, stationId);
     } finally {
-      await stationTeamService.loadStaff();
+      await Promise.all([stationTeamService.loadStaff(), stationTeamService.loadUnassignedStaff()]);
     }
   },
 
@@ -156,7 +175,11 @@ export const stationTeamService = {
   /** Gỡ khỏi trạm → backend đồng thời gỡ khỏi tổ đang thuộc. */
   async removeStaff(stationId: string, staffId: string): Promise<void> {
     await assignStation(staffId, null);
-    await Promise.all([stationTeamService.loadStaff(), stationTeamService.reloadStationTeams(stationId)]);
+    await Promise.all([
+      stationTeamService.loadStaff(),
+      stationTeamService.loadUnassignedStaff(),
+      stationTeamService.reloadStationTeams(stationId),
+    ]);
   },
 
   async saveTeam(stationId: string, input: StationTeamInput, teamId: string | null): Promise<StationTeam> {
