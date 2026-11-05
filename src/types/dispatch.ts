@@ -52,6 +52,25 @@ export interface DispatchAssignmentResponseDto {
   rejectedAt?: string | null;
   responseDurationMinutes?: number | null;
   onSceneDurationMinutes?: number | null;
+  completionReport?: CompletionReportDto | null;
+}
+
+export interface CompletionReportDto {
+  stationTeamId?: string | null;
+  stationTeamName?: string | null;
+  actionsSummary: string;
+  victimsAssistedCount: number;
+  equipmentUsed: string[];
+  evidenceMediaUrls: string[];
+  handoverEntity?: string | null;
+  handoverContactName?: string | null;
+  handoverContactPhone?: string | null;
+  handoverNotes?: string | null;
+  signatureUrl?: string | null;
+  signerName?: string | null;
+  signedAt?: string | null;
+  submittedByUserId?: string | null;
+  submittedAt: string;
 }
 
 export interface UpdateAssignmentStatusDto {
@@ -73,6 +92,7 @@ export interface ResolveDispatchDto {
   handoverContactName?: string;
   handoverContactPhone?: string;
   handoverNotes?: string;
+  signatureUrl: string; // Required by backend (FR-RS-03, BR-25)
 }
 
 export type BackendDispatchAlgorithm = 'NearestAvailable' | 'LoadAware';

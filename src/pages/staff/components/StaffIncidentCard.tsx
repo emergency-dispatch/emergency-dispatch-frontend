@@ -2,7 +2,7 @@ import React from 'react';
 import type { StaffMission } from '../../../types/staff';
 import { SEVERITY_META } from '../../../data/incidentMock';
 import { HazardTagBadge } from '../../../components/common/HazardTagBadge';
-import { MapPin, Phone, User } from 'lucide-react';
+import { MapPin, Phone, User, UserCheck } from 'lucide-react';
 
 interface StaffIncidentCardProps {
   mission: StaffMission;
@@ -54,21 +54,31 @@ export const StaffIncidentCard: React.FC<StaffIncidentCardProps> = ({ mission })
           <span className="font-medium text-slate-900">{mission.address}</span>
         </div>
 
-        <div className="flex items-center justify-between text-slate-600 bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
-          <div className="flex items-center gap-1.5">
-            <User className="w-3.5 h-3.5 text-red-600" />
-            <span>
-              Người báo: <strong className="text-slate-900">{mission.callerName}</strong>
-            </span>
+        <div className="flex flex-col gap-2 text-slate-600 bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
+          <div className="flex items-center justify-between text-[11px] pb-1.5 border-b border-slate-200/60">
+            <div className="flex items-center gap-1.5">
+              <UserCheck className="w-3.5 h-3.5 text-red-600" />
+              <span>
+                Điều phối: <strong className="text-slate-900">{mission.dispatcherName || 'Điều phối viên CAD'}</strong>
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Phone className="w-3.5 h-3.5 text-red-600" />
-            <a
-              href={`tel:${mission.callerPhone}`}
-              className="text-red-600 font-mono font-bold hover:underline"
-            >
-              {mission.callerPhone}
-            </a>
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-slate-500" />
+              <span>
+                Người báo: <strong className="text-slate-900">{mission.callerName}</strong>
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5 text-red-600" />
+              <a
+                href={`tel:${mission.callerPhone}`}
+                className="text-red-600 font-mono font-bold hover:underline"
+              >
+                {mission.callerPhone}
+              </a>
+            </div>
           </div>
         </div>
       </div>

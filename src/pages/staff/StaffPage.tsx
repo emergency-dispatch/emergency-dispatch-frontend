@@ -4,6 +4,7 @@ import { StaffSidebar, type StaffNavTab } from '../../components/staff/StaffSide
 import { StaffMissionAlertModal } from '../../components/staff/StaffMissionAlertModal';
 import { StaffClosureReportModal } from '../../components/staff/StaffClosureReportModal';
 import { StaffMissionHistoryModal } from '../../components/staff/StaffMissionHistoryModal';
+import { StaffToastContainer } from '../../components/staff/StaffToast';
 import { StaffScheduleView } from '../../components/staff/schedule/StaffScheduleView';
 import { StaffReportsView } from '../../components/staff/reports/StaffReportsView';
 import { StaffEquipmentView } from '../../components/staff/equipment/StaffEquipmentView';
@@ -35,6 +36,8 @@ export const StaffPage: React.FC = () => {
     missionHistory,
     loadingAssignments,
     fetchError,
+    toasts,
+    dismissToast,
     isAlertOpen,
     isReportModalOpen,
     setIsReportModalOpen,
@@ -161,6 +164,9 @@ export const StaffPage: React.FC = () => {
           setActiveTab('mission');
         }}
       />
+
+      {/* Staff Floating Toast Notifications */}
+      <StaffToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };

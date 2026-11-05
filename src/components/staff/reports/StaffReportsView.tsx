@@ -11,6 +11,9 @@ import {
   UserCheck,
   PackageCheck,
   ExternalLink,
+  PenTool,
+  Clock,
+  ShieldCheck,
 } from 'lucide-react';
 import type { StaffMission, DigitalClosureReport } from '../../../types/staff';
 import { SEVERITY_META } from '../../../data/incidentMock';
@@ -227,6 +230,71 @@ export const StaffReportsView: React.FC<StaffReportsViewProps> = ({
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Resources / Equipment Used */}
+              {(selectedReport.closureReport?.resourcesUsed || []).length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs font-mono font-bold uppercase text-slate-700 flex items-center gap-1.5">
+                    <PackageCheck className="w-3.5 h-3.5 text-blue-600" />
+                    Vật Tư &amp; Thiết Bị Đã Sử Dụng
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedReport.closureReport?.resourcesUsed.map((r, i) => (
+                      <span
+                        key={i}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium text-slate-700"
+                      >
+                        {r.name}: <strong className="text-red-600 font-mono">{r.quantity} {r.unit}</strong>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Signature Verification Block */}
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase text-slate-800">
+                    <PenTool className="w-4 h-4 text-red-600" />
+                    Chữ Ký Xác Nhận Nghiệm Thu Hiện Trường
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                    ĐÃ XÁC THỰC
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3 bg-white border border-slate-200 rounded-xl">
+                  {/* Signature Image */}
+                  <div className="flex items-center justify-center p-2 bg-slate-50 border border-slate-200 rounded-lg min-w-[180px] max-w-[240px] h-20">
+                    {selectedReport.closureReport?.signatureUrl || selectedReport.closureReport?.signatureDataUrl ? (
+                      <img
+                        src={selectedReport.closureReport.signatureUrl || selectedReport.closureReport.signatureDataUrl}
+                        alt="Chữ ký nghiệm thu"
+                        className="max-h-full max-w-full object-contain mix-blend-multiply"
+                      />
+                    ) : (
+                      <span className="text-slate-400 text-[11px] italic">Chưa có chữ ký điện tử</span>
+                    )}
+                  </div>
+
+                  {/* Signer details */}
+                  <div className="flex-1 text-xs space-y-1 text-slate-600">
+                    <div>
+                      Đại diện ký: <strong className="text-slate-900 font-semibold">{selectedReport.closureReport?.signerName || selectedReport.closureReport?.teamLeader || 'Chỉ huy kíp xe'}</strong>
+                    </div>
+                    {selectedReport.closureReport?.signedAt && (
+                      <div className="flex items-center gap-1 text-[11px] text-slate-500 font-mono">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        Thời điểm ký: {new Date(selectedReport.closureReport.signedAt).toLocaleString('vi-VN')}
+                      </div>
+                    )}
+                    <div className="text-[10px] text-slate-400 italic">
+                      Biên bản điện tử được ký và lưu trữ bảo mật trên hệ thống điều phối CAD.
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (

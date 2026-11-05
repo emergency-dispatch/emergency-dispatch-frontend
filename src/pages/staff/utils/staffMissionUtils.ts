@@ -1,6 +1,6 @@
-import type { StaffMission, MissionStatus, DigitalClosureReport } from '../../types/staff';
-import type { DispatchAssignmentResponseDto } from '../../types/dispatch';
-import type { RouteResult } from '../../services/routingService';
+import type { StaffMission, MissionStatus, DigitalClosureReport } from '../../../types/staff';
+import type { DispatchAssignmentResponseDto } from '../../../types/dispatch';
+import type { RouteResult } from '../../../services/routingService';
 
 export const isGuid = (val?: string): boolean =>
   typeof val === 'string' &&
@@ -28,13 +28,81 @@ export const saveClosureReportLocally = (report: DigitalClosureReport) => {
   }
 };
 
+/**
+ * Chuyển đổi chuỗi base64 (DataURL) từ canvas chữ ký sang đối tượng File để upload lên /api/media/upload
+ */
+export function dataUrlToFile(dataUrl: string, filename = 'signature.png'): File {
+  const arr = dataUrl.split(',');
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+}
+
 export function mapAssignmentDtoToMission(
   dto: DispatchAssignmentResponseDto,
   fallbackVehiclePlate?: string,
-  routeResult?: RouteResult
+  routeResult?: RouteResult,
+  incidentDetails?: {
+    reporterName?: string | null;
+    reporterPhone?: string | null;
+    verifiedByName?: string | null;
+  }
 ): StaffMission {
   const savedReports = getSavedClosureReports();
   const localClosureReport = savedReports[dto.id] || savedReports[dto.incidentId];
+
+  // Nếu backend trả về completionReport đã nộp, ưu tiên đồng bộ dữ liệu từ server
+  let effectiveClosureReport: DigitalClosureReport | undefined = localClosureReport;
+  if (dto.completionReport) {
+    const cr = dto.completionReport;
+    effectiveClosureReport = {
+      missionId: dto.id,
+      incidentId: dto.incidentId,
+      vehiclePlate: dto.rescueUnit?.plateNumber || fallbackVehiclePlate || 'Chưa gán xe',
+      teamLeader: cr.signerName || localClosureReport?.teamLeader || 'Chỉ huy kíp xe',
+      completedAt: cr.submittedAt || dto.completedAt || new Date().toISOString(),
+      actionSummary: cr.actionsSummary || localClosureReport?.actionSummary || '',
+      casualtiesTreated: cr.victimsAssistedCount ?? localClosureReport?.casualtiesTreated ?? 0,
+      casualtiesHospitalized: localClosureReport?.casualtiesHospitalized ?? 0,
+      fireExtinguished: localClosureReport?.fireExtinguished ?? true,
+      hazardsNeutralized: localClosureReport?.hazardsNeutralized ?? true,
+      resourcesUsed: (cr.equipmentUsed || []).map((eq: string) => {
+        const parts = eq.split(':');
+        return {
+          name: parts[0]?.trim() || eq,
+          quantity: 1,
+          unit: parts[1]?.trim() || 'Cái',
+        };
+      }),
+      photos: (cr.evidenceMediaUrls || []).map((url: string, idx: number) => ({
+        id: `photo-be-${idx}`,
+        url,
+        category: 'after_action',
+        label: `Ảnh nghiệm thu #${idx + 1}`,
+        timestamp: new Date(cr.submittedAt || Date.now()).toLocaleTimeString('vi-VN', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      })),
+      handoverEntity: cr.handoverEntity || localClosureReport?.handoverEntity || '',
+      handoverContactName: cr.handoverContactName || localClosureReport?.handoverContactName || '',
+      handoverContactPhone: cr.handoverContactPhone || localClosureReport?.handoverContactPhone || '',
+      handoverNotes: cr.handoverNotes || localClosureReport?.handoverNotes,
+      handoverQrData: '',
+      signatureDataUrl: localClosureReport?.signatureDataUrl || cr.signatureUrl || '',
+      signatureUrl: cr.signatureUrl || localClosureReport?.signatureUrl,
+      signerName: cr.signerName || localClosureReport?.signerName,
+      signedAt: cr.signedAt || localClosureReport?.signedAt,
+      dispatchApprovalStatus: 'verified',
+    };
+    saveClosureReportLocally(effectiveClosureReport);
+  }
 
   let missionStatus: MissionStatus = 'accepted';
   if (dto.status === 'EnRoute') missionStatus = 'en_route';
@@ -65,8 +133,9 @@ export function mapAssignmentDtoToMission(
     address: dto.incidentAddress || 'Địa chỉ sự cố đang xử lý',
     incidentLat: incLat,
     incidentLng: incLng,
-    callerName: 'Tổng đài viên điều động',
-    callerPhone: '114',
+    callerName: incidentDetails?.reporterName || 'Người dân báo tin',
+    callerPhone: incidentDetails?.reporterPhone || '114',
+    dispatcherName: incidentDetails?.verifiedByName || 'Điều phối viên CAD',
     assignedAt: dto.dispatchedAt,
     acceptedAt: dto.acceptedAt || undefined,
     enRouteAt: dto.status === 'EnRoute' || dto.status === 'OnScene' || dto.status === 'Completed' ? dto.dispatchedAt : undefined,
@@ -81,13 +150,13 @@ export function mapAssignmentDtoToMission(
     currentStepIndex: 0,
     routeSteps: routeResult?.steps || [],
     routePolyline: routeResult?.polyline || [],
-    closureReport: localClosureReport || undefined,
+    closureReport: effectiveClosureReport || undefined,
     timeline: [
       {
         id: `tl-disp-${dto.id}`,
         timestamp: new Date(dto.dispatchedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
         status: 'accepted',
-        label: `Tổng đài điều phối kíp xe ${plate} tới hiện trường`,
+        label: `${incidentDetails?.verifiedByName || 'Tổng đài viên CAD'} điều phối kíp xe ${plate} tới hiện trường`,
       },
       ...(dto.acceptedAt ? [{
         id: `tl-acc-${dto.id}`,

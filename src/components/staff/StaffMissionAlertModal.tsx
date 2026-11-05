@@ -9,6 +9,7 @@ import {
   Clock,
   Phone,
   User,
+  UserCheck,
   ShieldAlert,
   Flame,
   CheckCircle2,
@@ -211,7 +212,7 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs uppercase font-mono font-black tracking-widest text-red-100">
-                  LỆNH ĐIỀU ĐỘNG TỔNG ĐÀI CAD 114
+                  LỆNH ĐIỀU ĐỘNG TỔNG ĐÀI CAD
                 </span>
                 <span className="px-2 py-0.5 rounded bg-black/20 text-[11px] font-mono font-bold text-white">
                   #{mission.incidentId}
@@ -269,7 +270,7 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
           {/* Mapbox Tactical Radar Mini Preview */}
           <div className="relative w-full h-[160px] sm:h-[180px] rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-950">
             <div ref={mapContainerRef} className="w-full h-full" />
-            
+
             <div className="absolute top-2.5 left-2.5 z-10 px-2 py-1 rounded-md bg-slate-900/85 backdrop-blur-xs border border-slate-800 text-[10px] font-mono text-slate-300 flex items-center gap-1.5 shadow-md">
               <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
               <span>RADAR KHẨN CẤP HIỆN TRƯỜNG</span>
@@ -305,17 +306,27 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
             </div>
           </div>
 
-          {/* Reporter info & CAD notes */}
-          <div className="p-3.5 rounded-xl bg-red-50/60 border border-red-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-slate-600" />
-              <span className="text-slate-600">Người báo: <strong className="text-slate-900">{mission.callerName}</strong></span>
+          {/* Dispatcher & Reporter info */}
+          <div className="p-3.5 rounded-xl bg-red-50/60 border border-red-200 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <UserCheck className="w-4 h-4 text-red-600 shrink-0" />
+              <span className="text-slate-600 truncate">
+                Điều phối: <strong className="text-slate-900">{mission.dispatcherName || 'Điều phối viên CAD'}</strong>
+              </span>
             </div>
-            <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-red-600" />
-              <a href={`tel:${mission.callerPhone}`} className="text-red-600 font-mono-data font-bold hover:underline">
-                {mission.callerPhone}
-              </a>
+            <div className="flex items-center justify-between sm:justify-end gap-3 min-w-0">
+              <div className="flex items-center gap-1.5 truncate">
+                <User className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span className="text-slate-600 truncate">
+                  Báo tin: <strong className="text-slate-900">{mission.callerName}</strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Phone className="w-3.5 h-3.5 text-red-600" />
+                <a href={`tel:${mission.callerPhone}`} className="text-red-600 font-mono-data font-bold hover:underline">
+                  {mission.callerPhone}
+                </a>
+              </div>
             </div>
           </div>
         </div>

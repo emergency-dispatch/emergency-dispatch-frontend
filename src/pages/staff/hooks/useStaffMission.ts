@@ -3,16 +3,27 @@ import type { StaffMission, MissionStatus, DigitalClosureReport } from '../../..
 import type { DispatchAssignmentResponseDto, RejectionReason, ResolveDispatchDto } from '../../../types/dispatch';
 import type { StaffNavTab } from '../../../components/staff/StaffSidebar';
 import { dispatchService } from '../../../services/dispatchService';
+import { incidentService } from '../../../services/incidentService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { incidentHubService } from '../../../services/realtime/incidentHubService';
 import { staffAudioService } from '../../../services/staffAudioService';
 import { routingService } from '../../../services/routingService';
+import { mediaService } from '../../../services/mediaService';
+import type { StaffToastMessage, StaffToastType } from '../../../components/staff/StaffToast';
 import {
   isGuid,
   getSavedClosureReports,
   saveClosureReportLocally,
   mapAssignmentDtoToMission,
+  dataUrlToFile,
 } from '../utils/staffMissionUtils';
+
+const STATUS_PRIORITY: Record<MissionStatus, number> = {
+  accepted: 1,
+  en_route: 2,
+  on_scene: 3,
+  completed: 4,
+};
 
 interface UseStaffMissionProps {
   vehiclePlate?: string;
@@ -26,6 +37,30 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
   const [backendAssignments, setBackendAssignments] = useState<DispatchAssignmentResponseDto[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Toast notification state
+  const [toasts, setToasts] = useState<StaffToastMessage[]>([]);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const showToast = useCallback((type: StaffToastType, title: string, message: string) => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newToast: StaffToastMessage = {
+      id,
+      type,
+      title,
+      message,
+      timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setToasts((prev) => [...prev.slice(-4), newToast]);
+
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5000);
+  }, []);
 
   // Modals state
   const [isAlertOpen, setIsAlertOpen] = useState<boolean>(false);
@@ -58,15 +93,51 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
               const vehLat = activeDto.rescueUnit?.currentLat || incLat - 0.006;
               const vehLng = activeDto.rescueUnit?.currentLng || incLng - 0.006;
 
+              let incDetails: { reporterName?: string; reporterPhone?: string; verifiedByName?: string } | undefined;
+              if (isGuid(activeDto.incidentId)) {
+                try {
+                  const incRes = await incidentService.getById(activeDto.incidentId);
+                  if (incRes.success && incRes.data) {
+                    incDetails = {
+                      reporterName: incRes.data.reporterName,
+                      reporterPhone: incRes.data.reporterPhone,
+                      verifiedByName: incRes.data.verifiedByUserName || incRes.data.lockedByOperatorName || 'Tổng đài viên CAD',
+                    };
+                  }
+                } catch {
+                  // Fallback to default
+                }
+              }
+
               const routeRes = await routingService.calculateDrivingRoute([vehLat, vehLng], [incLat, incLng]);
-              const mapped = mapAssignmentDtoToMission(activeDto, vehiclePlate, routeRes);
-              setActiveMission(mapped);
+              const mapped = mapAssignmentDtoToMission(activeDto, vehiclePlate, routeRes, incDetails);
+              setActiveMission((prev) => {
+                if (!prev) return mapped;
+                if (prev.id === mapped.id) {
+                  const curPriority = STATUS_PRIORITY[prev.status] || 0;
+                  const newPriority = STATUS_PRIORITY[mapped.status] || 0;
+                  // Anti-regression guard: giữ trạng thái local nếu backend chưa kịp cập nhật
+                  if (curPriority > newPriority) {
+                    return {
+                      ...mapped,
+                      status: prev.status,
+                      timeline: prev.timeline.length > mapped.timeline.length ? prev.timeline : mapped.timeline,
+                    };
+                  }
+                }
+                return mapped;
+              });
 
               // If newly dispatched and never accepted yet, open alert modal + siren
               if (activeDto.status === 'Dispatched') {
                 setPendingMission(mapped);
                 setIsAlertOpen(true);
                 staffAudioService.playEmergencySiren();
+                showToast(
+                  'warning',
+                  'LỆNH ĐIỀU ĐỘNG TỔNG ĐÀI CAD',
+                  `Điều phối: ${incDetails?.verifiedByName || 'Điều phối viên CAD'} - Sự cố: ${activeDto.incidentTitle || 'Nhiệm vụ tác chiến'}`
+                );
               }
             } else {
               setActiveMission(null);
@@ -137,7 +208,7 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
         if (!isSilent) setLoadingAssignments(false);
       }
     },
-    [vehiclePlate]
+    [vehiclePlate, showToast]
   );
 
   // Connect SignalR hub and poll fallback
@@ -155,11 +226,34 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
       const vehLat = assignmentDto.rescueUnit?.currentLat || incLat - 0.006;
       const vehLng = assignmentDto.rescueUnit?.currentLng || incLng - 0.006;
 
+      let incDetails: { reporterName?: string; reporterPhone?: string; verifiedByName?: string } | undefined;
+      if (isGuid(assignmentDto.incidentId)) {
+        try {
+          const incRes = await incidentService.getById(assignmentDto.incidentId);
+          if (incRes.success && incRes.data) {
+            incDetails = {
+              reporterName: incRes.data.reporterName,
+              reporterPhone: incRes.data.reporterPhone,
+              verifiedByName: incRes.data.verifiedByUserName || incRes.data.lockedByOperatorName || 'Tổng đài viên CAD',
+            };
+          }
+        } catch {
+          // Fallback
+        }
+      }
+
       const routeRes = await routingService.calculateDrivingRoute([vehLat, vehLng], [incLat, incLng]);
-      const mapped = mapAssignmentDtoToMission(assignmentDto, vehiclePlate, routeRes);
+      const mapped = mapAssignmentDtoToMission(assignmentDto, vehiclePlate, routeRes, incDetails);
       setPendingMission(mapped);
       setIsAlertOpen(true);
       onNavigateTab?.('mission');
+
+      showToast(
+        'warning',
+        'LỆNH ĐIỀU ĐỘNG TỔNG ĐÀI CAD',
+        `Điều phối: ${incDetails?.verifiedByName || 'Điều phối viên CAD'} — Sự cố: ${assignmentDto.incidentTitle || 'Nhiệm vụ tác chiến'}`
+      );
+
       fetchMyAssignments(true);
     });
 
@@ -177,7 +271,7 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
       unsubStatus();
       clearInterval(intervalId);
     };
-  }, [fetchMyAssignments, onNavigateTab, vehiclePlate]);
+  }, [fetchMyAssignments, onNavigateTab, vehiclePlate, showToast]);
 
   // Tự động tính toán đường đi thực tế men theo mạng lưới đường bộ (OSRM)
   useEffect(() => {
@@ -213,6 +307,15 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
   // Status transition handler (Điều phối công việc)
   const handleStatusChange = async (nextStatus: MissionStatus) => {
     if (!activeMission) return;
+
+    const currentPriority = STATUS_PRIORITY[activeMission.status] || 0;
+    const nextPriority = STATUS_PRIORITY[nextStatus] || 0;
+
+    // Strict forward-only: chỉ cho phép chuyển sang bước kế tiếp ngay liền kề
+    if (nextPriority !== currentPriority + 1) {
+      console.warn(`[useStaffMission] Chuyển trạng thái không hợp lệ: từ ${activeMission.status} sang ${nextStatus}`);
+      return;
+    }
 
     const timestamp = new Date().toLocaleTimeString('vi-VN', {
       hour: '2-digit',
@@ -261,11 +364,23 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
         if (nextStatus === 'en_route') beStatus = 'EnRoute';
         else if (nextStatus === 'on_scene') beStatus = 'OnScene';
 
+        // Cập nhật ngay trong danh sách backendAssignments local
+        setBackendAssignments((prev) =>
+          prev.map((a) => (a.id === activeMission.id ? { ...a, status: beStatus } : a))
+        );
+
         await dispatchService.updateAssignmentStatus(activeMission.id, {
           status: beStatus,
           notes: statusLabels[nextStatus],
         });
-        fetchMyAssignments(true);
+
+        // Không gọi fetchMyAssignments(true) tức thời để tránh race condition ghi đè trạng thái cũ
+
+        if (nextStatus === 'en_route') {
+          showToast('info', 'XUẤT PHÁT TỚI HIỆN TRƯỜNG', 'Xe cứu hộ đang di chuyển theo lộ trình tối ưu.');
+        } else if (nextStatus === 'on_scene') {
+          showToast('info', 'ĐÃ TIẾP CẬN HIỆN TRƯỜNG', 'Đội xe đã tới hiện trường và bắt đầu cứu hộ.');
+        }
       } catch (err) {
         console.warn('[useStaffMission] Update assignment status error:', err);
       }
@@ -328,23 +443,6 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
     // 1. Lưu hồ sơ báo cáo vào LocalStorage ngay lập tức để không bao giờ bị mất
     saveClosureReportLocally(report);
 
-    const updatedMission: StaffMission = {
-      ...activeMission,
-      status: 'completed',
-      closureReport: report,
-      completedAt: report.completedAt,
-    };
-
-    // Chuẩn bị payload chuẩn theo Backend ResolveDispatchDto
-    const validHttpUrls = (report.photos || [])
-      .map((p) => p.url)
-      .filter((u) => u && (u.startsWith('http://') || u.startsWith('https://')));
-
-    // MSG42: Bắt buộc tối thiểu 1 URL ảnh nghiệm thu
-    const finalEvidenceUrls = validHttpUrls.length > 0
-      ? validHttpUrls
-      : ['https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?auto=format&fit=crop&w=600&q=80'];
-
     const victimsAssistedCount = Math.max(
       0,
       Number(report.casualtiesTreated || 0) + Number(report.casualtiesHospitalized || 0)
@@ -366,21 +464,69 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
       ? `Bàn giao cho: ${handoverEntity} - Đại diện: ${handoverContactName || 'N/A'} (${handoverContactPhone || 'N/A'})`
       : undefined);
 
-    const resolvePayload: ResolveDispatchDto = {
-      resolutionSummary: finalResolutionSummary,
-      evidenceMediaUrls: finalEvidenceUrls,
-      victimsAssistedCount,
-      equipmentUsed,
-      handoverEntity,
-      handoverContactName,
-      handoverContactPhone,
-      handoverNotes,
-    };
-
     // 2. Gọi backend resolve API nếu là nhiệm vụ thật
     if (isGuid(activeMission.id)) {
       setIsSubmittingReport(true);
       try {
+        // Upload ảnh hiện trường nếu còn ảnh dạng data:image
+        const processedPhotoUrls: string[] = [];
+        for (const p of report.photos || []) {
+          if (p.url && p.url.startsWith('data:image')) {
+            try {
+              const file = dataUrlToFile(p.url, `photo-${Date.now()}.png`);
+              const uploadedUrl = await mediaService.upload(file);
+              processedPhotoUrls.push(uploadedUrl);
+            } catch (upErr) {
+              console.warn('[useStaffMission] Upload photo warning:', upErr);
+            }
+          } else if (p.url && (p.url.startsWith('http://') || p.url.startsWith('https://'))) {
+            processedPhotoUrls.push(p.url);
+          }
+        }
+
+        // MSG42: Bắt buộc tối thiểu 1 URL ảnh nghiệm thu
+        const finalEvidenceUrls = processedPhotoUrls.length > 0
+          ? processedPhotoUrls
+          : ['https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?auto=format&fit=crop&w=600&q=80'];
+
+        // Chữ ký bắt buộc: thành viên tổ phải thực sự ký trên máy
+        let uploadedSignatureUrl = report.signatureUrl || '';
+        if (!uploadedSignatureUrl && report.signatureDataUrl && report.signatureDataUrl.startsWith('data:image')) {
+          try {
+            const sigFile = dataUrlToFile(report.signatureDataUrl, 'signature.png');
+            uploadedSignatureUrl = await mediaService.upload(sigFile);
+          } catch (sigErr) {
+            console.error('[useStaffMission] Upload signature error:', sigErr);
+            throw new Error('Không thể tải chữ ký điện tử lên máy chủ. Vui lòng thử ký lại.');
+          }
+        }
+
+        if (!uploadedSignatureUrl || uploadedSignatureUrl.trim() === '') {
+          throw new Error('Chưa có chữ ký xác nhận của đại diện tổ. Vui lòng ký tên trước khi nộp báo cáo nghiệm thu.');
+        }
+
+        report.signatureUrl = uploadedSignatureUrl;
+        saveClosureReportLocally(report);
+
+        const updatedMission: StaffMission = {
+          ...activeMission,
+          status: 'completed',
+          closureReport: report,
+          completedAt: report.completedAt,
+        };
+
+        const resolvePayload: ResolveDispatchDto = {
+          resolutionSummary: finalResolutionSummary,
+          evidenceMediaUrls: finalEvidenceUrls,
+          victimsAssistedCount,
+          equipmentUsed,
+          handoverEntity,
+          handoverContactName,
+          handoverContactPhone,
+          handoverNotes,
+          signatureUrl: uploadedSignatureUrl,
+        };
+
         // Đảm bảo trạng thái xe trên server là OnScene trước khi gọi resolve
         if (activeMission.status !== 'on_scene') {
           try {
@@ -403,20 +549,36 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
         setActiveMission(null);
         setMissionHistory((prev) => [updatedMission, ...prev.filter((m) => m.id !== updatedMission.id)]);
         onNavigateTab?.('reports'); // Tự động chuyển qua Tab Hồ Sơ Báo Cáo
+        showToast(
+          'success',
+          'NGHIỆM THU HOÀN TẤT',
+          'Biên bản xử lý hiện trường và chữ ký xác nhận đã được lưu trữ an toàn.'
+        );
         await fetchMyAssignments(true);
       } catch (err: any) {
         console.error('[useStaffMission] Resolve assignment error:', err);
         const errMsg = getApiErrorMessage(err, 'Không thể gửi biên bản nghiệm thu lên máy chủ CAD.');
-        alert(`Lỗi khi nộp biên bản nghiệm thu: ${errMsg}`);
+        showToast('error', 'LỖI NỘP BIÊN BẢN', errMsg);
       } finally {
         setIsSubmittingReport(false);
       }
     } else {
+      const updatedMission: StaffMission = {
+        ...activeMission,
+        status: 'completed',
+        closureReport: report,
+        completedAt: report.completedAt,
+      };
       staffAudioService.playSuccessChime();
       setIsReportModalOpen(false);
       setActiveMission(null);
       setMissionHistory((prev) => [updatedMission, ...prev.filter((m) => m.id !== updatedMission.id)]);
       onNavigateTab?.('reports');
+      showToast(
+        'success',
+        'NGHIỆM THU HOÀN TẤT',
+        'Hồ sơ biên bản đã được lưu trữ vào bộ nhớ tác chiến.'
+      );
     }
   };
 
@@ -434,6 +596,11 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
           console.warn('[useStaffMission] Accept mission update status error:', err);
         }
       }
+      showToast(
+        'success',
+        'ĐÃ TIẾP NHẬN PHÂN CÔNG',
+        `Kíp xe đã xác nhận nhiệm vụ: ${pendingMission.title}`
+      );
       setPendingMission(null);
     }
     setIsAlertOpen(false);
@@ -451,6 +618,11 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
         console.warn('[useStaffMission] Reject assignment error:', err);
       }
     }
+    showToast(
+      'info',
+      'ĐÃ TỪ CHỐI LỆNH ĐIỀU PHỐI',
+      'Đã gửi báo cáo từ chối và lý do về trung tâm điều phối CAD.'
+    );
     setIsAlertOpen(false);
     setPendingMission(null);
   };
@@ -465,6 +637,10 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
     backendAssignments,
     loadingAssignments,
     fetchError,
+    // Toast notifications
+    toasts,
+    dismissToast,
+    showToast,
     // Modals
     isAlertOpen,
     setIsAlertOpen,
