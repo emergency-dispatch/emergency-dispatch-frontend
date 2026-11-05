@@ -164,7 +164,7 @@ export interface AssignOptions {
   notes?: string;
 }
 
-type ActionResult = { ok: boolean; message?: string };
+export type ActionResult = { ok: boolean; message?: string };
 
 /** Kết quả Operator tự tạo sự cố: `errors` = lỗi kiểm tra từng trường backend trả kèm HTTP 400. */
 export type CreateIncidentResult =
@@ -254,6 +254,16 @@ interface DispatchContextValue {
    * ReceiveNewIncident — người vừa tách không bị bật popup "tin báo mới" / bíp.
    */
   unlinkLinkedReport: (reportId: string, reason?: string) => Promise<ActionResult>;
+  /**
+   * §21.1: đổi mức độ (và tùy chọn loại) sự cố đã xác minh (PUT /api/incidents/{id}/severity), lý do ≥ 5 ký tự.
+   * Thành công → `message` là câu backend trả (có thể nhắc rút bớt xe khi hạ mức).
+   */
+  changeIncidentSeverity: (
+    id: string,
+    severity: SeverityLevel,
+    category: Exclude<IncidentCategory, 'unknown'> | undefined,
+    reason: string
+  ) => Promise<ActionResult>;
   lockIncident: (id: string) => Promise<ActionResult>;
   releaseIncident: (id: string) => void;
   /** Operator tự tạo sự cố (tin báo qua điện thoại, bộ đàm, camera…) — sự cố được xác minh ngay. */
@@ -931,6 +941,27 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const changeIncidentSeverity = async (
+    id: string,
+    severity: SeverityLevel,
+    category: Exclude<IncidentCategory, 'unknown'> | undefined,
+    reason: string
+  ): Promise<ActionResult> => {
+    try {
+      const { incident, message } = await incidentService.changeSeverity(id, {
+        newSeverity: severityToBackend(severity),
+        newEventType: category ? EVENT_TYPE_FROM_CATEGORY[category] : undefined,
+        reason,
+      });
+      upsertIncidents([incident]);
+      return { ok: true, message };
+    } catch (err) {
+      // 409: Operator khác đang giữ khóa — tải lại để hiện đúng người giữ.
+      if (isConflict(err)) refreshBoard();
+      return { ok: false, message: getApiErrorMessage(err, i18n.t('liveMap.severityChange.failed')) };
+    }
+  };
+
   const lockIncident = async (id: string): Promise<ActionResult> => {
     try {
       const res = await incidentService.lock(id);
@@ -1126,6 +1157,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         rejectIncident,
         transferIncident,
         unlinkLinkedReport,
+        changeIncidentSeverity,
         lockIncident,
         releaseIncident,
         createOperatorIncident,

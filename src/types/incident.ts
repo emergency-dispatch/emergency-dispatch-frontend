@@ -352,7 +352,9 @@ export type IncidentAuditAction =
   | 'TransferredStation'
   | 'OutOfServiceArea'
   | 'CreatedByOperator'
-  // 19–25 (đổi mức độ, yêu cầu hiện trường) và 29 (người báo bổ sung) chưa có trên web → hiện "Thao tác khác".
+  // §21.1 đổi mức độ sau xác minh:
+  | 'SeverityChanged'
+  // 20–25 (yêu cầu hiện trường) và 29 (người báo bổ sung) chưa có trên web → hiện "Thao tác khác".
   // BR-07 gom báo cáo trùng:
   | 'ReportLinked'
   | 'ReportUnlinked'
@@ -462,6 +464,16 @@ export interface VerifyIncidentRequestDto {
   confirmedTrafficJamStatus?: TrafficJamDecision;
 }
 
+/**
+ * Body PUT /api/incidents/{id}/severity (§21.1): đổi mức độ (và tùy chọn loại) sự cố ĐÃ xác minh.
+ * Lý do bắt buộc ≥ 5 ký tự; mức và loại đều giữ nguyên → backend báo lỗi.
+ */
+export interface ChangeSeverityRequestDto {
+  newSeverity: Exclude<BackendSeverityLevel, 'Unclassified'>;
+  newEventType?: Exclude<BackendEventType, 'None'>;
+  reason: string;
+}
+
 /** Body PUT /api/incidents/{id}/traffic-jam-status. */
 export interface UpdateTrafficJamStatusDto {
   status: TrafficJamDecision;
@@ -497,13 +509,13 @@ export function inferCategoryFromTitle(title: string): Exclude<IncidentCategory,
   return null;
 }
 
-const SEVERITY_TO_BACKEND: Record<SeverityLevel, BackendSeverityLevel> = {
+const SEVERITY_TO_BACKEND: Record<SeverityLevel, Exclude<BackendSeverityLevel, 'Unclassified'>> = {
   1: 'Level1',
   2: 'Level2',
   3: 'Level3',
 };
 
-export function severityToBackend(severity: SeverityLevel): BackendSeverityLevel {
+export function severityToBackend(severity: SeverityLevel): Exclude<BackendSeverityLevel, 'Unclassified'> {
   return SEVERITY_TO_BACKEND[severity];
 }
 

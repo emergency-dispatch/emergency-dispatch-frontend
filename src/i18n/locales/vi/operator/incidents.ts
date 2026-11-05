@@ -108,6 +108,7 @@ export const incidentsVi = {
       TransferredStation: 'Chuyển trạm phụ trách',
       OutOfServiceArea: 'SOS ngoài khu vực phục vụ',
       CreatedByOperator: 'Operator tạo sự cố',
+      SeverityChanged: 'Đổi mức độ sau xác minh',
       ReportLinked: 'Gộp báo cáo trùng',
       ReportUnlinked: 'Tách báo cáo khỏi sự cố gốc',
       DuplicateConfirmed: 'Xác nhận báo cáo trùng',

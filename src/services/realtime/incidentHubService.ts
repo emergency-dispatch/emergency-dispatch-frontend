@@ -16,10 +16,20 @@ type JobAssignedListener = (assignment: DispatchAssignmentResponseDto) => void;
 export const HubEvents = {
   ReceiveNewIncident: 'ReceiveNewIncident',
   ReceiveIncidentUpdate: 'ReceiveIncidentUpdate',
+  // Trạng thái rút gọn cho người báo đang theo dõi — Operator không cần nghe.
+  ReceiveIncidentStatus: 'ReceiveIncidentStatus',
   ReceiveRescueUnitLocation: 'ReceiveRescueUnitLocation',
   ReceiveJobAssigned: 'ReceiveJobAssigned',
   ReceiveAssignmentStatus: 'ReceiveAssignmentStatus',
   ReceiveTrafficHotspot: 'ReceiveTrafficHotspot',
+  // §24: điểm ùn tắc Blocked chưa có đội giải tỏa quá ngưỡng (payload TrafficHotspotResponseDto).
+  ReceiveTrafficHotspotEscalation: 'ReceiveTrafficHotspotEscalation',
+  // §20: giao / rút / hoàn tất nhiệm vụ giải tỏa điểm ùn tắc.
+  ReceiveTrafficTaskAssigned: 'ReceiveTrafficTaskAssigned',
+  // §21.2: yêu cầu từ hiện trường được tạo hoặc đổi trạng thái.
+  ReceiveFieldRequest: 'ReceiveFieldRequest',
+  // §21.4: người báo bổ sung ghi chú / ảnh.
+  ReceiveIncidentSupplement: 'ReceiveIncidentSupplement',
   ReceiveRescueUnitStatus: 'ReceiveRescueUnitStatus',
   ReceiveIncidentLock: 'ReceiveIncidentLock',
   ReceiveTeamChanged: 'ReceiveTeamChanged',

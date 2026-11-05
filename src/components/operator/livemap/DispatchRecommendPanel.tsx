@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
+  Gauge,
   GripVertical,
   HandHelping,
   History,
@@ -10,6 +11,7 @@ import {
   Radar,
   Users,
 } from 'lucide-react';
+import { ChangeSeverityDialog } from './ChangeSeverityDialog';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
 import { LinkedReportsPanel } from '../incidents/LinkedReportsPanel';
@@ -93,7 +95,14 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   assigningVehicleId,
   onAssign,
 }) => {
-  const { vehicles, incidents, escalatedIncidentIds, unlinkLinkedReport } = useDispatchStore();
+  const {
+    vehicles,
+    incidents,
+    escalatedIncidentIds,
+    unlinkLinkedReport,
+    changeIncidentSeverity,
+    currentOperatorId,
+  } = useDispatchStore();
   const [algorithm, setAlgorithm] = useState<DispatchAlgorithm>('nearest');
   // Cấp 1–2 đã đủ 1 tổ: backend cho giao thêm khi có lý do ≥ 5 ký tự.
   const [extraMode, setExtraMode] = useState(false);
@@ -101,6 +110,9 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   const [historyOpen, setHistoryOpen] = useState(false);
   // BR-07: hộp thoại báo cáo trùng đã gom vào sự cố đang chọn.
   const [linkedOpen, setLinkedOpen] = useState(false);
+  // §21.1: hộp thoại đổi mức độ + câu backend trả sau khi đổi (có thể nhắc rút bớt xe).
+  const [severityOpen, setSeverityOpen] = useState(false);
+  const [severityNotice, setSeverityNotice] = useState<string | null>(null);
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
 
@@ -109,6 +121,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     setExtraReason('');
     setHistoryOpen(false);
     setLinkedOpen(false);
+    setSeverityOpen(false);
+    setSeverityNotice(null);
   }, [selectedIncidentId]);
 
   const selectedIncident = useMemo(
@@ -123,6 +137,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     : 0;
   const isFull = activeCount >= maxVehicles;
   const isCompleted = selectedIncident?.status === 'completed';
+  // Backend chỉ cho đổi mức độ sự cố đã xác minh và đang xử lý (Verified / Dispatched / InProgress / Escalated).
+  const canChangeSeverity = selectedIncident?.status === 'approved';
   const canAddExtra = isFull && !isCompleted && !!selectedIncident && selectedIncident.severity !== 3;
   const extraReasonValid = extraReason.trim().length >= OVERRIDE_REASON_MIN_LENGTH;
   const showSuggestions = !isCompleted && (!isFull || (canAddExtra && extraMode));
@@ -234,6 +250,22 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
           </div>
         </div>
       )}
+      {severityOpen && selectedIncident && (
+        <ChangeSeverityDialog
+          key={selectedIncident.id}
+          incident={selectedIncident}
+          currentOperatorId={currentOperatorId}
+          activeVehicleCount={activeCount}
+          onClose={() => setSeverityOpen(false)}
+          onSubmit={(severity, category, reason) =>
+            changeIncidentSeverity(selectedIncident.id, severity, category, reason)
+          }
+          onDone={(message) => {
+            setSeverityOpen(false);
+            setSeverityNotice(message || null);
+          }}
+        />
+      )}
       {/* Header: sự cố đang chọn */}
       <div className="shrink-0 px-4 py-3.5 border-b border-slate-200">
         {selectedIncident && category ? (
@@ -258,6 +290,15 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                 <History className="w-3 h-3" />
                 {t('liveMap.recommend.history')}
               </button>
+              {canChangeSeverity && (
+                <button
+                  onClick={() => setSeverityOpen(true)}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  <Gauge className="w-3 h-3" />
+                  {t('liveMap.recommend.changeSeverity')}
+                </button>
+              )}
               {selectedIncident.linkedReportCount > 0 && (
                 <button
                   onClick={() => setLinkedOpen(true)}
@@ -268,6 +309,22 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                 </button>
               )}
             </div>
+            {severityNotice && (
+              <div
+                role="status"
+                className="mt-2 flex items-start gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-700"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-px" />
+                <span className="flex-1">{severityNotice}</span>
+                <button
+                  onClick={() => setSeverityNotice(null)}
+                  aria-label={t('common.close')}
+                  className="shrink-0 text-emerald-500 hover:text-emerald-700"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <>

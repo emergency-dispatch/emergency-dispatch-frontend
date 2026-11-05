@@ -111,6 +111,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
       TransferredStation: 'Responsible station changed',
       OutOfServiceArea: 'SOS outside the service area',
       CreatedByOperator: 'Created by operator',
+      SeverityChanged: 'Severity changed after verification',
       ReportLinked: 'Duplicate report merged',
       ReportUnlinked: 'Report split from the main incident',
       DuplicateConfirmed: 'Duplicate report confirmed',

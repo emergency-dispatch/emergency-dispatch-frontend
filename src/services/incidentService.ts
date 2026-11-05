@@ -3,6 +3,7 @@ import type { ApiResponse } from '../types/auth';
 import type {
   BackendIncidentStatus,
   BlockDuration,
+  ChangeSeverityRequestDto,
   CreateIncidentDto,
   CreateOperatorIncidentDto,
   OperatorIncidentResultDto,
@@ -219,6 +220,17 @@ export const incidentService = {
     });
     if (!res.data.success) throw new Error(res.data.message || 'Không tải được lịch sử xử lý.');
     return res.data.data;
+  },
+
+  /**
+   * §21.1: đổi mức độ sự cố đã xác minh (Verified / Dispatched / InProgress / Escalated).
+   * Trả kèm `message` của backend — khi hạ mức mà còn nhiều xe hơn chuẩn, câu này nhắc rút bớt xe.
+   * Operator khác đang giữ khóa → HTTP 409.
+   */
+  async changeSeverity(id: string, dto: ChangeSeverityRequestDto): Promise<{ incident: IncidentResponseDto; message: string }> {
+    const { data } = await apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${id}/severity`, dto);
+    if (!data.success) throw new Error(data.message || 'Không đổi được mức độ sự cố.');
+    return { incident: data.data, message: data.message };
   },
 
   /** BR-07: các báo cáo trùng backend đã gom vào sự cố gốc (đang gom + đã xác nhận trùng). */
