@@ -147,9 +147,6 @@ export async function unwrapApi<T>(request: Promise<AxiosResponse<ApiResponse<T>
 export function getApiErrorMessage(error: unknown, fallbackMessage = 'Đã có lỗi xảy ra. Vui lòng thử lại.'): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as Record<string, unknown> | undefined;
-    if (data?.message && typeof data.message === 'string') {
-      return data.message;
-    }
     if (data?.errors) {
       if (Array.isArray(data.errors) && data.errors.length > 0) {
         return data.errors.join(', ');
@@ -160,6 +157,9 @@ export function getApiErrorMessage(error: unknown, fallbackMessage = 'Đã có l
           return errorValues.join(', ');
         }
       }
+    }
+    if (data?.message && typeof data.message === 'string') {
+      return data.message;
     }
     if (data?.title && typeof data.title === 'string') {
       return data.title;

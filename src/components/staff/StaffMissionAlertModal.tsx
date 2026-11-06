@@ -22,6 +22,7 @@ import { SEVERITY_META } from '../../data/incidentMock';
 import { HazardTagBadge } from '../common/HazardTagBadge';
 import { staffAudioService } from '../../services/staffAudioService';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_REALISTIC_STYLE } from '../../services/mapboxService';
+import { routingService } from '../../services/routingService';
 
 import type { RejectionReason } from '../../types/dispatch';
 
@@ -44,6 +45,39 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
   const [declineNotes, setDeclineNotes] = useState<string>('');
   const [declineError, setDeclineError] = useState<string | null>(null);
 
+  const [routeCoordinates, setRouteCoordinates] = useState<[number, number][]>(() => {
+    if (mission.routePolyline && mission.routePolyline.length > 2) {
+      return mission.routePolyline.map(([lat, lng]) => [lng, lat]);
+    }
+    if (mission.routeSteps && mission.routeSteps.length > 2) {
+      return mission.routeSteps.map((s) => [s.lng, s.lat]);
+    }
+    if (mission.vehicleLng && mission.vehicleLat) {
+      return [
+        [mission.vehicleLng, mission.vehicleLat],
+        [mission.incidentLng, mission.incidentLat],
+      ];
+    }
+    return [];
+  });
+
+  const [routeEstimate, setRouteEstimate] = useState<{
+    distanceKm: number;
+    durationMinutes: number;
+  } | null>(() => {
+    if (mission.routeSteps && mission.routeSteps.length > 0) {
+      const dist = mission.routeSteps.reduce((acc, s) => acc + s.distanceMeters, 0);
+      const dur = mission.routeSteps.reduce((acc, s) => acc + s.durationSeconds, 0);
+      if (dist > 0) {
+        return {
+          distanceKm: Math.round((dist / 1000) * 10) / 10,
+          durationMinutes: Math.max(1, Math.round(dur / 60)),
+        };
+      }
+    }
+    return null;
+  });
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
 
@@ -62,6 +96,123 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
       staffAudioService.stopEmergencySiren();
     };
   }, [isOpen, mission.id]);
+
+  // Tự động tính toán tuyến đường giao thông thực tế nếu chưa có hoặc mới chỉ có 2 điểm thẳng
+  useEffect(() => {
+    if (!isOpen || !mission.vehicleLat || !mission.vehicleLng || !mission.incidentLat || !mission.incidentLng) return;
+
+    if (mission.routePolyline && mission.routePolyline.length > 2) {
+      setRouteCoordinates(mission.routePolyline.map(([lat, lng]) => [lng, lat]));
+      if (mission.routeSteps && mission.routeSteps.length > 0) {
+        const dist = mission.routeSteps.reduce((acc, s) => acc + s.distanceMeters, 0);
+        const dur = mission.routeSteps.reduce((acc, s) => acc + s.durationSeconds, 0);
+        setRouteEstimate({
+          distanceKm: Math.round((dist / 1000) * 10) / 10,
+          durationMinutes: Math.max(1, Math.round(dur / 60)),
+        });
+      }
+      return;
+    }
+
+    let isMounted = true;
+    routingService
+      .calculateDrivingRoute([mission.vehicleLat, mission.vehicleLng], [mission.incidentLat, mission.incidentLng])
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.polyline && res.polyline.length > 0) {
+          setRouteCoordinates(res.polyline.map(([lat, lng]) => [lng, lat]));
+        }
+        setRouteEstimate({
+          distanceKm: Math.round((res.totalDistanceMeters / 1000) * 10) / 10,
+          durationMinutes: Math.max(1, Math.round(res.totalDurationSeconds / 60)),
+        });
+      })
+      .catch((err) => {
+        console.warn('Staff mission alert driving route notice:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    isOpen,
+    mission.id,
+    mission.vehicleLat,
+    mission.vehicleLng,
+    mission.incidentLat,
+    mission.incidentLng,
+    mission.routePolyline,
+    mission.routeSteps,
+  ]);
+
+  // Helper vẽ tuyến đường thực tế (Solid Line + Glow dưới)
+  const applyRouteToMap = (currentMap: mapboxgl.Map, coords: [number, number][]) => {
+    if (coords.length < 2) return;
+    try {
+      const geojsonData: any = {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: coords,
+        },
+      };
+
+      const existingSource = currentMap.getSource('alert-route') as mapboxgl.GeoJSONSource | undefined;
+      if (existingSource) {
+        existingSource.setData(geojsonData);
+      } else {
+        currentMap.addSource('alert-route', {
+          type: 'geojson',
+          data: geojsonData,
+        });
+
+        // 1. Viền đỏ phát sáng (Glow aura underlay)
+        currentMap.addLayer({
+          id: 'alert-route-glow',
+          type: 'line',
+          source: 'alert-route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#EF4444',
+            'line-width': 8,
+            'line-opacity': 0.45,
+            'line-blur': 2.5,
+          },
+        });
+
+        // 2. Tuyến đường thực địa liền mạch, sắc nét (Solid tactical line - không đứt chân chim)
+        currentMap.addLayer({
+          id: 'alert-route-line',
+          type: 'line',
+          source: 'alert-route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#DC2626',
+            'line-width': 4.5,
+            'line-opacity': 0.95,
+          },
+        });
+      }
+
+      // Tự động căn khung hình (fit bounds) chứa trọn cả xe và hiện trường
+      const bounds = new mapboxgl.LngLatBounds();
+      coords.forEach((c) => bounds.extend(c));
+      currentMap.fitBounds(bounds, {
+        padding: { top: 30, bottom: 30, left: 30, right: 30 },
+        maxZoom: 16,
+        duration: 500,
+      });
+    } catch (err) {
+      console.warn('Alert route render notice:', err);
+    }
+  };
 
   // Khởi tạo Mapbox Tactical Mini Preview
   useEffect(() => {
@@ -85,47 +236,13 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
       console.warn('Staff Alert Mapbox notice:', e?.error?.message || e);
     });
 
-    const addAlertRoute = () => {
-      try {
-        if (!map.getSource('alert-route') && mission.vehicleLng && mission.vehicleLat) {
-          map.addSource('alert-route', {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              properties: {},
-              geometry: {
-                type: 'LineString',
-                coordinates: [
-                  [mission.vehicleLng, mission.vehicleLat],
-                  [mission.incidentLng, mission.incidentLat],
-                ],
-              },
-            },
-          });
-
-          map.addLayer({
-            id: 'alert-route-line',
-            type: 'line',
-            source: 'alert-route',
-            paint: {
-              'line-color': '#DC2626',
-              'line-width': 3,
-              'line-dasharray': [2, 2],
-            },
-          });
-        }
-      } catch (err) {
-        console.warn('Alert route notice:', err);
-      }
-    };
-
     map.on('load', () => {
       map.resize();
-      addAlertRoute();
+      applyRouteToMap(map, routeCoordinates);
     });
 
     map.on('style.load', () => {
-      addAlertRoute();
+      applyRouteToMap(map, routeCoordinates);
     });
 
     // Marker mục tiêu sự cố với hiệu ứng radar ping
@@ -173,6 +290,15 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
       mapRef.current = null;
     };
   }, [isOpen, mission.incidentLng, mission.incidentLat, mission.vehicleLng, mission.vehicleLat]);
+
+  // Cập nhật tuyến đường khi routeCoordinates được tính toán xong
+  useEffect(() => {
+    if (!isOpen || !mapRef.current || routeCoordinates.length < 2) return;
+    const map = mapRef.current;
+    if (map.isStyleLoaded()) {
+      applyRouteToMap(map, routeCoordinates);
+    }
+  }, [isOpen, routeCoordinates]);
 
   if (!isOpen) return null;
 
@@ -298,11 +424,15 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
                 <span className="font-semibold uppercase font-mono-data">Lộ Trình Ước Tính</span>
               </div>
               <div className="text-sm font-semibold text-slate-900 pl-5 flex items-center gap-3">
-                <span className="text-red-600 font-mono-data font-bold text-base">~1.4 km</span>
+                <span className="text-red-600 font-mono-data font-bold text-base">
+                  ~{routeEstimate ? `${routeEstimate.distanceKm} km` : '1.4 km'}
+                </span>
                 <span className="text-slate-300">|</span>
-                <span className="text-slate-800 font-mono-data font-bold text-base">~4 - 6 Phút</span>
+                <span className="text-slate-800 font-mono-data font-bold text-base">
+                  ~{routeEstimate ? `${routeEstimate.durationMinutes} Phút` : '4 - 6 Phút'}
+                </span>
               </div>
-              <div className="text-xs text-slate-500 pl-5">Tuyến đường tối ưu nhất đã được định tuyến</div>
+              <div className="text-xs text-slate-500 pl-5">Tuyến đường tối ưu nhất theo mạng lưới giao thông</div>
             </div>
           </div>
 
