@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
@@ -35,6 +35,7 @@ import {
 } from '../operator/livemap/mapIcons';
 import type { IncidentResponseDto, IncidentCategory, SeverityLevel } from '../../types/incident';
 import type { VehicleStatus, VehicleType } from '../../types/vehicle';
+import { haversineDistanceKm } from '../../utils/serviceArea';
 import { useTranslation } from '../../i18n';
 
 interface CitizenLiveTrackingMapModalProps {
@@ -150,6 +151,9 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
 
         if (vehicleMarkerRef.current) {
           vehicleMarkerRef.current.setLngLat([lng, lat]);
+          if (typeof heading === 'number') {
+            vehicleMarkerRef.current.setRotation(heading);
+          }
         }
         if (vehicleMarkerElRef.current) {
           const arrowEl = vehicleMarkerElRef.current.querySelector('.vehicle-heading-arrow') as HTMLElement | null;
@@ -364,12 +368,18 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           </div>
         `);
 
-        vehicleMarkerRef.current = new mapboxgl.Marker({ element: el })
+        vehicleMarkerRef.current = new mapboxgl.Marker({ element: el, rotationAlignment: 'map' })
           .setLngLat([vLng, vLat])
           .setPopup(popup)
           .addTo(map);
+        if (liveVehicle?.heading) {
+          vehicleMarkerRef.current.setRotation(liveVehicle.heading);
+        }
       } else {
         vehicleMarkerRef.current.setLngLat([vLng, vLat]);
+        if (typeof liveVehicle?.heading === 'number') {
+          vehicleMarkerRef.current.setRotation(liveVehicle.heading);
+        }
         if (vehicleMarkerElRef.current) {
           vehicleMarkerElRef.current.innerHTML = vehicleMarkerHtml(vType, vStatus, true);
         }
@@ -471,6 +481,24 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
   const dispatchStatus = trackingData?.dispatchStatus;
   const isEnRoute = dispatchStatus === 'EnRoute' || dispatchStatus === 'Dispatched' || dispatchStatus === 'Accepted';
   const isOnScene = dispatchStatus === 'OnScene';
+
+  const dynamicDistKm = useMemo(() => {
+    const vLat = liveVehicle?.lat ?? trackingData?.vehicleLat;
+    const vLng = liveVehicle?.lng ?? trackingData?.vehicleLng;
+    if (vLat && vLng && incident.latitude && incident.longitude) {
+      return haversineDistanceKm(vLat, vLng, incident.latitude, incident.longitude);
+    }
+    return trackingData?.distanceKm ?? null;
+  }, [liveVehicle?.lat, liveVehicle?.lng, trackingData?.vehicleLat, trackingData?.vehicleLng, incident.latitude, incident.longitude, trackingData?.distanceKm]);
+
+  const dynamicEtaMinutes = useMemo(() => {
+    if (isOnScene) return 0;
+    if (dynamicDistKm !== null) {
+      const speed = (liveVehicle?.speedKmh && liveVehicle.speedKmh > 5) ? liveVehicle.speedKmh : 35;
+      return Math.max(1, Math.round((dynamicDistKm / speed) * 60));
+    }
+    return trackingData?.estimatedArrivalMinutes || 3;
+  }, [isOnScene, dynamicDistKm, liveVehicle?.speedKmh, trackingData?.estimatedArrivalMinutes]);
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-0 sm:p-5 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
@@ -585,7 +613,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
                         <span>{t('citizen.reports.etaTitle')}</span>
                       </div>
                       <div className="text-base font-extrabold text-amber-400 mt-0.5">
-                        ~{trackingData.estimatedArrivalMinutes || 3} {t('citizen.reports.minutes')}
+                        ~{dynamicEtaMinutes} {t('citizen.reports.minutes')}
                       </div>
                     </div>
 
@@ -595,7 +623,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
                         <span>{t('citizen.reports.distanceTitle')}</span>
                       </div>
                       <div className="text-base font-extrabold text-white mt-0.5">
-                        {trackingData.distanceKm ? trackingData.distanceKm.toFixed(1) : '1.2'} km
+                        {dynamicDistKm !== null ? dynamicDistKm.toFixed(1) : (trackingData.distanceKm ? trackingData.distanceKm.toFixed(1) : '1.2')} km
                         {trackingData.isApproximateRoute && (
                           <span className="block text-[9px] font-normal text-amber-300">{t('citizen.reports.approximateNote')}</span>
                         )}
@@ -608,7 +636,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
                         <span>{t('citizen.reports.vehicleSpeedTitle')}</span>
                       </div>
                       <div className="text-base font-extrabold text-emerald-400 mt-0.5">
-                        {liveVehicle?.speedKmh || 42} km/h
+                        {liveVehicle?.speedKmh || (isEnRoute ? 35 : 0)} km/h
                       </div>
                     </div>
                   </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   X,
   AlertTriangle,
@@ -20,6 +21,8 @@ import {
   PhoneCall,
   RefreshCw,
   Video,
+  Navigation,
+  LogIn,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSosCooldown } from '../../hooks/useSosCooldown';
@@ -56,6 +59,7 @@ const formatIncidentStatus = (status: string) => {
 
 
 export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenReports }) => {
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { user, isAuthenticated, updateProfile } = useAuth();
   const { isCooldown, cooldownLabel, triggerCooldown, clearCooldown } = useSosCooldown();
@@ -109,12 +113,13 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
           const rawLat = area.centerLat ?? (area as any).CenterLat;
           const rawLng = area.centerLng ?? (area as any).CenterLng;
           const rawRad = area.radiusKm ?? (area as any).RadiusKm;
+          const rawEnabled = area.enabled ?? (area as any).Enabled ?? true;
           setServiceArea({
-            enabled: true,
+            enabled: rawEnabled,
             name: area.name || DEFAULT_SERVICE_AREA.name,
             centerLat: typeof rawLat === 'number' && rawLat !== 0 ? rawLat : DEFAULT_SERVICE_AREA.centerLat,
             centerLng: typeof rawLng === 'number' && rawLng !== 0 ? rawLng : DEFAULT_SERVICE_AREA.centerLng,
-            radiusKm: typeof rawRad === 'number' && rawRad > 0 ? Math.min(rawRad, KCN_RADIUS_KM) : KCN_RADIUS_KM,
+            radiusKm: typeof rawRad === 'number' && rawRad > 0 ? rawRad : DEFAULT_SERVICE_AREA.radiusKm,
           });
         }
       }).catch(() => undefined);
@@ -123,9 +128,9 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
 
   const effectiveCenterLat = (serviceArea.centerLat && serviceArea.centerLat !== 0) ? serviceArea.centerLat : DEFAULT_SERVICE_AREA.centerLat;
   const effectiveCenterLng = (serviceArea.centerLng && serviceArea.centerLng !== 0) ? serviceArea.centerLng : DEFAULT_SERVICE_AREA.centerLng;
-  const effectiveRadiusKm = KCN_RADIUS_KM;
+  const effectiveRadiusKm = (typeof serviceArea.radiusKm === 'number' && serviceArea.radiusKm > 0) ? serviceArea.radiusKm : DEFAULT_SERVICE_AREA.radiusKm;
   const currentDistanceKm = haversineDistanceKm(latitude, longitude, effectiveCenterLat, effectiveCenterLng);
-  const isOutsideArea = currentDistanceKm > effectiveRadiusKm;
+  const isOutsideArea = serviceArea.enabled && currentDistanceKm > effectiveRadiusKm;
   const outsideDistanceKm = isOutsideArea ? Math.round((currentDistanceKm - effectiveRadiusKm) * 10) / 10 : 0;
 
   const isCitizen = !user || user.role === UserRole.Citizen;
@@ -399,6 +404,12 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     e.preventDefault();
     setErrorMsg('');
 
+    // Authentication validation
+    if (!isAuthenticated) {
+      setErrorMsg(t('citizen.sos.authRequiredPrompt'));
+      return;
+    }
+
     // Cooldown validation
     if (isCooldown) {
       setErrorMsg(t('citizen.sos.cooldownWaitError', { time: cooldownLabel }));
@@ -456,7 +467,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
 
     // Service area boundary validation - STRICT BLOCK FIRST
     const finalDistKm = haversineDistanceKm(finalLat, finalLng, effectiveCenterLat, effectiveCenterLng);
-    const finalOutside = finalDistKm > effectiveRadiusKm;
+    const finalOutside = serviceArea.enabled && finalDistKm > effectiveRadiusKm;
     const finalOutsideKm = finalOutside ? Math.round((finalDistKm - effectiveRadiusKm) * 10) / 10 : 0;
 
     if (finalOutside) {
@@ -570,6 +581,57 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
       setIsCancelling(false);
     }
   };
+
+  if (!isAuthenticated) {
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
+        <div className="relative w-full max-w-md rounded-2xl bg-white p-6 sm:p-7 shadow-2xl border border-slate-200 text-center animate-scaleIn">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="w-16 h-16 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4 shadow-inner">
+            <ShieldAlert className="w-8 h-8 animate-pulse" />
+          </div>
+          <h3 className="text-xl font-black text-slate-900 mb-2">
+            {t('citizen.sos.authRequiredTitle')}
+          </h3>
+          <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+            {t('citizen.sos.authRequiredDesc')}
+          </p>
+          <div className="flex flex-col gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                navigate('/login', {
+                  state: { message: t('citizen.sos.authRequiredPrompt') },
+                });
+              }}
+              className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>{t('citizen.sos.loginNowBtn')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                navigate('/register');
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-all cursor-pointer"
+            >
+              <span>{t('citizen.sos.registerBtn')}</span>
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
@@ -685,6 +747,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                     <MapboxLocationPicker
                       latitude={latitude}
                       longitude={longitude}
+                      serviceArea={serviceArea}
                       onChange={(lat, lng, addr) => {
                         setLatitude(lat);
                         setLongitude(lng);
@@ -1125,9 +1188,10 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider font-mono shadow-sm transition-all cursor-pointer"
+                  className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider font-mono shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  {t('citizen.sos.closeKeepSafeBtn')}
+                  <Navigation className="w-4 h-4 text-white" />
+                  <span>{t('citizen.sos.trackOnRadarDirectly', 'Theo dõi trên Radar CAD')}</span>
                 </button>
               </div>
             </div>

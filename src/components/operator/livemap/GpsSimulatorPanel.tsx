@@ -90,7 +90,18 @@ export const GpsSimulatorPanel: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles 
 
   const sendPosition = async (run: Run, km: number) => {
     const p = pointAt(run.route, run.cumulative, km);
-    await apiClient.put(`/rescue-units/${run.vehicleId}/location`, { latitude: p.lat, longitude: p.lng });
+    const pNext = pointAt(run.route, run.cumulative, Math.min(run.totalKm, km + 0.05));
+    const dLng = toRad(pNext.lng - p.lng);
+    const y = Math.sin(dLng) * Math.cos(toRad(pNext.lat));
+    const x = Math.cos(toRad(p.lat)) * Math.sin(toRad(pNext.lat)) - Math.sin(toRad(p.lat)) * Math.cos(toRad(pNext.lat)) * Math.cos(dLng);
+    const heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+
+    await apiClient.put(`/rescue-units/${run.vehicleId}/location`, {
+      latitude: p.lat,
+      longitude: p.lng,
+      headingDegrees: Math.round(heading),
+      speedKmh: speedRef.current,
+    });
     run.doneKm = km;
     setProgress({ doneKm: km, totalKm: run.totalKm });
   };

@@ -37,6 +37,9 @@ import { getIncidentVisualMeta, formatCitizenIncidentStatus } from '../../utils/
 import type { RescueUnitResponseDto } from '../../types/rescueUnit';
 import type { Station, VehicleStatus, VehicleType } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
+import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
+import { DEFAULT_SERVICE_AREA } from '../../utils/serviceArea';
+import type { ServiceAreaDto } from '../../services/liveMapService';
 
 interface HeroRadarMapProps {
   etaTime: number;
@@ -102,6 +105,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   const [units, setUnits] = useState<RescueUnitResponseDto[]>([]);
   const [reportedIncident, setReportedIncident] = useState<IncidentResponseDto | null>(null);
   const [trackingData, setTrackingData] = useState<CitizenTrackingDto | null>(null);
+  const [serviceArea, setServiceArea] = useState<ServiceAreaDto>(DEFAULT_SERVICE_AREA);
 
   // Markers references for dynamic updates
   const stationMarkersRef = useRef<mapboxgl.Marker[]>([]);
@@ -113,6 +117,80 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   const [locationStatus, setLocationStatus] = useState<'locating' | 'locked' | 'failed'>('locating');
   const [resolvedAddress, setResolvedAddress] = useState<string>('');
   const [isLocatingUser, setIsLocatingUser] = useState<boolean>(false);
+
+  // Service Area radius circle on Mapbox canvas (KCN SHTP)
+  const setupServiceAreaLayer = useCallback((area: ServiceAreaDto = serviceArea) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const apply = () => {
+      try {
+        if (!map.isStyleLoaded()) {
+          map.once('idle', apply);
+          return;
+        }
+
+        const lat = typeof area?.centerLat === 'number' && area.centerLat !== 0 ? area.centerLat : DEFAULT_SERVICE_AREA.centerLat;
+        const lng = typeof area?.centerLng === 'number' && area.centerLng !== 0 ? area.centerLng : DEFAULT_SERVICE_AREA.centerLng;
+        const rad = typeof area?.radiusKm === 'number' && area.radiusKm > 0 ? area.radiusKm : DEFAULT_SERVICE_AREA.radiusKm;
+        const polygon = circlePolygon(lat, lng, rad);
+
+        const data: any = {
+          type: 'FeatureCollection',
+          features: area?.enabled !== false ? [
+            {
+              type: 'Feature',
+              properties: { name: area?.name || DEFAULT_SERVICE_AREA.name },
+              geometry: {
+                type: 'Polygon',
+                coordinates: [polygon],
+              },
+            },
+          ] : [],
+        };
+
+        const source = map.getSource('hero-service-area') as mapboxgl.GeoJSONSource | undefined;
+        if (source) {
+          source.setData(data);
+        } else {
+          map.addSource('hero-service-area', {
+            type: 'geojson',
+            data,
+          });
+
+          if (!map.getLayer('hero-service-area-fill')) {
+            map.addLayer({
+              id: 'hero-service-area-fill',
+              type: 'fill',
+              source: 'hero-service-area',
+              paint: {
+                'fill-color': '#2563EB',
+                'fill-opacity': 0.12,
+              },
+            });
+          }
+
+          if (!map.getLayer('hero-service-area-line')) {
+            map.addLayer({
+              id: 'hero-service-area-line',
+              type: 'line',
+              source: 'hero-service-area',
+              paint: {
+                'line-color': '#38BDF8',
+                'line-width': 2.5,
+                'line-dasharray': [3, 2],
+                'line-opacity': 1,
+              },
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Hero radar service area setup notice:', err);
+      }
+    };
+
+    apply();
+  }, [serviceArea]);
 
   // Tactical route updater on Mapbox canvas
   const updateRouteTrajectory = useCallback((coords: [number, number][]) => {
@@ -146,13 +224,27 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   // Fetch real stations & rescue units
   const fetchRealEntities = useCallback(async () => {
     try {
-      const [fetchedStations, fetchedUnits] = await Promise.all([
+      const [fetchedStations, fetchedUnits, fetchedArea] = await Promise.all([
         liveMapService.getStations().catch(() => [] as Station[]),
         liveMapService.getRescueUnits().catch(() => [] as RescueUnitResponseDto[]),
+        liveMapService.getServiceArea().catch(() => null),
       ]);
 
       setStations(fetchedStations);
       setUnits(fetchedUnits);
+      if (fetchedArea) {
+        const rawLat = fetchedArea.centerLat ?? (fetchedArea as any).CenterLat;
+        const rawLng = fetchedArea.centerLng ?? (fetchedArea as any).CenterLng;
+        const rawRad = fetchedArea.radiusKm ?? (fetchedArea as any).RadiusKm;
+        const rawEnabled = fetchedArea.enabled ?? (fetchedArea as any).Enabled ?? true;
+        setServiceArea({
+          enabled: rawEnabled,
+          name: fetchedArea.name || DEFAULT_SERVICE_AREA.name,
+          centerLat: typeof rawLat === 'number' && rawLat !== 0 ? rawLat : DEFAULT_SERVICE_AREA.centerLat,
+          centerLng: typeof rawLng === 'number' && rawLng !== 0 ? rawLng : DEFAULT_SERVICE_AREA.centerLng,
+          radiusKm: typeof rawRad === 'number' && rawRad > 0 ? rawRad : DEFAULT_SERVICE_AREA.radiusKm,
+        });
+      }
 
       if (onStatsUpdate) {
         onStatsUpdate({
@@ -236,6 +328,26 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
                 [res.data.vehicleLng, res.data.vehicleLat],
                 [reportedIncident.longitude, reportedIncident.latitude],
               ]);
+            }
+
+            if (
+              mapRef.current &&
+              res.data.vehicleLng &&
+              res.data.vehicleLat &&
+              reportedIncident.longitude &&
+              reportedIncident.latitude
+            ) {
+              const minLng = Math.min(res.data.vehicleLng, reportedIncident.longitude);
+              const maxLng = Math.max(res.data.vehicleLng, reportedIncident.longitude);
+              const minLat = Math.min(res.data.vehicleLat, reportedIncident.latitude);
+              const maxLat = Math.max(res.data.vehicleLat, reportedIncident.latitude);
+              mapRef.current.fitBounds(
+                [
+                  [minLng, minLat],
+                  [maxLng, maxLat],
+                ],
+                { padding: { top: 90, bottom: 60, left: 60, right: 60 }, maxZoom: 16, duration: 1000 }
+              );
             }
           }
         })
@@ -345,11 +457,46 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       }
     );
 
+    const unsubIncidentStatus = incidentHubService.on(
+      HubEvents.ReceiveIncidentStatus,
+      (statusUpdate: any) => {
+        if (!statusUpdate) return;
+        if (reportedIncident?.id && (statusUpdate.incidentId === reportedIncident.id || statusUpdate.id === reportedIncident.id)) {
+          setReportedIncident((prev) => (prev ? { ...prev, status: statusUpdate.status || statusUpdate.Status || prev.status } : null));
+          checkCitizenReportedIncident();
+        }
+      }
+    );
+
+    const unsubAssignment = incidentHubService.on(
+      HubEvents.ReceiveAssignmentStatus,
+      (assignUpdate: any) => {
+        if (!assignUpdate) return;
+        if (reportedIncident?.id && (assignUpdate.incidentId === reportedIncident.id || assignUpdate.IncidentId === reportedIncident.id)) {
+          checkCitizenReportedIncident();
+        }
+      }
+    );
+
+    const unsubSettings = incidentHubService.on(
+      HubEvents.ReceiveSettingsChanged,
+      (msg: any) => {
+        if (msg?.key === 'serviceArea') {
+          liveMapService.getServiceArea().then((area) => {
+            if (area) setServiceArea(area);
+          }).catch(() => {});
+        }
+      }
+    );
+
     return () => {
       unsubLocation();
       unsubIncident();
+      unsubIncidentStatus();
+      unsubAssignment();
+      unsubSettings();
     };
-  }, [reportedIncident?.id, reportedIncident?.latitude, reportedIncident?.longitude, trackingData?.rescueUnitId, updateRouteTrajectory]);
+  }, [reportedIncident?.id, reportedIncident?.latitude, reportedIncident?.longitude, trackingData?.rescueUnitId, updateRouteTrajectory, checkCitizenReportedIncident]);
 
   // Determine user GPS / cached location
   useEffect(() => {
@@ -426,6 +573,10 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
     const setupTacticalLayer = () => {
       try {
+        if (!map.isStyleLoaded()) {
+          map.once('idle', setupTacticalLayer);
+          return;
+        }
         if (!map.getSource('tactical-routes')) {
           map.addSource('tactical-routes', {
             type: 'geojson',
@@ -435,15 +586,19 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             },
           });
 
+          // Lộ trình chính: đường gạch liền rõ ràng (solid line) như Google Maps
           map.addLayer({
             id: 'tactical-routes-line',
             type: 'line',
             source: 'tactical-routes',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round',
+            },
             paint: {
-              'line-color': ['get', 'color'],
-              'line-width': 3.5,
-              'line-dasharray': [2, 2],
-              'line-opacity': 0.9,
+              'line-color': '#0284C7',
+              'line-width': 4.5,
+              'line-opacity': 0.95,
             },
           });
         }
@@ -455,10 +610,12 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     map.on('load', () => {
       map.resize();
       setupTacticalLayer();
+      setupServiceAreaLayer();
     });
 
     map.on('style.load', () => {
       setupTacticalLayer();
+      setupServiceAreaLayer();
     });
 
     const t1 = setTimeout(() => map.resize(), 100);
@@ -496,6 +653,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       mapRef.current = null;
     };
   }, []);
+
+  // Update Service Area Circle on boundary change
+  useEffect(() => {
+    setupServiceAreaLayer(serviceArea);
+  }, [serviceArea, setupServiceAreaLayer]);
 
   // Render Real Station Markers
   useEffect(() => {
@@ -557,8 +719,12 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       let lat = unit.currentLat;
       let lng = unit.currentLng;
 
-      // Fallback: if coordinates are (0,0), position neatly near its station
-      if ((!lat || !lng || (lat === 0 && lng === 0)) && unit.stationId) {
+      // Use live GPS coordinates from active tracking if this unit is dispatched
+      if (trackingData?.rescueUnitId === unit.id && trackingData.vehicleLat && trackingData.vehicleLng) {
+        lat = trackingData.vehicleLat;
+        lng = trackingData.vehicleLng;
+      } else if ((!lat || !lng || (lat === 0 && lng === 0)) && unit.stationId) {
+        // Fallback: if coordinates are (0,0), position neatly near its station
         const station = stationMap.get(unit.stationId);
         if (station) {
           const angle = (idx * 45 * Math.PI) / 180;

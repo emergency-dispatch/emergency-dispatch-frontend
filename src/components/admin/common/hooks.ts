@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import i18n from '../../../i18n';
@@ -42,6 +42,20 @@ export function useServiceQuery<T>(fetcher: () => Promise<T>, key: string) {
     loading: state.key !== fullKey,
     reload: () => setReloadCount((c) => c + 1),
   };
+}
+
+/** Theo dõi một media query (VD breakpoint Tailwind). Môi trường không có matchMedia (jsdom) → false. */
+export function useMediaQuery(query: string): boolean {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      if (typeof window.matchMedia !== 'function') return () => {};
+      const mql = window.matchMedia(query);
+      mql.addEventListener('change', onChange);
+      return () => mql.removeEventListener('change', onChange);
+    },
+    [query]
+  );
+  return useSyncExternalStore(subscribe, () => typeof window.matchMedia === 'function' && window.matchMedia(query).matches);
 }
 
 export function useDebouncedValue<T>(value: T, delayMs = 300): T {

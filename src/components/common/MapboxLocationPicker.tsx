@@ -3,7 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { LocateFixed, MapPin, Loader2, Shield } from 'lucide-react';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE, mapboxService } from '../../services/mapboxService';
-import { liveMapService } from '../../services/liveMapService';
+import { liveMapService, type ServiceAreaDto } from '../../services/liveMapService';
 import { stationMarkerHtml } from '../operator/livemap/mapIcons';
 import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
 import type { Station } from '../../types/vehicle';
@@ -15,6 +15,7 @@ interface MapboxLocationPickerProps {
   onChange: (lat: number, lng: number, address?: string) => void;
   height?: string;
   scrollZoom?: boolean;
+  serviceArea?: ServiceAreaDto;
 }
 
 export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
@@ -23,8 +24,13 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
   onChange,
   height = '220px',
   scrollZoom = true,
+  serviceArea,
 }) => {
   const { i18n } = useTranslation();
+  const areaLat = serviceArea?.centerLat || 10.8441;
+  const areaLng = serviceArea?.centerLng || 106.8089;
+  const areaRadiusKm = (typeof serviceArea?.radiusKm === 'number' && serviceArea.radiusKm > 0) ? serviceArea.radiusKm : 4.5;
+  const areaEnabled = serviceArea?.enabled ?? true;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
@@ -106,17 +112,17 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
       updatePosition(lng, lat);
     });
 
-    // Draw KCN (Saigon Hi-Tech Park) 4.5km operational boundary
+    // Draw operational boundary (dynamic from Admin or default KCN)
     const addKcnBoundary = () => {
       if (!map.getSource('kcn-boundary')) {
         map.addSource('kcn-boundary', {
           type: 'geojson',
           data: {
             type: 'Feature',
-            properties: { name: 'Khu Công nghệ cao' },
+            properties: { name: serviceArea?.name || 'Khu Công nghệ cao' },
             geometry: {
               type: 'Polygon',
-              coordinates: [circlePolygon(10.8441, 106.8089, 4.5)],
+              coordinates: areaEnabled && areaRadiusKm > 0 ? [circlePolygon(areaLat, areaLng, areaRadiusKm)] : [],
             },
           },
         });
@@ -229,6 +235,23 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
     }
   }, [latitude, longitude]);
 
+  // Dynamically update boundary if serviceArea changes
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+    const source = map.getSource('kcn-boundary') as mapboxgl.GeoJSONSource | undefined;
+    if (source) {
+      source.setData({
+        type: 'Feature',
+        properties: { name: serviceArea?.name || 'Khu Công nghệ cao' },
+        geometry: {
+          type: 'Polygon',
+          coordinates: areaEnabled && areaRadiusKm > 0 ? [circlePolygon(areaLat, areaLng, areaRadiusKm)] : [],
+        },
+      } as any);
+    }
+  }, [areaLat, areaLng, areaRadiusKm, areaEnabled, serviceArea?.name]);
+
   const handleLocateMe = () => {
     if (!navigator.geolocation) return;
     setIsLocating(true);
@@ -288,11 +311,13 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
         )}
       </div>
 
-      {/* Station Count Indicator */}
-      <div className="absolute top-2.5 right-12 z-10 hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/85 backdrop-blur-xs text-red-400 text-[10px] font-mono font-bold border border-red-500/30 shadow-md">
-        <Shield className="w-3.5 h-3.5 text-red-400" />
-        <span>{i18n.language === 'en' ? 'Park Boundary (4.5 km)' : 'Ranh giới KCN (4.5 km)'}</span>
-      </div>
+      {/* Operational Boundary Indicator */}
+      {areaEnabled && areaRadiusKm > 0 && (
+        <div className="absolute top-2.5 right-12 z-10 hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/85 backdrop-blur-xs text-red-400 text-[10px] font-mono font-bold border border-red-500/30 shadow-md">
+          <Shield className="w-3.5 h-3.5 text-red-400" />
+          <span>{i18n.language === 'en' ? `Service Area (${areaRadiusKm} km)` : `Ranh giới KCN (${areaRadiusKm} km)`}</span>
+        </div>
+      )}
 
       {/* Drag instruction notice */}
       <div className="absolute bottom-2 left-2 right-2 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-mono px-2.5 py-1 rounded-md text-center pointer-events-none flex items-center justify-center gap-1.5 shadow-sm z-10">

@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types/auth';
-import { incidentService, type CitizenTrackingDto } from '../../services/incidentService';
+import { incidentService } from '../../services/incidentService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { IncidentResponseDto } from '../../types/incident';
 import { getIncidentVisualMeta } from '../../utils/incidentFormat';
@@ -50,9 +50,6 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
 
   // Tracking state for Citizen
   const [trackingIncident, setTrackingIncident] = useState<IncidentResponseDto | null>(null);
-  const [trackingData, setTrackingData] = useState<CitizenTrackingDto | null>(null);
-  const [isTrackingLoading, setIsTrackingLoading] = useState<boolean>(false);
-  const [trackingError, setTrackingError] = useState<string>('');
 
   const fetchReports = useCallback(async () => {
     try {
@@ -395,113 +392,10 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
 
       {/* Citizen Live Vehicle Tracking Modal Overlay */}
       {trackingIncident && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-red-50 text-red-600 border border-red-200">
-                  <Truck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">
-                    {t('citizen.reports.trackRescueUnit')}
-                  </h3>
-                  <p className="text-xs font-mono text-red-600 font-bold">
-                    #INC-{trackingIncident.id.substring(0, 8).toUpperCase()}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseTracking}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {isTrackingLoading ? (
-              <div className="py-8 text-center space-y-2">
-                <RefreshCw className="w-6 h-6 animate-spin text-red-600 mx-auto" />
-                <p className="text-xs font-mono text-slate-500">{t('citizen.reports.connectingToRescueUnit')}</p>
-              </div>
-            ) : trackingError ? (
-              <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 space-y-2">
-                <div className="flex items-center gap-2 font-bold">
-                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-                  <span>{t('citizen.reports.cannotConnectRescueUnit')}</span>
-                </div>
-                <p>{trackingError}</p>
-              </div>
-            ) : trackingData ? (
-              <div className="space-y-4 font-mono text-xs">
-                {/* Status Hero Box */}
-                <div className="p-4 rounded-xl bg-slate-900 text-white space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">{t('citizen.reports.vehicleStatus')}</span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
-                      {trackingData.dispatchStatus === 'EnRoute'
-                        ? t('citizen.reports.statusEnRoute')
-                        : trackingData.dispatchStatus === 'OnScene'
-                          ? t('citizen.reports.statusOnScene')
-                          : trackingData.dispatchStatus}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
-                    <div>
-                      <div className="text-[10px] text-slate-400">{t('citizen.reports.etaTitle')}</div>
-                      <div className="text-lg font-extrabold text-amber-400">
-                        ~{trackingData.estimatedArrivalMinutes || 3} {t('citizen.reports.minutes')}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-slate-400">{t('citizen.reports.distanceTitle')}</div>
-                      <div className="text-lg font-extrabold text-white">
-                        {trackingData.distanceKm ? trackingData.distanceKm.toFixed(1) : '1.2'} km
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Vehicle Details */}
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-slate-700">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">{t('citizen.reports.plateNumberTitle')}</span>
-                    <span className="font-bold text-slate-900">{trackingData.plateNumber || t('citizen.reports.unidentified')}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">{t('citizen.reports.unitTypeTitle')}</span>
-                    <span className="font-bold text-slate-900">{trackingData.unitTypeName || t('citizen.reports.rescueUnitDefault')}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">{t('citizen.reports.stationTitle')}</span>
-                    <span className="font-bold text-slate-900">{trackingData.stationName || t('citizen.reports.cadStationDefault')}</span>
-                  </div>
-                </div>
-
-                {/* Direct Call hotline */}
-                {trackingData.stationPhoneNumber && (
-                  <a
-                    href={`tel:${trackingData.stationPhoneNumber}`}
-                    className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-sm"
-                  >
-                    <PhoneCall className="w-4 h-4" />
-                    <span>{t('citizen.reports.callStation')} ({trackingData.stationPhoneNumber})</span>
-                  </a>
-                )}
-              </div>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={handleCloseTracking}
-              className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono font-bold text-xs transition-colors cursor-pointer"
-            >
-              {t('citizen.reports.closeWindow')}
-            </button>
-          </div>
-        </div>
+        <CitizenLiveTrackingMapModal
+          incident={trackingIncident}
+          onClose={handleCloseTracking}
+        />
       )}
     </div>,
     document.body

@@ -165,7 +165,7 @@ export function getApiErrorMessage(error: unknown, fallbackMessage = 'Đã có l
       return data.title;
     }
     if (error.message === 'Network Error') {
-      return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và backend (http://localhost:5000).';
+      return `Không thể kết nối đến máy chủ (${API_CONFIG.BASE_URL}). Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.`;
     }
     if (error.response?.status === 401) {
       // Chỉ màn đăng nhập mới là sai mật khẩu; API khác trả 401 nghĩa là phiên đã hết hạn.
