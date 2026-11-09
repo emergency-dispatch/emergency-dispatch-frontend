@@ -1,8 +1,8 @@
 import type { BackendIncidentStatus, BackendSeverityLevel } from './incident';
 
 // Mirror EmergencyDispatch.Application.DTOs.Escalation (enum trả về dạng chuỗi).
-// Ngưỡng chờ và mở rộng bán kính đọc từ /api/settings/escalation. Daemon chỉ dùng cấp tối thiểu của quy tắc
-// (phạm vi sự cố bị leo thang); timeoutMinutes / expandRadiusPercent của quy tắc không còn được áp dụng.
+// Ngưỡng chờ và mở rộng bán kính là cấu hình chung (/api/settings/escalation). Quy tắc chỉ quyết định cấp sự cố
+// nào bị leo thang và ai nhận cảnh báo; backend trả kèm ngưỡng chung đang áp dụng (effective*, chỉ đọc).
 
 /** Cấp tối thiểu một quy tắc áp dụng (backend Range 1–3). */
 export type EscalationSeverity = Extract<BackendSeverityLevel, 'Level1' | 'Level2' | 'Level3'>;
@@ -17,21 +17,23 @@ export const ESCALATION_NOTIFY_ROLES: EscalationNotifyRole[] = ['Operator', 'Adm
 export interface EscalationRuleDto {
   id: string;
   minSeverityLevel: EscalationSeverity;
-  /** Không còn áp dụng — ngưỡng chờ lấy từ /api/settings/escalation. */
-  timeoutMinutes: number;
   /** Chuỗi JSON, VD "[\"Admin\",\"Operator\"]". */
   notifyRoles: string;
-  expandRadiusPercent: number;
   isActive: boolean;
   description: string | null;
   createdAt: string;
   updatedAt: string | null;
+  // Ngưỡng chung đang áp dụng (chép từ /api/settings/escalation lúc đọc) — chỉ đọc, không gửi lên.
+  effectiveDayThresholdMinutes: number;
+  effectiveNightThresholdMinutes: number;
+  /** "HH:mm". */
+  effectiveNightStart: string;
+  effectiveNightEnd: string;
+  effectiveRadiusMultiplier: number;
+  effectiveMaxRadiusKm: number;
 }
 
-/**
- * Body của POST /api/escalation/rules và PUT /api/escalation/rules/{id}.
- * Không gửi timeoutMinutes / expandRadiusPercent: tạo mới thì backend dùng mặc định, cập nhật thì giữ nguyên.
- */
+/** Body của POST /api/escalation/rules và PUT /api/escalation/rules/{id}. */
 export interface EscalationRuleInput {
   minSeverityLevel: EscalationSeverity;
   notifyRoles: EscalationNotifyRole[];

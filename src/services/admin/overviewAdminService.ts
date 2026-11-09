@@ -1,9 +1,11 @@
-import { UserRole } from '../../types/auth';
+import { apiClient, unwrapApi } from '../apiClient';
+import { UserRole, type ApiResponse } from '../../types/auth';
 import { ON_MISSION_UNIT_STATUSES } from '../../types/rescueUnit';
 import type { InternalRole } from '../../types/internalAccount';
-import { accountAdminService } from './accountAdminService';
+import type { AdminDashboardStatsDto, RecentIncidentSummaryDto } from '../../types/adminDashboard';
 import { stationAdminService } from './stationAdminService';
 import { vehicleAdminService } from './vehicleAdminService';
+import { equipmentService } from '../equipmentService';
 
 /** Xe ở trạng thái Bảo trì lâu hơn ngưỡng này thì đưa vào khối "Cần xử lý". */
 export const LONG_MAINTENANCE_DAYS = 3;
@@ -18,6 +20,14 @@ export interface AdminOverview {
   activeStationCount: number;
   accountCounts: Record<InternalRole, number>;
   citizenCount: number;
+  /** Thiết bị mọi trạm (§25); null = không tải được — chỉ là số phụ, không chặn cả trang. */
+  equipment: { total: number; maintenance: number } | null;
+  /**
+   * Sự cố đang mở lúc tải (GET /dashboard/stats). `verified` = đã duyệt, chưa điều xe
+   * (= đang mở − chờ duyệt − đang xử lý − leo thang).
+   */
+  incidents: { active: number; pending: number; verified: number; dispatched: number; escalated: number };
+  recentIncidents: RecentIncidentSummaryDto[];
   actionItems: {
     stationsWithoutAvailableVehicle: { id: string; name: string; vehicleCount: number }[];
     /** Backend chưa lưu thời điểm bắt đầu bảo trì → ước lượng bằng lần cập nhật cuối của xe. */
@@ -28,14 +38,17 @@ export interface AdminOverview {
 }
 
 export const overviewAdminService = {
-  /** Ảnh chụp trạng thái hiện tại (trạm, xe, số tài khoản) — không có số liệu lịch sử. */
+  /**
+   * Ảnh chụp trạng thái hiện tại (sự cố đang mở, trạm, xe, số tài khoản). Số liệu lịch sử (tỉ lệ hoàn thành,
+   * thời gian phản ứng…) xem ở Báo cáo sự cố — có lọc theo thời gian, không dùng số cộng dồn của /dashboard/stats.
+   * Xe vẫn đếm từ danh sách vì stats không tách Hồi sức / Ngừng hoạt động.
+   */
   async getOverview(): Promise<AdminOverview> {
-    const [stationPage, units, operators, rescueStaff, citizens] = await Promise.all([
+    const [stationPage, units, stats, equipment] = await Promise.all([
       stationAdminService.list({ pageIndex: 1, pageSize: 1000 }),
       vehicleAdminService.listAll(),
-      accountAdminService.countByRole(UserRole.Operator),
-      accountAdminService.countByRole(UserRole.RescueStaff),
-      accountAdminService.countByRole(UserRole.Citizen),
+      unwrapApi(apiClient.get<ApiResponse<AdminDashboardStatsDto>>('/dashboard/stats')),
+      equipmentService.list().catch(() => null),
     ]);
     const now = Date.now();
     const stations = stationPage.items;
@@ -52,10 +65,25 @@ export const overviewAdminService = {
       },
       activeStationCount: stations.filter((s) => s.isActive).length,
       accountCounts: {
-        [UserRole.Operator]: operators,
-        [UserRole.RescueStaff]: rescueStaff,
+        [UserRole.Operator]: stats.totalOperators,
+        [UserRole.RescueStaff]: stats.totalRescueStaff,
       },
-      citizenCount: citizens,
+      citizenCount: stats.totalCitizens,
+      equipment: equipment && {
+        total: equipment.length,
+        maintenance: equipment.filter((e) => e.status === 'Maintenance').length,
+      },
+      incidents: {
+        active: stats.activeIncidents,
+        pending: stats.pendingIncidents,
+        verified: Math.max(
+          0,
+          stats.activeIncidents - stats.pendingIncidents - stats.dispatchedIncidents - stats.escalatedIncidents
+        ),
+        dispatched: stats.dispatchedIncidents,
+        escalated: stats.escalatedIncidents,
+      },
+      recentIncidents: stats.recentIncidents,
       actionItems: {
         stationsWithoutAvailableVehicle: stations
           .filter((s) => s.isActive && s.activeUnitsCount === 0)
