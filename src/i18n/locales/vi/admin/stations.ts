@@ -1,5 +1,5 @@
 export const adminStationsVi = {
-  searchPlaceholder: 'Tìm theo tên, địa chỉ, hotline...',
+  searchPlaceholder: 'Tìm theo mã, tên, địa chỉ, hotline...',
   statusFilter: { active: 'Đang hoạt động', inactive: 'Tạm ngưng' },
   add: 'Thêm trạm',
   added: 'Đã thêm trạm "{{name}}".',
@@ -8,6 +8,7 @@ export const adminStationsVi = {
   deletedUnits: '{{count}} xe chuyển sang Ngừng hoạt động — chuyển sang trạm mới ở trang Đội xe.',
   deletedStaff: '{{count}} nhân sự bị gỡ khỏi trạm.',
   table: {
+    code: 'Mã',
     name: 'Tên trạm',
     headOperator: 'Operator phụ trách',
     hotline: 'Hotline',
@@ -25,6 +26,13 @@ export const adminStationsVi = {
     addTitle: 'Thêm trạm mới',
     editTitle: 'Chỉnh sửa trạm',
     save: 'Lưu trạm',
+    code: 'Mã trạm',
+    codePlaceholder: 'Tự sinh',
+    codeHintCreate: 'Bỏ trống để hệ thống tự sinh (VD ST-004).',
+    codeHintEdit: 'Bỏ trống để giữ mã hiện tại.',
+    codeInvalid: '2–20 ký tự: chữ, số, "-" hoặc "_"; bắt đầu bằng chữ hoặc số.',
+    codeDuplicate: 'Mã "{{code}}" đã được trạm khác dùng.',
+    nameDuplicate: 'Đã có trạm tên "{{name}}".',
     name: 'Tên trạm',
     address: 'Địa chỉ',
     addressHint: 'Gõ địa chỉ rồi chọn gợi ý để bản đồ dời tới, hoặc chọn vị trí trên bản đồ để tự điền địa chỉ.',

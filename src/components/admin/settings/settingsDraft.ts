@@ -10,6 +10,7 @@ export interface DispatchDraft {
   activeMissions: string;
   radiusStepsKm: string[];
   recoveryMinutes: string;
+  autoExpireHours: string;
 }
 
 export const dispatchToDraft = (s: DispatchSettings): DispatchDraft => ({
@@ -18,6 +19,7 @@ export const dispatchToDraft = (s: DispatchSettings): DispatchDraft => ({
   activeMissions: String(s.weights.activeMissions),
   radiusStepsKm: s.radiusStepsKm.map(String),
   recoveryMinutes: String(s.recoveryMinutes),
+  autoExpireHours: String(s.autoExpireHours),
 });
 
 export const draftToDispatch = (d: DispatchDraft): DispatchSettings => ({
@@ -28,6 +30,7 @@ export const draftToDispatch = (d: DispatchDraft): DispatchSettings => ({
   },
   radiusStepsKm: d.radiusStepsKm.map(toNumber),
   recoveryMinutes: toNumber(d.recoveryMinutes),
+  autoExpireHours: toNumber(d.autoExpireHours),
 });
 
 export interface EscalationDraft {
@@ -37,6 +40,7 @@ export interface EscalationDraft {
   nightEnd: string;
   radiusMultiplier: string;
   maxRadiusKm: string;
+  fieldRequestThresholdMinutes: string;
 }
 
 export const escalationToDraft = (s: EscalationSettings): EscalationDraft => ({
@@ -46,6 +50,7 @@ export const escalationToDraft = (s: EscalationSettings): EscalationDraft => ({
   nightEnd: s.nightEnd,
   radiusMultiplier: String(s.radiusMultiplier),
   maxRadiusKm: String(s.maxRadiusKm),
+  fieldRequestThresholdMinutes: String(s.fieldRequestThresholdMinutes),
 });
 
 export const draftToEscalation = (d: EscalationDraft): EscalationSettings => ({
@@ -55,6 +60,7 @@ export const draftToEscalation = (d: EscalationDraft): EscalationSettings => ({
   nightEnd: d.nightEnd,
   radiusMultiplier: toNumber(d.radiusMultiplier),
   maxRadiusKm: toNumber(d.maxRadiusKm),
+  fieldRequestThresholdMinutes: toNumber(d.fieldRequestThresholdMinutes),
 });
 
 /** So sánh giá trị đã đổi sang số (VD "5" và "5.0" coi là như nhau). */

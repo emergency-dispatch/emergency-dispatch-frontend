@@ -2,7 +2,7 @@ import type { Messages } from '../../types';
 import type { adminStationsVi } from '../../vi/admin/stations';
 
 export const adminStationsEn: Messages<typeof adminStationsVi> = {
-  searchPlaceholder: 'Search by name, address, hotline...',
+  searchPlaceholder: 'Search by code, name, address, hotline...',
   statusFilter: { active: 'Active', inactive: 'Suspended' },
   add: 'Add station',
   added: 'Station "{{name}}" added.',
@@ -11,6 +11,7 @@ export const adminStationsEn: Messages<typeof adminStationsVi> = {
   deletedUnits: 'Vehicles set to Out of service: {{count}} — move them to a new station on the Fleet page.',
   deletedStaff: 'Staff removed from the station: {{count}}.',
   table: {
+    code: 'Code',
     name: 'Station name',
     headOperator: 'Head operator',
     hotline: 'Hotline',
@@ -28,6 +29,13 @@ export const adminStationsEn: Messages<typeof adminStationsVi> = {
     addTitle: 'Add new station',
     editTitle: 'Edit station',
     save: 'Save station',
+    code: 'Station code',
+    codePlaceholder: 'Auto',
+    codeHintCreate: 'Leave empty to generate one automatically (e.g. ST-004).',
+    codeHintEdit: 'Leave empty to keep the current code.',
+    codeInvalid: '2–20 characters: letters, digits, "-" or "_"; must start with a letter or digit.',
+    codeDuplicate: 'Code "{{code}}" is already used by another station.',
+    nameDuplicate: 'A station named "{{name}}" already exists.',
     name: 'Station name',
     address: 'Address',
     addressHint: 'Type an address and pick a suggestion to move the map, or pick a location on the map to fill in the address.',

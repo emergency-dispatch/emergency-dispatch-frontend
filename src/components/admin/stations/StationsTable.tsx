@@ -19,9 +19,10 @@ export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading,
         loading ? 'opacity-60' : ''
       }`}
     >
-      <table className="w-full text-sm min-w-[980px]">
+      <table className="w-full text-sm min-w-[1060px]">
         <thead>
           <tr className="bg-slate-50 border-b border-slate-200 text-left">
+            <th className={thClass}>{t('admin.stations.table.code')}</th>
             <th className={thClass}>{t('admin.stations.table.name')}</th>
             <th className={thClass}>{t('admin.stations.table.headOperator')}</th>
             <th className={thClass}>{t('admin.stations.table.hotline')}</th>
@@ -35,13 +36,22 @@ export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading,
         <tbody className="divide-y divide-slate-100">
           {stations.length === 0 && (
             <tr>
-              <td colSpan={8} className="px-4 py-10 text-center text-slate-400 text-sm">
+              <td colSpan={9} className="px-4 py-10 text-center text-slate-400 text-sm">
                 {loading ? t('admin.common.loading') : t('admin.stations.table.empty')}
               </td>
             </tr>
           )}
           {stations.map((station) => (
             <tr key={station.id} className="hover:bg-slate-50">
+              <td className="px-4 py-3 whitespace-nowrap">
+                {station.code ? (
+                  <span className="inline-flex px-2 py-0.5 rounded-md border border-slate-200 bg-slate-50 text-xs font-bold font-mono-data text-slate-700">
+                    {station.code}
+                  </span>
+                ) : (
+                  <span className="text-slate-300">—</span>
+                )}
+              </td>
               <td className="px-4 py-3">
                 <div className="font-semibold text-slate-900">{station.name}</div>
                 <div className="text-xs text-slate-500 mt-0.5">{station.address}</div>

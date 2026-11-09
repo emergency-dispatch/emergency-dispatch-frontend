@@ -20,13 +20,35 @@ export type AuditAction =
   | 'PhoneRevealed'
   | 'ReporterBlocked'
   | 'TransferredStation'
-  | 'OutOfServiceArea';
+  | 'OutOfServiceArea'
+  | 'CreatedByOperator'
+  // 19–30: đổi mức sau xác minh, yêu cầu từ hiện trường (§21.2), gom báo cáo trùng (BR-07), bổ sung của người báo.
+  | 'SeverityChanged'
+  | 'FieldRequestCreated'
+  | 'FieldRequestAcknowledged'
+  | 'FieldRequestFulfilled'
+  | 'FieldRequestDeclined'
+  | 'FieldRequestCancelled'
+  | 'FieldRequestEscalated'
+  | 'ReportLinked'
+  | 'ReportUnlinked'
+  | 'DuplicateConfirmed'
+  | 'SupplementAdded'
+  | 'LinkedReportsRestored';
 
+// Thứ tự trong ô lọc: gom theo vòng đời sự cố.
 export const AUDIT_ACTIONS: AuditAction[] = [
   'Created',
+  'CreatedByOperator',
+  'SupplementAdded',
   'AiAnalyzed',
   'Verified',
   'SeverityOverridden',
+  'SeverityChanged',
+  'ReportLinked',
+  'ReportUnlinked',
+  'DuplicateConfirmed',
+  'LinkedReportsRestored',
   'Dispatched',
   'ReDispatched',
   'AssignmentAccepted',
@@ -37,6 +59,12 @@ export const AUDIT_ACTIONS: AuditAction[] = [
   'Cancelled',
   'Completed',
   'Closed',
+  'FieldRequestCreated',
+  'FieldRequestAcknowledged',
+  'FieldRequestFulfilled',
+  'FieldRequestDeclined',
+  'FieldRequestCancelled',
+  'FieldRequestEscalated',
   'PhoneRevealed',
   'ReporterBlocked',
   'TransferredStation',
@@ -72,7 +100,12 @@ export type SystemAuditAction =
   | 'SettingsUpdated'
   | 'Unblocked'
   | 'BlockExtended'
-  | 'Exported';
+  | 'Exported'
+  // 11–14: điểm nghẽn giao thông (§20/§24).
+  | 'TrafficTaskAssigned'
+  | 'TrafficTaskUnassigned'
+  | 'TrafficResolved'
+  | 'TrafficEscalated';
 
 export const SYSTEM_AUDIT_ACTIONS: SystemAuditAction[] = [
   'Created',
@@ -86,6 +119,10 @@ export const SYSTEM_AUDIT_ACTIONS: SystemAuditAction[] = [
   'Unblocked',
   'BlockExtended',
   'Exported',
+  'TrafficTaskAssigned',
+  'TrafficTaskUnassigned',
+  'TrafficResolved',
+  'TrafficEscalated',
 ];
 
 /** AuditEntityTypes của backend. */
@@ -97,7 +134,9 @@ export type SystemAuditEntityType =
   | 'Settings'
   | 'EscalationRule'
   | 'BlockedNumber'
-  | 'Report';
+  | 'Report'
+  | 'TrafficHotspot'
+  | 'Equipment';
 
 export const SYSTEM_AUDIT_ENTITY_TYPES: SystemAuditEntityType[] = [
   'Station',
@@ -108,6 +147,8 @@ export const SYSTEM_AUDIT_ENTITY_TYPES: SystemAuditEntityType[] = [
   'EscalationRule',
   'BlockedNumber',
   'Report',
+  'TrafficHotspot',
+  'Equipment',
 ];
 
 /** Mirror SystemAuditLogDto (GET /api/audit-trail/system). */

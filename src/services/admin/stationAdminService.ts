@@ -21,7 +21,7 @@ export const stationAdminService = {
     const q = normalizeText(params.search ?? '');
     const items = stations
       .filter((s) => !params.status || s.isActive === (params.status === 'active'))
-      .filter((s) => !q || normalizeText(`${s.name} ${s.address} ${s.phoneNumber ?? ''}`).includes(q))
+      .filter((s) => !q || normalizeText(`${s.code ?? ''} ${s.name} ${s.address} ${s.phoneNumber ?? ''}`).includes(q))
       .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
     return paginate(items, params);
   },

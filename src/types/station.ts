@@ -17,6 +17,8 @@ export interface StationStaffMemberDto {
 
 export interface StationResponseDto {
   id: string;
+  /** Mã trạm (§23), chữ in hoa, VD "ST-001". */
+  code: string;
   name: string;
   address: string;
   latitude: number;
@@ -39,6 +41,11 @@ export interface StationResponseDto {
 
 /** Body của POST /api/stations và PUT /api/stations/{id}. */
 export interface StationUpsertDto {
+  /**
+   * Mã trạm (§23). Tạo mới: bỏ trống → backend tự sinh "ST-xxx". Sửa: bỏ trống → giữ mã hiện tại.
+   * Backend chuẩn hóa chữ in hoa; trùng mã / tên với trạm khác → 400.
+   */
+  code: string | null;
   name: string;
   address: string;
   latitude: number;
@@ -54,6 +61,10 @@ export interface StationUpsertDto {
    */
   headOperatorId: string | null;
 }
+
+/** Định dạng mã trạm của CreateStationDto / UpdateStationDto: 2–20 ký tự chữ, số, '-' hoặc '_', ký tự đầu là chữ / số. */
+export const STATION_CODE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{1,19}$/;
+export const STATION_CODE_MAX = 20;
 
 /** Giới hạn của CreateStationDto / UpdateStationDto (FR-AD-01). */
 export const COVERAGE_RADIUS_KM = { min: 5, max: 50, default: 10 };

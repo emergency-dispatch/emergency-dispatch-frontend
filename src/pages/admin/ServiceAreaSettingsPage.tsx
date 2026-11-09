@@ -76,6 +76,7 @@ const initialCenter = (values: ServiceAreaSettings, stations: StationResponseDto
 
 interface ServiceAreaDraft {
   enabled: boolean;
+  rejectOutside: boolean;
   name: string;
   centerLat: number;
   centerLng: number;
@@ -84,6 +85,7 @@ interface ServiceAreaDraft {
 
 const toSettings = (d: ServiceAreaDraft): ServiceAreaSettings => ({
   enabled: d.enabled,
+  rejectOutside: d.rejectOutside,
   name: d.name.trim(),
   centerLat: Number(d.centerLat.toFixed(6)),
   centerLng: Number(d.centerLng.toFixed(6)),
@@ -102,6 +104,8 @@ const ServiceAreaForm: React.FC<{
     const center = initialCenter(record.values, stations);
     return {
       enabled: record.values.enabled,
+      // Backend cũ chưa có trường này → mặc định của backend là từ chối.
+      rejectOutside: record.values.rejectOutside ?? true,
       name: record.values.name,
       centerLat: center.lat,
       centerLng: center.lng,
@@ -154,7 +158,11 @@ const ServiceAreaForm: React.FC<{
     try {
       await adminSettingsService.updateServiceArea(values);
       onSaved(
-        values.enabled ? t('admin.settings.serviceArea.savedEnabled') : t('admin.settings.serviceArea.savedDisabled')
+        !values.enabled
+          ? t('admin.settings.serviceArea.savedDisabled')
+          : values.rejectOutside
+            ? t('admin.settings.serviceArea.savedReject')
+            : t('admin.settings.serviceArea.savedEnabled')
       );
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
@@ -192,6 +200,47 @@ const ServiceAreaForm: React.FC<{
           </span>
         </span>
       </label>
+
+      {/* §22: xử lý SOS của người dân nằm ngoài khu vực — chỉ có ý nghĩa khi đang bật kiểm tra */}
+      <fieldset disabled={!draft.enabled} className={`space-y-1.5 ${draft.enabled ? '' : 'opacity-50'}`}>
+        <legend className={`${labelClass} mb-1.5`}>{t('admin.settings.serviceArea.outsideTitle')}</legend>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {([true, false] as const).map((reject) => {
+            const active = draft.rejectOutside === reject;
+            const key = reject ? 'reject' : 'flag';
+            return (
+              <label
+                key={key}
+                className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                  draft.enabled ? 'cursor-pointer' : 'cursor-not-allowed'
+                } ${active ? 'border-red-500 bg-red-50/60' : 'border-slate-200 hover:border-slate-300'}`}
+              >
+                <input
+                  type="radio"
+                  name="service-area-outside"
+                  checked={active}
+                  onChange={() => set('rejectOutside', reject)}
+                  className="w-4 h-4 mt-0.5 accent-red-600"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-slate-900">
+                    {t(`admin.settings.serviceArea.outside.${key}`)}
+                    {reject && (
+                      <span className="ml-1.5 text-[10px] font-mono-data font-semibold text-slate-400">
+                        {t('admin.settings.serviceArea.outside.default')}
+                      </span>
+                    )}
+                  </span>
+                  <span className="block text-[11px] text-slate-500 mt-0.5">
+                    {t(`admin.settings.serviceArea.outside.${key}Hint`)}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-slate-400">{t('admin.settings.serviceArea.outsideNote')}</p>
+      </fieldset>
 
       <div className="space-y-1.5">
         <label className={labelClass}>{t('admin.settings.serviceArea.name')}</label>

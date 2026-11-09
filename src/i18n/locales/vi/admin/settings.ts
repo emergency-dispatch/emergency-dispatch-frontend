@@ -18,6 +18,7 @@ export const adminSettingsVi = {
     duplicateWindowRange: 'Khung thời gian phải từ {{min}} đến {{max}} phút.',
     notifyRolesRequired: 'Chọn ít nhất 1 vai trò nhận cảnh báo.',
     descriptionTooLong: 'Mô tả tối đa {{max}} ký tự.',
+    autoExpireRange: 'Phải từ {{min}} đến {{max}} giờ.',
   },
   dispatch: {
     scopeNote:
@@ -38,6 +39,9 @@ export const adminSettingsVi = {
     recovery: 'Hồi sức sau nhiệm vụ',
     minutesUnit: 'phút',
     recoveryHint: 'Sau khi nộp báo cáo, xe ở trạng thái Hồi sức trước khi Sẵn sàng.',
+    autoExpire: 'Tự hủy sự cố chưa xác minh',
+    hoursUnit: 'giờ',
+    autoExpireHint: 'Sự cố chưa được Operator duyệt quá thời gian này thì tự hủy ({{min}}–{{max}} giờ).',
   },
   escalation: {
     scopeNote:
@@ -57,6 +61,10 @@ export const adminSettingsVi = {
     multiplierHint: 'Nhân với từng nấc bán kính tìm xe.',
     maxRadius: 'Bán kính tối đa',
     maxRadiusHint: 'Bán kính sau khi nhân không vượt giá trị này.',
+    fieldRequestTitle: 'Yêu cầu từ hiện trường',
+    fieldRequestDescription:
+      'Yêu cầu chi viện / báo vấn đề của đội cứu hộ chưa được trung tâm xử lý xong quá ngưỡng này sẽ được báo cho Admin và Operator của trạm.',
+    fieldRequestThreshold: 'Ngưỡng chờ xử lý',
     rules: {
       title: 'Quy tắc leo thang',
       activeCount: '{{active}}/{{total}} đang bật',
@@ -129,9 +137,19 @@ export const adminSettingsVi = {
   },
   serviceArea: {
     savedEnabled: 'Đã lưu khu vực phục vụ. SOS ngoài vùng sẽ được gắn cờ và báo cho Operator / Admin.',
+    savedReject: 'Đã lưu khu vực phục vụ. SOS của người dân ngoài vùng sẽ bị từ chối.',
     savedDisabled: 'Đã lưu khu vực phục vụ (đang tắt kiểm tra).',
     enable: 'Bật kiểm tra khu vực phục vụ',
-    enableHint: 'Tắt thì không gắn cờ SOS ngoài vùng và không vẽ vòng khu vực trên Live Map.',
+    enableHint: 'Tắt thì không kiểm tra SOS ngoài vùng và không vẽ vòng khu vực trên Live Map.',
+    outsideTitle: 'SOS của người dân ngoài khu vực',
+    outside: {
+      reject: 'Từ chối',
+      rejectHint: 'Không tạo sự cố; người dân được báo là đang ở ngoài khu vực phục vụ.',
+      flag: 'Vẫn tiếp nhận, gắn cờ',
+      flagHint: 'Sự cố vào hàng đợi kèm cờ "ngoài khu vực" và cảnh báo realtime cho Operator / Admin.',
+      default: 'mặc định',
+    },
+    outsideNote: 'Chỉ áp dụng cho SOS của người dân; sự cố do Operator tự tạo không bị từ chối.',
     name: 'Tên khu vực',
     namePlaceholder: 'VD: Khu Công nghệ cao TP.HCM',
     nameHint: 'Hiện trong cảnh báo cho người dân và thông báo cho Operator.',

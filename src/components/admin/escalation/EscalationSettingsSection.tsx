@@ -190,6 +190,24 @@ const EscalationForm: React.FC<{
           />
         </div>
       </section>
+
+      {/* §21.2: yêu cầu chi viện / báo vấn đề từ hiện trường chưa được trung tâm xử lý */}
+      <section className="space-y-4 pt-5 border-t border-slate-100">
+        <div>
+          <h3 className="text-sm font-bold text-slate-900">{t('admin.settings.escalation.fieldRequestTitle')}</h3>
+          <p className="text-[11px] text-slate-500 mt-0.5">{t('admin.settings.escalation.fieldRequestDescription')}</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <NumberSettingField
+            label={t('admin.settings.escalation.fieldRequestThreshold')}
+            unit={t('admin.settings.dispatch.minutesUnit')}
+            value={draft.fieldRequestThresholdMinutes}
+            onChange={set('fieldRequestThresholdMinutes')}
+            error={errors.fieldRequestThresholdMinutes}
+            hint={t('admin.settings.escalation.halfStepHint')}
+          />
+        </div>
+      </section>
     </SettingsForm>
   );
 };

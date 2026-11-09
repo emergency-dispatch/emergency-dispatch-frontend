@@ -4,12 +4,15 @@ import i18n from '../../i18n';
 
 // Mirror EmergencyDispatch.Application.DTOs.Settings. Backend đọc các cấu hình này ở mỗi lần gợi ý điều phối
 // và mỗi lượt quét leo thang, nên Admin lưu là có tác dụng ngay.
+// Lưu ý: PUT ghi đè CẢ object — trường nào FE không gửi sẽ bị backend đặt về mặc định, nên interface phải đủ trường.
 
 /** Tham số gợi ý điều phối (FR-OP-04) — chỉnh cho thí nghiệm RQ2 mà không cần sửa code. */
 export interface DispatchSettings {
   weights: { distance: number; stationLoad: number; activeMissions: number };
   radiusStepsKm: number[];
   recoveryMinutes: number;
+  /** Sự cố chưa được xác minh quá số giờ này thì tự hủy (AutoExpired). Backend: 1–168. */
+  autoExpireHours: number;
 }
 
 /** Cấu hình Escalation Daemon (FR-SYS-02): ngưỡng chờ và mở rộng bán kính khi leo thang. */
@@ -21,14 +24,18 @@ export interface EscalationSettings {
   nightEnd: string;
   radiusMultiplier: number;
   maxRadiusKm: number;
+  /** §21.2: yêu cầu từ hiện trường chưa xử lý quá số phút này → báo Admin + Operator trạm. Bước 0.5 phút. */
+  fieldRequestThresholdMinutes: number;
 }
 
 /**
- * Khu vực phục vụ (tâm + bán kính). SOS ngoài vùng vẫn được nhận nhưng gắn cờ "ngoài khu vực" và báo realtime cho
- * Operator / Admin. Tắt (enabled = false) thì backend không kiểm tra.
+ * Khu vực phục vụ (tâm + bán kính), §22. SOS của người dân ngoài vùng: `rejectOutside` = true → bị từ chối;
+ * false → vẫn nhận nhưng gắn cờ "ngoài khu vực" và báo realtime cho Operator / Admin.
+ * Tắt (enabled = false) thì backend không kiểm tra.
  */
 export interface ServiceAreaSettings {
   enabled: boolean;
+  rejectOutside: boolean;
   name: string;
   centerLat: number;
   centerLng: number;
@@ -77,6 +84,8 @@ export interface SettingsDefaults {
 }
 
 export const WEIGHT_SUM_TOLERANCE = 0.001;
+/** Giới hạn của SystemSettingsService.ValidateDispatch. */
+export const AUTO_EXPIRE_HOURS = { min: 1, max: 168 };
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const isPositive = (n: number) => Number.isFinite(n) && n > 0;
@@ -104,6 +113,9 @@ export function validateDispatchSettings(s: DispatchSettings, maxRadiusKm: numbe
   }
 
   if (!isPositive(s.recoveryMinutes)) errors.recoveryMinutes = i18n.t('admin.common.settings.mustBePositive');
+  if (!(s.autoExpireHours >= AUTO_EXPIRE_HOURS.min && s.autoExpireHours <= AUTO_EXPIRE_HOURS.max)) {
+    errors.autoExpireHours = i18n.t('admin.settings.validation.autoExpireRange', AUTO_EXPIRE_HOURS);
+  }
 
   return stripEmpty(errors);
 }
@@ -122,6 +134,7 @@ export function validateEscalationSettings(
 
   errors.dayThresholdMinutes = threshold(s.dayThresholdMinutes);
   errors.nightThresholdMinutes = threshold(s.nightThresholdMinutes);
+  errors.fieldRequestThresholdMinutes = threshold(s.fieldRequestThresholdMinutes);
   if (!TIME_PATTERN.test(s.nightStart)) errors.nightStart = i18n.t('admin.settings.validation.invalidTime');
   if (!TIME_PATTERN.test(s.nightEnd)) errors.nightEnd = i18n.t('admin.settings.validation.invalidTime');
   else if (s.nightStart === s.nightEnd) errors.nightEnd = i18n.t('admin.settings.validation.sameStartEnd');

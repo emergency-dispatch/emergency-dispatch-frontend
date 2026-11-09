@@ -7,12 +7,18 @@ import { StationMapPicker, type MapReferenceArea, type MapReferenceStation } fro
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../common/ui';
 import { useMediaQuery, useServiceQuery } from '../common/hooks';
 import { adminSettingsService } from '../../../services/admin/adminSettingsService';
-import { inputClass, labelClass } from '../common/styles';
+import { inputClass, labelClass, validatedInputClass } from '../common/styles';
 import { MAP_CENTER } from '../fleetMeta';
 import { HOTLINE_PATTERN, stationAdminService } from '../../../services/admin/stationAdminService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { mapboxService } from '../../../services/mapboxService';
-import { COVERAGE_RADIUS_KM, type StationResponseDto, type StationUpsertDto } from '../../../types/station';
+import {
+  COVERAGE_RADIUS_KM,
+  STATION_CODE_MAX,
+  STATION_CODE_PATTERN,
+  type StationResponseDto,
+  type StationUpsertDto,
+} from '../../../types/station';
 import { useTranslation } from '../../../i18n';
 
 interface StationFormDrawerProps {
@@ -36,6 +42,7 @@ const mapOverlayButtonClass =
 export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialStation, onClose, onSaved }) => {
   const { t } = useTranslation();
   const [form, setForm] = useState({
+    code: initialStation?.code ?? '',
     name: initialStation?.name ?? '',
     address: initialStation?.address ?? '',
     latitude: initialStation?.latitude ?? MAP_CENTER[0],
@@ -117,7 +124,23 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
   const hotlineValid = HOTLINE_PATTERN.test(hotline);
   const radiusKm = form.coverageRadiusKm.trim() === '' ? NaN : Number(form.coverageRadiusKm);
   const radiusValid = radiusKm >= COVERAGE_RADIUS_KM.min && radiusKm <= COVERAGE_RADIUS_KM.max;
-  const canSubmit = form.name.trim().length > 0 && form.address.trim().length > 0 && hotlineValid && radiusValid;
+  // §23 Mã trạm: kiểm tra định dạng + trùng với trạm khác ngay khi gõ (backend vẫn kiểm tra lại, trả 400).
+  const code = form.code.trim().toUpperCase();
+  const otherStations = (references.data?.stations ?? []).filter((s) => s.id !== initialStation?.id);
+  const codeError = !code
+    ? null
+    : !STATION_CODE_PATTERN.test(code)
+      ? t('admin.stations.form.codeInvalid')
+      : otherStations.some((s) => s.code?.toUpperCase() === code)
+        ? t('admin.stations.form.codeDuplicate', { code })
+        : null;
+  const trimmedName = form.name.trim();
+  const nameError =
+    trimmedName && otherStations.some((s) => s.name.trim().toLowerCase() === trimmedName.toLowerCase())
+      ? t('admin.stations.form.nameDuplicate', { name: trimmedName })
+      : null;
+  const canSubmit =
+    trimmedName.length > 0 && form.address.trim().length > 0 && hotlineValid && radiusValid && !codeError && !nameError;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,6 +148,7 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
     setSubmitting(true);
     setError(null);
     const body: StationUpsertDto = {
+      code: code || null,
       name: form.name.trim(),
       address: form.address.trim(),
       latitude: form.latitude,
@@ -221,15 +245,32 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
     >
       <Notice notice={error ? { kind: 'error', message: error } : null} />
 
-      <FormField label={t('admin.stations.form.name')} required>
-        <input
-          value={form.name}
-          onChange={(e) => set('name', e.target.value)}
-          maxLength={NAME_MAX}
-          required
-          className={inputClass}
-        />
-      </FormField>
+      <div className="grid grid-cols-[9rem_1fr] gap-3 items-start">
+        <FormField
+          label={t('admin.stations.form.code')}
+          error={codeError}
+          hint={initialStation ? t('admin.stations.form.codeHintEdit') : t('admin.stations.form.codeHintCreate')}
+        >
+          <input
+            value={form.code}
+            onChange={(e) => set('code', e.target.value.toUpperCase().replace(/\s/g, ''))}
+            maxLength={STATION_CODE_MAX}
+            placeholder={initialStation?.code || t('admin.stations.form.codePlaceholder')}
+            aria-invalid={!!codeError}
+            className={`${validatedInputClass(!!codeError)} font-mono-data uppercase`}
+          />
+        </FormField>
+        <FormField label={t('admin.stations.form.name')} required error={nameError}>
+          <input
+            value={form.name}
+            onChange={(e) => set('name', e.target.value)}
+            maxLength={NAME_MAX}
+            required
+            aria-invalid={!!nameError}
+            className={validatedInputClass(!!nameError)}
+          />
+        </FormField>
+      </div>
 
       <FormField
         label={t('admin.stations.form.address')}

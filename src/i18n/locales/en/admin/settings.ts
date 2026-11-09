@@ -20,6 +20,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     duplicateWindowRange: 'The time window must be from {{min}} to {{max}} minutes.',
     notifyRolesRequired: 'Choose at least 1 role to notify.',
     descriptionTooLong: 'The description can be at most {{max}} characters.',
+    autoExpireRange: 'Must be between {{min}} and {{max}} hours.',
   },
   dispatch: {
     scopeNote:
@@ -40,6 +41,9 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     recovery: 'Post-mission recovery',
     minutesUnit: 'min',
     recoveryHint: 'After the report is submitted, the vehicle stays in Recovering before becoming Available.',
+    autoExpire: 'Auto-cancel unverified incidents',
+    hoursUnit: 'hours',
+    autoExpireHint: 'Incidents not verified by an Operator within this time are cancelled automatically ({{min}}–{{max}} hours).',
   },
   escalation: {
     scopeNote:
@@ -59,6 +63,10 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     multiplierHint: 'Multiplied with each vehicle search radius step.',
     maxRadius: 'Max radius',
     maxRadiusHint: 'The multiplied radius never exceeds this value.',
+    fieldRequestTitle: 'Field requests',
+    fieldRequestDescription:
+      'Backup requests / issue reports from rescue crews that the center has not handled within this threshold are reported to Admins and the station Operators.',
+    fieldRequestThreshold: 'Handling threshold',
     rules: {
       title: 'Escalation rules',
       activeCount: '{{active}}/{{total}} active',
@@ -131,9 +139,19 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
   },
   serviceArea: {
     savedEnabled: 'Service area saved. SOS reports outside the area will be flagged and reported to Operators / Admins.',
+    savedReject: 'Service area saved. Citizen SOS reports outside the area will be rejected.',
     savedDisabled: 'Service area saved (checking is disabled).',
     enable: 'Enable service area checking',
-    enableHint: 'When disabled, out-of-area SOS reports are not flagged and the area circle is not drawn on the Live Map.',
+    enableHint: 'When disabled, SOS reports are not checked against the area and the area circle is not drawn on the Live Map.',
+    outsideTitle: 'Citizen SOS outside the area',
+    outside: {
+      reject: 'Reject',
+      rejectHint: 'No incident is created; the citizen is told they are outside the service area.',
+      flag: 'Accept and flag',
+      flagHint: 'The incident enters the queue flagged "outside area" with a realtime alert to Operators / Admins.',
+      default: 'default',
+    },
+    outsideNote: 'Applies to citizen SOS only; incidents created by Operators are never rejected.',
     name: 'Area name',
     namePlaceholder: 'E.g. Saigon Hi-Tech Park',
     nameHint: 'Shown in warnings to citizens and notifications to Operators.',

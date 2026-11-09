@@ -1,11 +1,15 @@
 import {
   Ban,
   Building2,
+  CircleCheck,
   ClipboardList,
+  Combine,
   FileDown,
   EyeOff,
   Lock,
   LockOpen,
+  Megaphone,
+  Package,
   Pencil,
   Plus,
   Settings,
@@ -15,6 +19,7 @@ import {
   Trash2,
   TriangleAlert,
   Truck,
+  Undo2,
   UserCog,
   Users,
   type LucideIcon,
@@ -25,13 +30,17 @@ import { trafficJamAuditDecision } from '../../../utils/trafficJamAudit';
 import { adminMonitoringVi } from '../../../i18n/locales/vi/admin/monitoring';
 
 // Nhóm chỉ để tô màu / gắn icon — backend lọc theo từng hành động, không theo nhóm.
-type AuditGroup = 'incident' | 'dispatch' | 'escalation' | 'privacy';
+type AuditGroup = 'incident' | 'dispatch' | 'escalation' | 'privacy' | 'field' | 'duplicate';
 
 const GROUP_META: Record<AuditGroup, { icon: LucideIcon; badgeClass: string }> = {
   incident: { icon: Siren, badgeClass: 'bg-red-50 text-red-700 border-red-200' },
   dispatch: { icon: ClipboardList, badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
   escalation: { icon: TriangleAlert, badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' },
   privacy: { icon: EyeOff, badgeClass: 'bg-violet-50 text-violet-700 border-violet-200' },
+  // §21.2 yêu cầu chi viện / báo vấn đề từ đội hiện trường.
+  field: { icon: Megaphone, badgeClass: 'bg-sky-50 text-sky-700 border-sky-200' },
+  // BR-07 gom / tách báo cáo trùng.
+  duplicate: { icon: Combine, badgeClass: 'bg-teal-50 text-teal-700 border-teal-200' },
 };
 
 // Nhãn dịch theo admin.monitoring.audit.* (incidentAction, systemAction, entityType, settingsKey, actorRole, field).
@@ -54,6 +63,19 @@ const ACTION_GROUP: Record<AuditAction, AuditGroup> = {
   ReporterBlocked: 'privacy',
   TransferredStation: 'dispatch',
   OutOfServiceArea: 'escalation',
+  CreatedByOperator: 'incident',
+  SeverityChanged: 'incident',
+  SupplementAdded: 'incident',
+  FieldRequestCreated: 'field',
+  FieldRequestAcknowledged: 'field',
+  FieldRequestFulfilled: 'field',
+  FieldRequestDeclined: 'field',
+  FieldRequestCancelled: 'field',
+  FieldRequestEscalated: 'escalation',
+  ReportLinked: 'duplicate',
+  ReportUnlinked: 'duplicate',
+  DuplicateConfirmed: 'duplicate',
+  LinkedReportsRestored: 'duplicate',
 };
 
 const has = <T extends object>(obj: T, key: string): key is Extract<keyof T, string> => Object.prototype.hasOwnProperty.call(obj, key);
@@ -98,6 +120,10 @@ const SYSTEM_ACTION_META: Record<SystemAuditAction, { icon: LucideIcon; badgeCla
   Unblocked: { icon: LockOpen, badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   BlockExtended: { icon: Ban, badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' },
   Exported: { icon: FileDown, badgeClass: 'bg-slate-50 text-slate-700 border-slate-200' },
+  TrafficTaskAssigned: { icon: Truck, badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
+  TrafficTaskUnassigned: { icon: Undo2, badgeClass: 'bg-slate-50 text-slate-700 border-slate-200' },
+  TrafficResolved: { icon: CircleCheck, badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  TrafficEscalated: { icon: TriangleAlert, badgeClass: 'bg-red-50 text-red-700 border-red-200' },
 };
 
 /** Nhãn + icon + màu của một hành động quản trị; hành động lạ (backend thêm sau) hiện nguyên tên. */
@@ -117,6 +143,8 @@ const ENTITY_TYPE_ICON: Record<SystemAuditEntityType, LucideIcon> = {
   EscalationRule: ShieldAlert,
   BlockedNumber: Ban,
   Report: FileDown,
+  TrafficHotspot: TrafficCone,
+  Equipment: Package,
 };
 
 export function entityTypeMeta(type: string): { label: string; icon: LucideIcon } {

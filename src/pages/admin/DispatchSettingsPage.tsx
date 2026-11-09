@@ -12,6 +12,7 @@ import { Notice, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass, labelClass } from '../../components/admin/common/styles';
 import { useServiceQuery, useUnsavedChangesGuard } from '../../components/admin/common/hooks';
 import {
+  AUTO_EXPIRE_HOURS,
   WEIGHT_SUM_TOLERANCE,
   adminSettingsService,
   validateDispatchSettings,
@@ -225,6 +226,15 @@ const DispatchForm: React.FC<{
             onChange={set('recoveryMinutes')}
             error={errors.recoveryMinutes}
             hint={t('admin.settings.dispatch.recoveryHint')}
+          />
+          <NumberSettingField
+            label={t('admin.settings.dispatch.autoExpire')}
+            unit={t('admin.settings.dispatch.hoursUnit')}
+            step={1}
+            value={draft.autoExpireHours}
+            onChange={set('autoExpireHours')}
+            error={errors.autoExpireHours}
+            hint={t('admin.settings.dispatch.autoExpireHint', AUTO_EXPIRE_HOURS)}
           />
         </div>
       </section>
