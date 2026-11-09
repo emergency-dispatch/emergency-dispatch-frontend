@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   Ban,
   CheckCircle2,
+  ChevronRight,
+  ClipboardCheck,
   FileCheck2,
   Loader2,
   Radio,
@@ -27,6 +30,8 @@ import type { Incident, OperatorCancellationCode } from '../../../types/incident
 import type { StationTeam } from '../../../types/stationTeam';
 import type { Vehicle } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
+import { COMPLETION_PATH } from '../../../data/dashboardMock';
+import { groupCompletion, progressOf, type CompletionProgress } from '../completion/completionGroups';
 
 interface IncidentCardProps {
   incident: Incident;
@@ -38,6 +43,9 @@ interface IncidentCardProps {
   escalationTier: number;
   /** §21.2: số yêu cầu hiện trường đang mở của sự cố. */
   fieldRequestCount: number;
+  /** §26.2: số tổ đã ký nghiệm thu / tổng số tổ đang giao (null = chưa giao xe). */
+  completion: CompletionProgress | null;
+  onOpenCompletion: () => void;
   now: number;
   isCancelling: boolean;
   cancellingVehicleId: string | null;
@@ -55,6 +63,8 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
   isEscalated,
   escalationTier,
   fieldRequestCount,
+  completion,
+  onOpenCompletion,
   now,
   isCancelling,
   cancellingVehicleId,
@@ -285,6 +295,22 @@ const IncidentCard: React.FC<IncidentCardProps> = ({
                 );
               })
             )}
+
+            {/* §26.2: tiến độ nghiệm thu theo tổ → mở màn Nghiệm thu đúng sự cố */}
+            {completion && completion.total > 0 && (
+              <button
+                onClick={onOpenCompletion}
+                className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded border text-[10px] font-semibold transition-colors ${
+                  completion.done === completion.total
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <ClipboardCheck className="w-3 h-3 shrink-0" />
+                <span className="flex-1 text-left">{t('incidents.completion.progress', { ...completion })}</span>
+                <ChevronRight className="w-3 h-3 shrink-0 opacity-60" />
+              </button>
+            )}
           </>
         )}
       </div>
@@ -321,9 +347,11 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
   onServeFieldRequest,
   highlightFieldRequestId,
 }) => {
-  const { vehicles, incidents, escalatedIncidentIds, escalationTiers, fieldRequests } = useDispatchStore();
+  const { vehicles, incidents, escalatedIncidentIds, escalationTiers, fieldRequests, assignmentsByIncident } =
+    useDispatchStore();
   const now = useNow();
   const teamByVehicle = useTeamByVehicle();
+  const navigate = useNavigate();
   const { t } = useTranslation();
 
   const dispatchIncidents = useMemo(
@@ -339,6 +367,14 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
     () => new Set(incidents.filter((i) => i.status === 'approved').map((i) => i.id)),
     [incidents]
   );
+  const completionProgress = useMemo(() => {
+    const map = new Map<string, CompletionProgress>();
+    for (const incident of dispatchIncidents) {
+      const own = assignmentsByIncident.get(incident.id);
+      if (own) map.set(incident.id, progressOf(groupCompletion(own, teamByVehicle)));
+    }
+    return map;
+  }, [dispatchIncidents, assignmentsByIncident, teamByVehicle]);
   const fieldRequestCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const r of fieldRequests) counts.set(r.incidentId, (counts.get(r.incidentId) ?? 0) + 1);
@@ -395,6 +431,8 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
               isEscalated={escalatedIncidentIds.has(incident.id)}
               escalationTier={escalationTiers.get(incident.id) ?? 1}
               fieldRequestCount={fieldRequestCounts.get(incident.id) ?? 0}
+              completion={completionProgress.get(incident.id) ?? null}
+              onOpenCompletion={() => navigate(`${COMPLETION_PATH}?incident=${encodeURIComponent(incident.id)}`)}
               now={now}
               isCancelling={cancellingIncidentId === incident.id}
               cancellingVehicleId={cancellingVehicleId}

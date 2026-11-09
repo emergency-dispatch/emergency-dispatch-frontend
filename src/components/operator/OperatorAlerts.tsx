@@ -1,8 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRightLeft, HandHelping, MapPinOff, MessageSquarePlus, Radio, TrafficCone, X } from 'lucide-react';
+import { ArrowRightLeft, ClipboardCheck, HandHelping, MapPinOff, MessageSquarePlus, Radio, TrafficCone, X } from 'lucide-react';
 import { useDispatchStore, type OperatorAlert } from '../../context/DispatchContext';
 import { useTranslation } from '../../i18n';
+import { COMPLETION_PATH } from '../../data/dashboardMock';
 
 const KIND_META: Record<
   OperatorAlert['kind'],
@@ -10,7 +11,7 @@ const KIND_META: Record<
     icon: React.ElementType;
     className: string;
     iconClassName: string;
-    action?: 'verify' | 'viewOnMap' | 'viewDetail' | 'assignTrafficTeam' | 'openFieldRequest';
+    action?: 'verify' | 'viewOnMap' | 'viewDetail' | 'assignTrafficTeam' | 'openFieldRequest' | 'viewCompletion';
   }
 > = {
   out_of_area: {
@@ -59,6 +60,12 @@ const KIND_META: Record<
     iconClassName: 'text-white',
     action: 'openFieldRequest',
   },
+  team_completed: {
+    icon: ClipboardCheck,
+    className: 'border-emerald-200 bg-white text-slate-800',
+    iconClassName: 'text-emerald-600',
+    action: 'viewCompletion',
+  },
 };
 
 /**
@@ -83,6 +90,11 @@ export const OperatorAlerts: React.FC = () => {
       navigate('/dashboard/command-center/live-map', {
         state: { focusFieldRequestId: alert.fieldRequestId, focusIncidentId: alert.incidentId },
       });
+      return;
+    }
+    // §26.2: mở màn Nghiệm thu đúng sự cố.
+    if (alert.kind === 'team_completed') {
+      navigate(`${COMPLETION_PATH}?incident=${encodeURIComponent(alert.incidentId)}`);
       return;
     }
     const incident = incidents.find((i) => i.id === alert.incidentId);

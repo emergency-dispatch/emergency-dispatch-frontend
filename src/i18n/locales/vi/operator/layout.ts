@@ -4,6 +4,7 @@ export const layoutVi = {
     incidentQueue: 'Hàng đợi sự cố',
     stationTeams: 'Trạm & Tổ',
     vehicles: 'Đội xe',
+    completion: 'Nghiệm thu',
   },
   hubStatus: {
     connected: { label: 'TRỰC TUYẾN', title: 'Đang nhận dữ liệu realtime' },
@@ -68,6 +69,7 @@ export const layoutVi = {
     viewDetail: 'Xem chi tiết',
     assignTrafficTeam: 'Mở điểm ùn tắc',
     openFieldRequest: 'Xem yêu cầu',
+    viewCompletion: 'Xem nghiệm thu',
     dismiss: 'Đóng thông báo',
     outOfAreaTitle: 'SOS ngoài khu vực phục vụ',
     outOfAreaMessage: '{{title}} — {{address}} (cách {{area}} {{km}} km).',
@@ -91,6 +93,8 @@ export const layoutVi = {
     fieldRequestEscalatedTitle: 'Yêu cầu hiện trường quá hạn chưa xử lý',
     fieldRequestMessage: '{{plate}} · {{incident}}: {{content}}',
     fieldRequestBackupContent: 'cần thêm {{count}} xe {{type}}',
+    teamCompletedTitle: 'Tổ đã nghiệm thu',
+    teamCompletedMessage: '{{team}} đã ký nghiệm thu · {{incident}}',
   },
   stationNotAssigned: {
     title: 'Chưa có trạm phụ trách',

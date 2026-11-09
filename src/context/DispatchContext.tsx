@@ -168,7 +168,9 @@ export interface OperatorAlert {
     | 'supplement'
     | 'traffic_escalation'
     | 'field_request'
-    | 'field_request_escalated';
+    | 'field_request_escalated'
+    /** §26.2: một tổ vừa nộp báo cáo nghiệm thu (chữ ký đại diện). */
+    | 'team_completed';
   /** Sự cố liên quan; `traffic_escalation` dùng `trafficJamId` (incidentId = id điểm ùn tắc). */
   incidentId: string;
   trafficJamId?: string;
@@ -344,6 +346,8 @@ interface DispatchContextValue {
   supplementVersions: Map<string, number>;
   /** Tài khoản chưa được Admin gán trạm phụ trách → các màn Operator hiện hướng dẫn thay vì dữ liệu. */
   stationNotAssigned: string | null;
+  /** Lượt điều phối đã biết theo sự cố (đang chạy + đã kết thúc) — màn Nghiệm thu nhóm theo tổ (§26.2). */
+  assignmentsByIncident: Map<string, DispatchAssignmentResponseDto[]>;
 }
 
 const DispatchContext = createContext<DispatchContextValue | null>(null);
@@ -403,6 +407,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Sự cố hiện có — handler SignalR cần tiêu đề sự cố (payload bổ sung thông tin không kèm tiêu đề).
   const incidentDtosRef = useRef(incidentDtos);
   incidentDtosRef.current = incidentDtos;
+  // §26.2: một báo cáo nghiệm thu hoàn tất nhiều xe → nhiều event cùng report id; chỉ báo một lần.
+  const announcedReportIdsRef = useRef<Set<string>>(new Set());
   // Lần tải đầu / sau khi nối lại SignalR: tải đủ lịch sử lượt điều phối từng sự cố (cả lượt đã xong / bị từ chối).
   const fullAssignmentSyncRef = useRef(true);
 
@@ -812,6 +818,25 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setAssignments((prev) => upsert(prev, [a]))
       ),
       incidentHubService.on<DispatchAssignmentResponseDto>(HubEvents.ReceiveAssignmentStatus, (a) => {
+        const report = a.completionReport;
+        const wasCompleted = assignmentsRef.current.get(a.id)?.status === 'Completed';
+        const incident = incidentDtosRef.current.get(a.incidentId);
+        // Tổ vừa nộp nghiệm thu cho sự cố trạm mình → báo nhẹ, mở thẳng màn Nghiệm thu.
+        if (a.status === 'Completed' && report && !wasCompleted && incident && !announcedReportIdsRef.current.has(report.id)) {
+          announcedReportIdsRef.current.add(report.id);
+          pushOperatorAlert(
+            {
+              kind: 'team_completed',
+              incidentId: a.incidentId,
+              title: i18n.t('layout.operatorAlerts.teamCompletedTitle'),
+              message: i18n.t('layout.operatorAlerts.teamCompletedMessage', {
+                team: report.stationTeamName || a.rescueUnit?.plateNumber || '—',
+                incident: incident.title,
+              }),
+            },
+            INFO_ALERT_MS
+          );
+        }
         setAssignments((prev) => upsert(prev, [a]));
         // Xe đổi trạng thái theo lượt phân công (hoàn tất → hồi sức, hủy → sẵn sàng).
         if (!isActiveAssignment(a)) refreshUnits();
@@ -980,9 +1005,14 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   }, [units, activeAssignmentByUnit, positions]);
 
-  const incidents = useMemo<Incident[]>(() => {
+  const assignmentsByIncident = useMemo(() => {
     const byIncident = new Map<string, DispatchAssignmentResponseDto[]>();
     assignments.forEach((a) => byIncident.set(a.incidentId, [...(byIncident.get(a.incidentId) ?? []), a]));
+    return byIncident;
+  }, [assignments]);
+
+  const incidents = useMemo<Incident[]>(() => {
+    const byIncident = assignmentsByIncident;
 
     const list = [...incidentDtos.values()].map((dto): Incident => {
       // `t` đổi khi đổi ngôn ngữ → tính lại để chọn tóm tắt / căn cứ ùn tắc AI đúng ngôn ngữ.
@@ -1012,7 +1042,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       };
     });
     return sortByPriority(list);
-  }, [incidentDtos, assignments, dismissedNoticeIds, t]);
+  }, [incidentDtos, assignmentsByIncident, dismissedNoticeIds, t]);
 
   // Thông báo tự biến mất khi sự cố không còn chờ duyệt (đã duyệt / bị hủy, kể cả bởi Operator khác).
   const incomingIncidents = useMemo(() => {
@@ -1446,6 +1476,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         dismissOperatorAlert,
         supplementVersions,
         stationNotAssigned,
+        assignmentsByIncident,
       }}
     >
       {children}

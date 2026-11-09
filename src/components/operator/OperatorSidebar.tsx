@@ -1,8 +1,9 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { ShieldAlert } from 'lucide-react';
-import { dashboardNavGroups } from '../../data/dashboardMock';
+import { COMPLETION_PATH, dashboardNavGroups } from '../../data/dashboardMock';
 import { useDispatchStore } from '../../context/DispatchContext';
+import { hasPendingCompletion } from './completion/completionGroups';
 import { useTranslation } from '../../i18n';
 
 const QUEUE_PATH = '/dashboard/command-center/incidents';
@@ -10,6 +11,7 @@ const QUEUE_PATH = '/dashboard/command-center/incidents';
 const NAV_LABEL_KEY = {
   '/dashboard/command-center/live-map': 'layout.nav.liveMap',
   '/dashboard/command-center/incidents': 'layout.nav.incidentQueue',
+  '/dashboard/command-center/completion': 'layout.nav.completion',
   '/dashboard/command-center/station-teams': 'layout.nav.stationTeams',
   '/dashboard/command-center/vehicles': 'layout.nav.vehicles',
 } as const;
@@ -19,9 +21,13 @@ const NAV_LABEL_KEY = {
  * Label hiện qua tooltip khi hover.
  */
 export const OperatorSidebar: React.FC = () => {
-  const { incidents } = useDispatchStore();
+  const { incidents, assignmentsByIncident } = useDispatchStore();
   const { t } = useTranslation();
   const pendingCount = incidents.filter((i) => i.status === 'pending').length;
+  // §26.2: sự cố đang xử lý còn tổ chưa ký nghiệm thu (badge vàng — không phải việc khẩn như hàng đợi).
+  const awaitingCompletionCount = incidents.filter(
+    (i) => i.status === 'approved' && hasPendingCompletion(assignmentsByIncident.get(i.id))
+  ).length;
 
   return (
     <aside className="flex flex-col h-full w-16 shrink-0 bg-white border-r border-slate-200">
@@ -37,7 +43,9 @@ export const OperatorSidebar: React.FC = () => {
         {dashboardNavGroups.map((group) =>
           group.items.map((item) => {
             const Icon = item.icon;
-            const badge = item.path === QUEUE_PATH && pendingCount > 0 ? pendingCount : 0;
+            const badge =
+              item.path === QUEUE_PATH ? pendingCount : item.path === COMPLETION_PATH ? awaitingCompletionCount : 0;
+            const badgeClass = item.path === COMPLETION_PATH ? 'bg-amber-500' : 'bg-red-600';
             return (
               <NavLink
                 key={item.path}
@@ -58,7 +66,7 @@ export const OperatorSidebar: React.FC = () => {
                     )}
                     <Icon className="w-4.5 h-4.5" />
                     {badge > 0 && (
-                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white">
+                      <span className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full ${badgeClass} text-white text-[9px] font-bold flex items-center justify-center border-2 border-white`}>
                         {badge > 99 ? '99+' : badge}
                       </span>
                     )}

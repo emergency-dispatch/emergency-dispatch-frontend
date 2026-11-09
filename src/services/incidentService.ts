@@ -214,6 +214,29 @@ export const incidentService = {
     }
   },
 
+  /**
+   * §26.2 màn Nghiệm thu: sự cố đã hoàn tất của trạm mình (backend tự giới hạn theo trạm), mới tiếp nhận trước.
+   * `fromDate` lọc theo thời điểm tiếp nhận (CreatedAt).
+   */
+  async getCompletedIncidents(params: {
+    pageIndex: number;
+    pageSize: number;
+    searchTerm?: string;
+    fromDate?: string;
+  }): Promise<PaginatedResultDto<IncidentResponseDto>> {
+    return unwrapApi(
+      apiClient.get<ApiResponse<PaginatedResultDto<IncidentResponseDto>>>('/Incidents', {
+        params: {
+          statuses: 'Completed',
+          pageIndex: params.pageIndex,
+          pageSize: params.pageSize,
+          searchTerm: params.searchTerm || undefined,
+          fromDate: params.fromDate,
+        },
+      })
+    );
+  },
+
   /** Nhật ký thao tác trên sự cố (Operator trạm phụ trách / Admin). */
   async getAuditTrail(id: string, pageIndex = 1, pageSize = 50): Promise<PaginatedResultDto<IncidentAuditEntryDto>> {
     const res = await apiClient.get<ApiResponse<PaginatedResultDto<IncidentAuditEntryDto>>>(`/Incidents/${id}/audit-trail`, {

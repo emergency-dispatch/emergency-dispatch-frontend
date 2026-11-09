@@ -56,6 +56,8 @@ export interface DispatchAssignmentResponseDto {
 }
 
 export interface CompletionReportDto {
+  /** §26.2: các xe cùng tổ trả cùng một báo cáo (cùng `id`). */
+  id: string;
   stationTeamId?: string | null;
   stationTeamName?: string | null;
   actionsSummary: string;

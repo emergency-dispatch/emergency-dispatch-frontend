@@ -7,6 +7,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
     incidentQueue: 'Incident Queue',
     stationTeams: 'Station Teams',
     vehicles: 'Fleet',
+    completion: 'Completion',
   },
   hubStatus: {
     connected: { label: 'ONLINE', title: 'Receiving realtime data' },
@@ -71,6 +72,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
     viewDetail: 'View details',
     assignTrafficTeam: 'Open hotspot',
     openFieldRequest: 'View request',
+    viewCompletion: 'View completion',
     dismiss: 'Dismiss notification',
     outOfAreaTitle: 'SOS outside the service area',
     outOfAreaMessage: '{{title}} — {{address}} ({{km}} km outside {{area}}).',
@@ -94,6 +96,8 @@ export const layoutEn: Messages<typeof layoutVi> = {
     fieldRequestEscalatedTitle: 'Field request overdue and unhandled',
     fieldRequestMessage: '{{plate}} · {{incident}}: {{content}}',
     fieldRequestBackupContent: 'needs {{count}} more vehicle(s) {{type}}',
+    teamCompletedTitle: 'Team signed off',
+    teamCompletedMessage: '{{team}} signed the completion report · {{incident}}',
   },
   stationNotAssigned: {
     title: 'No assigned station',
