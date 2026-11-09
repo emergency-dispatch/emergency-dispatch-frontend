@@ -6,7 +6,7 @@ import { inputClass, thClass } from '../../components/admin/common/styles';
 import { VehicleFormDrawer } from '../../components/operator/vehicles/VehicleFormDrawer';
 import { FleetHeader } from '../../components/operator/vehicles/FleetHeader';
 import { EquipmentTab } from '../../components/operator/equipment/EquipmentTab';
-import { useStationEquipment } from '../../components/operator/equipment/useStationEquipment';
+import { useEquipmentList } from '../../components/equipment/useEquipmentList';
 import { VehicleEquipmentModal } from '../../components/operator/equipment/VehicleEquipmentModal';
 import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../data/liveMapMeta';
 import { useDispatchStore } from '../../context/DispatchContext';
@@ -69,7 +69,7 @@ export const VehiclesPage: React.FC = () => {
 
   const stationId = user?.stationId ?? null;
   // Tải ở cả tab Xe để cột "Thiết bị" có số liệu.
-  const equipment = useStationEquipment(stationId);
+  const equipment = useEquipmentList(stationId);
   const equipmentByUnit = useMemo(() => {
     const map = new Map<string, { count: number; maintenance: number }>();
     for (const e of equipment.items) {

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { ConfirmModal, Notice } from '../../admin/common/ui';
-import { inputClass } from '../../admin/common/styles';
+import { ConfirmModal, Notice } from '../admin/common/ui';
+import { inputClass } from '../admin/common/styles';
 import { EQUIPMENT_QUICK_REASONS, isNotFoundError } from './equipmentMeta';
-import { equipmentService } from '../../../services/equipmentService';
-import { getApiErrorMessage } from '../../../services/apiClient';
-import { EQUIPMENT_NOTES_MAX, EQUIPMENT_REASON_MIN, type EquipmentDto } from '../../../types/equipment';
-import { useTranslation } from '../../../i18n';
+import { equipmentService } from '../../services/equipmentService';
+import { getApiErrorMessage } from '../../services/apiClient';
+import { EQUIPMENT_NOTES_MAX, EQUIPMENT_REASON_MIN, type EquipmentDto } from '../../types/equipment';
+import { useTranslation } from '../../i18n';
 
 interface EquipmentStatusDialogProps {
   equipment: EquipmentDto;

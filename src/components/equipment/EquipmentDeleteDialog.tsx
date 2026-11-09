@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { ConfirmModal, Notice } from '../../admin/common/ui';
+import { ConfirmModal, Notice } from '../admin/common/ui';
 import { isNotFoundError } from './equipmentMeta';
-import { equipmentService } from '../../../services/equipmentService';
-import { getApiErrorMessage } from '../../../services/apiClient';
-import type { EquipmentDto } from '../../../types/equipment';
-import { useTranslation } from '../../../i18n';
+import { equipmentService } from '../../services/equipmentService';
+import { getApiErrorMessage } from '../../services/apiClient';
+import type { EquipmentDto } from '../../types/equipment';
+import { useTranslation } from '../../i18n';
 
 interface EquipmentDeleteDialogProps {
   equipment: EquipmentDto;

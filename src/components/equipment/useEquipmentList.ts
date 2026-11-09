@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { equipmentService } from '../../../services/equipmentService';
-import { getApiErrorMessage } from '../../../services/apiClient';
-import type { EquipmentDto } from '../../../types/equipment';
-import i18n from '../../../i18n';
+import { equipmentService } from '../../services/equipmentService';
+import { getApiErrorMessage } from '../../services/apiClient';
+import type { EquipmentDto } from '../../types/equipment';
+import i18n from '../../i18n';
 
 /**
- * Thiết bị của trạm Operator (tải nguyên danh sách, lọc phía client). Không có realtime → tải lại khi quay lại
- * tab trình duyệt (Staff có thể vừa báo hỏng từ app). Thao tác thành công thì thay đúng dòng bằng DTO backend trả về.
+ * Danh sách thiết bị (tải nguyên danh sách, lọc phía client). Operator: backend tự giới hạn trạm mình;
+ * Admin: mọi trạm. `scopeKey` null → chưa tải (Operator chưa gán trạm); đổi key → tải lại.
+ * Không có realtime → tải lại khi quay lại tab trình duyệt (Staff có thể vừa báo hỏng từ app).
+ * Thao tác thành công thì thay đúng dòng bằng DTO backend trả về.
  */
-export function useStationEquipment(stationId: string | null) {
+export function useEquipmentList(scopeKey: string | null) {
   const [items, setItems] = useState<EquipmentDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +19,7 @@ export function useStationEquipment(stationId: string | null) {
   const seqRef = useRef(0);
 
   const reload = useCallback(async () => {
-    if (!stationId) return;
+    if (!scopeKey) return;
     const seq = ++seqRef.current;
     setLoading(true);
     try {
@@ -32,7 +34,7 @@ export function useStationEquipment(stationId: string | null) {
     } finally {
       if (seq === seqRef.current) setLoading(false);
     }
-  }, [stationId]);
+  }, [scopeKey]);
 
   useEffect(() => {
     reload();
@@ -56,3 +58,5 @@ export function useStationEquipment(stationId: string | null) {
 
   return { items, loading, error, loadedAt, reload, upsert, removeLocal };
 }
+
+export type EquipmentListState = ReturnType<typeof useEquipmentList>;

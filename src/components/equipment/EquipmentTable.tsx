@@ -1,29 +1,39 @@
 import React from 'react';
-import { thClass } from '../../admin/common/styles';
+import { thClass } from '../admin/common/styles';
 import { EquipmentCategoryChip, EquipmentLocation, EquipmentRowActions, EquipmentStatusBadge } from './EquipmentBits';
-import { sinceText } from './equipmentMeta';
-import { formatDateTime } from '../../../utils/incidentFormat';
-import type { EquipmentDto } from '../../../types/equipment';
-import type { Vehicle } from '../../../types/vehicle';
-import { useTranslation } from '../../../i18n';
+import { sinceText, type EquipmentUnitOption } from './equipmentMeta';
+import { formatDateTime } from '../../utils/incidentFormat';
+import type { EquipmentDto } from '../../types/equipment';
+import { useTranslation } from '../../i18n';
 
 interface EquipmentTableProps {
   items: EquipmentDto[];
-  vehicleById: Map<string, Vehicle>;
+  unitById: Map<string, EquipmentUnitOption>;
   now: number;
+  /** Admin: thêm cột Trạm (nhiều trạm trong một bảng). */
+  renderStation?: (e: EquipmentDto) => React.ReactNode;
   onToggleStatus: (e: EquipmentDto) => void;
   onEdit: (e: EquipmentDto) => void;
   onDelete: (e: EquipmentDto) => void;
 }
 
 /** View Bảng: mỗi dòng một thiết bị; dòng Bảo trì có vạch amber bên trái. */
-export const EquipmentTable: React.FC<EquipmentTableProps> = ({ items, vehicleById, now, onToggleStatus, onEdit, onDelete }) => {
+export const EquipmentTable: React.FC<EquipmentTableProps> = ({
+  items,
+  unitById,
+  now,
+  renderStation,
+  onToggleStatus,
+  onEdit,
+  onDelete,
+}) => {
   const { t } = useTranslation();
   return (
-    <table className="w-full text-sm min-w-[900px]">
+    <table className={`w-full text-sm ${renderStation ? 'min-w-[1080px]' : 'min-w-[900px]'}`}>
       <thead className="bg-slate-50 sticky top-0 z-10">
         <tr className="text-left">
           <th className={thClass}>{t('vehicles.equipment.columns.name')}</th>
+          {renderStation && <th className={thClass}>{t('vehicles.equipment.columns.station')}</th>}
           <th className={thClass}>{t('vehicles.equipment.columns.category')}</th>
           <th className={`${thClass} text-right`}>{t('vehicles.equipment.columns.quantity')}</th>
           <th className={thClass}>{t('vehicles.equipment.columns.location')}</th>
@@ -45,12 +55,13 @@ export const EquipmentTable: React.FC<EquipmentTableProps> = ({ items, vehicleBy
                   </p>
                 )}
               </td>
+              {renderStation && <td className="px-4 py-3">{renderStation(e)}</td>}
               <td className="px-4 py-3">
                 <EquipmentCategoryChip category={e.category} />
               </td>
               <td className="px-4 py-3 text-right font-mono-data font-bold text-slate-900 tabular-nums">×{e.quantity}</td>
               <td className="px-4 py-3">
-                <EquipmentLocation equipment={e} vehicle={e.rescueUnitId ? vehicleById.get(e.rescueUnitId) : undefined} />
+                <EquipmentLocation equipment={e} vehicle={e.rescueUnitId ? unitById.get(e.rescueUnitId) : undefined} />
               </td>
               <td className="px-4 py-3">
                 <EquipmentStatusBadge status={e.status} />

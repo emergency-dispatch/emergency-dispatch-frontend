@@ -2,6 +2,7 @@ import { adminLayoutVi } from './layout';
 import { adminCommonVi } from './common';
 import { adminStationsVi } from './stations';
 import { adminVehiclesVi } from './vehicles';
+import { adminEquipmentVi } from './equipment';
 import { adminUsersVi } from './users';
 import { adminSettingsVi } from './settings';
 import { adminMonitoringVi } from './monitoring';
@@ -11,6 +12,7 @@ export const adminVi = {
   common: adminCommonVi,
   stations: adminStationsVi,
   vehicles: adminVehiclesVi,
+  equipment: adminEquipmentVi,
   users: adminUsersVi,
   settings: adminSettingsVi,
   monitoring: adminMonitoringVi,

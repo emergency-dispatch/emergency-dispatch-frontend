@@ -1,10 +1,11 @@
 import axios from 'axios';
+import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { FireExtinguisher, HardHat, HeartPulse, LifeBuoy, Package, Radio } from 'lucide-react';
-import { normalizeText } from '../../../services/admin/listUtils';
-import { formatWaitDuration } from '../../../utils/incidentFormat';
-import i18n from '../../../i18n';
-import type { EquipmentCategory, EquipmentDto, EquipmentStatus } from '../../../types/equipment';
+import { normalizeText } from '../../services/admin/listUtils';
+import { formatWaitDuration } from '../../utils/incidentFormat';
+import i18n from '../../i18n';
+import type { EquipmentCategory, EquipmentDto, EquipmentStatus } from '../../types/equipment';
 
 /** Icon + class màu (Tailwind) cho từng nhóm thiết bị. Nhãn: `vehicles.equipment.category.*`. */
 export const EQUIPMENT_CATEGORY_META: Record<
@@ -22,7 +23,36 @@ export const EQUIPMENT_CATEGORY_META: Record<
 /** Lý do bảo trì gợi ý (key `vehicles.equipment.status.quickReasons.*`) — bấm để điền nhanh. */
 export const EQUIPMENT_QUICK_REASONS = ['broken', 'inspection', 'service', 'missingParts'] as const;
 
-// ---------- Lọc / sắp xếp dùng chung giữa trang Đội xe và các view thiết bị ----------
+/**
+ * Một xe có thể giữ thiết bị — dạng chung để Operator (Vehicle của Live Map) và Admin (RescueUnitResponseDto)
+ * dùng cùng bảng / form. Nhãn đã dịch sẵn khi tạo.
+ */
+export interface EquipmentUnitOption {
+  id: string;
+  plate: string;
+  stationId: string;
+  icon: ComponentType<{ className?: string }>;
+  typeLabel: string;
+  statusLabel: string;
+  statusColor: string;
+}
+
+/** Trạm chọn được trong form (Admin). */
+export interface EquipmentStationOption {
+  id: string;
+  code: string | null;
+  name: string;
+}
+
+export const stationOptionLabel = (s: EquipmentStationOption) => (s.code ? `${s.code} · ${s.name}` : s.name);
+
+/**
+ * Thiết bị gắn xe nhưng backend không còn trả biển số (xe đã bị xóa mềm — navigation bị query filter loại bỏ)
+ * → phải chọn vị trí khác mới lưu được (backend 404 với xe đã xóa).
+ */
+export const isOnDeletedUnit = (e: EquipmentDto) => !!e.rescueUnitId && !e.rescueUnitPlate;
+
+// ---------- Lọc / sắp xếp dùng chung giữa trang Đội xe (Operator) và trang Thiết bị (Admin) ----------
 
 /** Giá trị bộ lọc vị trí cho thiết bị để ở kho trạm (không gắn xe). */
 export const STOCK_KEY = 'stock';
@@ -34,6 +64,8 @@ export interface EquipmentFilters {
   unit: string;
   /** Đã chuẩn hóa bằng normalizeText. */
   query: string;
+  /** Chỉ Admin: '' = mọi trạm. */
+  station?: string;
 }
 
 export type EquipmentFilterKey = keyof EquipmentFilters;
@@ -43,7 +75,14 @@ export function matchesEquipment(e: EquipmentDto, f: EquipmentFilters, skip?: Eq
   if (skip !== 'category' && f.category && e.category !== f.category) return false;
   if (skip !== 'status' && f.status && e.status !== f.status) return false;
   if (skip !== 'unit' && f.unit && (e.rescueUnitId ?? STOCK_KEY) !== f.unit) return false;
-  if (skip !== 'query' && f.query && !normalizeText(`${e.name} ${e.notes ?? ''} ${e.statusNote ?? ''}`).includes(f.query))
+  if (skip !== 'station' && f.station && e.stationId !== f.station) return false;
+  if (
+    skip !== 'query' &&
+    f.query &&
+    !normalizeText(`${e.name} ${e.notes ?? ''} ${e.statusNote ?? ''} ${e.rescueUnitPlate ?? ''} ${e.stationName ?? ''}`).includes(
+      f.query
+    )
+  )
     return false;
   return true;
 }

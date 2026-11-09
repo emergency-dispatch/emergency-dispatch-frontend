@@ -4,19 +4,20 @@ import { AlertTriangle, LayoutGrid, Loader2, Package, RefreshCw, Rows3, Search, 
 import { Notice, type NoticeState } from '../../admin/common/ui';
 import { inputClass } from '../../admin/common/styles';
 import { FleetHeader, type FleetStat } from '../vehicles/FleetHeader';
-import { EquipmentTable } from './EquipmentTable';
+import { EquipmentTable } from '../../equipment/EquipmentTable';
 import { EquipmentByVehicle } from './EquipmentByVehicle';
-import { EquipmentFormDrawer } from './EquipmentFormDrawer';
-import { EquipmentStatusDialog } from './EquipmentStatusDialog';
-import { EquipmentDeleteDialog } from './EquipmentDeleteDialog';
+import { EquipmentFormDrawer } from '../../equipment/EquipmentFormDrawer';
+import { EquipmentStatusDialog } from '../../equipment/EquipmentStatusDialog';
+import { EquipmentDeleteDialog } from '../../equipment/EquipmentDeleteDialog';
 import {
   EQUIPMENT_CATEGORY_META,
   STOCK_KEY,
   compareEquipment,
   matchesEquipment,
   type EquipmentFilters,
-} from './equipmentMeta';
-import type { useStationEquipment } from './useStationEquipment';
+} from '../../equipment/equipmentMeta';
+import type { EquipmentListState } from '../../equipment/useEquipmentList';
+import { vehicleToUnitOption } from './unitOption';
 import { useNow } from '../../../hooks/useNow';
 import { normalizeText } from '../../../services/admin/listUtils';
 import {
@@ -37,7 +38,7 @@ interface EquipmentTabProps {
   stationId: string;
   /** Xe của trạm, sắp theo biển số. */
   vehicles: Vehicle[];
-  equipment: ReturnType<typeof useStationEquipment>;
+  equipment: EquipmentListState;
 }
 
 const oneOf = <T extends string>(value: string | null, allowed: readonly T[]): T | '' =>
@@ -61,6 +62,9 @@ export const EquipmentTab: React.FC<EquipmentTabProps> = ({ title, tabs, station
 
   const { items, loading, error, loadedAt, reload, upsert, removeLocal } = equipment;
   const vehicleById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
+  // Tính mỗi lần render (danh sách nhỏ) để nhãn loại / trạng thái xe theo kịp khi đổi ngôn ngữ.
+  const unitOptions = vehicles.map(vehicleToUnitOption);
+  const unitById = new Map(unitOptions.map((u) => [u.id, u]));
 
   const unitParam = params.get('unit') ?? '';
   const filters: EquipmentFilters = {
@@ -359,7 +363,7 @@ export const EquipmentTab: React.FC<EquipmentTabProps> = ({ title, tabs, station
           ) : (
             <EquipmentTable
               items={visible}
-              vehicleById={vehicleById}
+              unitById={unitById}
               now={now}
               onToggleStatus={setStatusTarget}
               onEdit={setEditing}
@@ -373,7 +377,7 @@ export const EquipmentTab: React.FC<EquipmentTabProps> = ({ title, tabs, station
         <EquipmentFormDrawer
           equipment={editing}
           stationId={stationId}
-          vehicles={vehicles}
+          vehicles={unitOptions}
           defaults={addDefaults}
           onClose={() => setEditing(undefined)}
           onSaved={(saved, created, keepOpen) => {

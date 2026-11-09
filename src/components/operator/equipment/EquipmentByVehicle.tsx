@@ -1,8 +1,8 @@
 import React from 'react';
 import { Plus, Warehouse, Wrench } from 'lucide-react';
 import { VehicleStatusBadge } from '../../admin/common/ui';
-import { EquipmentListItem } from './EquipmentBits';
-import { STOCK_KEY } from './equipmentMeta';
+import { EquipmentListItem } from '../../equipment/EquipmentBits';
+import { STOCK_KEY } from '../../equipment/equipmentMeta';
 import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import type { EquipmentDto } from '../../../types/equipment';
 import type { Vehicle } from '../../../types/vehicle';

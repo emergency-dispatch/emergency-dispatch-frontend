@@ -19,6 +19,7 @@ export const adminLayoutVi = {
     overview: 'Tổng quan',
     stations: 'Trạm cứu hộ',
     vehicles: 'Đội xe',
+    equipment: 'Thiết bị',
     accounts: 'Tài khoản nội bộ',
     citizens: 'Tài khoản Citizen',
     blockedNumbers: 'Số bị chặn',

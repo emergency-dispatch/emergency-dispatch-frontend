@@ -1,12 +1,19 @@
 import React, { useRef, useState } from 'react';
-import { Minus, Plus, Warehouse } from 'lucide-react';
-import { DrawerShell, FormField, Notice, VehicleStatusBadge, type NoticeState } from '../../admin/common/ui';
-import { inputClass, validatedInputClass } from '../../admin/common/styles';
-import { useUnsavedChangesGuard } from '../../admin/common/hooks';
-import { EQUIPMENT_CATEGORY_META, STOCK_KEY, isNotFoundError } from './equipmentMeta';
-import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
-import { equipmentService } from '../../../services/equipmentService';
-import { getApiErrorMessage } from '../../../services/apiClient';
+import { ArrowRightLeft, Minus, Plus, TriangleAlert, Warehouse } from 'lucide-react';
+import { DrawerShell, FormField, Notice, VehicleStatusBadge, type NoticeState } from '../admin/common/ui';
+import { inputClass, validatedInputClass } from '../admin/common/styles';
+import { useUnsavedChangesGuard } from '../admin/common/hooks';
+import {
+  EQUIPMENT_CATEGORY_META,
+  STOCK_KEY,
+  isNotFoundError,
+  isOnDeletedUnit,
+  stationOptionLabel,
+  type EquipmentStationOption,
+  type EquipmentUnitOption,
+} from './equipmentMeta';
+import { equipmentService } from '../../services/equipmentService';
+import { getApiErrorMessage } from '../../services/apiClient';
 import {
   EQUIPMENT_CATEGORIES,
   EQUIPMENT_NAME_MAX,
@@ -15,18 +22,22 @@ import {
   EQUIPMENT_QUANTITY_MIN,
   type EquipmentCategory,
   type EquipmentDto,
-} from '../../../types/equipment';
-import type { Vehicle } from '../../../types/vehicle';
-import { useTranslation } from '../../../i18n';
+} from '../../types/equipment';
+import { useTranslation } from '../../i18n';
 
 interface EquipmentFormDrawerProps {
   /** null → thêm mới. */
   equipment: EquipmentDto | null;
+  /** Trạm khi thêm mới: Operator = trạm mình (cố định); Admin = trạm đang lọc ('' = chưa chọn). */
   stationId: string;
-  /** Xe của trạm (chọn vị trí đặt). */
-  vehicles: Vehicle[];
+  /** Xe chọn làm vị trí đặt. Có `stations` thì lọc theo trạm đang chọn trong form. */
+  vehicles: EquipmentUnitOption[];
+  /** Chỉ Admin: hiện ô chọn trạm (thêm mới / chuyển thiết bị sang trạm khác). */
+  stations?: EquipmentStationOption[];
   /** Giá trị điền sẵn khi thêm mới (theo bộ lọc / thẻ xe đang xem). */
   defaults: { category: EquipmentCategory | ''; unit: string };
+  /** Khối phụ cuối form (Admin: lịch sử thay đổi). */
+  extra?: React.ReactNode;
   onClose: () => void;
   /** `keepOpen`: người dùng chọn "Lưu & thêm tiếp" — drawer vẫn mở. */
   onSaved: (saved: EquipmentDto, created: boolean, keepOpen: boolean) => void;
@@ -35,12 +46,14 @@ interface EquipmentFormDrawerProps {
 
 const parseQuantity = (raw: string) => (/^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN);
 
-/** Thêm / sửa thiết bị của trạm Operator. Trạm cố định; trạng thái đổi ở danh sách. */
+/** Thêm / sửa thiết bị. Operator: trạm cố định. Admin: chọn / đổi trạm. Trạng thái đổi ở danh sách. */
 export const EquipmentFormDrawer: React.FC<EquipmentFormDrawerProps> = ({
   equipment,
   stationId,
-  vehicles,
+  vehicles: allVehicles,
+  stations,
   defaults,
+  extra,
   onClose,
   onSaved,
   onGone,
@@ -52,8 +65,12 @@ export const EquipmentFormDrawer: React.FC<EquipmentFormDrawerProps> = ({
     quantity: String(equipment?.quantity ?? 1),
     unit: equipment ? equipment.rescueUnitId ?? STOCK_KEY : defaults.unit || STOCK_KEY,
     notes: equipment?.notes ?? '',
+    station: equipment?.stationId ?? stationId,
   };
   const [name, setName] = useState(initial.name);
+  const [station, setStation] = useState(initial.station);
+  // Vừa đổi trạm làm mất xe đang chọn (xe thuộc trạm cũ) → báo đã đưa về Kho trạm.
+  const [unitReset, setUnitReset] = useState(false);
   const [category, setCategory] = useState<EquipmentCategory>(initial.category);
   const [quantity, setQuantity] = useState(initial.quantity);
   const [unit, setUnit] = useState(initial.unit);
@@ -70,7 +87,8 @@ export const EquipmentFormDrawer: React.FC<EquipmentFormDrawerProps> = ({
     category !== baseline.category ||
     quantity !== baseline.quantity ||
     unit !== baseline.unit ||
-    notes !== baseline.notes;
+    notes !== baseline.notes ||
+    station !== baseline.station;
   useUnsavedChangesGuard(dirty, t('vehicles.equipment.form.discardConfirm'));
 
   const qty = parseQuantity(quantity);
@@ -79,13 +97,35 @@ export const EquipmentFormDrawer: React.FC<EquipmentFormDrawerProps> = ({
     Number.isNaN(qty) || qty < EQUIPMENT_QUANTITY_MIN || qty > EQUIPMENT_QUANTITY_MAX
       ? t('vehicles.equipment.form.quantityInvalid')
       : null;
-  const canSubmit = !nameError && !quantityError;
-
-  // Xe đang giữ thiết bị nhưng không còn trong danh sách xe trạm (VD xe bị ẩn khỏi Live Map) → vẫn hiện để không mất lựa chọn.
+  const vehicles = stations ? allVehicles.filter((v) => v.stationId === station) : allVehicles;
+  const stationError = stations && !station ? t('vehicles.equipment.form.stationRequired') : null;
+  // Xe đang giữ thiết bị nhưng không có trong danh sách (Operator: xe bị ẩn khỏi Live Map; xe đã xóa mềm)
+  // → vẫn hiện để không mất lựa chọn. Chỉ hiện khi vẫn ở trạm cũ.
   const orphanUnit =
-    equipment?.rescueUnitId && !vehicles.some((v) => v.id === equipment.rescueUnitId)
-      ? { id: equipment.rescueUnitId, plate: equipment.rescueUnitPlate ?? '—' }
+    equipment?.rescueUnitId &&
+    station === equipment.stationId &&
+    !vehicles.some((v) => v.id === equipment.rescueUnitId)
+      ? { id: equipment.rescueUnitId, plate: equipment.rescueUnitPlate ?? '—', deleted: isOnDeletedUnit(equipment) }
       : null;
+  // Backend 404 với xe đã xóa → bắt chọn vị trí khác.
+  const locationError =
+    orphanUnit?.deleted && unit === orphanUnit.id ? t('vehicles.equipment.form.deletedUnitError') : null;
+  const canSubmit = !nameError && !quantityError && !stationError && !locationError;
+  const movingStation = !!equipment && !!station && station !== equipment.stationId;
+  const stationName = (id: string) => {
+    const s = stations?.find((x) => x.id === id);
+    return s ? stationOptionLabel(s) : (equipment?.stationName ?? '—');
+  };
+
+  const changeStation = (next: string) => {
+    setStation(next);
+    const keeps =
+      unit === STOCK_KEY ||
+      allVehicles.some((v) => v.id === unit && v.stationId === next) ||
+      (!!equipment && next === equipment.stationId && unit === equipment.rescueUnitId);
+    if (!keeps) setUnit(STOCK_KEY);
+    setUnitReset(!keeps);
+  };
 
   const close = () => {
     if (dirty && !window.confirm(t('vehicles.equipment.form.discardConfirm'))) return;
@@ -101,8 +141,8 @@ export const EquipmentFormDrawer: React.FC<EquipmentFormDrawerProps> = ({
       name: name.trim(),
       category,
       quantity: qty,
-      // Backend bắt buộc stationId cả khi tạo lẫn sửa; Operator không đổi được trạm.
-      stationId: equipment?.stationId ?? stationId,
+      // Backend bắt buộc stationId cả khi tạo lẫn sửa; chỉ Admin (có ô chọn trạm) đổi được.
+      stationId: stations ? station : (equipment?.stationId ?? stationId),
       rescueUnitId: unit === STOCK_KEY ? null : unit,
       notes: notes.trim() || null,
     };
@@ -110,8 +150,8 @@ export const EquipmentFormDrawer: React.FC<EquipmentFormDrawerProps> = ({
       const saved = equipment ? await equipmentService.update(equipment.id, input) : await equipmentService.create(input);
       onSaved(saved, !equipment, keepOpen);
       if (!keepOpen) return;
-      // Nhập kho liên tục: giữ nhóm + vị trí, xóa phần còn lại.
-      const next = { ...initial, category, unit, name: '', quantity: '1', notes: '' };
+      // Nhập kho liên tục: giữ trạm + nhóm + vị trí, xóa phần còn lại.
+      const next = { ...initial, category, unit, station, name: '', quantity: '1', notes: '' };
       setName('');
       setQuantity('1');
       setNotes('');
@@ -151,7 +191,10 @@ export const EquipmentFormDrawer: React.FC<EquipmentFormDrawerProps> = ({
           name="equipment-location"
           value={key}
           checked={active}
-          onChange={() => setUnit(key)}
+          onChange={() => {
+            setUnit(key);
+            setUnitReset(false);
+          }}
           className="accent-red-600"
         />
         {content}
@@ -199,6 +242,33 @@ export const EquipmentFormDrawer: React.FC<EquipmentFormDrawerProps> = ({
       footer={footer}
     >
       <Notice notice={notice} onClose={() => setNotice(null)} />
+
+      {stations && (
+        <FormField label={t('vehicles.equipment.form.station')} required error={touched ? stationError : null}>
+          <select
+            value={station}
+            onChange={(e) => changeStation(e.target.value)}
+            aria-invalid={touched && !!stationError}
+            className={validatedInputClass(touched && !!stationError)}
+          >
+            <option value="">{t('vehicles.equipment.form.stationPlaceholder')}</option>
+            {stations.map((s) => (
+              <option key={s.id} value={s.id}>
+                {stationOptionLabel(s)}
+              </option>
+            ))}
+          </select>
+          {movingStation && (
+            <p className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800">
+              <ArrowRightLeft className="w-3.5 h-3.5 shrink-0 mt-px" />
+              {t('vehicles.equipment.form.moveStation', {
+                from: stationName(equipment.stationId),
+                to: stationName(station),
+              })}
+            </p>
+          )}
+        </FormField>
+      )}
 
       <FormField label={t('vehicles.equipment.form.name')} required error={shownNameError}>
         <input
@@ -278,7 +348,13 @@ export const EquipmentFormDrawer: React.FC<EquipmentFormDrawerProps> = ({
         </div>
       </FormField>
 
-      <FormField label={t('vehicles.equipment.form.location')} required hint={t('vehicles.equipment.form.locationHint')}>
+      <FormField
+        label={t('vehicles.equipment.form.location')}
+        required
+        hint={stations && !station ? t('vehicles.equipment.form.locationPickStation') : t('vehicles.equipment.form.locationHint')}
+        error={locationError}
+      >
+        {unitReset && <p className="mb-1.5 text-[11px] text-amber-700">{t('vehicles.equipment.form.unitReset')}</p>}
         <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
           {locationOption(
             STOCK_KEY,
@@ -291,26 +367,30 @@ export const EquipmentFormDrawer: React.FC<EquipmentFormDrawerProps> = ({
             </>
           )}
           {vehicles.map((v) => {
-            const TypeIcon = VEHICLE_TYPE_META[v.type].icon;
+            const TypeIcon = v.icon;
             return locationOption(
               v.id,
               <>
                 <TypeIcon className="w-4 h-4 text-slate-500 shrink-0" />
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-mono-data font-bold text-slate-900">{v.plate}</span>
-                  <span className="block text-[11px] text-slate-500">{t(`enums.unitType.${v.unitType}`)}</span>
+                  <span className="block text-[11px] text-slate-500">{v.typeLabel}</span>
                 </span>
-                <VehicleStatusBadge
-                  label={t(`enums.vehicleStatus.${v.status}`)}
-                  color={VEHICLE_STATUS_META[v.status].color}
-                />
+                <VehicleStatusBadge label={v.statusLabel} color={v.statusColor} />
               </>
             );
           })}
           {orphanUnit &&
             locationOption(
               orphanUnit.id,
-              <span className="flex-1 text-sm font-mono-data font-bold text-slate-900">{orphanUnit.plate}</span>
+              orphanUnit.deleted ? (
+                <span className="flex-1 inline-flex items-center gap-1.5 text-sm font-semibold text-red-700">
+                  <TriangleAlert className="w-4 h-4 shrink-0" />
+                  {t('vehicles.equipment.deletedUnit')}
+                </span>
+              ) : (
+                <span className="flex-1 text-sm font-mono-data font-bold text-slate-900">{orphanUnit.plate}</span>
+              )
             )}
         </div>
       </FormField>
@@ -343,6 +423,8 @@ export const EquipmentFormDrawer: React.FC<EquipmentFormDrawerProps> = ({
       ) : (
         <p className="text-xs text-slate-500">{t('vehicles.equipment.form.createHint')}</p>
       )}
+
+      {extra}
     </DrawerShell>
   );
 };

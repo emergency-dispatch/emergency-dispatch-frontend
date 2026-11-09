@@ -22,6 +22,7 @@ export const adminLayoutEn: Messages<typeof adminLayoutVi> = {
     overview: 'Overview',
     stations: 'Rescue stations',
     vehicles: 'Fleet',
+    equipment: 'Equipment',
     accounts: 'Internal accounts',
     citizens: 'Citizen accounts',
     blockedNumbers: 'Blocked numbers',

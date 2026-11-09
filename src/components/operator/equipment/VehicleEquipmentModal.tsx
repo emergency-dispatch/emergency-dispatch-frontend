@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Loader2, Package, Plus, Users, X } from 'lucide-react';
 import { Notice, VehicleStatusBadge, type NoticeState } from '../../admin/common/ui';
-import { EquipmentListItem } from './EquipmentBits';
-import { EquipmentFormDrawer } from './EquipmentFormDrawer';
-import { EquipmentStatusDialog } from './EquipmentStatusDialog';
-import { EquipmentDeleteDialog } from './EquipmentDeleteDialog';
-import { compareEquipment } from './equipmentMeta';
-import type { useStationEquipment } from './useStationEquipment';
+import { EquipmentListItem } from '../../equipment/EquipmentBits';
+import { EquipmentFormDrawer } from '../../equipment/EquipmentFormDrawer';
+import { EquipmentStatusDialog } from '../../equipment/EquipmentStatusDialog';
+import { EquipmentDeleteDialog } from '../../equipment/EquipmentDeleteDialog';
+import { compareEquipment } from '../../equipment/equipmentMeta';
+import type { EquipmentListState } from '../../equipment/useEquipmentList';
+import { vehicleToUnitOption } from './unitOption';
 import { VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { useNow } from '../../../hooks/useNow';
 import type { EquipmentDto } from '../../../types/equipment';
@@ -21,7 +22,7 @@ interface VehicleEquipmentModalProps {
   stationId: string;
   /** Xe của trạm — để form cho phép chuyển thiết bị sang xe khác / kho. */
   vehicles: Vehicle[];
-  equipment: ReturnType<typeof useStationEquipment>;
+  equipment: EquipmentListState;
   onClose: () => void;
   /** Mở tab Thiết bị, lọc sẵn theo xe này. */
   onOpenTab: () => void;
@@ -55,6 +56,8 @@ export const VehicleEquipmentModal: React.FC<VehicleEquipmentModalProps> = ({
   const maintenance = items.filter((e) => e.status === 'Maintenance').length;
   const TypeIcon = VEHICLE_TYPE_META[vehicle.type].icon;
   const childOpen = editing !== undefined || !!statusTarget || !!deleteTarget;
+  // Tính mỗi lần render để nhãn xe theo kịp khi đổi ngôn ngữ.
+  const unitOptions = vehicles.map(vehicleToUnitOption);
 
   // Esc đóng popup — trừ khi đang mở form / hộp thoại con bên trên.
   useEffect(() => {
@@ -221,7 +224,7 @@ export const VehicleEquipmentModal: React.FC<VehicleEquipmentModalProps> = ({
         <EquipmentFormDrawer
           equipment={editing}
           stationId={stationId}
-          vehicles={vehicles}
+          vehicles={unitOptions}
           defaults={{ category: '', unit: vehicle.id }}
           onClose={() => setEditing(undefined)}
           onSaved={(saved, created, keepOpen) => {

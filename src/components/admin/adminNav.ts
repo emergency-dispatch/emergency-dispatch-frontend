@@ -6,6 +6,7 @@ import {
   FileBarChart,
   Building2,
   LayoutDashboard,
+  Package,
   ScrollText,
   SlidersHorizontal,
   Siren,
@@ -37,6 +38,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       { key: 'stations', path: '/admin/stations', icon: Building2 },
       { key: 'vehicles', path: '/admin/vehicles', icon: Truck },
+      { key: 'equipment', path: '/admin/equipment', icon: Package },
     ],
   },
   {

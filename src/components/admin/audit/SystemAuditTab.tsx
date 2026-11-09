@@ -7,7 +7,7 @@ import { entityDisplayName, entityTypeMeta, systemActionMeta } from './auditMeta
 import { Notice, Pagination } from '../common/ui';
 import { inputClass, labelClass } from '../common/styles';
 import { useInitialQueryParams, useServiceQuery } from '../common/hooks';
-import { auditTrailService } from '../../../services/admin/auditTrailService';
+import { GUID_PATTERN, auditTrailService } from '../../../services/admin/auditTrailService';
 import {
   SYSTEM_AUDIT_ACTIONS,
   SYSTEM_AUDIT_ENTITY_TYPES,
@@ -31,8 +31,11 @@ export const SystemAuditTab: React.FC = () => {
   const [action, setAction] = useState<SystemAuditAction | ''>(() => initial.oneOf('action', SYSTEM_AUDIT_ACTIONS));
   const [fromDate, setFromDate] = useState(() => dateParam('from'));
   const [toDate, setToDate] = useState(() => dateParam('to'));
-  // Mở từ drawer "Xem mọi bản ghi của đối tượng này".
-  const [entity, setEntity] = useState<{ id: string; label: string } | null>(null);
+  // Mở từ drawer "Xem mọi bản ghi của đối tượng này", hoặc link ?entityId=&entityName= (VD lịch sử thiết bị).
+  const [entity, setEntity] = useState<{ id: string; label: string } | null>(() => {
+    const id = initial.text('entityId');
+    return GUID_PATTERN.test(id) ? { id, label: initial.text('entityName') || id } : null;
+  });
   const [pageIndex, setPageIndex] = useState(1);
   const [selected, setSelected] = useState<SystemAuditLogDto | null>(null);
 

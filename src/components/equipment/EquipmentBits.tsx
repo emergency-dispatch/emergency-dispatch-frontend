@@ -1,13 +1,11 @@
 import React from 'react';
-import { CheckCircle2, Pencil, Trash2, Warehouse, Wrench } from 'lucide-react';
-import { EQUIPMENT_CATEGORY_META, sinceText } from './equipmentMeta';
-import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
-import { formatDateTime } from '../../../utils/incidentFormat';
-import type { EquipmentCategory, EquipmentDto, EquipmentStatus } from '../../../types/equipment';
-import type { Vehicle } from '../../../types/vehicle';
-import { useTranslation } from '../../../i18n';
+import { CheckCircle2, Pencil, Trash2, TriangleAlert, Warehouse, Wrench } from 'lucide-react';
+import { EQUIPMENT_CATEGORY_META, isOnDeletedUnit, sinceText, type EquipmentUnitOption } from './equipmentMeta';
+import { formatDateTime } from '../../utils/incidentFormat';
+import type { EquipmentCategory, EquipmentDto, EquipmentStatus } from '../../types/equipment';
+import { useTranslation } from '../../i18n';
 
-// Mảnh giao diện nhỏ dùng chung giữa view Bảng và view Theo xe.
+// Mảnh giao diện nhỏ dùng chung: view Bảng / Theo xe (Operator) và trang Thiết bị (Admin).
 
 export const EquipmentStatusBadge: React.FC<{ status: EquipmentStatus }> = ({ status }) => {
   const { t } = useTranslation();
@@ -50,8 +48,8 @@ export const EquipmentCategoryChip: React.FC<{ category: EquipmentCategory; comp
   );
 };
 
-/** Vị trí đặt: biển số xe (kèm chấm trạng thái xe) hoặc Kho trạm. */
-export const EquipmentLocation: React.FC<{ equipment: EquipmentDto; vehicle: Vehicle | undefined }> = ({
+/** Vị trí đặt: biển số xe (kèm chấm trạng thái xe) hoặc Kho trạm; xe đã bị xóa → cảnh báo đỏ. */
+export const EquipmentLocation: React.FC<{ equipment: EquipmentDto; vehicle: EquipmentUnitOption | undefined }> = ({
   equipment,
   vehicle,
 }) => {
@@ -64,8 +62,19 @@ export const EquipmentLocation: React.FC<{ equipment: EquipmentDto; vehicle: Veh
       </span>
     );
   }
-  const TypeIcon = vehicle ? VEHICLE_TYPE_META[vehicle.type].icon : null;
-  const statusLabel = vehicle ? t(`enums.vehicleStatus.${vehicle.status}`) : null;
+  if (!vehicle && isOnDeletedUnit(equipment)) {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-red-200 bg-red-50 text-[11px] font-bold text-red-700"
+        title={t('vehicles.equipment.deletedUnitHint')}
+      >
+        <TriangleAlert className="w-3 h-3" />
+        {t('vehicles.equipment.deletedUnit')}
+      </span>
+    );
+  }
+  const TypeIcon = vehicle?.icon ?? null;
+  const statusLabel = vehicle ? `${vehicle.typeLabel} · ${vehicle.statusLabel}` : null;
   return (
     <span className="inline-flex items-center gap-1.5 text-xs" title={statusLabel ?? undefined}>
       {TypeIcon && <TypeIcon className="w-3.5 h-3.5 text-slate-500" />}
@@ -74,7 +83,7 @@ export const EquipmentLocation: React.FC<{ equipment: EquipmentDto; vehicle: Veh
         <span
           aria-hidden
           className="w-1.5 h-1.5 rounded-full shrink-0"
-          style={{ backgroundColor: VEHICLE_STATUS_META[vehicle.status].color }}
+          style={{ backgroundColor: vehicle.statusColor }}
         />
       )}
     </span>
