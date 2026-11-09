@@ -14,7 +14,7 @@ export const dashboardNavGroups: DashboardNavGroup[] = [
       { label: 'Incident Queue', path: '/dashboard/command-center/incidents', icon: ListChecks },
       { label: 'Nghiệm thu', path: COMPLETION_PATH, icon: ClipboardCheck },
       { label: 'Station Teams', path: '/dashboard/command-center/station-teams', icon: Users },
-      { label: 'Đội xe', path: '/dashboard/command-center/vehicles', icon: Truck },
+      { label: 'Đội xe & Thiết bị', path: '/dashboard/command-center/vehicles', icon: Truck },
     ],
   },
 ];

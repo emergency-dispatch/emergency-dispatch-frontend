@@ -1,9 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Building2, Crown, Pencil, Plus, Search, ShieldCheck, Truck, Users, Wrench } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { AlertTriangle, Crown, Package, Pencil, Search, Truck, Users, Wrench } from 'lucide-react';
 import { ConfirmModal, LockableButton, Notice, VehicleStatusBadge, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass, thClass } from '../../components/admin/common/styles';
 import { VehicleFormDrawer } from '../../components/operator/vehicles/VehicleFormDrawer';
+import { FleetHeader } from '../../components/operator/vehicles/FleetHeader';
+import { EquipmentTab } from '../../components/operator/equipment/EquipmentTab';
+import { useStationEquipment } from '../../components/operator/equipment/useStationEquipment';
+import { VehicleEquipmentModal } from '../../components/operator/equipment/VehicleEquipmentModal';
 import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../data/liveMapMeta';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useAuth } from '../../hooks/useAuth';
@@ -33,9 +37,12 @@ function vehicleAction(v: Vehicle): { next: 'Available' | 'Maintenance' | null; 
   return { next: null, lockedReason: i18n.t('vehicles.locked.other') };
 }
 
+type FleetTab = 'vehicles' | 'equipment';
+
 /**
  * Đội xe của trạm Operator phụ trách: xem trạng thái, tổ phụ trách, nhiệm vụ đang chạy;
  * thêm xe, sửa biển số / chủng loại, đặt xe Bảo trì / đưa trở lại Sẵn sàng. Xóa xe và chuyển trạm do Admin làm.
+ * Tab "Thiết bị" (§25, `?tab=equipment`): thiết bị cứu hộ của trạm, gắn theo xe hoặc để ở kho trạm.
  */
 export const VehiclesPage: React.FC = () => {
   const { user, refreshProfile } = useAuth();
@@ -50,6 +57,10 @@ export const VehiclesPage: React.FC = () => {
   const [notice, setNotice] = useState<NoticeState>(null);
   /** undefined = đóng form · null = thêm xe mới · Vehicle = sửa xe đó. */
   const [editing, setEditing] = useState<Vehicle | null | undefined>(undefined);
+  /** Xe đang mở popup "Thiết bị trên xe" (giữ id để trạng thái xe luôn lấy bản mới từ store). */
+  const [equipmentVehicleId, setEquipmentVehicleId] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const tab: FleetTab = params.get('tab') === 'equipment' ? 'equipment' : 'vehicles';
 
   // Lấy lại hồ sơ để nhận trạm Admin vừa gán.
   useEffect(() => {
@@ -57,6 +68,23 @@ export const VehiclesPage: React.FC = () => {
   }, []);
 
   const stationId = user?.stationId ?? null;
+  // Tải ở cả tab Xe để cột "Thiết bị" có số liệu.
+  const equipment = useStationEquipment(stationId);
+  const equipmentByUnit = useMemo(() => {
+    const map = new Map<string, { count: number; maintenance: number }>();
+    for (const e of equipment.items) {
+      if (!e.rescueUnitId) continue;
+      const entry = map.get(e.rescueUnitId) ?? { count: 0, maintenance: 0 };
+      entry.count += 1;
+      if (e.status === 'Maintenance') entry.maintenance += 1;
+      map.set(e.rescueUnitId, entry);
+    }
+    return map;
+  }, [equipment.items]);
+
+  /** Chuyển tab; sang Thiết bị có thể kèm bộ lọc (VD xe vừa bấm ở cột Thiết bị). */
+  const switchTab = (next: FleetTab, extra: Record<string, string> = {}) =>
+    setParams(next === 'equipment' ? { tab: 'equipment', ...extra } : {}, { replace: true });
   const station = stations.find((s) => s.id === stationId) ?? null;
   const incidentsById = useMemo(() => new Map(incidents.map((i) => [i.id, i])), [incidents]);
   const stationVehicles = useMemo(
@@ -120,11 +148,61 @@ export const VehiclesPage: React.FC = () => {
     );
   }
 
+  const stationTitle = station?.name ?? user?.stationName ?? t('vehicles.page.myStation');
+  const equipmentVehicle = equipmentVehicleId ? stationVehicles.find((v) => v.id === equipmentVehicleId) ?? null : null;
+  const equipmentMaintenance = equipment.items.filter((e) => e.status === 'Maintenance').length;
+
+  const tabs = (
+    <div role="tablist" aria-label={t('vehicles.tabs.label')} className="inline-flex p-1 rounded-lg bg-slate-100">
+      {(['vehicles', 'equipment'] as const).map((key) => {
+        const Icon = key === 'vehicles' ? Truck : Package;
+        const count = key === 'vehicles' ? stationVehicles.length : equipment.items.length;
+        return (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => switchTab(key)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+              tab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {t(`vehicles.tabs.${key}`)}
+            <span className="opacity-60 tabular-nums">{count}</span>
+            {key === 'equipment' && equipmentMaintenance > 0 && (
+              <span
+                title={t('vehicles.equipment.group.maintenance', { count: equipmentMaintenance })}
+                className="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums"
+              >
+                {equipmentMaintenance}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  if (tab === 'equipment') {
+    return (
+      <EquipmentTab
+        title={stationTitle}
+        tabs={tabs}
+        stationId={stationId}
+        vehicles={stationVehicles}
+        equipment={equipment}
+      />
+    );
+  }
+
   const stats = [
-    { label: t('vehicles.page.statTotal'), value: stationVehicles.length },
-    { label: t('vehicles.page.statAvailable'), value: stationVehicles.filter((v) => v.status === 'available').length },
-    { label: t('vehicles.page.statOnMission'), value: stationVehicles.filter(isOnMission).length },
+    { key: 'total', label: t('vehicles.page.statTotal'), value: stationVehicles.length },
+    { key: 'available', label: t('vehicles.page.statAvailable'), value: stationVehicles.filter((v) => v.status === 'available').length },
+    { key: 'onMission', label: t('vehicles.page.statOnMission'), value: stationVehicles.filter(isOnMission).length },
     {
+      key: 'noTeam',
       label: t('vehicles.page.statNoTeam'),
       value: stationVehicles.filter((v) => !teamByVehicle.has(v.id)).length,
       warn: true,
@@ -133,38 +211,15 @@ export const VehiclesPage: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col gap-4 p-4 lg:p-6 min-h-0">
-      <header className="shrink-0 rounded-2xl border border-slate-200 bg-white p-4 lg:p-5 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[11px] font-mono-data uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-red-600" />
-            {t('vehicles.page.kicker')}
-          </p>
-          <h1 className="text-lg font-black text-slate-900 mt-1 flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-red-600 shrink-0" />
-            {station?.name ?? user?.stationName ?? t('vehicles.page.myStation')}
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            {t('vehicles.page.description')}
-          </p>
-          <button
-            onClick={() => setEditing(null)}
-            className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            {t('vehicles.page.add')}
-          </button>
-        </div>
-        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-          {stats.map((stat) => (
-            <div key={stat.label} className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 min-w-[88px]">
-              <dt className="text-[10px] font-mono-data uppercase tracking-wider text-slate-500">{stat.label}</dt>
-              <dd className={`text-xl font-black ${stat.warn && stat.value > 0 ? 'text-amber-600' : 'text-slate-900'}`}>
-                {stat.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </header>
+      <FleetHeader
+        kicker={t('vehicles.page.kicker')}
+        title={stationTitle}
+        description={t('vehicles.page.description')}
+        tabs={tabs}
+        addLabel={t('vehicles.page.add')}
+        onAdd={() => setEditing(null)}
+        stats={stats}
+      />
 
       <Notice notice={notice} onClose={() => setNotice(null)} />
 
@@ -208,12 +263,13 @@ export const VehiclesPage: React.FC = () => {
           ) : visible.length === 0 ? (
             <p className="p-10 text-center text-sm text-slate-500">{t('vehicles.page.noMatch')}</p>
           ) : (
-            <table className="w-full text-sm min-w-[760px]">
+            <table className="w-full text-sm min-w-[880px]">
               <thead className="bg-slate-50 sticky top-0 z-10">
                 <tr className="text-left">
                   <th className={thClass}>{t('vehicles.page.columnVehicle')}</th>
                   <th className={thClass}>{t('vehicles.page.columnStatus')}</th>
                   <th className={thClass}>{t('vehicles.page.columnTeam')}</th>
+                  <th className={thClass}>{t('vehicles.page.columnEquipment')}</th>
                   <th className={thClass}>{t('vehicles.page.columnMission')}</th>
                   <th className={thClass}>{t('vehicles.page.columnLocation')}</th>
                   <th className={`${thClass} text-right`}>{t('vehicles.page.columnActions')}</th>
@@ -262,6 +318,35 @@ export const VehiclesPage: React.FC = () => {
                             {t('vehicles.page.noTeam')}
                           </Link>
                         )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {/* Bấm → popup thiết bị của xe này (không rời tab Xe) */}
+                        <button
+                          type="button"
+                          onClick={() => setEquipmentVehicleId(v.id)}
+                          aria-label={t('vehicles.page.equipmentOpen', { plate: v.plate })}
+                          title={t('vehicles.page.equipmentOpen', { plate: v.plate })}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 -mx-2 rounded-lg text-xs hover:bg-slate-100 transition-colors"
+                        >
+                          <Package className="w-3.5 h-3.5 text-slate-400" />
+                          {equipment.loading && !equipment.loadedAt ? (
+                            <span className="text-slate-400">…</span>
+                          ) : equipmentByUnit.get(v.id) ? (
+                            <span className="text-left">
+                              <span className="font-semibold text-slate-800">
+                                {t('vehicles.page.equipmentCount', { count: equipmentByUnit.get(v.id)!.count })}
+                              </span>
+                              {equipmentByUnit.get(v.id)!.maintenance > 0 && (
+                                <span className="ml-1.5 inline-flex items-center gap-0.5 font-semibold text-amber-700">
+                                  <Wrench className="w-3 h-3" />
+                                  {t('vehicles.page.equipmentMaintenance', { count: equipmentByUnit.get(v.id)!.maintenance })}
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">{t('vehicles.page.equipmentNone')}</span>
+                          )}
+                        </button>
                       </td>
                       <td className="px-4 py-3">
                         {incident ? (
@@ -332,6 +417,22 @@ export const VehiclesPage: React.FC = () => {
               kind: 'success',
               message: created ? t('vehicles.page.created', { plate }) : t('vehicles.page.updated', { plate }),
             });
+          }}
+        />
+      )}
+
+      {equipmentVehicle && (
+        <VehicleEquipmentModal
+          vehicle={equipmentVehicle}
+          status={statusLabel(equipmentVehicle)}
+          teamName={teamByVehicle.get(equipmentVehicle.id)?.name ?? null}
+          stationId={stationId}
+          vehicles={stationVehicles}
+          equipment={equipment}
+          onClose={() => setEquipmentVehicleId(null)}
+          onOpenTab={() => {
+            setEquipmentVehicleId(null);
+            switchTab('equipment', { unit: equipmentVehicle.id, view: 'vehicle' });
           }}
         />
       )}

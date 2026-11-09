@@ -6,7 +6,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
     liveMap: 'Live Map',
     incidentQueue: 'Incident Queue',
     stationTeams: 'Station Teams',
-    vehicles: 'Fleet',
+    vehicles: 'Fleet & Equipment',
     completion: 'Completion',
   },
   hubStatus: {

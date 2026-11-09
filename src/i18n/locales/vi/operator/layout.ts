@@ -3,7 +3,7 @@ export const layoutVi = {
     liveMap: 'Bản đồ điều phối',
     incidentQueue: 'Hàng đợi sự cố',
     stationTeams: 'Trạm & Tổ',
-    vehicles: 'Đội xe',
+    vehicles: 'Đội xe & Thiết bị',
     completion: 'Nghiệm thu',
   },
   hubStatus: {
