@@ -81,6 +81,42 @@ const UNIT_TYPE_TO_VEHICLE_TYPE: Record<string, DispatchVehicleType | undefined>
 };
 const BACKEND_ALGORITHM = { nearest: 'NearestAvailable', load_aware: 'LoadAware' } as const;
 
+/**
+ * Sau giao xe / đổi trạng thái nhiệm vụ, backend (DispatchService.MapIncidentToSlimDto) phát ReceiveIncidentUpdate bằng
+ * bản rút gọn: thiếu eventType, media, kết quả AI, nguồn, khóa, số báo cáo gộp… Ghi đè nguyên bản sẽ làm mất ảnh / loại /
+ * tóm tắt AI và cả thông tin khóa. Sự cố đã xác minh luôn có eventType ≠ None, nên "đã xác minh mà eventType = None"
+ * là dấu hiệu bản rút gọn → chỉ ghép các trường bản rút gọn thực sự mang lên bản đầy đủ đang có.
+ */
+const SLIM_INCIDENT_FIELDS = [
+  'title',
+  'description',
+  'latitude',
+  'longitude',
+  'locationAddress',
+  'status',
+  'severity',
+  'reporterName',
+  'reporterPhone',
+  'verifiedAt',
+  'operatorNotes',
+  'createdAt',
+  'updatedAt',
+  'responsibleStationId',
+  'responsibleStationName',
+  'isOutOfServiceArea',
+  'distanceOutsideAreaKm',
+] as const satisfies readonly (keyof IncidentResponseDto)[];
+
+function mergeSlimIncidentDto(prev: IncidentResponseDto | undefined, dto: IncidentResponseDto): IncidentResponseDto {
+  const isSlim = !!dto.verifiedAt && (dto.eventType ?? 'None') === 'None';
+  if (!prev || !isSlim) return dto;
+  const merged: IncidentResponseDto = { ...prev };
+  for (const key of SLIM_INCIDENT_FIELDS) {
+    if (key in dto) (merged as unknown as Record<string, unknown>)[key] = dto[key];
+  }
+  return merged;
+}
+
 
 interface LivePosition {
   lat: number;
@@ -499,7 +535,10 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const upsertIncidents = useCallback((dtos: IncidentResponseDto[]) => {
     setIncidentDtos((prev) => {
       const next = new Map(prev);
-      dtos.forEach((dto) => (toOperatorStatus(dto) === null ? next.delete(dto.id) : next.set(dto.id, dto)));
+      dtos.forEach((dto) => {
+        if (toOperatorStatus(dto) === null) next.delete(dto.id);
+        else next.set(dto.id, mergeSlimIncidentDto(prev.get(dto.id), dto));
+      });
       return next;
     });
   }, []);

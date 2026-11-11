@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ArrowLeft,
   CheckCircle2,
   Gauge,
-  GripVertical,
   HandHelping,
   History,
   MessageSquarePlus,
@@ -18,6 +18,7 @@ import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
 import { IncidentSupplementList } from '../incidents/IncidentSupplementList';
 import { LinkedReportsPanel } from '../incidents/LinkedReportsPanel';
+import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
 import { INCIDENT_CATEGORY_META, OVERRIDE_REASON_MIN_LENGTH } from '../../../data/incidentMock';
 import { DISPATCH_ALGORITHM_META, MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
@@ -30,8 +31,6 @@ import type { FieldRequestDto } from '../../../types/fieldRequest';
 import { getBusyTeamIds } from '../../../utils/teamAvailability';
 import { useTranslation } from '../../../i18n';
 
-const DRAG_MIME = 'application/x-resq-vehicle-id';
-
 interface DispatchRecommendPanelProps {
   selectedIncidentId: string | null;
   assigningVehicleId: string | null;
@@ -43,6 +42,12 @@ interface DispatchRecommendPanelProps {
    */
   fieldRequest?: FieldRequestDto | null;
   onExitFieldRequest?: () => void;
+  /** Quay về danh sách ca (panel trái 2 tầng của Live Map). */
+  onBack: () => void;
+  /** Số ca đang cần xử lý — hiện cạnh nút quay lại để Operator biết còn việc khác. */
+  attentionCount: number;
+  /** Phần ca: thông báo đội, tổ đã giao (thu hồi), hủy ca, nghiệm thu — đặt trên gợi ý xe. */
+  caseBody?: React.ReactNode;
 }
 
 export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
@@ -51,6 +56,9 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   onAssign,
   fieldRequest = null,
   onExitFieldRequest,
+  onBack,
+  attentionCount,
+  caseBody,
 }) => {
   const {
     vehicles,
@@ -70,6 +78,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   // Cấp 1–2 đã đủ 1 tổ: backend cho giao thêm khi có lý do ≥ 5 ký tự.
   const [extraMode, setExtraMode] = useState(false);
   const [extraReason, setExtraReason] = useState('');
+  // Ca đã có xe, không ai từ chối: gợi ý xe chỉ mở khi Operator bấm "Giao thêm xe".
+  const [recommendOpen, setRecommendOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   // BR-07: hộp thoại báo cáo trùng đã gom vào sự cố đang chọn.
   const [linkedOpen, setLinkedOpen] = useState(false);
@@ -88,6 +98,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   useEffect(() => {
     setExtraMode(false);
     setExtraReason('');
+    setRecommendOpen(false);
     setHistoryOpen(false);
     setLinkedOpen(false);
     setSeverityOpen(false);
@@ -115,7 +126,11 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   // Cấp 3 không vượt được 5 xe kể cả theo yêu cầu chi viện; Cấp 1–2 giao đủ số xe đội xin.
   const level3Remaining = selectedIncident?.severity === 3 ? Math.max(0, maxVehicles - activeCount) : Infinity;
   const pickMax = fieldRequest ? Math.min(fieldRequest.quantity, level3Remaining) : 0;
-  const showSuggestions = !isCompleted && (serving ? pickMax > 0 : !isFull || (canAddExtra && extraMode));
+  // Cần xe ngay: chưa có xe nào, hoặc có đội từ chối / không phản hồi → mở gợi ý sẵn; còn lại chờ Operator bấm.
+  const needsVehicles = !!selectedIncident && (activeCount === 0 || selectedIncident.responseNotices.length > 0);
+  const wantsSuggestions = serving || needsVehicles || recommendOpen || extraMode;
+  const showSuggestions =
+    !isCompleted && wantsSuggestions && (serving ? pickMax > 0 : !isFull || (canAddExtra && extraMode));
   const isEscalated = selectedIncident ? escalatedIncidentIds.has(selectedIncident.id) : false;
   const category = selectedIncident ? INCIDENT_CATEGORY_META[selectedIncident.category] : null;
 
@@ -186,21 +201,9 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     isFull && extraMode ? { allowExtraUnits: true, notes: extraReason.trim() } : undefined;
   const assignBlocked = isFull && extraMode && !extraReasonValid;
 
-  // Tổ sẵn sàng để kéo thả
-  const readyTeams = useMemo(
-    () =>
-      {
-        const busyTeamIds = getBusyTeamIds(vehicles, teamByVehicle);
-        return vehicles
-          .filter((v) => v.status === 'available' && teamByVehicle.has(v.id) && !busyTeamIds.has(teamByVehicle.get(v.id)!.id))
-          .map((v) => ({ vehicle: v, team: teamByVehicle.get(v.id)! }))
-          .sort((a, b) => a.team.name.localeCompare(b.team.name, 'vi'));
-      },
-    [vehicles, teamByVehicle]
-  );
 
   return (
-    <div className="h-full flex flex-col bg-white border-l border-slate-200">
+    <div className="h-full flex flex-col bg-white">
       {historyOpen && selectedIncident && (
         <div
           className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/50 p-4"
@@ -326,13 +329,24 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
           }}
         />
       )}
-      {/* Header: sự cố đang chọn */}
+      {/* Header: quay lại danh sách + ca đang chọn */}
       <div className="shrink-0 px-4 py-3.5 border-b border-slate-200">
+        <button
+          onClick={onBack}
+          className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 rounded"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          {t('liveMap.detail.back')}
+          {attentionCount > 0 && (
+            <span className="text-red-600">{t('liveMap.detail.attention', { count: attentionCount })}</span>
+          )}
+        </button>
         {selectedIncident && category ? (
           <>
             <div className="flex items-center gap-1.5 mb-1">
               <category.icon className="w-3.5 h-3.5 shrink-0" style={{ color: category.color }} />
               <span className="text-[10px] font-bold" style={{ color: category.color }}>{t(`enums.category.${selectedIncident.category}`)}</span>
+              <SeverityBadge severity={selectedIncident.severity} unclassified={selectedIncident.aiUnclassified} />
               <SourceChip source={selectedIncident.source} />
               {isEscalated && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white uppercase animate-pulse">
@@ -406,27 +420,9 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
         )}
       </div>
 
-      {/* Algorithm toggle */}
-      {selectedIncident && (
-        <div className="shrink-0 px-3 py-2 border-b border-slate-100">
-          <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-100">
-            {(Object.keys(DISPATCH_ALGORITHM_META) as DispatchAlgorithm[]).map((key) => (
-              <button
-                key={key}
-                onClick={() => setAlgorithm(key)}
-                title={t(`enums.algorithm.${key}.description`)}
-                className={`py-1.5 rounded-md text-[11px] font-bold transition-colors ${algorithm === key ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  }`}
-              >
-                {t(`enums.algorithm.${key}.label`)}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Recommendations */}
+      {/* Thân ca: thông báo đội, tổ đã giao, hủy ca, nghiệm thu → rồi gợi ý xe (khi cần) */}
       <div className="flex-1 overflow-y-auto p-3 min-h-0 space-y-2">
+        {caseBody}
         {serving && fieldRequest && (
           <div className="rounded-lg border border-orange-300 bg-orange-50 p-2.5 space-y-1.5">
             <p className="flex items-center gap-1 text-[11px] font-bold text-orange-800">
@@ -468,6 +464,24 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
             </button>
           </div>
         )}
+      {/* Algorithm toggle */}
+        {selectedIncident && showSuggestions && (
+        <div className="pt-1">
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-100">
+            {(Object.keys(DISPATCH_ALGORITHM_META) as DispatchAlgorithm[]).map((key) => (
+              <button
+                key={key}
+                onClick={() => setAlgorithm(key)}
+                title={t(`enums.algorithm.${key}.description`)}
+                className={`py-1.5 rounded-md text-[11px] font-bold transition-colors ${algorithm === key ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+              >
+                {t(`enums.algorithm.${key}.label`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
         {!selectedIncident ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400 pb-8">
             <Radar className="w-10 h-10 text-slate-200" />
@@ -480,10 +494,21 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
         ) : !showSuggestions ? (
           // Đang đáp ứng yêu cầu nhưng Cấp 3 đã đủ xe → banner phía trên đã giải thích.
           serving ? null : <div className="space-y-2 py-2">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
-              <CheckCircle2 className="w-4 h-4" />
-              {isCompleted ? t('liveMap.recommend.incidentClosed') : t('liveMap.recommend.maxReached', { max: maxVehicles })}
-            </div>
+            {(isFull || isCompleted) && (
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
+                <CheckCircle2 className="w-4 h-4" />
+                {isCompleted ? t('liveMap.recommend.incidentClosed') : t('liveMap.recommend.maxReached', { max: maxVehicles })}
+              </div>
+            )}
+            {!isFull && !isCompleted && (
+              <button
+                onClick={() => setRecommendOpen(true)}
+                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {t('liveMap.detail.addVehicles')}
+              </button>
+            )}
             {canAddExtra && (
               <button
                 onClick={() => setExtraMode(true)}
@@ -527,7 +552,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
             {/* Tiêu đề gợi ý */}
             {(suggestionLoading || suggestion) && (
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="flex items-center gap-1 text-[10px] font-mono-data uppercase tracking-wider text-slate-500 font-bold">
+                <span className="flex items-center gap-1 text-[13px] font-semibold text-slate-700">
                   <Radar className="w-3 h-3" />
                   {t('liveMap.recommend.suitableTeams')}
                   {suggestion && t('liveMap.recommend.radius', { km: suggestion.radiusKm })}
@@ -663,39 +688,6 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
         )}
       </div>
 
-      {/* Tổ sẵn sàng — kéo thả */}
-      <div className="shrink-0 border-t border-slate-200 max-h-[38%] flex flex-col">
-        <div className="px-4 py-2.5 shrink-0 flex items-center justify-between border-b border-slate-100">
-          <h3 className="text-[10px] font-mono-data uppercase tracking-wider text-slate-500 font-bold">
-            {t('liveMap.recommend.readyTeams', { count: readyTeams.length })}
-          </h3>
-          <span className="text-[9px] text-slate-400">{t('liveMap.recommend.dragHint')}</span>
-        </div>
-        <div className="flex-1 overflow-y-auto px-3 pb-3 pt-2 space-y-1.5 min-h-0">
-          {readyTeams.length === 0 ? (
-            <p className="text-[10px] text-slate-400 text-center py-3">
-              {t('liveMap.recommend.noReadyTeams')}
-            </p>
-          ) : (
-            readyTeams.map(({ vehicle, team }) => (
-              <div
-                key={vehicle.id}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData(DRAG_MIME, vehicle.id);
-                  e.dataTransfer.effectAllowed = 'move';
-                }}
-                className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 bg-white cursor-grab active:cursor-grabbing hover:border-slate-300 hover:shadow-sm transition-all"
-              >
-                <GripVertical className="w-3.5 h-3.5 text-slate-300 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <DispatchTeamLabel team={team} vehicle={vehicle} detail={` · ${vehicle.stationName}`} />
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
     </div>
   );
 };

@@ -1,15 +1,20 @@
-import React, { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import React, { Suspense, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, X } from 'lucide-react';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useDispatchRoutes } from '../../hooks/useDispatchRoutes';
 import { DispatchIncidentList } from '../../components/operator/livemap/DispatchIncidentList';
 import { DispatchRecommendPanel } from '../../components/operator/livemap/DispatchRecommendPanel';
+import { CaseAssignments } from '../../components/operator/livemap/CaseAssignments';
+import { ReadyTeamsCard } from '../../components/operator/livemap/ReadyTeamsCard';
+import { countAttentionCases } from '../../components/operator/livemap/caseGroups';
+import { groupCompletion, progressOf } from '../../components/operator/completion/completionGroups';
+import { COMPLETION_PATH } from '../../data/dashboardMock';
+import { useTeamByVehicle } from '../../hooks/useStationTeams';
 import { LiveMapView } from '../../components/operator/livemap/LiveMapView';
 import { CreateIncidentPanel, type IncidentCreatedInfo } from '../../components/operator/livemap/CreateIncidentPanel';
 import type { PickedPoint } from '../../components/operator/livemap/MapPickLocation';
 import { findNearbyIncidents } from '../../utils/nearbyIncidents';
-import { MAX_VEHICLES_BY_LEVEL } from '../../data/dispatchConfig';
 import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
 import type { AssignOptions } from '../../context/DispatchContext';
 import type { FieldRequestDto } from '../../types/fieldRequest';
@@ -25,14 +30,12 @@ const GpsSimulatorPanel = import.meta.env.DEV
   : null;
 
 /**
- * Live Map — bố cục 3 cột:
- *   [Danh sách sự cố] | [Bản đồ] | [Gợi ý tổ]
+ * Live Map — giám sát và xử lý ngoại lệ sau khi giao xe (giao xe lần đầu đã chuyển vào Hàng đợi):
+ *   [Panel trái 2 tầng: Danh sách ca ⇄ Chi tiết ca] | [Bản đồ + thẻ "Tổ sẵn sàng"]
  *
- * Tablet < 1024px: DispatchIncidentList thu thành Bottom Sheet.
- * Panel phải luôn hiện trên desktop.
- *
- * Chế độ tạo sự cố (?create=1, nút "Tạo sự cố" trên Topbar): form tiếp nhận thay cột trái (rộng hơn),
- * panel phải ẩn, bản đồ chuyển sang chọn vị trí. Tạo xong quay về 3 cột.
+ * Tablet < 1024px: cùng panel đó trong Bottom Sheet (tablet cũng giao xe được).
+ * Chế độ tạo sự cố (?create=1, nút "Tạo sự cố" trên Topbar): form tiếp nhận thay panel trái (rộng hơn),
+ * bản đồ chuyển sang chọn vị trí. Tạo xong mở luôn Chi tiết ca vừa tạo.
  */
 const CREATED_NOTICE_MS = 6000;
 
@@ -62,7 +65,11 @@ export const LiveMapPage: React.FC = () => {
     serviceArea,
     stationNotAssigned,
     fieldRequests,
+    escalatedIncidentIds,
+    assignmentsByIncident,
   } = useDispatchStore();
+  const teamByVehicle = useTeamByVehicle();
+  const navigate = useNavigate();
   const { t } = useTranslation();
 
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
@@ -90,23 +97,12 @@ export const LiveMapPage: React.FC = () => {
   const incidentsById = useMemo(() => new Map(incidents.map((i) => [i.id, i])), [incidents]);
   const routes = useDispatchRoutes(incidents, vehicles);
 
-  // Auto-select ưu tiên nhất khi chưa chọn
-  const userClearedRef = useRef(false);
-  const firstNeedingVehicles = useMemo(
-    () =>
-      incidents
-        .filter(
-          (i) =>
-            i.status === 'approved' &&
-            i.assignedVehicleIds.length - i.reportedVehicleIds.length < MAX_VEHICLES_BY_LEVEL[i.severity]
-        )
-        .sort((a, b) => b.severity - a.severity)[0] ?? null,
-    [incidents]
-  );
-  useEffect(() => {
-    if (selectedIncidentId || userClearedRef.current || !firstNeedingVehicles) return;
-    setSelectedIncidentId(firstNeedingVehicles.id);
-  }, [selectedIncidentId, firstNeedingVehicles?.id]);
+  // Danh sách ca là màn chính → không tự mở ca nào; số ca cần xử lý hiện cạnh nút quay lại ở Chi tiết ca.
+  const attentionCount = useMemo(() => {
+    const fieldRequestCounts = new Map<string, number>();
+    for (const r of fieldRequests) fieldRequestCounts.set(r.incidentId, (fieldRequestCounts.get(r.incidentId) ?? 0) + 1);
+    return countAttentionCases(incidents, { escalatedIds: escalatedIncidentIds, fieldRequestCounts });
+  }, [incidents, fieldRequests, escalatedIncidentIds]);
 
   // Deep link từ banner leo thang / thông báo
   const focusIncidentId = (location.state as { focusIncidentId?: string } | null)?.focusIncidentId;
@@ -143,14 +139,13 @@ export const LiveMapPage: React.FC = () => {
   );
 
   const handleSelectIncident = (id: string | null) => {
-    userClearedRef.current = id === null;
     setSelectedIncidentId(id);
+    setPanelError(null);
     setServingRequestId(null);
     if (id) setSheetOpen(true);
   };
 
   const handleServeFieldRequest = (request: FieldRequestDto) => {
-    userClearedRef.current = false;
     setSelectedIncidentId(request.incidentId);
     setServingRequestId(request.id);
     setHighlightFieldRequestId(request.id);
@@ -247,27 +242,73 @@ export const LiveMapPage: React.FC = () => {
     setCancellingIncidentId(null);
   };
 
+  // Panel trái 2 tầng: ca đang chọn (đã duyệt / đã hoàn tất) → Chi tiết ca; còn lại → Danh sách ca.
+  const selectedCase = selectedIncidentId ? incidentsById.get(selectedIncidentId) : undefined;
+  const showDetail = !!selectedCase && (selectedCase.status === 'approved' || selectedCase.status === 'completed');
+  const ownAssignments = selectedCase ? assignmentsByIncident.get(selectedCase.id) : undefined;
+  const completion = ownAssignments ? progressOf(groupCompletion(ownAssignments, teamByVehicle)) : null;
+
+  const casePanel =
+    showDetail && selectedCase ? (
+      <DispatchRecommendPanel
+        selectedIncidentId={selectedCase.id}
+        assigningVehicleId={assigningVehicleId}
+        onAssign={handleAssign}
+        fieldRequest={servingRequest}
+        onExitFieldRequest={() => setServingRequestId(null)}
+        onBack={() => handleSelectIncident(null)}
+        attentionCount={attentionCount}
+        caseBody={
+          <>
+            {panelError && (
+              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span className="flex-1">{panelError}</span>
+                <button onClick={() => setPanelError(null)} aria-label={t('liveMap.incidentList.dismissError')}>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            <CaseAssignments
+              key={selectedCase.id}
+              incident={selectedCase}
+              vehiclesById={vehiclesById}
+              teamByVehicle={teamByVehicle}
+              completion={completion}
+              onOpenCompletion={() => navigate(`${COMPLETION_PATH}?incident=${encodeURIComponent(selectedCase.id)}`)}
+              isCancelling={cancellingIncidentId === selectedCase.id}
+              cancellingVehicleId={cancellingVehicleId}
+              onCancelVehicle={handleCancelVehicle}
+              onCancelIncident={(reasonCode) => handleCancelIncident(selectedCase.id, reasonCode)}
+              onDismissNotice={(noticeId) => dismissResponseNotice(selectedCase.id, noticeId)}
+            />
+          </>
+        }
+      />
+    ) : (
+      <DispatchIncidentList
+        selectedIncidentId={selectedIncidentId}
+        onSelectIncident={handleSelectIncident}
+        panelError={panelError}
+        onClearError={() => setPanelError(null)}
+        onServeFieldRequest={handleServeFieldRequest}
+        highlightFieldRequestId={highlightFieldRequestId}
+      />
+    );
+
   if (stationNotAssigned) return <StationNotAssigned message={stationNotAssigned} />;
 
   return (
     <div className="h-full flex overflow-hidden relative">
 
-      {/* ── CỘT TRÁI: Danh sách sự cố (300px cố định) ── */}
-      {/* Desktop: luôn hiện. Tablet: ẩn trong bottom sheet. */}
-      <div className={`hidden lg:flex lg:shrink-0 h-full flex-col ${createOpen ? 'lg:w-[440px]' : 'lg:w-[300px]'}`}>
-        {(isDesktop && createPanel) || <DispatchIncidentList
-          selectedIncidentId={selectedIncidentId}
-          onSelectIncident={handleSelectIncident}
-          panelError={panelError}
-          onClearError={() => setPanelError(null)}
-          cancellingVehicleId={cancellingVehicleId}
-          cancellingIncidentId={cancellingIncidentId}
-          onCancelVehicle={handleCancelVehicle}
-          onCancelIncident={handleCancelIncident}
-          onDismissNotice={(incidentId, noticeId) => dismissResponseNotice(incidentId, noticeId)}
-          onServeFieldRequest={handleServeFieldRequest}
-          highlightFieldRequestId={highlightFieldRequestId}
-        />}
+      {/* ── PANEL TRÁI 2 TẦNG: Danh sách ca ⇄ Chi tiết ca (form tạo sự cố thay chỗ khi đang tạo) ── */}
+      {/* Desktop: luôn hiện. Tablet: nằm trong bottom sheet. */}
+      <div
+        className={`hidden lg:flex lg:shrink-0 h-full flex-col border-r border-slate-200 bg-white ${
+          createOpen ? 'lg:w-[440px]' : 'lg:w-[380px]'
+        }`}
+      >
+        {(isDesktop && createPanel) || (isDesktop && casePanel)}
       </div>
 
       {/* ── CỘT GIỮA: Bản đồ (flex-1) ── */}
@@ -321,22 +362,12 @@ export const LiveMapPage: React.FC = () => {
             </div>
           </div>
         )}
+        {!createOpen && <ReadyTeamsCard />}
         {GpsSimulatorPanel && (
           <Suspense fallback={null}>
             <GpsSimulatorPanel vehicles={vehicles} />
           </Suspense>
         )}
-      </div>
-
-      {/* ── CỘT PHẢI: Gợi ý tổ (340px cố định) ── */}
-      <div className={`hidden lg:w-[340px] lg:shrink-0 h-full flex-col ${createOpen ? '' : 'lg:flex'}`}>
-        <DispatchRecommendPanel
-          selectedIncidentId={selectedIncidentId}
-          assigningVehicleId={assigningVehicleId}
-          onAssign={handleAssign}
-          fieldRequest={servingRequest}
-          onExitFieldRequest={() => setServingRequestId(null)}
-        />
       </div>
 
       {/* ── TABLET: Bottom Sheet (Dispatch list) ── */}
@@ -357,21 +388,7 @@ export const LiveMapPage: React.FC = () => {
           // Giữ form mounted khi thu sheet (để xem bản đồ chọn vị trí) — không mất dữ liệu đang nhập.
           <div className={`flex-1 min-h-0 ${sheetOpen ? '' : 'hidden'}`}>{createPanel}</div>
         ) : sheetOpen && (
-          <div className="flex-1 min-h-0">
-            {<DispatchIncidentList
-              selectedIncidentId={selectedIncidentId}
-              onSelectIncident={handleSelectIncident}
-              panelError={panelError}
-              onClearError={() => setPanelError(null)}
-              cancellingVehicleId={cancellingVehicleId}
-              cancellingIncidentId={cancellingIncidentId}
-              onCancelVehicle={handleCancelVehicle}
-              onCancelIncident={handleCancelIncident}
-              onDismissNotice={(incidentId, noticeId) => dismissResponseNotice(incidentId, noticeId)}
-              onServeFieldRequest={handleServeFieldRequest}
-              highlightFieldRequestId={highlightFieldRequestId}
-            />}
-          </div>
+          <div className="flex-1 min-h-0">{!isDesktop && casePanel}</div>
         )}
       </div>
     </div>
