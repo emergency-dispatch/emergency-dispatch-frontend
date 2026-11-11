@@ -231,6 +231,14 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
   },
   dispatchStep: {
     kicker: 'Dispatch',
+    miniMap: {
+      alt: 'Map of the incident location and suggested teams',
+      incident: 'Incident',
+      station: 'Station',
+      candidate: 'Suggested team (number = rank)',
+      assigned: 'Assigned vehicle (colour = status)',
+      hint: 'Hover a team to spot it on the map',
+    },
     summaryHeading: 'Incident being dispatched',
     approvedBanner: 'Incident approved. Pick a suitable team to dispatch now.',
     assignedHeading: '{{count}}/{{max}} vehicles assigned',

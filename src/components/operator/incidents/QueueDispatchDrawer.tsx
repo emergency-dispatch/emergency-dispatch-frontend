@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
 import { CaseSteps } from './CaseSteps';
+import { DispatchMiniMap } from './DispatchMiniMap';
 import { IncidentThumbnail } from './IncidentThumbnail';
 import { SeverityBadge } from './SeverityBadge';
 import { SourceChip } from './SourceChip';
@@ -42,12 +43,14 @@ interface QueueDispatchDrawerProps {
  * Giao thêm xe vượt giới hạn Cấp 1–2, giao lại khi đội từ chối, chi viện... vẫn làm trên Live Map.
  */
 export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incidentId, onClose, onOpenLiveMap }) => {
-  const { incidents, vehicles, escalatedIncidentIds, assignVehicle } = useDispatchStore();
+  const { incidents, vehicles, stations, escalatedIncidentIds, assignVehicle } = useDispatchStore();
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
   const [algorithm, setAlgorithm] = useState<DispatchAlgorithm>('nearest');
   const [assigningVehicleId, setAssigningVehicleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Tổ đang được rê chuột ở danh sách / bấm trên bản đồ nhỏ — đồng bộ hai bên.
+  const [highlightedVehicleId, setHighlightedVehicleId] = useState<string | null>(null);
 
   const incident = useMemo(() => incidents.find((i) => i.id === incidentId) ?? null, [incidents, incidentId]);
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
@@ -150,16 +153,41 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
               {/* Cột trái — sự cố đang điều xe: đủ để nhớ lại vụ việc, không lặp lại cả hồ sơ */}
               <div className="space-y-4 min-w-0">
                 <h3 className="text-[13px] font-semibold text-slate-700">{t('incidents.dispatchStep.summaryHeading')}</h3>
-                <IncidentThumbnail incident={incident} className="w-full aspect-video" />
-                {incident.aiSummary && (
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line break-words">
-                    {incident.aiSummary}
-                  </p>
-                )}
+                {/* Ảnh thu nhỏ cạnh tóm tắt AI để nhường chỗ cho bản đồ — thứ cần nhất khi chọn xe */}
+                <div className="flex items-start gap-3">
+                  <IncidentThumbnail incident={incident} className="w-28 aspect-[4/3] shrink-0" />
+                  {incident.aiSummary && (
+                    <p
+                      className="text-sm text-slate-700 leading-relaxed break-words line-clamp-4"
+                      title={incident.aiSummary}
+                    >
+                      {incident.aiSummary}
+                    </p>
+                  )}
+                </div>
                 <p className="flex items-start gap-2 text-sm text-slate-600">
                   <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                   <span className="break-words">{incident.area}</span>
                 </p>
+                <DispatchMiniMap
+                  incident={incident}
+                  candidates={candidates.flatMap((c, index) => {
+                    const v = vehiclesById.get(c.vehicleId);
+                    return v ? [{ vehicleId: v.id, lat: v.lat, lng: v.lng, stationId: v.stationId, rank: index + 1 }] : [];
+                  })}
+                  assigned={activeVehicleIds.flatMap((id) => {
+                    const v = vehiclesById.get(id);
+                    return v ? [{ vehicleId: v.id, lat: v.lat, lng: v.lng, type: v.type, status: v.status }] : [];
+                  })}
+                  stations={stations}
+                  highlightedVehicleId={highlightedVehicleId}
+                  onSelectCandidate={(vehicleId) => {
+                    setHighlightedVehicleId(vehicleId);
+                    document
+                      .getElementById(`queue-candidate-${vehicleId}`)
+                      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                  }}
+                />
 
                 <section className="border-t border-slate-100 pt-4">
                   <h3 className="text-[13px] font-semibold text-slate-700 mb-2">
@@ -284,7 +312,13 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                         return (
                           <li
                             key={vehicle.id}
-                            className="flex items-center gap-3 py-2.5"
+                            id={`queue-candidate-${vehicle.id}`}
+                            // Rê chuột lên tổ → ghim tương ứng trên bản đồ nhỏ phóng to (và ngược lại khi bấm ghim).
+                            onMouseEnter={() => setHighlightedVehicleId(vehicle.id)}
+                            onMouseLeave={() => setHighlightedVehicleId(null)}
+                            className={`flex items-center gap-3 py-2.5 -mx-2 px-2 rounded-lg transition-colors ${
+                              highlightedVehicleId === vehicle.id ? 'bg-slate-100' : ''
+                            }`}
                             title={
                               algorithm === 'load_aware'
                                 ? t('liveMap.recommend.costTitle', { load: Math.round(candidate.stationLoad * 100) })

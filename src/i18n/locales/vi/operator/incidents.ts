@@ -226,6 +226,14 @@ export const incidentsVi = {
   // FR-OP-04: bước "Điều xe" ngay sau khi duyệt trong Hàng đợi (giao xe lần đầu).
   dispatchStep: {
     kicker: 'Điều xe',
+    miniMap: {
+      alt: 'Bản đồ vị trí hiện trường và các tổ gợi ý',
+      incident: 'Hiện trường',
+      station: 'Trạm',
+      candidate: 'Tổ gợi ý (số = thứ hạng)',
+      assigned: 'Xe đã giao (màu theo trạng thái)',
+      hint: 'Rê chuột lên một tổ để thấy tổ đó trên bản đồ',
+    },
     summaryHeading: 'Sự cố đang điều xe',
     approvedBanner: 'Đã duyệt sự cố. Chọn tổ phù hợp để phát lệnh ngay.',
     assignedHeading: 'Đã giao {{count}}/{{max}} xe',
