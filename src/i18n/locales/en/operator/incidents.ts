@@ -142,8 +142,22 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     loading: 'Loading handling history…',
     empty: 'No actions recorded yet.',
   },
+  steps: {
+    label: 'Case handling steps',
+    review: 'Review',
+    dispatch: 'Dispatch',
+  },
   drawer: {
     kicker: 'Incident details',
+    escalatedShort: 'Escalated: handle first',
+    levelLabel: 'Severity',
+    decisionHint: {
+      needLock: 'Take the case to approve.',
+      lockedByOther: '{{name}} is handling this case.',
+      chooseType: 'Choose the incident type.',
+      chooseLevel: 'Choose a severity level.',
+      needReason: 'Enter an override reason, at least {{min}} characters.',
+    },
     transfer: 'Transfer',
     transferTitle: 'Hand this incident over to another station',
     transferNeedsLock: 'Take the incident before transferring it',
@@ -166,6 +180,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     revealPhone: 'Show number',
     phoneRevealedAt: 'Number view logged at {{time}}',
     minutesAgo: '{{count}} min ago',
+    waited: 'Waiting {{duration}}',
     responsibleStation: 'Responsible station: {{name}}',
     outOfArea: 'SOS outside the service area',
     outOfAreaDistance: ' ({{km}} km away)',
@@ -216,6 +231,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
   },
   dispatchStep: {
     kicker: 'Dispatch',
+    summaryHeading: 'Incident being dispatched',
     approvedBanner: 'Incident approved. Pick a suitable team to dispatch now.',
     assignedHeading: '{{count}}/{{max}} vehicles assigned',
     noneAssigned: 'No vehicle assigned yet.',

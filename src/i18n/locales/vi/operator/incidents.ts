@@ -139,8 +139,23 @@ export const incidentsVi = {
     loading: 'Đang tải lịch sử xử lý…',
     empty: 'Chưa có thao tác nào được ghi nhận.',
   },
+  // Thanh bước dùng chung cho drawer Thẩm định và bước Điều xe.
+  steps: {
+    label: 'Các bước xử lý ca',
+    review: 'Thẩm định',
+    dispatch: 'Điều xe',
+  },
   drawer: {
     kicker: 'Chi tiết sự cố',
+    escalatedShort: 'Đã leo thang, ưu tiên xử lý ngay',
+    levelLabel: 'Mức độ',
+    decisionHint: {
+      needLock: 'Nhận ca để duyệt.',
+      lockedByOther: '{{name}} đang xử lý ca này.',
+      chooseType: 'Chọn loại sự cố.',
+      chooseLevel: 'Chọn mức độ.',
+      needReason: 'Nhập lý do ghi đè, tối thiểu {{min}} ký tự.',
+    },
     transfer: 'Chuyển trạm',
     transferTitle: 'Chuyển sự cố sang trạm khác phụ trách',
     transferNeedsLock: 'Nhận ca trước khi chuyển trạm',
@@ -162,6 +177,7 @@ export const incidentsVi = {
     revealPhone: 'Hiện số',
     phoneRevealedAt: 'Đã ghi vết lượt xem số lúc {{time}}',
     minutesAgo: '{{count}} phút trước',
+    waited: 'Đã chờ {{duration}}',
     responsibleStation: 'Trạm phụ trách: {{name}}',
     outOfArea: 'SOS ngoài khu vực phục vụ',
     outOfAreaDistance: ' (cách {{km}} km)',
@@ -210,6 +226,7 @@ export const incidentsVi = {
   // FR-OP-04: bước "Điều xe" ngay sau khi duyệt trong Hàng đợi (giao xe lần đầu).
   dispatchStep: {
     kicker: 'Điều xe',
+    summaryHeading: 'Sự cố đang điều xe',
     approvedBanner: 'Đã duyệt sự cố. Chọn tổ phù hợp để phát lệnh ngay.',
     assignedHeading: 'Đã giao {{count}}/{{max}} xe',
     noneAssigned: 'Chưa giao xe nào.',
