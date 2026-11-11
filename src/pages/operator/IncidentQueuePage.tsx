@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { IncidentDetailDrawer } from '../../components/operator/incidents/IncidentDetailDrawer';
 import { IncidentQueueList } from '../../components/operator/incidents/IncidentQueueList';
+import { QueueDispatchDrawer } from '../../components/operator/incidents/QueueDispatchDrawer';
 import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
 import { useDispatchStore } from '../../context/DispatchContext';
 import type {
@@ -41,22 +42,27 @@ export const IncidentQueuePage: React.FC = () => {
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [lockingId, setLockingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Sự cố vừa duyệt đang ở bước "Điều xe" (giao xe lần đầu ngay trong Hàng đợi).
+  const [dispatchingId, setDispatchingId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const pendingIncidents = useMemo(() => incidents.filter((inc) => inc.status === 'pending'), [incidents]);
   const selectedIncident = pendingIncidents.find((inc) => inc.id === selectedId) ?? null;
-  const isDrawerOpen = !!selectedIncident;
+  const isDrawerOpen = !!selectedIncident || !!dispatchingId;
 
   useEffect(() => {
     setIncidentDrawerOpen(isDrawerOpen);
     return () => setIncidentDrawerOpen(false);
   }, [isDrawerOpen]);
 
-  const holdsLock = selectedIncident?.lock?.operatorId === currentOperatorId;
+  // Giữ khóa mềm suốt cả bước thẩm định lẫn bước điều xe (duyệt không nhả khóa ở backend).
+  const lockedId = dispatchingId ?? selectedId;
+  const holdsLock = incidents.find((inc) => inc.id === lockedId)?.lock?.operatorId === currentOperatorId;
   useEffect(() => {
-    if (!selectedId || !holdsLock) return;
-    const interval = setInterval(() => lockIncident(selectedId), LOCK_RENEW_MS);
+    if (!lockedId || !holdsLock) return;
+    const interval = setInterval(() => lockIncident(lockedId), LOCK_RENEW_MS);
     return () => clearInterval(interval);
-  }, [selectedId, holdsLock]);
+  }, [lockedId, holdsLock]);
 
   // Mở ca = nhận khóa mềm 2 phút. Ca đang bị người khác giữ vẫn mở được ở chế độ chỉ xem.
   const acquireLock = async (id: string) => {
@@ -108,10 +114,22 @@ export const IncidentQueuePage: React.FC = () => {
     const result = await approveIncident(id, confirmedSeverity, overrideReason, category, trafficJam);
     setSubmittingId(null);
     if (result.ok) {
+      // FR-OP-04: duyệt xong chuyển thẳng sang bước điều xe, vẫn giữ khóa (không nhả ở đây).
       setSelectedId(null);
+      setDispatchingId(id);
     } else {
       setActionError(result.message ?? t('incidents.page.approveFailed'));
     }
+  };
+
+  const closeDispatch = () => {
+    if (dispatchingId) releaseIncident(dispatchingId);
+    setDispatchingId(null);
+  };
+
+  const openOnLiveMap = (id: string) => {
+    closeDispatch();
+    navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: id } });
   };
 
   const handleReject = async (
@@ -181,6 +199,15 @@ export const IncidentQueuePage: React.FC = () => {
         isSubmitting={submittingId === selectedId}
         errorMsg={actionError}
       />
+
+      {dispatchingId && (
+        <QueueDispatchDrawer
+          key={dispatchingId}
+          incidentId={dispatchingId}
+          onClose={closeDispatch}
+          onOpenLiveMap={openOnLiveMap}
+        />
+      )}
     </div>
   );
 };

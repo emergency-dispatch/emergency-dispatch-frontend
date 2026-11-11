@@ -1084,7 +1084,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         confirmedTrafficJamStatus: trafficJam,
       });
       if (!res.success) return { ok: false, message: res.message || i18n.t('context.verifyFailed') };
-      // Không tự gán xe: sự cố đã duyệt chờ Operator chọn xe từ gợi ý điều phối trên Live Map.
+      // Không tự gán xe: Operator chọn xe ở bước "Điều xe" của Hàng đợi (hoặc sau đó trên Live Map).
       upsertIncidents([res.data]);
       return { ok: true };
     } catch (err) {

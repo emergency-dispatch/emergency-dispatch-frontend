@@ -205,7 +205,22 @@ export const incidentsVi = {
     back: 'Quay lại',
     confirmTransfer: 'Xác nhận chuyển trạm',
     confirmReject: 'Xác nhận hủy ca',
-    approve: 'Duyệt lên bản đồ',
+    approve: 'Duyệt & điều xe',
+  },
+  // FR-OP-04: bước "Điều xe" ngay sau khi duyệt trong Hàng đợi (giao xe lần đầu).
+  dispatchStep: {
+    kicker: 'Điều xe',
+    approvedBanner: 'Đã duyệt sự cố. Chọn tổ phù hợp để phát lệnh ngay.',
+    assignedHeading: 'Đã giao {{count}}/{{max}} xe',
+    noneAssigned: 'Chưa giao xe nào.',
+    fullLevel12: 'Đã giao xe cho sự cố. Cần thêm xe hoặc theo dõi đội: dùng Live Map.',
+    fullLevel3: 'Đã giao đủ {{max}} xe tối đa cho sự cố Cấp 3.',
+    level3Hint: 'Cấp 3: giao tối đa {{max}} xe, mỗi lần một tổ. Giao xong bấm "Hoàn tất".',
+    unavailable: 'Sự cố không còn chờ điều xe (đã bị hủy, chuyển trạm hoặc hoàn tất).',
+    later: 'Để sau',
+    laterTitle: 'Đóng bước này. Sự cố đã duyệt nằm trên Live Map, chờ điều xe.',
+    openLiveMap: 'Mở trên Live Map',
+    finish: 'Hoàn tất',
   },
   // BR-07: báo cáo trùng hệ thống tự gộp vào sự cố gốc.
   // §21.4: người báo gửi thêm ghi chú / ảnh sau SOS.
