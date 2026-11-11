@@ -19,6 +19,7 @@ export interface FieldRequestDto {
   rescueUnitId: string;
   plateNumber?: string | null;
   unitStationId: string;
+  unitTeamId?: string | null;
   requestedByUserId: string;
   requestedByName?: string | null;
   type: FieldRequestType;
@@ -46,6 +47,19 @@ export interface FieldRequestEventDto {
   action: FieldRequestAction;
   request: FieldRequestDto;
   changedAt: string;
+}
+
+/** DTO gửi yêu cầu chi viện (Backup) hoặc vấn đề khác (Other) từ hiện trường (POST /dispatch/assignments/{id}/requests) */
+export interface CreateFieldRequestDto {
+  type: FieldRequestType;
+  requestedUnitType?: string | null;
+  quantity?: number;
+  description?: string | null;
+}
+
+/** DTO phản hồi hoặc hủy yêu cầu (PUT /field-requests/{id}/cancel) */
+export interface RespondFieldRequestDto {
+  note?: string;
 }
 
 /** Còn chờ Operator xử lý (panel "Yêu cầu từ hiện trường" chỉ hiện các yêu cầu này). */

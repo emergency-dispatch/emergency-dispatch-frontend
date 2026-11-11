@@ -1,12 +1,22 @@
 import { apiClient, unwrapApi } from './apiClient';
 import type { ApiResponse } from '../types/auth';
-import type { FieldRequestDto } from '../types/fieldRequest';
+import type { FieldRequestDto, CreateFieldRequestDto, RespondFieldRequestDto } from '../types/fieldRequest';
 
 /**
- * §21.2 Yêu cầu từ hiện trường (Operator). Đội gửi / hủy yêu cầu ở cổng Staff; Operator tiếp nhận, đáp ứng,
+ * §21.2 Yêu cầu từ hiện trường (Operator / Staff). Đội gửi / hủy yêu cầu ở cổng Staff; Operator tiếp nhận, đáp ứng,
  * từ chối hoặc giao thêm xe kèm `fieldRequestId` (POST /dispatch/assign — yêu cầu tự chuyển Fulfilled).
  */
 export const fieldRequestService = {
+  /** §21.2 Staff gửi yêu cầu chi viện xe (Backup) hoặc vấn đề khác (Other) */
+  async create(assignmentId: string, dto: CreateFieldRequestDto): Promise<FieldRequestDto> {
+    return unwrapApi(apiClient.post<ApiResponse<FieldRequestDto>>(`/dispatch/assignments/${assignmentId}/requests`, dto));
+  },
+
+  /** §21.2 Staff tự hủy yêu cầu của đội mình khi không cần nữa */
+  async cancel(id: string, note?: string): Promise<FieldRequestDto> {
+    return unwrapApi(apiClient.put<ApiResponse<FieldRequestDto>>(`/field-requests/${id}/cancel`, { note: note || undefined }));
+  },
+
   /** Yêu cầu đang mở (Open / Acknowledged) của sự cố trạm mình và của xe trạm mình đi hỗ trợ, cũ nhất trước. */
   async getOpen(): Promise<FieldRequestDto[]> {
     return unwrapApi(apiClient.get<ApiResponse<FieldRequestDto[]>>('/field-requests'));

@@ -4,8 +4,10 @@ import { StaffStatusStepper } from '../../../components/staff/StaffStatusStepper
 import { StaffTurnByTurnGuide } from '../../../components/staff/StaffTurnByTurnGuide';
 import { StaffNavigationMap } from '../../../components/staff/StaffNavigationMap';
 import { StaffQuickActionPanel } from '../../../components/staff/StaffQuickActionPanel';
+import { StaffFieldRequestSection } from '../../../components/staff/StaffFieldRequestSection';
 import { StaffIncidentCard } from './StaffIncidentCard';
 import { isGuid } from '../utils/staffMissionUtils';
+import type { FieldRequestDto, CreateFieldRequestDto } from '../../../types/fieldRequest';
 import {
   Radio,
   EyeOff,
@@ -21,6 +23,10 @@ interface StaffActiveMissionViewProps {
   mission: StaffMission;
   loadingAssignments: boolean;
   fetchError: string | null;
+  fieldRequests?: FieldRequestDto[];
+  loadingFieldRequests?: boolean;
+  onCreateFieldRequest?: (dto: CreateFieldRequestDto) => Promise<boolean>;
+  onCancelFieldRequest?: (requestId: string, note?: string) => Promise<boolean>;
   onRefresh: () => void;
   onViewStandby: () => void;
   onStatusChange: (nextStatus: MissionStatus) => void;
@@ -34,6 +40,10 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
   mission,
   loadingAssignments,
   fetchError,
+  fieldRequests = [],
+  loadingFieldRequests = false,
+  onCreateFieldRequest,
+  onCancelFieldRequest,
   onRefresh,
   onViewStandby,
   onStatusChange,
@@ -163,6 +173,18 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
               </p>
             </div>
           </div>
+        )}
+
+        {/* Yêu cầu chi viện hiện trường & Báo vấn đề khác (§21.2 & 12.2) */}
+        {mission.status !== 'completed' && onCreateFieldRequest && onCancelFieldRequest && (
+          <StaffFieldRequestSection
+            assignmentId={mission.id}
+            incidentTitle={mission.title}
+            fieldRequests={fieldRequests}
+            loading={loadingFieldRequests}
+            onCreateRequest={onCreateFieldRequest}
+            onCancelRequest={onCancelFieldRequest}
+          />
         )}
 
         {/* Incident Information Card */}

@@ -4,11 +4,13 @@ import type { DispatchAssignmentResponseDto, RejectionReason, ResolveDispatchDto
 import type { StaffNavTab } from '../../../components/staff/StaffSidebar';
 import { dispatchService } from '../../../services/dispatchService';
 import { incidentService } from '../../../services/incidentService';
+import { fieldRequestService } from '../../../services/fieldRequestService';
 import { getApiErrorMessage } from '../../../services/apiClient';
-import { incidentHubService } from '../../../services/realtime/incidentHubService';
+import { incidentHubService, HubEvents } from '../../../services/realtime/incidentHubService';
 import { staffAudioService } from '../../../services/staffAudioService';
 import { routingService } from '../../../services/routingService';
 import { mediaService } from '../../../services/mediaService';
+import type { FieldRequestDto, CreateFieldRequestDto, FieldRequestEventDto } from '../../../types/fieldRequest';
 import type { StaffToastMessage, StaffToastType } from '../../../components/staff/StaffToast';
 import {
   isGuid,
@@ -70,6 +72,77 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
 
   // Incoming pending mission to be accepted/declined in alert modal
   const [pendingMission, setPendingMission] = useState<StaffMission | null>(null);
+
+  // §21.2 & 12.2: Yêu cầu chi viện (Backup) và Báo vấn đề khác (Other) từ hiện trường
+  const [fieldRequests, setFieldRequests] = useState<FieldRequestDto[]>([]);
+  const [loadingFieldRequests, setLoadingFieldRequests] = useState<boolean>(false);
+
+  const fetchFieldRequests = useCallback(async (incidentId: string) => {
+    if (!isGuid(incidentId)) return;
+    setLoadingFieldRequests(true);
+    try {
+      const requests = await fieldRequestService.getByIncident(incidentId);
+      setFieldRequests(requests);
+    } catch (err) {
+      console.warn('[useStaffMission] Error fetching field requests:', err);
+    } finally {
+      setLoadingFieldRequests(false);
+    }
+  }, []);
+
+  const handleCreateFieldRequest = useCallback(
+    async (dto: CreateFieldRequestDto): Promise<boolean> => {
+      if (!activeMission?.id) {
+        showToast('error', 'LỖI TÁC CHIẾN', 'Không tìm thấy lượt điều phối hợp lệ để phát yêu cầu.');
+        return false;
+      }
+
+      try {
+        const created = await fieldRequestService.create(activeMission.id, dto);
+        setFieldRequests((prev) => [created, ...prev.filter((r) => r.id !== created.id)]);
+        staffAudioService.playSuccessChime();
+        showToast(
+          'success',
+          'ĐÃ PHÁT TÍN HIỆU HIỆN TRƯỜNG',
+          dto.type === 'Backup'
+            ? `Đã gửi yêu cầu chi viện ${dto.quantity} xe về trung tâm điều phối CAD.`
+            : 'Đã gửi báo cáo vấn đề phối hợp hiện trường về trung tâm CAD.'
+        );
+        return true;
+      } catch (err: any) {
+        const status = err?.response?.status;
+        const message = err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu.';
+        if (status === 409) {
+          showToast(
+            'warning',
+            'YÊU CẦU ĐANG CHỜ XỬ LÝ',
+            'Đội đã có một yêu cầu cùng loại đang chờ trung tâm phản hồi. Vui lòng đợi hoặc hủy yêu cầu cũ.'
+          );
+        } else {
+          showToast('error', 'GỬI YÊU CẦU THẤT BẠI', message);
+        }
+        return false;
+      }
+    },
+    [activeMission?.id, showToast]
+  );
+
+  const handleCancelFieldRequest = useCallback(
+    async (requestId: string, note?: string): Promise<boolean> => {
+      try {
+        const updated = await fieldRequestService.cancel(requestId, note);
+        setFieldRequests((prev) => prev.map((r) => (r.id === requestId ? updated : r)));
+        staffAudioService.playSuccessChime();
+        showToast('info', 'ĐÃ HỦY YÊU CẦU', 'Đã hủy yêu cầu hỗ trợ hiện trường thành công.');
+        return true;
+      } catch (err: any) {
+        const message = err?.response?.data?.message || err?.message || 'Không thể hủy yêu cầu.';
+        showToast('error', 'HỦY YÊU CẦU THẤT BẠI', message);
+        return false;
+      }
+    },
+    [showToast]
+  );
 
   // Fetch assignments from backend (GET /api/dispatch/my-assignments)
   const fetchMyAssignments = useCallback(
@@ -292,6 +365,44 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
       fetchMyAssignments(true);
     });
 
+    // §21.2: Lắng nghe phản hồi từ Operator đối với yêu cầu từ hiện trường (SignalR: ReceiveFieldRequest)
+    const unsubFieldRequest = incidentHubService.on<FieldRequestEventDto>(
+      HubEvents.ReceiveFieldRequest,
+      (evt) => {
+        const req = evt.request;
+        if (!req) return;
+        setFieldRequests((prev) => {
+          const exists = prev.some((r) => r.id === req.id);
+          if (exists) {
+            return prev.map((r) => (r.id === req.id ? req : r));
+          }
+          return [req, ...prev];
+        });
+
+        if (evt.action === 'Acknowledged') {
+          staffAudioService.playPriorityBeep();
+          showToast(
+            'info',
+            'TỔNG ĐÀI ĐÃ TIẾP NHẬN YÊU CẦU',
+            `Điều phối viên đã tiếp nhận yêu cầu ${req.type === 'Backup' ? 'chi viện' : 'hỗ trợ'} của tổ. Đang xử lý.`
+          );
+        } else if (evt.action === 'Fulfilled') {
+          staffAudioService.playSuccessChime();
+          showToast(
+            'success',
+            'YÊU CẦU ĐÃ ĐƯỢC ĐÁP ỨNG',
+            req.responseNote ? `Phản hồi: ${req.responseNote}` : 'Tổng đài CAD đã điều động thêm lực lượng chi viện!'
+          );
+        } else if (evt.action === 'Declined') {
+          showToast(
+            'warning',
+            'YÊU CẦU BỊ TỪ CHỐI',
+            req.responseNote ? `Lý do: ${req.responseNote}` : 'Tổng đài CAD không thể đáp ứng yêu cầu hiện trường.'
+          );
+        }
+      }
+    );
+
     // Polling fallback every 15 seconds
     const intervalId = setInterval(() => {
       fetchMyAssignments(true);
@@ -300,9 +411,19 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
     return () => {
       unsubAssigned();
       unsubStatus();
+      unsubFieldRequest();
       clearInterval(intervalId);
     };
   }, [fetchMyAssignments, onNavigateTab, vehiclePlate, showToast]);
+
+  // Tự động tải danh sách yêu cầu hiện trường của sự cố hiện tại
+  useEffect(() => {
+    if (activeMission?.incidentId && isGuid(activeMission.incidentId)) {
+      fetchFieldRequests(activeMission.incidentId);
+    } else {
+      setFieldRequests([]);
+    }
+  }, [activeMission?.incidentId, fetchFieldRequests]);
 
   // Tự động tính toán đường đi thực tế men theo mạng lưới đường bộ (OSRM)
   useEffect(() => {
@@ -706,6 +827,12 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
     isHistoryOpen,
     setIsHistoryOpen,
     pendingMission,
+    // Field Requests (§21.2 & 12.2)
+    fieldRequests,
+    loadingFieldRequests,
+    fetchFieldRequests,
+    handleCreateFieldRequest,
+    handleCancelFieldRequest,
     // Operations
     fetchMyAssignments,
     handleStatusChange,

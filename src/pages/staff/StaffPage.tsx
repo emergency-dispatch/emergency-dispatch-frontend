@@ -45,6 +45,10 @@ export const StaffPage: React.FC = () => {
     isHistoryOpen,
     setIsHistoryOpen,
     pendingMission,
+    fieldRequests,
+    loadingFieldRequests,
+    handleCreateFieldRequest,
+    handleCancelFieldRequest,
     fetchMyAssignments,
     handleStatusChange,
     handleNextStep,
@@ -91,6 +95,10 @@ export const StaffPage: React.FC = () => {
               setIsViewingStandby={setIsViewingStandby}
               loadingAssignments={loadingAssignments}
               fetchError={fetchError}
+              fieldRequests={fieldRequests}
+              loadingFieldRequests={loadingFieldRequests}
+              onCreateFieldRequest={handleCreateFieldRequest}
+              onCancelFieldRequest={handleCancelFieldRequest}
               profile={profile}
               completedMissions={missionHistory}
               onRefresh={() => fetchMyAssignments(false)}

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { StaffMission, MissionStatus, StaffProfile } from '../../../types/staff';
+import type { FieldRequestDto, CreateFieldRequestDto } from '../../../types/fieldRequest';
 import { StaffActiveMissionView } from './StaffActiveMissionView';
 import { StaffStandbyView } from '../../../components/staff/StaffStandbyView';
 import { Radio } from 'lucide-react';
@@ -10,6 +11,10 @@ interface StaffMissionTabProps {
   setIsViewingStandby: (val: boolean) => void;
   loadingAssignments: boolean;
   fetchError: string | null;
+  fieldRequests?: FieldRequestDto[];
+  loadingFieldRequests?: boolean;
+  onCreateFieldRequest?: (dto: CreateFieldRequestDto) => Promise<boolean>;
+  onCancelFieldRequest?: (requestId: string, note?: string) => Promise<boolean>;
   profile: StaffProfile;
   completedMissions: StaffMission[];
   onRefresh: () => void;
@@ -28,6 +33,10 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
   setIsViewingStandby,
   loadingAssignments,
   fetchError,
+  fieldRequests = [],
+  loadingFieldRequests = false,
+  onCreateFieldRequest,
+  onCancelFieldRequest,
   profile,
   completedMissions,
   onRefresh,
@@ -45,6 +54,10 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
         mission={activeMission}
         loadingAssignments={loadingAssignments}
         fetchError={fetchError}
+        fieldRequests={fieldRequests}
+        loadingFieldRequests={loadingFieldRequests}
+        onCreateFieldRequest={onCreateFieldRequest}
+        onCancelFieldRequest={onCancelFieldRequest}
         onRefresh={onRefresh}
         onViewStandby={() => setIsViewingStandby(true)}
         onStatusChange={onStatusChange}
