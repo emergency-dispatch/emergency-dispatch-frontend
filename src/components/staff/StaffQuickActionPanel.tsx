@@ -15,9 +15,15 @@ import { staffAudioService } from '../../services/staffAudioService';
 
 interface StaffQuickActionPanelProps {
   missionId: string;
+  onOpenReportTraffic?: () => void;
+  onOpenBackupRequest?: () => void;
 }
 
-export const StaffQuickActionPanel: React.FC<StaffQuickActionPanelProps> = ({ missionId }) => {
+export const StaffQuickActionPanel: React.FC<StaffQuickActionPanelProps> = ({
+  missionId,
+  onOpenReportTraffic,
+  onOpenBackupRequest,
+}) => {
   const [activeDialog, setActiveDialog] = useState<'backup' | 'traffic' | 'hazard' | null>(null);
   const [sentNotification, setSentNotification] = useState<string | null>(null);
 
@@ -29,6 +35,10 @@ export const StaffQuickActionPanel: React.FC<StaffQuickActionPanelProps> = ({ mi
   };
 
   const handleReportTraffic = () => {
+    if (onOpenReportTraffic) {
+      onOpenReportTraffic();
+      return;
+    }
     staffAudioService.playPriorityBeep();
     setSentNotification('Đã ghi nhận báo cáo tình trạng ùn tắc giao thông trên tuyến đường hành quân.');
     setActiveDialog(null);
@@ -56,7 +66,13 @@ export const StaffQuickActionPanel: React.FC<StaffQuickActionPanelProps> = ({ mi
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {/* Button 1: Request Backup SOS */}
         <button
-          onClick={() => setActiveDialog('backup')}
+          onClick={() => {
+            if (onOpenBackupRequest) {
+              onOpenBackupRequest();
+            } else {
+              setActiveDialog('backup');
+            }
+          }}
           className="p-3 rounded-xl bg-red-50 hover:bg-red-100/80 border border-red-200 text-red-700 flex flex-col items-center text-center gap-1.5 transition-all active:scale-95 group cursor-pointer"
         >
           <div className="p-2 rounded-lg bg-red-600 text-white shadow-xs">
@@ -80,7 +96,13 @@ export const StaffQuickActionPanel: React.FC<StaffQuickActionPanelProps> = ({ mi
 
         {/* Button 3: Report Traffic Block */}
         <button
-          onClick={() => setActiveDialog('traffic')}
+          onClick={() => {
+            if (onOpenReportTraffic) {
+              onOpenReportTraffic();
+            } else {
+              setActiveDialog('traffic');
+            }
+          }}
           className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 flex flex-col items-center text-center gap-1.5 transition-all active:scale-95 group cursor-pointer"
         >
           <div className="p-2 rounded-lg bg-slate-200 text-slate-700 shadow-xs">

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { StaffMission, MissionStatus, StaffProfile } from '../../../types/staff';
 import type { FieldRequestDto, CreateFieldRequestDto } from '../../../types/fieldRequest';
+import type { ActiveTrafficTask } from '../../../components/staff/StaffTrafficTaskCard';
 import { StaffActiveMissionView } from './StaffActiveMissionView';
 import { StaffStandbyView } from '../../../components/staff/StaffStandbyView';
 import { Radio } from 'lucide-react';
@@ -13,6 +14,9 @@ interface StaffMissionTabProps {
   fetchError: string | null;
   fieldRequests?: FieldRequestDto[];
   loadingFieldRequests?: boolean;
+  activeTrafficTask?: ActiveTrafficTask | null;
+  onResolveTrafficTask?: (hotspotId: string, note?: string) => Promise<boolean>;
+  onOpenReportTrafficModal?: () => void;
   onCreateFieldRequest?: (dto: CreateFieldRequestDto) => Promise<boolean>;
   onCancelFieldRequest?: (requestId: string, note?: string) => Promise<boolean>;
   profile: StaffProfile;
@@ -35,6 +39,9 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
   fetchError,
   fieldRequests = [],
   loadingFieldRequests = false,
+  activeTrafficTask,
+  onResolveTrafficTask,
+  onOpenReportTrafficModal,
   onCreateFieldRequest,
   onCancelFieldRequest,
   profile,
@@ -56,6 +63,9 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
         fetchError={fetchError}
         fieldRequests={fieldRequests}
         loadingFieldRequests={loadingFieldRequests}
+        activeTrafficTask={activeTrafficTask}
+        onResolveTrafficTask={onResolveTrafficTask}
+        onOpenReportTrafficModal={onOpenReportTrafficModal}
         onCreateFieldRequest={onCreateFieldRequest}
         onCancelFieldRequest={onCancelFieldRequest}
         onRefresh={onRefresh}
@@ -102,6 +112,9 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
         loading={loadingAssignments}
         onRefresh={onRefresh}
         completedMissions={completedMissions}
+        activeTrafficTask={activeTrafficTask}
+        onResolveTrafficTask={onResolveTrafficTask}
+        onOpenReportTrafficModal={onOpenReportTrafficModal}
         onSelectMission={onSelectStandbyMission}
         onOpenHistory={onOpenHistory}
       />

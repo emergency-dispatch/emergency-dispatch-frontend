@@ -4,6 +4,7 @@ import { StaffSidebar, type StaffNavTab } from '../../components/staff/StaffSide
 import { StaffMissionAlertModal } from '../../components/staff/StaffMissionAlertModal';
 import { StaffClosureReportModal } from '../../components/staff/StaffClosureReportModal';
 import { StaffMissionHistoryModal } from '../../components/staff/StaffMissionHistoryModal';
+import { StaffReportTrafficModal } from '../../components/staff/StaffReportTrafficModal';
 import { StaffToastContainer } from '../../components/staff/StaffToast';
 import { StaffScheduleView } from '../../components/staff/schedule/StaffScheduleView';
 import { StaffReportsView } from '../../components/staff/reports/StaffReportsView';
@@ -49,6 +50,11 @@ export const StaffPage: React.FC = () => {
     loadingFieldRequests,
     handleCreateFieldRequest,
     handleCancelFieldRequest,
+    activeTrafficTask,
+    isReportTrafficModalOpen,
+    setIsReportTrafficModalOpen,
+    handleResolveTrafficTask,
+    handleReportTrafficHotspot,
     fetchMyAssignments,
     handleStatusChange,
     handleNextStep,
@@ -59,6 +65,8 @@ export const StaffPage: React.FC = () => {
     handleDeclineMission,
   } = useStaffMission({
     vehiclePlate: profile.vehiclePlate,
+    vehicleId: profile.vehicleId,
+    teamPlates: profile.teamPlates,
     onNavigateTab: setActiveTab,
   });
 
@@ -97,6 +105,9 @@ export const StaffPage: React.FC = () => {
               fetchError={fetchError}
               fieldRequests={fieldRequests}
               loadingFieldRequests={loadingFieldRequests}
+              activeTrafficTask={activeTrafficTask}
+              onResolveTrafficTask={handleResolveTrafficTask}
+              onOpenReportTrafficModal={() => setIsReportTrafficModalOpen(true)}
               onCreateFieldRequest={handleCreateFieldRequest}
               onCancelFieldRequest={handleCancelFieldRequest}
               profile={profile}
@@ -171,6 +182,15 @@ export const StaffPage: React.FC = () => {
           setActiveMission(m);
           setActiveTab('mission');
         }}
+      />
+
+      {/* Staff Report Traffic Hotspot Modal (POST /api/traffic/report) */}
+      <StaffReportTrafficModal
+        visible={isReportTrafficModalOpen}
+        onClose={() => setIsReportTrafficModalOpen(false)}
+        onSubmit={handleReportTrafficHotspot}
+        defaultAddress={profile.stationName || 'Khu Công nghệ cao TP.HCM'}
+        reporterName={profile.name}
       />
 
       {/* Staff Floating Toast Notifications */}

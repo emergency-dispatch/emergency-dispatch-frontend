@@ -44,6 +44,20 @@ export interface TrafficTaskEventDto {
   changedAt: string;
 }
 
+/** Mirror ReportTrafficHotspotDto (POST /api/traffic/report). */
+export interface ReportTrafficHotspotDto {
+  title: string;
+  description?: string | null;
+  latitude: number;
+  longitude: number;
+  locationAddress: string;
+  congestionLevel?: TrafficCongestionLevel;
+  mediaUrl?: string | null;
+  reporterName?: string | null;
+  reporterPhone?: string | null;
+  ttlMinutes?: number;
+}
+
 const CONGESTION_LEVELS: readonly TrafficCongestionLevel[] = ['Low', 'Moderate', 'Severe', 'Blocked'];
 
 /** Mirror EscalationSettingsDto (GET /api/settings/escalation). */
@@ -157,6 +171,11 @@ export const liveMapService = {
   async getActiveTrafficJams(): Promise<TrafficJamReport[]> {
     const hotspots = await unwrapApi(apiClient.get<ApiResponse<TrafficHotspotResponseDto[]>>('/traffic/active'));
     return hotspots.map(mapTrafficHotspot);
+  },
+
+  /** §20 & §6.1: Báo cáo điểm nghẽn giao thông hoặc chướng ngại vật nội khu (POST /api/traffic/report) */
+  async reportTrafficHotspot(input: ReportTrafficHotspotDto): Promise<TrafficHotspotResponseDto> {
+    return unwrapApi(apiClient.post<ApiResponse<TrafficHotspotResponseDto>>('/traffic/report', input));
   },
 
   /** Ghi chú tùy chọn (≤ 500 ký tự). Điểm đang có đội: chỉ trạm phụ trách / đội được giao (khác → 403). */

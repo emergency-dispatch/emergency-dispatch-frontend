@@ -10,6 +10,8 @@ import { incidentHubService, HubEvents } from '../../../services/realtime/incide
 import { staffAudioService } from '../../../services/staffAudioService';
 import { routingService } from '../../../services/routingService';
 import { mediaService } from '../../../services/mediaService';
+import { liveMapService, type TrafficTaskEventDto, type ReportTrafficHotspotDto } from '../../../services/liveMapService';
+import type { ActiveTrafficTask } from '../../../components/staff/StaffTrafficTaskCard';
 import type { FieldRequestDto, CreateFieldRequestDto, FieldRequestEventDto } from '../../../types/fieldRequest';
 import type { StaffToastMessage, StaffToastType } from '../../../components/staff/StaffToast';
 import {
@@ -29,10 +31,19 @@ const STATUS_PRIORITY: Record<MissionStatus, number> = {
 
 interface UseStaffMissionProps {
   vehiclePlate?: string;
+  vehicleId?: string;
+  teamPlates?: string[];
+  teamVehicleIds?: string[];
   onNavigateTab?: (tab: StaffNavTab) => void;
 }
 
-export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: UseStaffMissionProps) => {
+export const useStaffMission = ({
+  vehiclePlate = '51A-114.99',
+  vehicleId,
+  teamPlates = [],
+  teamVehicleIds = [],
+  onNavigateTab,
+}: UseStaffMissionProps) => {
   const [activeMission, setActiveMission] = useState<StaffMission | null>(null);
   const [isViewingStandby, setIsViewingStandby] = useState<boolean>(false);
   const [missionHistory, setMissionHistory] = useState<StaffMission[]>([]);
@@ -138,6 +149,90 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
       } catch (err: any) {
         const message = err?.response?.data?.message || err?.message || 'Không thể hủy yêu cầu.';
         showToast('error', 'HỦY YÊU CẦU THẤT BẠI', message);
+        return false;
+      }
+    },
+    [showToast]
+  );
+
+  // §20: Nhiệm vụ giải tỏa điểm nghẽn giao thông (Traffic Hotspot Task)
+  const [activeTrafficTask, setActiveTrafficTask] = useState<ActiveTrafficTask | null>(null);
+  const [isReportTrafficModalOpen, setIsReportTrafficModalOpen] = useState<boolean>(false);
+
+  const fetchActiveTrafficTask = useCallback(async () => {
+    try {
+      const activeJams = await liveMapService.getActiveTrafficJams();
+      const myTask = activeJams.find(
+        (j) =>
+          j.status === 'assigned' &&
+          (j.assignedUnitPlate === vehiclePlate ||
+            (teamPlates && teamPlates.includes(j.assignedUnitPlate || '')) ||
+            (vehicleId && j.assignedUnitId === vehicleId) ||
+            (teamVehicleIds && teamVehicleIds.includes(j.assignedUnitId || '')))
+      );
+      if (myTask) {
+        setActiveTrafficTask({
+          id: myTask.id,
+          title: myTask.area,
+          description: myTask.note,
+          latitude: myTask.lat,
+          longitude: myTask.lng,
+          locationAddress: myTask.area,
+          congestionLevel: myTask.congestionLevel || undefined,
+          congestionLevelName: myTask.congestionLevel || 'Moderate',
+          mediaUrl: myTask.mediaUrl || null,
+          createdAt: myTask.reportedAt,
+          expiresAt: myTask.expiresAt,
+          isActive: true,
+          status: 'Assigned',
+          assignedUnitPlate: myTask.assignedUnitPlate,
+          assignedRescueUnitId: myTask.assignedUnitId,
+          assignedAt: myTask.assignedAt,
+          taskNotes: myTask.note,
+        });
+      } else {
+        setActiveTrafficTask(null);
+      }
+    } catch (err) {
+      console.warn('[useStaffMission] fetchActiveTrafficTask error:', err);
+    }
+  }, [vehiclePlate, vehicleId, teamPlates, teamVehicleIds]);
+
+  const handleResolveTrafficTask = useCallback(
+    async (hotspotId: string, note?: string): Promise<boolean> => {
+      try {
+        await liveMapService.resolveTrafficJam(hotspotId, note);
+        setActiveTrafficTask(null);
+        staffAudioService.playSuccessChime();
+        showToast(
+          'success',
+          'ĐÃ GIẢI TỎA ĐIỂM NGHẼN',
+          'Đã báo cáo hoàn thành nhiệm vụ phân luồng / dọn chướng ngại vật.'
+        );
+        return true;
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || 'Không thể giải tỏa điểm nghẽn.';
+        showToast('error', 'LỖI GIẢI TỎA ĐIỂM NGHẼN', msg);
+        return false;
+      }
+    },
+    [showToast]
+  );
+
+  const handleReportTrafficHotspot = useCallback(
+    async (dto: ReportTrafficHotspotDto): Promise<boolean> => {
+      try {
+        await liveMapService.reportTrafficHotspot(dto);
+        staffAudioService.playSuccessChime();
+        showToast(
+          'success',
+          'ĐÃ BÁO CÁO ĐIỂM NGHẼN GIAO THÔNG',
+          `Cảnh báo ùn tắc tại "${dto.locationAddress}" đã được phát lên Live Map.`
+        );
+        return true;
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || 'Không thể gửi báo cáo kẹt xe.';
+        showToast('error', 'LỖI BÁO KẸT XE', msg);
         return false;
       }
     },
@@ -403,18 +498,85 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
       }
     );
 
+    // §20: Lắng nghe lệnh giao nhiệm vụ giải tỏa điểm nghẽn (SignalR: ReceiveTrafficTaskAssigned)
+    const unsubTrafficTask = incidentHubService.on<TrafficTaskEventDto>(
+      HubEvents.ReceiveTrafficTaskAssigned,
+      (evt) => {
+        const matchesPlate =
+          evt.plateNumber &&
+          (evt.plateNumber === vehiclePlate || (teamPlates && teamPlates.includes(evt.plateNumber)));
+        const matchesUnit =
+          evt.rescueUnitId &&
+          ((vehicleId && evt.rescueUnitId === vehicleId) ||
+            (teamVehicleIds && teamVehicleIds.includes(evt.rescueUnitId)));
+
+        if (evt.action === 'Assigned') {
+          if (matchesPlate || matchesUnit) {
+            setActiveTrafficTask({
+              ...evt.hotspot,
+              taskNotes: evt.notes || undefined,
+            });
+            staffAudioService.playPriorityBeep();
+            showToast(
+              'warning',
+              'NHIỆM VỤ GIẢI TỎA ĐIỂM NGHẼN (MỤC 20)',
+              `Xe ${evt.plateNumber || vehiclePlate} được phân công giải tỏa tại: ${evt.hotspot.locationAddress}. Chỉ đạo: ${evt.notes || 'Điều tiết luồng xe'}`
+            );
+          }
+        } else if (evt.action === 'Unassigned') {
+          setActiveTrafficTask((prev) => {
+            if (prev?.id === evt.hotspot.id || matchesPlate || matchesUnit) {
+              showToast(
+                'info',
+                'RÚT LỆNH ĐIỀU ĐỘNG',
+                'Trung tâm CAD đã thu hồi nhiệm vụ giải tỏa điểm nghẽn.'
+              );
+              return null;
+            }
+            return prev;
+          });
+        } else if (evt.action === 'Resolved') {
+          setActiveTrafficTask((prev) => {
+            if (prev?.id === evt.hotspot.id) {
+              showToast(
+                'success',
+                'ĐIỂM NGHẼN ĐÃ GIẢI TỎA',
+                'Điểm nghẽn giao thông đã được giải tỏa hoàn tất.'
+              );
+              return null;
+            }
+            return prev;
+          });
+        }
+      }
+    );
+
+    // Check active traffic task
+    fetchActiveTrafficTask();
+
     // Polling fallback every 15 seconds
     const intervalId = setInterval(() => {
       fetchMyAssignments(true);
+      fetchActiveTrafficTask();
     }, 15000);
 
     return () => {
       unsubAssigned();
       unsubStatus();
       unsubFieldRequest();
+      unsubTrafficTask();
       clearInterval(intervalId);
     };
-  }, [fetchMyAssignments, onNavigateTab, vehiclePlate, showToast]);
+  }, [
+    fetchMyAssignments,
+    fetchActiveTrafficTask,
+    onNavigateTab,
+    vehiclePlate,
+    vehicleId,
+    teamPlates,
+    teamVehicleIds,
+    showToast,
+  ]);
 
   // Tự động tải danh sách yêu cầu hiện trường của sự cố hiện tại
   useEffect(() => {
@@ -833,6 +995,12 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
     fetchFieldRequests,
     handleCreateFieldRequest,
     handleCancelFieldRequest,
+    // Traffic Task (§20)
+    activeTrafficTask,
+    isReportTrafficModalOpen,
+    setIsReportTrafficModalOpen,
+    handleResolveTrafficTask,
+    handleReportTrafficHotspot,
     // Operations
     fetchMyAssignments,
     handleStatusChange,

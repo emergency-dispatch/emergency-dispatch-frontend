@@ -5,6 +5,7 @@ import { StaffTurnByTurnGuide } from '../../../components/staff/StaffTurnByTurnG
 import { StaffNavigationMap } from '../../../components/staff/StaffNavigationMap';
 import { StaffQuickActionPanel } from '../../../components/staff/StaffQuickActionPanel';
 import { StaffFieldRequestSection } from '../../../components/staff/StaffFieldRequestSection';
+import { StaffTrafficTaskCard, type ActiveTrafficTask } from '../../../components/staff/StaffTrafficTaskCard';
 import { StaffIncidentCard } from './StaffIncidentCard';
 import { isGuid } from '../utils/staffMissionUtils';
 import type { FieldRequestDto, CreateFieldRequestDto } from '../../../types/fieldRequest';
@@ -25,6 +26,9 @@ interface StaffActiveMissionViewProps {
   fetchError: string | null;
   fieldRequests?: FieldRequestDto[];
   loadingFieldRequests?: boolean;
+  activeTrafficTask?: ActiveTrafficTask | null;
+  onResolveTrafficTask?: (hotspotId: string, note?: string) => Promise<boolean>;
+  onOpenReportTrafficModal?: () => void;
   onCreateFieldRequest?: (dto: CreateFieldRequestDto) => Promise<boolean>;
   onCancelFieldRequest?: (requestId: string, note?: string) => Promise<boolean>;
   onRefresh: () => void;
@@ -42,6 +46,9 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
   fetchError,
   fieldRequests = [],
   loadingFieldRequests = false,
+  activeTrafficTask,
+  onResolveTrafficTask,
+  onOpenReportTrafficModal,
   onCreateFieldRequest,
   onCancelFieldRequest,
   onRefresh,
@@ -56,6 +63,14 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
     <div className="p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
       {/* Left Column: Mission Controls & Telemetry (5 cols) */}
       <div className="lg:col-span-5 space-y-4">
+        {/* Active Traffic Task (Mục 20: Nhiệm vụ giải tỏa điểm nghẽn) */}
+        {activeTrafficTask && onResolveTrafficTask && (
+          <StaffTrafficTaskCard
+            task={activeTrafficTask}
+            onResolve={onResolveTrafficTask}
+          />
+        )}
+
         {/* Active Dispatches Banner / Quick Refresh */}
         <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-xs space-y-2.5">
           <div className="flex items-center justify-between gap-2">
@@ -191,7 +206,10 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
         <StaffIncidentCard mission={mission} />
 
         {/* Emergency Quick Action Panel */}
-        <StaffQuickActionPanel missionId={mission.id} />
+        <StaffQuickActionPanel
+          missionId={mission.id}
+          onOpenReportTraffic={onOpenReportTrafficModal}
+        />
       </div>
 
       {/* Right Column: Navigation Map (7 cols) */}

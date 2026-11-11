@@ -16,8 +16,10 @@ import {
   Compass,
   CheckCircle2,
   Sparkles,
+  Car,
 } from 'lucide-react';
 import type { StaffProfile, StaffMission } from '../../types/staff';
+import { StaffTrafficTaskCard, type ActiveTrafficTask } from './StaffTrafficTaskCard';
 import {
   MAPBOX_ACCESS_TOKEN,
   MAPBOX_REALISTIC_STYLE,
@@ -30,6 +32,9 @@ interface StaffStandbyViewProps {
   loading: boolean;
   onRefresh: () => void;
   completedMissions: StaffMission[];
+  activeTrafficTask?: ActiveTrafficTask | null;
+  onResolveTrafficTask?: (hotspotId: string, note?: string) => Promise<boolean>;
+  onOpenReportTrafficModal?: () => void;
   onSelectMission?: (mission: StaffMission) => void;
   onOpenHistory?: () => void;
 }
@@ -41,6 +46,9 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
   loading,
   onRefresh,
   completedMissions,
+  activeTrafficTask,
+  onResolveTrafficTask,
+  onOpenReportTrafficModal,
   onSelectMission,
   onOpenHistory,
 }) => {
@@ -166,6 +174,14 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
     <div className="p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 h-full">
       {/* Left Column: Standby Telemetry & Unit Status (5 cols) */}
       <div className="lg:col-span-5 space-y-4 overflow-y-auto pr-1">
+        {/* Active Traffic Task (Mục 20: Nhiệm vụ giải tỏa điểm nghẽn) */}
+        {activeTrafficTask && onResolveTrafficTask && (
+          <StaffTrafficTaskCard
+            task={activeTrafficTask}
+            onResolve={onResolveTrafficTask}
+          />
+        )}
+
         {/* Card 1: Standby Operational Radar Banner / BR-27 CoolDown */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
@@ -191,15 +207,29 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
               </div>
             )}
 
-            <button
-              onClick={onRefresh}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all cursor-pointer disabled:opacity-50"
-              title="Kiểm tra lệnh điều phối mới từ máy chủ CAD"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>{loading ? 'Đang đồng bộ...' : 'Đồng bộ CAD'}</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              {onOpenReportTrafficModal && (
+                <button
+                  type="button"
+                  onClick={onOpenReportTrafficModal}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-mono font-bold text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-xl transition-all cursor-pointer"
+                  title="Báo cáo điểm nghẽn hoặc chướng ngại vật giao thông (POST /api/traffic/report)"
+                >
+                  <Car className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Báo Kẹt Xe</span>
+                </button>
+              )}
+
+              <button
+                onClick={onRefresh}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                title="Kiểm tra lệnh điều phối mới từ máy chủ CAD"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <span>{loading ? 'Đang đồng bộ...' : 'Đồng bộ CAD'}</span>
+              </button>
+            </div>
           </div>
 
           {cooldownSeconds > 0 ? (
