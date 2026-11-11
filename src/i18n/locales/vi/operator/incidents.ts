@@ -13,6 +13,7 @@ export const incidentsVi = {
     columnWait: 'Thời gian chờ',
     loading: 'Đang tải hàng đợi sự cố...',
     empty: 'Không có sự cố nào đang chờ xử lý',
+    emptyFollowUp: 'Theo dõi {{count}} ca đang xử lý trên Live Map',
     escalatedSection: 'Sự cố leo thang',
     escalatedGroup: 'Leo thang, cần thẩm định ngay',
     waitingSection: 'Sự cố đang chờ',
@@ -246,6 +247,12 @@ export const incidentsVi = {
     laterTitle: 'Đóng bước này. Sự cố đã duyệt nằm trên Live Map, chờ điều xe.',
     openLiveMap: 'Mở trên Live Map',
     finish: 'Hoàn tất',
+    // Thông báo ở Hàng đợi sau khi đóng bước Điều xe.
+    notice: {
+      dispatched: 'Đã giao {{count}} xe cho “{{title}}”.',
+      deferred: 'Đã duyệt “{{title}}”, chưa giao xe. Ca nằm trên Live Map chờ điều xe.',
+      view: 'Xem trên Live Map',
+    },
   },
   // BR-07: báo cáo trùng hệ thống tự gộp vào sự cố gốc.
   // §21.4: người báo gửi thêm ghi chú / ảnh sau SOS.

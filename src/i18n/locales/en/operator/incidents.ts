@@ -16,6 +16,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     columnWait: 'Waiting time',
     loading: 'Loading the incident queue...',
     empty: 'No incidents waiting',
+    emptyFollowUp: 'Follow {{count}} active case(s) on the Live Map',
     escalatedSection: 'Escalated incidents',
     escalatedGroup: 'Escalated — verify now',
     waitingSection: 'Waiting incidents',
@@ -251,6 +252,11 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     laterTitle: 'Close this step. The approved incident stays on the Live Map, waiting for dispatch.',
     openLiveMap: 'Open on Live Map',
     finish: 'Done',
+    notice: {
+      dispatched: '{{count}} vehicle(s) dispatched to “{{title}}”.',
+      deferred: '“{{title}}” approved without a vehicle. It waits on the Live Map for dispatch.',
+      view: 'View on Live Map',
+    },
   },
   supplements: {
     heading: 'More information from the reporter ({{count}})',

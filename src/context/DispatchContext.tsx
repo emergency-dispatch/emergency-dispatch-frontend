@@ -170,7 +170,9 @@ export interface OperatorAlert {
     | 'field_request'
     | 'field_request_escalated'
     /** §26.2: một tổ vừa nộp báo cáo nghiệm thu (chữ ký đại diện). */
-    | 'team_completed';
+    | 'team_completed'
+    /** BR-21: đội từ chối / không phản hồi lệnh — trả về Operator để giao lại (báo ở mọi trang). */
+    | 'crew_rejected';
   /** Sự cố liên quan; `traffic_escalation` dùng `trafficJamId` (incidentId = id điểm ùn tắc). */
   incidentId: string;
   trafficJamId?: string;
@@ -819,8 +821,27 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ),
       incidentHubService.on<DispatchAssignmentResponseDto>(HubEvents.ReceiveAssignmentStatus, (a) => {
         const report = a.completionReport;
-        const wasCompleted = assignmentsRef.current.get(a.id)?.status === 'Completed';
+        const previousStatus = assignmentsRef.current.get(a.id)?.status;
+        const wasCompleted = previousStatus === 'Completed';
         const incident = incidentDtosRef.current.get(a.incidentId);
+        // BR-21: đội vừa từ chối / không phản hồi → báo ở mọi trang (Operator thường đã quay về Hàng đợi sau khi giao).
+        if (a.status === 'Rejected' && previousStatus !== 'Rejected' && incident) {
+          staffAudioService.playPriorityBeep();
+          pushOperatorAlert({
+            kind: 'crew_rejected',
+            incidentId: a.incidentId,
+            title: i18n.t(
+              a.rejectionReason === 'NoResponse'
+                ? 'layout.operatorAlerts.crewTimeoutTitle'
+                : 'layout.operatorAlerts.crewRejectedTitle'
+            ),
+            message: i18n.t('layout.operatorAlerts.crewRejectedMessage', {
+              unit: a.rescueUnit?.plateNumber ?? '—',
+              incident: incident.title,
+              reason: a.rejectionNotes?.trim() || i18n.t(`enums.rejectionReason.${a.rejectionReason ?? 'Other'}`),
+            }),
+          });
+        }
         // Tổ vừa nộp nghiệm thu cho sự cố trạm mình → báo nhẹ, mở thẳng màn Nghiệm thu.
         if (a.status === 'Completed' && report && !wasCompleted && incident && !announcedReportIdsRef.current.has(report.id)) {
           announcedReportIdsRef.current.add(report.id);

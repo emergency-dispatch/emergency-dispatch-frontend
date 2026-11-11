@@ -27,6 +27,7 @@ import { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import type { DispatchAlgorithm } from '../../../types/vehicle';
 import type { FieldRequestDto } from '../../../types/fieldRequest';
+import { getBusyTeamIds } from '../../../utils/teamAvailability';
 import { useTranslation } from '../../../i18n';
 
 const DRAG_MIME = 'application/x-resq-vehicle-id';
@@ -135,16 +136,22 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   // Điều phối theo tổ: xe trạm mình phải có tổ. Xe hỗ trợ của trạm khác thì Operator không xem được tổ (403) →
   // vẫn cho giao, hiện theo xe.
   const teamedCandidates = readyCandidates.filter((c) => teamByVehicle.has(c.vehicleId) || c.isSupportUnit);
+  // Tổ nhiều xe: một xe của tổ đang làm nhiệm vụ → bỏ các xe còn lại của tổ (kíp người đang bận).
+  const busyTeamIds = getBusyTeamIds(vehicles, teamByVehicle);
+  const freeCandidates = teamedCandidates.filter((c) => {
+    const team = teamByVehicle.get(c.vehicleId);
+    return !team || !busyTeamIds.has(team.id);
+  });
   // Đáp ứng yêu cầu chi viện có chỉ định loại xe → đưa xe đúng loại lên đầu (sort ổn định, giữ thứ tự gợi ý).
   const preferredType = serving ? fieldRequest?.requestedUnitType ?? null : null;
   const candidates = preferredType
-    ? [...teamedCandidates].sort(
+    ? [...freeCandidates].sort(
         (a, b) =>
           Number(vehiclesById.get(b.vehicleId)?.unitType === preferredType) -
           Number(vehiclesById.get(a.vehicleId)?.unitType === preferredType)
       )
-    : teamedCandidates;
-  const vehiclesWithoutTeam = readyCandidates.length - candidates.length;
+    : freeCandidates;
+  const vehiclesWithoutTeam = readyCandidates.length - teamedCandidates.length;
   const selectedForRequest =
     fieldRequest && requestSelection.requestId === fieldRequest.id
       ? requestSelection.ids.filter((id) => candidates.some((c) => c.vehicleId === id))
@@ -182,10 +189,13 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   // Tổ sẵn sàng để kéo thả
   const readyTeams = useMemo(
     () =>
-      vehicles
-        .filter((v) => v.status === 'available' && teamByVehicle.has(v.id))
-        .map((v) => ({ vehicle: v, team: teamByVehicle.get(v.id)! }))
-        .sort((a, b) => a.team.name.localeCompare(b.team.name, 'vi')),
+      {
+        const busyTeamIds = getBusyTeamIds(vehicles, teamByVehicle);
+        return vehicles
+          .filter((v) => v.status === 'available' && teamByVehicle.has(v.id) && !busyTeamIds.has(teamByVehicle.get(v.id)!.id))
+          .map((v) => ({ vehicle: v, team: teamByVehicle.get(v.id)! }))
+          .sort((a, b) => a.team.name.localeCompare(b.team.name, 'vi'));
+      },
     [vehicles, teamByVehicle]
   );
 

@@ -24,6 +24,7 @@ import { useDispatchStore } from '../../../context/DispatchContext';
 import { useDispatchRecommendations } from '../../../hooks/useDispatchRecommendations';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import type { DispatchAlgorithm } from '../../../types/vehicle';
+import { getBusyTeamIds } from '../../../utils/teamAvailability';
 import { useTranslation } from '../../../i18n';
 
 const SECONDARY_BUTTON =
@@ -77,8 +78,14 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
   const readyCandidates = (suggestion?.candidates ?? []).filter(
     (c) => vehiclesById.get(c.vehicleId)?.status === 'available'
   );
-  const candidates = readyCandidates.filter((c) => teamByVehicle.has(c.vehicleId) || c.isSupportUnit);
-  const vehiclesWithoutTeam = readyCandidates.length - candidates.length;
+  const teamedCandidates = readyCandidates.filter((c) => teamByVehicle.has(c.vehicleId) || c.isSupportUnit);
+  // Tổ nhiều xe: một xe của tổ vừa được giao / đang làm nhiệm vụ → không gợi ý lại tổ đó qua xe khác.
+  const busyTeamIds = getBusyTeamIds(vehicles, teamByVehicle);
+  const candidates = teamedCandidates.filter((c) => {
+    const team = teamByVehicle.get(c.vehicleId);
+    return !team || !busyTeamIds.has(team.id);
+  });
+  const vehiclesWithoutTeam = readyCandidates.length - teamedCandidates.length;
 
   const handleAssign = async (vehicleId: string) => {
     setAssigningVehicleId(vehicleId);
