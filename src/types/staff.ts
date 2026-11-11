@@ -73,6 +73,10 @@ export interface StaffMission {
   callerName: string;
   callerPhone: string;
   dispatcherName?: string;
+  assignedByUserId?: string | null;
+  isAiDispatched?: boolean;
+  stationTeamName?: string;
+  teamVehicles?: string[];
   assignedAt: string;
   acceptedAt?: string;
   enRouteAt?: string;
@@ -99,6 +103,9 @@ export interface StaffProfile {
   stationName: string;
   vehiclePlate: string;
   vehicleType: VehicleType;
+  teamName?: string;
+  teamPlates?: string[];
+  crewRole?: string;
   status: 'on_duty' | 'off_duty' | 'break';
   batteryLevel: number;
   gpsSignal: 'strong' | 'moderate' | 'weak';

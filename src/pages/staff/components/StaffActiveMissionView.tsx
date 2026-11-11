@@ -14,6 +14,7 @@ import {
   Navigation,
   Flame,
   CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 
 interface StaffActiveMissionViewProps {
@@ -53,6 +54,12 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
               <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800 truncate">
                 NHIỆM VỤ ĐANG TÁC CHIẾN
               </span>
+              {mission.isAiDispatched && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-100 text-purple-800 border border-purple-300 shrink-0">
+                  <Sparkles className="w-3 h-3 text-purple-600 animate-pulse" />
+                  AI Tự Điều Phối
+                </span>
+              )}
               {isGuid(mission.id) && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
                   Kết Nối Trực Tuyến

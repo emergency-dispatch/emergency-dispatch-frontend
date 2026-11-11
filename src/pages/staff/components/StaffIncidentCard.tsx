@@ -2,7 +2,7 @@ import React from 'react';
 import type { StaffMission } from '../../../types/staff';
 import { SEVERITY_META } from '../../../data/incidentMock';
 import { HazardTagBadge } from '../../../components/common/HazardTagBadge';
-import { MapPin, Phone, User, UserCheck } from 'lucide-react';
+import { MapPin, Phone, User, UserCheck, Sparkles } from 'lucide-react';
 
 interface StaffIncidentCardProps {
   mission: StaffMission;
@@ -57,10 +57,19 @@ export const StaffIncidentCard: React.FC<StaffIncidentCardProps> = ({ mission })
         <div className="flex flex-col gap-2 text-slate-600 bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
           <div className="flex items-center justify-between text-[11px] pb-1.5 border-b border-slate-200/60">
             <div className="flex items-center gap-1.5">
-              <UserCheck className="w-3.5 h-3.5 text-red-600" />
-              <span>
-                Điều phối: <strong className="text-slate-900">{mission.dispatcherName || 'Điều phối viên CAD'}</strong>
-              </span>
+              {mission.isAiDispatched || mission.dispatcherName === 'AI tự điều phối' ? (
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-purple-100 text-purple-800 border border-purple-200">
+                  <Sparkles className="w-3 h-3 text-purple-600 animate-pulse" />
+                  <span>AI tự điều phối</span>
+                </div>
+              ) : (
+                <>
+                  <UserCheck className="w-3.5 h-3.5 text-red-600" />
+                  <span>
+                    Điều phối: <strong className="text-slate-900">{mission.dispatcherName || 'Điều phối viên CAD'}</strong>
+                  </span>
+                </>
+              )}
             </div>
           </div>
           <div className="flex items-center justify-between text-xs">

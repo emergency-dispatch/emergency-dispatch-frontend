@@ -90,6 +90,13 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
   const handleNextStep = async (targetStatus?: MissionStatus) => {
     if (isSubmittingStatus) return;
 
+    // Mục 26.2: Không bắt buộc OnScene trước - Cho phép nghiệm thu hoàn tất bất cứ lúc nào
+    if (targetStatus === 'completed') {
+      staffAudioService.playSuccessChime();
+      onOpenReportModal();
+      return;
+    }
+
     // Chỉ cho phép chuyển đúng sang bước kế tiếp (+1)
     const targetIdx = targetStatus ? STEPS.findIndex((s) => s.key === targetStatus) : currentIndex + 1;
     if (targetIdx !== currentIndex + 1) {
@@ -100,11 +107,7 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
     try {
       staffAudioService.playSuccessChime();
       if (targetStatus) {
-        if (targetStatus === 'completed') {
-          onOpenReportModal();
-        } else {
-          await onStatusChange(targetStatus);
-        }
+        await onStatusChange(targetStatus);
       } else if (mission.status === 'accepted') {
         await onStatusChange('en_route');
       } else if (mission.status === 'en_route') {
@@ -147,7 +150,9 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
           const isDone = idx < currentIndex;
           const isCurrent = idx === currentIndex;
           const isNext = idx === currentIndex + 1;
-          const canClick = isNext && !isSubmittingStatus;
+          // Cho phép click bước kế tiếp HOẶC bước Completed bất cứ lúc nào (Mục 26.2: Không bắt buộc OnScene trước)
+          const isCompletedStep = step.key === 'completed' && !isDone && !isCurrent;
+          const canClick = (isNext || isCompletedStep) && !isSubmittingStatus;
 
           return (
             <div
@@ -162,7 +167,7 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
                   ? 'bg-red-50/70 border-red-500 shadow-xs cursor-default pointer-events-none'
                   : isDone
                   ? 'bg-slate-50 border-slate-200 text-slate-700 cursor-default pointer-events-none'
-                  : isNext
+                  : isNext || isCompletedStep
                   ? 'bg-white border-red-200 text-slate-900 hover:border-red-400 hover:bg-red-50/30 cursor-pointer shadow-xs'
                   : 'bg-slate-50/40 border-slate-200/60 text-slate-400 opacity-60 cursor-not-allowed pointer-events-none'
               }`}
@@ -173,6 +178,8 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
                   ? 'Bước hiện tại'
                   : isNext
                   ? 'Nhấn để chuyển sang bước kế tiếp'
+                  : isCompletedStep
+                  ? 'Nghiệm thu đại diện cho tổ (Mục 26.2: Không bắt buộc OnScene trước)'
                   : 'Chưa thể chuyển tới bước này'
               }
             >
@@ -256,6 +263,19 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
             <FileCheck2 className="w-4 h-4 text-emerald-600" />
             <span>ĐÃ HOÀN TẤT - XEM BÁO CÁO ĐIỆN TỬ</span>
           </button>
+        )}
+
+        {/* Mục 26.2: Nghiệm thu đại diện không bắt buộc OnScene trước */}
+        {(mission.status === 'accepted' || mission.status === 'en_route') && (
+          <div className="text-center pt-2">
+            <button
+              type="button"
+              onClick={() => onOpenReportModal()}
+              className="text-[11px] text-slate-500 hover:text-red-600 underline font-semibold transition-colors cursor-pointer"
+            >
+              Nghiệm thu đại diện cho tổ ngay (Không bắt buộc On-Scene)
+            </button>
+          </div>
         )}
       </div>
 

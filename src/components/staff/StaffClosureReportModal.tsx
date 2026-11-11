@@ -16,6 +16,8 @@ import {
   FileText,
   Sparkles,
   Loader2,
+  Users,
+  Truck,
 } from 'lucide-react';
 import type { DigitalClosureReport, ClosureEvidencePhoto, StaffMission } from '../../types/staff';
 import { StaffSignaturePad } from './StaffSignaturePad';
@@ -321,6 +323,28 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
             onSubmit={handleSubmit}
             className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1 bg-white"
           >
+            {/* Team Representative Banner (Mục 26.2) */}
+            <div className="p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+              <div className="flex items-start sm:items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700 shrink-0">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 text-[13px]">
+                    Nghiệm thu đại diện kíp trực ({mission.stationTeamName ? `Tổ ${mission.stationTeamName}` : 'Tổ cứu hộ'})
+                  </div>
+                  <div className="text-slate-600 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span>Biên bản này có giá trị nghiệm thu hoàn tất cho toàn bộ phương tiện của tổ:</span>
+                    <span className="font-mono font-bold text-blue-800 bg-blue-100/70 px-1.5 py-0.5 rounded border border-blue-200">
+                      {mission.vehiclePlate}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <span className="self-start sm:self-auto px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 font-mono font-bold text-[11px] shrink-0 border border-blue-300">
+                1 người nộp cho cả tổ
+              </span>
+            </div>
             {/* Validation Errors Alert */}
             {validationErrors.length > 0 && (
               <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1">

@@ -56,10 +56,14 @@ export const StaffTeamView: React.FC = () => {
   const members = teamData?.teamMembers || [];
   const vehicles = teamData?.stationVehicles || [];
 
-  // Filter members only if user has a real team assigned
-  const hasDistinctTeam = Boolean(rawTeamName && members.some((m) => m.teamName === rawTeamName));
+  // Filter members by team (support myTeamMembers directly from backend)
+  const myTeamMembers = teamData?.myTeamMembers && teamData.myTeamMembers.length > 0
+    ? teamData.myTeamMembers
+    : (rawTeamName ? members.filter((m) => m.teamName === rawTeamName) : []);
+
+  const hasDistinctTeam = Boolean(rawTeamName && (myTeamMembers.length > 0 || members.some((m) => m.teamName === rawTeamName)));
   const filteredMembers = hasDistinctTeam && activeFilter === 'my_team'
-    ? members.filter((m) => m.teamName === rawTeamName)
+    ? myTeamMembers
     : members;
 
   const availableVehiclesCount = vehicles.filter(
@@ -236,6 +240,26 @@ export const StaffTeamView: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {teamData?.stationOperator && (
+                <div className="flex items-start gap-2.5 pt-2 border-t border-slate-100">
+                  <UserCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-slate-400 font-semibold uppercase">Điều phối viên phụ trách</div>
+                    <div className="text-xs font-bold text-slate-900 mt-0.5 flex items-center gap-2">
+                      <span>{teamData.stationOperator.fullName}</span>
+                      {teamData.stationOperator.phoneNumber && (
+                        <a
+                          href={`tel:${teamData.stationOperator.phoneNumber}`}
+                          className="text-red-600 font-mono hover:underline text-[11px]"
+                        >
+                          ({teamData.stationOperator.phoneNumber})
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -255,6 +279,11 @@ export const StaffTeamView: React.FC = () => {
                   <h2 className="text-base sm:text-lg font-black text-slate-900 truncate">
                     {rawTeamName || 'Chưa phân tổ'}
                   </h2>
+                  {teamData?.myCrewRole && (
+                    <div className="text-xs text-red-600 font-semibold mt-0.5">
+                      Vai trò: {teamData.myCrewRole}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -269,7 +298,35 @@ export const StaffTeamView: React.FC = () => {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-5 pt-4 border-t border-slate-100">
+            {/* Phương tiện tổ phụ trách (Hỗ trợ Một tổ nhiều xe - Mục 26.1) */}
+            <div className="mt-4 pt-3 border-t border-slate-100">
+              <div className="text-[11px] font-mono font-bold text-slate-600 uppercase flex items-center gap-1.5 mb-2">
+                <Truck className="w-3.5 h-3.5 text-red-600" />
+                <span>Xe do tổ phụ trách ({teamData?.myTeamRescueUnitPlates?.length || (teamData?.myTeamRescueUnitPlate ? 1 : 0)} xe):</span>
+              </div>
+              {teamData?.myTeamRescueUnitPlates && teamData.myTeamRescueUnitPlates.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {teamData.myTeamRescueUnitPlates.map((plate) => (
+                    <span
+                      key={plate}
+                      className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-red-50 text-red-700 border border-red-200 flex items-center gap-1.5"
+                    >
+                      <Truck className="w-3.5 h-3.5 text-red-600" />
+                      {plate}
+                    </span>
+                  ))}
+                </div>
+              ) : teamData?.myTeamRescueUnitPlate ? (
+                <span className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-red-50 text-red-700 border border-red-200 inline-flex items-center gap-1.5">
+                  <Truck className="w-3.5 h-3.5 text-red-600" />
+                  {teamData.myTeamRescueUnitPlate}
+                </span>
+              ) : (
+                <span className="text-xs text-slate-400 italic">Chưa gán phương tiện trực chiến</span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-slate-100">
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
                 <div className="text-[11px] text-slate-500 font-semibold">Cán bộ tại trạm</div>
                 <div className="text-lg font-black font-mono text-slate-900 mt-1">

@@ -248,16 +248,47 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
       setIsAlertOpen(true);
       onNavigateTab?.('mission');
 
-      showToast(
-        'warning',
-        'LỆNH ĐIỀU ĐỘNG TỔNG ĐÀI CAD',
-        `Điều phối: ${incDetails?.verifiedByName || 'Điều phối viên CAD'} — Sự cố: ${assignmentDto.incidentTitle || 'Nhiệm vụ tác chiến'}`
-      );
+      if (mapped.isAiDispatched) {
+        showToast(
+          'warning',
+          'LỆNH TỰ ĐIỀU ĐỘNG TỪ AI',
+          `Hệ thống AI tự động điều phối theo quy tắc khẩn cấp — Sự cố: ${assignmentDto.incidentTitle || 'Nhiệm vụ tác chiến'}`
+        );
+      } else {
+        showToast(
+          'warning',
+          'LỆNH ĐIỀU ĐỘNG TỔNG ĐÀI CAD',
+          `Điều phối: ${incDetails?.verifiedByName || 'Điều phối viên CAD'} — Sự cố: ${assignmentDto.incidentTitle || 'Nhiệm vụ tác chiến'}`
+        );
+      }
 
       fetchMyAssignments(true);
     });
 
-    const unsubStatus = incidentHubService.onAssignmentStatus(() => {
+    const unsubStatus = incidentHubService.onAssignmentStatus((updatedAssignment) => {
+      if (updatedAssignment) {
+        const nextStatus = updatedAssignment.status;
+        if (nextStatus === 'Completed') {
+          setIsReportModalOpen(false);
+          setActiveMission(null);
+          showToast(
+            'success',
+            'TỔ ĐÃ HOÀN TẤT NGHIỆM THU',
+            `Đồng đội trong tổ đã hoàn tất báo cáo và đóng ca nhiệm vụ (Xe ${updatedAssignment.rescueUnit?.plateNumber || ''}).`
+          );
+        } else if (nextStatus === 'Accepted' || nextStatus === 'EnRoute' || nextStatus === 'OnScene') {
+          const statusTextMap: Record<string, string> = {
+            Accepted: 'Đã tiếp nhận phân công',
+            EnRoute: 'Xe đang trên đường di chuyển',
+            OnScene: 'Đã tiếp cận hiện trường tác chiến',
+          };
+          showToast(
+            'info',
+            'ĐỒNG BỘ TIẾN ĐỘ TỔ TRỰC',
+            `Đồng đội đã cập nhật: ${statusTextMap[nextStatus] || nextStatus} (Xe ${updatedAssignment.rescueUnit?.plateNumber || ''}).`
+          );
+        }
+      }
       fetchMyAssignments(true);
     });
 
@@ -381,8 +412,11 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
         } else if (nextStatus === 'on_scene') {
           showToast('info', 'ĐÃ TIẾP CẬN HIỆN TRƯỜNG', 'Đội xe đã tới hiện trường và bắt đầu cứu hộ.');
         }
-      } catch (err) {
+      } catch (err: any) {
         console.warn('[useStaffMission] Update assignment status error:', err);
+        const errMsg = getApiErrorMessage(err, 'Nhiệm vụ của xe do tổ khác phụ trách.');
+        showToast('error', 'LỖI PHÂN QUYỀN TỔ', errMsg);
+        fetchMyAssignments(true);
       }
     }
   };
@@ -527,18 +561,7 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
           signatureUrl: uploadedSignatureUrl,
         };
 
-        // Đảm bảo trạng thái xe trên server là OnScene trước khi gọi resolve
-        if (activeMission.status !== 'on_scene') {
-          try {
-            await dispatchService.updateAssignmentStatus(activeMission.id, {
-              status: 'OnScene',
-              notes: 'Đã tiếp cận hiện trường trước khi lập biên bản nghiệm thu.',
-            });
-          } catch (statusErr) {
-            console.warn('[useStaffMission] Auto-transition to OnScene notice:', statusErr);
-          }
-        }
-
+        // §26.2: Nghiệm thu đại diện theo tổ, không còn bắt buộc OnScene trước khi nghiệm thu
         const res = await dispatchService.resolveAssignment(activeMission.id, resolvePayload);
         if (!res.success) {
           throw new Error(res.message || 'Lỗi khi nghiệm thu phân công.');
@@ -557,6 +580,17 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
         await fetchMyAssignments(true);
       } catch (err: any) {
         console.error('[useStaffMission] Resolve assignment error:', err);
+        if (err?.response?.status === 409) {
+          setIsReportModalOpen(false);
+          setActiveMission(null);
+          showToast(
+            'info',
+            'TỔ ĐÃ NGHIỆM THU',
+            getApiErrorMessage(err, 'Nhiệm vụ này đã được một thành viên trong tổ nghiệm thu. Không cần nộp lại.')
+          );
+          await fetchMyAssignments(true);
+          return;
+        }
         const errMsg = getApiErrorMessage(err, 'Không thể gửi biên bản nghiệm thu lên máy chủ CAD.');
         showToast('error', 'LỖI NỘP BIÊN BẢN', errMsg);
       } finally {
@@ -584,23 +618,36 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
 
   const handleAcceptMission = async () => {
     if (pendingMission) {
-      setActiveMission(pendingMission);
       if (isGuid(pendingMission.id)) {
         try {
           await dispatchService.updateAssignmentStatus(pendingMission.id, {
             status: 'Accepted',
             notes: 'Đội xe đã xác nhận tiếp nhận lệnh điều phối.',
           });
+          setActiveMission(pendingMission);
+          showToast(
+            'success',
+            'ĐÃ TIẾP NHẬN PHÂN CÔNG',
+            `Kíp xe đã xác nhận nhiệm vụ: ${pendingMission.title}`
+          );
           fetchMyAssignments(true);
-        } catch (err) {
+        } catch (err: any) {
           console.warn('[useStaffMission] Accept mission update status error:', err);
+          const errMsg = getApiErrorMessage(err, 'Nhiệm vụ của xe do tổ khác phụ trách.');
+          showToast('error', 'LỖI PHÂN QUYỀN TỔ', errMsg);
+          fetchMyAssignments(true);
+          setIsAlertOpen(false);
+          setPendingMission(null);
+          return;
         }
+      } else {
+        setActiveMission(pendingMission);
+        showToast(
+          'success',
+          'ĐÃ TIẾP NHẬN PHÂN CÔNG',
+          `Kíp xe đã xác nhận nhiệm vụ: ${pendingMission.title}`
+        );
       }
-      showToast(
-        'success',
-        'ĐÃ TIẾP NHẬN PHÂN CÔNG',
-        `Kíp xe đã xác nhận nhiệm vụ: ${pendingMission.title}`
-      );
       setPendingMission(null);
     }
     setIsAlertOpen(false);
@@ -613,16 +660,25 @@ export const useStaffMission = ({ vehiclePlate = '51A-114.99', onNavigateTab }: 
           reason,
           notes,
         });
+        showToast(
+          'info',
+          'ĐÃ TỪ CHỐI LỆNH ĐIỀU PHỐI',
+          'Đã gửi báo cáo từ chối và lý do về trung tâm điều phối CAD.'
+        );
         fetchMyAssignments(true);
-      } catch (err) {
+      } catch (err: any) {
         console.warn('[useStaffMission] Reject assignment error:', err);
+        const errMsg = getApiErrorMessage(err, 'Nhiệm vụ của xe do tổ khác phụ trách.');
+        showToast('error', 'LỖI PHÂN QUYỀN TỔ', errMsg);
+        fetchMyAssignments(true);
       }
+    } else {
+      showToast(
+        'info',
+        'ĐÃ TỪ CHỐI LỆNH ĐIỀU PHỐI',
+        'Đã gửi báo cáo từ chối và lý do về trung tâm điều phối CAD.'
+      );
     }
-    showToast(
-      'info',
-      'ĐÃ TỪ CHỐI LỆNH ĐIỀU PHỐI',
-      'Đã gửi báo cáo từ chối và lý do về trung tâm điều phối CAD.'
-    );
     setIsAlertOpen(false);
     setPendingMission(null);
   };

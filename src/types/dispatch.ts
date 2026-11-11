@@ -47,6 +47,9 @@ export interface DispatchAssignmentResponseDto {
   notes?: string | null;
   distanceKm?: number | null;
   estimatedArrivalMinutes?: number | null;
+  assignedByUserId?: string | null;
+  dispatchAlgorithm?: string | null;
+  responsibleStationId?: string | null;
   rejectionReason?: RejectionReason | null;
   rejectionNotes?: string | null;
   rejectedAt?: string | null;
@@ -162,12 +165,28 @@ export interface StationVehicleSummaryDto {
   currentLng: number;
 }
 
+export interface StationOperatorDto {
+  id: string;
+  fullName: string;
+  phoneNumber?: string;
+  email?: string;
+  avatarUrl?: string;
+}
+
 export interface StaffTeamResponseDto {
   stationId?: string | null;
   stationName?: string | null;
   stationAddress?: string | null;
   stationPhoneNumber?: string | null;
+  stationOperator?: StationOperatorDto | null;
   myTeamName?: string | null;
+  myTeamId?: string | null;
+  myCrewRole?: string | null;
+  myTeamRescueUnitIds?: string[];
+  myTeamRescueUnitPlates?: string[];
+  myTeamRescueUnitId?: string | null;
+  myTeamRescueUnitPlate?: string | null;
+  myTeamMembers?: TeamMemberSummaryDto[];
   teamMembers: TeamMemberSummaryDto[];
   stationVehicles: StationVehicleSummaryDto[];
 }

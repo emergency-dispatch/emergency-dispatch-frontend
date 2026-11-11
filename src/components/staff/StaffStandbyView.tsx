@@ -15,6 +15,7 @@ import {
   Layers,
   Compass,
   CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 import type { StaffProfile, StaffMission } from '../../types/staff';
 import {
@@ -47,6 +48,36 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [layerMode, setLayerMode] = useState<MapLayerMode>('satellite');
   const [is3DMode, setIs3DMode] = useState<boolean>(true);
+  const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
+
+  // BR-27: 5 phút hồi sức xe sau khi hoàn tất nghiệm thu nhiệm vụ
+  useEffect(() => {
+    const calculateCooldown = () => {
+      const latestMission = completedMissions?.[0];
+      if (!latestMission?.completedAt) {
+        setCooldownSeconds(0);
+        return;
+      }
+      const completedTime = new Date(latestMission.completedAt).getTime();
+      if (isNaN(completedTime)) {
+        setCooldownSeconds(0);
+        return;
+      }
+      const diffSeconds = Math.floor((Date.now() - completedTime) / 1000);
+      const remaining = Math.max(0, 300 - diffSeconds); // 5 minutes = 300s
+      setCooldownSeconds(remaining);
+    };
+
+    calculateCooldown();
+    const timer = setInterval(calculateCooldown, 1000);
+    return () => clearInterval(timer);
+  }, [completedMissions]);
+
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Vị trí mặc định: Tọa độ trạm PCCC Khu Công nghệ cao TP.HCM hoặc vị trí kíp xe
   const standbyLat = 10.8452;
@@ -135,18 +166,30 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
     <div className="p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 h-full">
       {/* Left Column: Standby Telemetry & Unit Status (5 cols) */}
       <div className="lg:col-span-5 space-y-4 overflow-y-auto pr-1">
-        {/* Card 1: Standby Operational Radar Banner */}
+        {/* Card 1: Standby Operational Radar Banner / BR-27 CoolDown */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="relative flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500" />
-              </span>
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800">
-                TRỰC CHIẾN SẴN SÀNG (STANDBY)
-              </span>
-            </div>
+            {cooldownSeconds > 0 ? (
+              <div className="flex items-center gap-2.5">
+                <span className="relative flex h-3.5 w-3.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-amber-500" />
+                </span>
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-700">
+                  HỒI SỨC XE ({formatTimer(cooldownSeconds)})
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2.5">
+                <span className="relative flex h-3.5 w-3.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500" />
+                </span>
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800">
+                  TRỰC CHIẾN SẴN SÀNG (STANDBY)
+                </span>
+              </div>
+            )}
 
             <button
               onClick={onRefresh}
@@ -159,22 +202,52 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
             </button>
           </div>
 
-          <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 text-emerald-900 space-y-2">
-            <div className="flex items-center gap-2 font-bold text-sm">
-              <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span>Kíp Trực Sẵn Sàng Tiếp Nhận Lệnh Điều Động</span>
+          {cooldownSeconds > 0 ? (
+            <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-300 text-amber-950 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-sm text-amber-900">
+                  <Clock className="w-5 h-5 text-amber-600 animate-spin" />
+                  <span>Phương Tiện Đang Trong Thời Gian Hồi Sức</span>
+                </div>
+                <span className="font-mono text-sm font-black px-2.5 py-0.5 bg-amber-200 text-amber-950 rounded-lg border border-amber-300">
+                  {formatTimer(cooldownSeconds)}
+                </span>
+              </div>
+              <p className="text-xs text-amber-900 leading-relaxed">
+                Theo quy định <strong>BR-27</strong>: Sau khi tổ hoàn tất nghiệm thu ca sự cố, toàn bộ phương tiện ({profile.teamPlates?.length ? profile.teamPlates.join(', ') : (profile.vehiclePlate || 'xe kíp trực')}) tự động bước vào <strong>5 phút CoolDown</strong> để bảo dưỡng trang bị, nạp dưỡng khí và kiểm tra sẵn sàng trước khi CAD phát lệnh mới.
+              </p>
+              <div className="w-full bg-amber-200 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-amber-600 h-1.5 rounded-full transition-all duration-1000"
+                  style={{ width: `${Math.max(0, Math.min(100, ((300 - cooldownSeconds) / 300) * 100))}%` }}
+                />
+              </div>
             </div>
-            <p className="text-xs text-emerald-800 leading-relaxed">
-              Hệ thống đang kết nối trực tuyến với Tổng đài Điều phối CAD qua SignalR. Khi có sự cố cứu nạn khẩn cấp phát lệnh tới đơn vị, còi hú cảnh báo và chỉ đường tác chiến sẽ tự động kích hoạt.
-            </p>
-          </div>
+          ) : (
+            <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 text-emerald-900 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-sm">
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>Kíp Trực Sẵn Sàng Tiếp Nhận Lệnh Điều Động</span>
+              </div>
+              <p className="text-xs text-emerald-800 leading-relaxed">
+                Hệ thống đang kết nối trực tuyến với Tổng đài Điều phối CAD qua SignalR. Khi có sự cố cứu nạn khẩn cấp phát lệnh tới đơn vị, còi hú cảnh báo và chỉ đường tác chiến sẽ tự động kích hoạt.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Card 2: Unit & Staff Specifications */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-          <div className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-slate-600" />
-            <span>THÔNG TIN ĐƠN VỊ &amp; KÍP XE TÚC TRỰC</span>
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-slate-600" />
+              <span>THÔNG TIN ĐƠN VỊ &amp; KÍP XE TÚC TRỰC</span>
+            </div>
+            {profile.teamName && (
+              <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 font-bold text-[10px]">
+                {profile.teamName}
+              </span>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -185,7 +258,19 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
 
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 space-y-1">
               <span className="text-[11px] font-semibold text-slate-400">Phương tiện trực</span>
-              <p className="font-mono font-bold text-red-600 text-sm truncate">{profile.vehiclePlate || 'Chưa gán xe'}</p>
+              <div className="flex flex-wrap gap-1 mt-0.5">
+                {profile.teamPlates && profile.teamPlates.length > 0 ? (
+                  profile.teamPlates.map((plate) => (
+                    <span key={plate} className="font-mono font-bold text-red-600 text-xs px-1.5 py-0.5 bg-red-50 border border-red-200 rounded">
+                      {plate}
+                    </span>
+                  ))
+                ) : (
+                  <span className="font-mono font-bold text-red-600 text-xs truncate">
+                    {profile.vehiclePlate || 'Chưa gán xe'}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 space-y-1">
@@ -194,8 +279,10 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
             </div>
 
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 space-y-1">
-              <span className="text-[11px] font-semibold text-slate-400">Mã số thẻ ngành</span>
-              <p className="font-mono font-bold text-slate-700 truncate">{profile.badgeNumber || 'Chưa cấp'}</p>
+              <span className="text-[11px] font-semibold text-slate-400">Vai trò / Thẻ ngành</span>
+              <p className="font-mono font-bold text-slate-700 truncate">
+                {profile.crewRole ? `${profile.crewRole} • ` : ''}{profile.badgeNumber || 'Chưa cấp'}
+              </p>
             </div>
           </div>
 

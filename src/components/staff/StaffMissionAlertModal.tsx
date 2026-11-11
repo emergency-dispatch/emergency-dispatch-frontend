@@ -16,6 +16,7 @@ import {
   XCircle,
   Volume2,
   VolumeX,
+  Sparkles,
 } from 'lucide-react';
 import type { StaffMission } from '../../types/staff';
 import { SEVERITY_META } from '../../data/incidentMock';
@@ -337,8 +338,9 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs uppercase font-mono font-black tracking-widest text-red-100">
-                  LỆNH ĐIỀU ĐỘNG TỔNG ĐÀI CAD
+                <span className="text-xs uppercase font-mono font-black tracking-widest text-red-100 flex items-center gap-1.5">
+                  {mission.isAiDispatched && <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />}
+                  {mission.isAiDispatched ? 'LỆNH TỰ ĐIỀU ĐỘNG TỪ AI' : 'LỆNH ĐIỀU ĐỘNG TỔNG ĐÀI CAD'}
                 </span>
                 <span className="px-2 py-0.5 rounded bg-black/20 text-[11px] font-mono font-bold text-white">
                   #{mission.incidentId}
@@ -439,10 +441,19 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
           {/* Dispatcher & Reporter info */}
           <div className="p-3.5 rounded-xl bg-red-50/60 border border-red-200 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <div className="flex items-center gap-2 min-w-0">
-              <UserCheck className="w-4 h-4 text-red-600 shrink-0" />
-              <span className="text-slate-600 truncate">
-                Điều phối: <strong className="text-slate-900">{mission.dispatcherName || 'Điều phối viên CAD'}</strong>
-              </span>
+              {mission.isAiDispatched || mission.dispatcherName === 'AI tự điều phối' ? (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-100 text-purple-800 border border-purple-300 font-bold font-mono text-[11px] shadow-xs">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600 animate-pulse shrink-0" />
+                  <span>AI TỰ ĐIỀU PHỐI</span>
+                </div>
+              ) : (
+                <>
+                  <UserCheck className="w-4 h-4 text-red-600 shrink-0" />
+                  <span className="text-slate-600 truncate">
+                    Điều phối: <strong className="text-slate-900">{mission.dispatcherName || 'Điều phối viên CAD'}</strong>
+                  </span>
+                </>
+              )}
             </div>
             <div className="flex items-center justify-between sm:justify-end gap-3 min-w-0">
               <div className="flex items-center gap-1.5 truncate">

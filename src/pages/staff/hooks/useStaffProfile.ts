@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { mockStaffProfile } from '../../../data/staffMock';
 import type { StaffProfile } from '../../../types/staff';
+import { userService } from '../../../services/userService';
 
 export const useStaffProfile = () => {
   const { user, refreshProfile } = useAuth();
@@ -24,10 +25,27 @@ export const useStaffProfile = () => {
   });
 
   useEffect(() => {
-    refreshProfile().then((userData) => {
-      if (userData) {
-        setProfile((prev) => ({
-          ...prev,
+    refreshProfile().then(async (userData) => {
+      let teamPlates: string[] = [];
+      let vehiclePlate = '51A-114.99';
+      let teamName: string | undefined;
+      let crewRole: string | undefined;
+
+      try {
+        const teamRes = await userService.getMyTeam();
+        if (teamRes.success && teamRes.data) {
+          teamPlates = teamRes.data.myTeamRescueUnitPlates || [];
+          vehiclePlate = teamRes.data.myTeamRescueUnitPlate || teamPlates[0] || vehiclePlate;
+          teamName = teamRes.data.myTeamName || undefined;
+          crewRole = teamRes.data.myCrewRole || undefined;
+        }
+      } catch {
+        // Fallback
+      }
+
+      setProfile((prev) => ({
+        ...prev,
+        ...(userData ? {
           id: userData.id || prev.id,
           name: userData.fullName || prev.name,
           email: userData.email || prev.email,
@@ -37,8 +55,12 @@ export const useStaffProfile = () => {
           badgeNumber: userData.citizenIdNumber
             ? `ED-${userData.citizenIdNumber.slice(-4)}`
             : (userData.id ? `ED-${userData.id.slice(-4).toUpperCase()}` : prev.badgeNumber),
-        }));
-      }
+        } : {}),
+        vehiclePlate: vehiclePlate || prev.vehiclePlate,
+        teamPlates: teamPlates.length > 0 ? teamPlates : prev.teamPlates,
+        teamName: teamName || prev.teamName,
+        crewRole: crewRole || prev.crewRole,
+      }));
     });
   }, [refreshProfile]);
 

@@ -122,6 +122,11 @@ export function mapAssignmentDtoToMission(
 
   const plate = dto.rescueUnit?.plateNumber || fallbackVehiclePlate || 'Chưa gán xe';
 
+  const isAiDispatched = dto.assignedByUserId === null;
+  const dispatcherLabel = isAiDispatched
+    ? 'AI tự điều phối'
+    : (incidentDetails?.verifiedByName || 'Điều phối viên CAD');
+
   return {
     id: dto.id,
     incidentId: dto.incidentId,
@@ -135,7 +140,10 @@ export function mapAssignmentDtoToMission(
     incidentLng: incLng,
     callerName: incidentDetails?.reporterName || 'Người dân báo tin',
     callerPhone: incidentDetails?.reporterPhone || '114',
-    dispatcherName: incidentDetails?.verifiedByName || 'Điều phối viên CAD',
+    dispatcherName: dispatcherLabel,
+    assignedByUserId: dto.assignedByUserId,
+    isAiDispatched,
+    stationTeamName: dto.completionReport?.stationTeamName || undefined,
     assignedAt: dto.dispatchedAt,
     acceptedAt: dto.acceptedAt || undefined,
     enRouteAt: dto.status === 'EnRoute' || dto.status === 'OnScene' || dto.status === 'Completed' ? dto.dispatchedAt : undefined,
@@ -156,7 +164,9 @@ export function mapAssignmentDtoToMission(
         id: `tl-disp-${dto.id}`,
         timestamp: new Date(dto.dispatchedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
         status: 'accepted',
-        label: `${incidentDetails?.verifiedByName || 'Tổng đài viên CAD'} điều phối kíp xe ${plate} tới hiện trường`,
+        label: isAiDispatched
+          ? `Hệ thống AI tự động điều phối kíp xe ${plate} tới hiện trường`
+          : `${dispatcherLabel} điều phối kíp xe ${plate} tới hiện trường`,
       },
       ...(dto.acceptedAt ? [{
         id: `tl-acc-${dto.id}`,
