@@ -13,6 +13,7 @@ export const incidentsVi = {
     columnWait: 'Thời gian chờ',
     loading: 'Đang tải hàng đợi sự cố...',
     empty: 'Không có sự cố nào đang chờ xử lý',
+    emptyFollowUp: 'Theo dõi {{count}} ca đang xử lý trên Live Map',
     escalatedSection: 'Sự cố leo thang',
     escalatedGroup: 'Leo thang, cần thẩm định ngay',
     waitingSection: 'Sự cố đang chờ',
@@ -139,8 +140,23 @@ export const incidentsVi = {
     loading: 'Đang tải lịch sử xử lý…',
     empty: 'Chưa có thao tác nào được ghi nhận.',
   },
+  // Thanh bước dùng chung cho drawer Thẩm định và bước Điều xe.
+  steps: {
+    label: 'Các bước xử lý ca',
+    review: 'Thẩm định',
+    dispatch: 'Điều xe',
+  },
   drawer: {
     kicker: 'Chi tiết sự cố',
+    escalatedShort: 'Đã leo thang, ưu tiên xử lý ngay',
+    levelLabel: 'Mức độ',
+    decisionHint: {
+      needLock: 'Nhận ca để duyệt.',
+      lockedByOther: '{{name}} đang xử lý ca này.',
+      chooseType: 'Chọn loại sự cố.',
+      chooseLevel: 'Chọn mức độ.',
+      needReason: 'Nhập lý do ghi đè, tối thiểu {{min}} ký tự.',
+    },
     transfer: 'Chuyển trạm',
     transferTitle: 'Chuyển sự cố sang trạm khác phụ trách',
     transferNeedsLock: 'Nhận ca trước khi chuyển trạm',
@@ -162,6 +178,7 @@ export const incidentsVi = {
     revealPhone: 'Hiện số',
     phoneRevealedAt: 'Đã ghi vết lượt xem số lúc {{time}}',
     minutesAgo: '{{count}} phút trước',
+    waited: 'Đã chờ {{duration}}',
     responsibleStation: 'Trạm phụ trách: {{name}}',
     outOfArea: 'SOS ngoài khu vực phục vụ',
     outOfAreaDistance: ' (cách {{km}} km)',
@@ -205,7 +222,37 @@ export const incidentsVi = {
     back: 'Quay lại',
     confirmTransfer: 'Xác nhận chuyển trạm',
     confirmReject: 'Xác nhận hủy ca',
-    approve: 'Duyệt lên bản đồ',
+    approve: 'Duyệt & điều xe',
+  },
+  // FR-OP-04: bước "Điều xe" ngay sau khi duyệt trong Hàng đợi (giao xe lần đầu).
+  dispatchStep: {
+    kicker: 'Điều xe',
+    miniMap: {
+      alt: 'Bản đồ vị trí hiện trường và các tổ gợi ý',
+      incident: 'Hiện trường',
+      station: 'Trạm',
+      candidate: 'Tổ gợi ý (số = thứ hạng)',
+      assigned: 'Xe đã giao (màu theo trạng thái)',
+      hint: 'Rê chuột lên một tổ để thấy tổ đó trên bản đồ',
+    },
+    summaryHeading: 'Sự cố đang điều xe',
+    approvedBanner: 'Đã duyệt sự cố. Chọn tổ phù hợp để phát lệnh ngay.',
+    assignedHeading: 'Đã giao {{count}}/{{max}} xe',
+    noneAssigned: 'Chưa giao xe nào.',
+    fullLevel12: 'Đã giao xe cho sự cố. Cần thêm xe hoặc theo dõi đội: dùng Live Map.',
+    fullLevel3: 'Đã giao đủ {{max}} xe tối đa cho sự cố Cấp 3.',
+    level3Hint: 'Cấp 3: giao tối đa {{max}} xe, mỗi lần một tổ. Giao xong bấm "Hoàn tất".',
+    unavailable: 'Sự cố không còn chờ điều xe (đã bị hủy, chuyển trạm hoặc hoàn tất).',
+    later: 'Để sau',
+    laterTitle: 'Đóng bước này. Sự cố đã duyệt nằm trên Live Map, chờ điều xe.',
+    openLiveMap: 'Mở trên Live Map',
+    finish: 'Hoàn tất',
+    // Thông báo ở Hàng đợi sau khi đóng bước Điều xe.
+    notice: {
+      dispatched: 'Đã giao {{count}} xe cho “{{title}}”.',
+      deferred: 'Đã duyệt “{{title}}”, chưa giao xe. Ca nằm trên Live Map chờ điều xe.',
+      view: 'Xem trên Live Map',
+    },
   },
   // BR-07: báo cáo trùng hệ thống tự gộp vào sự cố gốc.
   // §21.4: người báo gửi thêm ghi chú / ảnh sau SOS.

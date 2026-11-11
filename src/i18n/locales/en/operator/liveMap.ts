@@ -33,6 +33,29 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     recallTitle: 'Cancel team assignment',
     dismissError: 'Dismiss error',
   },
+  cases: {
+    title: 'Active cases',
+    subtitle: 'Follow crews and handle cases that need you',
+    groups: { attention: 'Needs action', active: 'In progress', completed: 'Completed' },
+    reason: {
+      rejected: '{{plate}} declined the mission',
+      timeout: '{{plate}} did not respond',
+      fieldRequest: '{{count}} field request(s)',
+      noVehicle: 'Approved, no vehicle yet',
+    },
+    cta: { reassign: 'Reassign', serve: 'Respond', dispatch: 'Dispatch', open: 'Open case' },
+    allReported: 'All crews have reported',
+    vehicleCount: '{{active}}/{{max}} vehicles',
+  },
+  detail: {
+    back: 'Case list',
+    attention: '· {{count}} need action',
+    addVehicles: 'Add vehicles',
+    cancelCase: 'Cancel case',
+  },
+  readyTeams: {
+    title: 'Ready teams',
+  },
   recommend: {
     loadFailed: 'Could not load vehicle suggestions.',
     historyDialog: 'Incident handling history',

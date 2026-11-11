@@ -20,6 +20,10 @@ import {
   Truck,
   PhoneCall,
   Activity,
+  Link2,
+  Split,
+  PlusCircle,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types/auth';
@@ -28,6 +32,7 @@ import { getApiErrorMessage } from '../../services/apiClient';
 import type { IncidentResponseDto } from '../../types/incident';
 import { getIncidentVisualMeta } from '../../utils/incidentFormat';
 import { CitizenLiveTrackingMapModal } from './CitizenLiveTrackingMapModal';
+import { CitizenSupplementModal } from './CitizenSupplementModal';
 import { useTranslation } from '../../i18n';
 
 interface CitizenReportsModalProps {
@@ -50,6 +55,8 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
 
   // Tracking state for Citizen
   const [trackingIncident, setTrackingIncident] = useState<IncidentResponseDto | null>(null);
+  const [supplementTargetIncident, setSupplementTargetIncident] = useState<IncidentResponseDto | null>(null);
+  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
 
   const fetchReports = useCallback(async () => {
     try {
@@ -81,6 +88,9 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
           longitude: item.longitude ?? 0,
           status: item.status,
           severity: item.severity,
+          cancellationReason: item.cancellationReason,
+          linkedToIncidentId: item.linkedToIncidentId,
+          reportedEventType: item.reportedEventType,
           createdAt: item.reportedAt,
           updatedAt: item.reportedAt,
           verifiedAt: item.verifiedAt,
@@ -92,20 +102,59 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
             uploadedAt: item.reportedAt,
           })),
         } as IncidentResponseDto));
+
+        // Nếu có sự cố Linked hoặc Cancelled vì Duplicate mà thiếu linkedToIncidentId, gọi chi tiết để bù
+        const needDetail = items.filter(
+          (i) => (i.status === 'Linked' || i.status === 'Cancelled') && !i.linkedToIncidentId
+        );
+        if (needDetail.length > 0) {
+          const detailRes = await Promise.allSettled(
+            needDetail.slice(0, 5).map((i) => incidentService.getById(i.id))
+          );
+          detailRes.forEach((r) => {
+            if (r.status === 'fulfilled' && r.value.success && r.value.data) {
+              const d = r.value.data;
+              const idx = items.findIndex((x) => x.id === d.id);
+              if (idx !== -1) {
+                items[idx] = {
+                  ...items[idx],
+                  linkedToIncidentId: d.linkedToIncidentId,
+                  cancellationReason: d.cancellationReason || items[idx].cancellationReason,
+                };
+              }
+            }
+          });
+        }
       }
 
-      // 2. Bổ sung các sự cố vừa báo từ trình duyệt này (nếu chưa có trong kết quả trả về)
+      // 2. Bổ sung các sự cố vừa báo từ trình duyệt này (chỉ cần thiết cho khách vãng lai chưa đăng nhập)
       const existingIdSet = new Set(items.map((i) => i.id));
-      const missingLocalIds = localIds.filter((id) => !existingIdSet.has(id));
+      const isCitizenLoggedIn = user?.role === UserRole.Citizen;
 
-      if (missingLocalIds.length > 0) {
-        const localFetches = await Promise.allSettled(
-          missingLocalIds.slice(0, 10).map((id) => incidentService.getById(id))
-        );
-        for (const r of localFetches) {
-          if (r.status === 'fulfilled' && r.value.success && r.value.data) {
-            items.push(r.value.data);
+      if (!isCitizenLoggedIn) {
+        const missingLocalIds = localIds.filter((id) => !existingIdSet.has(id));
+        if (missingLocalIds.length > 0) {
+          const localFetches = await Promise.allSettled(
+            missingLocalIds.slice(0, 10).map((id) => incidentService.getById(id))
+          );
+          const validIds: string[] = [];
+          for (let idx = 0; idx < localFetches.length; idx++) {
+            const r = localFetches[idx];
+            if (r.status === 'fulfilled' && r.value.success && r.value.data) {
+              items.push(r.value.data);
+              validIds.push(missingLocalIds[idx]);
+            }
           }
+          // Dọn dẹp các ID không hợp lệ hoặc bị 403 khỏi localStorage
+          if (validIds.length !== missingLocalIds.length) {
+            localStorage.setItem('resq_my_reported_incident_ids', JSON.stringify(validIds));
+          }
+        }
+      } else if (localIds.length > 0) {
+        // Tài khoản đã đăng nhập: dọn dẹp các ID của tài khoản cũ để tránh gọi 403
+        const myActiveIds = localIds.filter((id) => existingIdSet.has(id));
+        if (myActiveIds.length !== localIds.length) {
+          localStorage.setItem('resq_my_reported_incident_ids', JSON.stringify(myActiveIds));
         }
       }
 
@@ -163,6 +212,13 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
             <span>{t('citizen.reports.status.cancelled')}</span>
           </span>
         );
+      case 'Linked':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold font-mono bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <Link2 className="w-3.5 h-3.5 text-indigo-600" />
+            <span>{t('citizen.reports.status.linked', 'Đã gộp vào sự cố đang xử lý')}</span>
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold font-mono bg-red-50 text-red-600 border border-red-200">
@@ -170,6 +226,27 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
             <span>{t('citizen.reports.status.pending')}</span>
           </span>
         );
+    }
+  };
+
+  const handleUnlink = async (incident: IncidentResponseDto) => {
+    if (!incident.id || unlinkingId) return;
+    setUnlinkingId(incident.id);
+    try {
+      const guestToken =
+        localStorage.getItem('resq_guest_token_' + incident.id) ||
+        incident.guestCancellationToken ||
+        undefined;
+      await incidentService.unlinkReport(
+        incident.id,
+        'Người báo xác nhận đây là sự cố khác',
+        guestToken
+      );
+      await fetchReports();
+    } catch (err: any) {
+      alert(getApiErrorMessage(err, 'Không thể tách báo cáo lúc này.'));
+    } finally {
+      setUnlinkingId(null);
     }
   };
 
@@ -368,9 +445,74 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                     </div>
                   )}
 
+                  {/* Linked to original incident banner (BR-07) */}
+                  {(incident.status === 'Linked' ||
+                    (incident.status === 'Cancelled' &&
+                      (String(incident.cancellationReason || '').toLowerCase().includes('duplicate') ||
+                        incident.cancellationReason === '1'))) && (
+                    <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200 text-xs space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 text-indigo-900 font-bold">
+                          <Link2 className="w-4 h-4 text-indigo-600 shrink-0" />
+                          <span>
+                            {incident.status === 'Linked'
+                              ? t('citizen.reports.linkedIncidentNotice', 'Báo cáo này đã được gộp vào sự cố đang xử lý.')
+                              : 'Báo cáo đã đóng do trùng với sự cố đang xử lý.'}
+                          </span>
+                        </div>
+                        {incident.linkedToIncidentId && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleOpenTracking({
+                                ...incident,
+                                id: incident.linkedToIncidentId!,
+                                title: 'Sự cố gốc',
+                              })
+                            }
+                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] font-mono transition-colors cursor-pointer flex items-center gap-1"
+                          >
+                            <Navigation className="w-3 h-3" />
+                            <span>
+                              {t('citizen.reports.viewOriginalIncident', 'Xem sự cố gốc')} (#INC-
+                              {incident.linkedToIncidentId.substring(0, 8).toUpperCase()})
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Item Actions */}
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-end flex-wrap gap-2">
                     <div className="flex items-center gap-2">
+                      {incident.status === 'Linked' && (
+                        <button
+                          type="button"
+                          onClick={() => handleUnlink(incident)}
+                          disabled={unlinkingId === incident.id}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-indigo-300 bg-white hover:bg-indigo-50 text-indigo-700 text-[11px] font-mono font-bold transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {unlinkingId === incident.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Split className="w-3.5 h-3.5" />
+                          )}
+                          <span>{t('citizen.reports.unlinkBtn', 'Đây là sự cố khác')}</span>
+                        </button>
+                      )}
+
+                      {incident.status !== 'Completed' && incident.status !== 'Cancelled' && (
+                        <button
+                          type="button"
+                          onClick={() => setSupplementTargetIncident(incident)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-700 text-[11px] font-mono font-bold transition-all cursor-pointer"
+                        >
+                          <PlusCircle className="w-3.5 h-3.5 text-red-600" />
+                          <span>{t('citizen.reports.supplementBtn', 'Bổ sung thông tin')}</span>
+                        </button>
+                      )}
+
                       {incident.status === 'Dispatched' || incident.status === 'InProgress' ? (
                         <button
                           type="button"
@@ -395,6 +537,18 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
         <CitizenLiveTrackingMapModal
           incident={trackingIncident}
           onClose={handleCloseTracking}
+        />
+      )}
+
+      {/* Citizen Supplement Modal */}
+      {supplementTargetIncident && (
+        <CitizenSupplementModal
+          isOpen={Boolean(supplementTargetIncident)}
+          onClose={() => setSupplementTargetIncident(null)}
+          incidentId={supplementTargetIncident.id}
+          incidentTitle={supplementTargetIncident.title}
+          isLinked={supplementTargetIncident.status === 'Linked'}
+          onSuccess={fetchReports}
         />
       )}
     </div>,

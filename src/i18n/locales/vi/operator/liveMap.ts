@@ -30,6 +30,30 @@ export const liveMapVi = {
     recallTitle: 'Hủy giao tổ',
     dismissError: 'Đóng thông báo lỗi',
   },
+  // Panel trái 2 tầng (Live Map sau khi giao xe lần đầu đã chuyển vào Hàng đợi).
+  cases: {
+    title: 'Ca đang xử lý',
+    subtitle: 'Theo dõi đội và xử lý ca cần can thiệp',
+    groups: { attention: 'Cần xử lý', active: 'Đang thực hiện', completed: 'Đã hoàn tất' },
+    reason: {
+      rejected: '{{plate}} từ chối nhiệm vụ',
+      timeout: '{{plate}} không phản hồi',
+      fieldRequest: '{{count}} yêu cầu từ hiện trường',
+      noVehicle: 'Đã duyệt, chưa có xe',
+    },
+    cta: { reassign: 'Giao lại', serve: 'Đáp ứng', dispatch: 'Giao xe', open: 'Mở ca' },
+    allReported: 'Các tổ đã nộp báo cáo',
+    vehicleCount: '{{active}}/{{max}} xe',
+  },
+  detail: {
+    back: 'Danh sách',
+    attention: '· {{count}} cần xử lý',
+    addVehicles: 'Giao thêm xe',
+    cancelCase: 'Hủy ca',
+  },
+  readyTeams: {
+    title: 'Tổ sẵn sàng',
+  },
   recommend: {
     loadFailed: 'Không tải được gợi ý xe.',
     historyDialog: 'Lịch sử xử lý sự cố',

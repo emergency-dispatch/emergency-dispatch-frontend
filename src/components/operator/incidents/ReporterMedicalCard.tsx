@@ -46,8 +46,8 @@ export const ReporterMedicalCard: React.FC<ReporterMedicalCardProps> = ({ profil
 
   return (
     <div className="rounded-xl border border-rose-200 bg-rose-50/40 p-3.5 space-y-3">
-      <p className="flex items-center gap-1.5 text-xs font-mono-data uppercase tracking-widest text-rose-700 font-bold">
-        <HeartPulse className="w-3.5 h-3.5 shrink-0" />
+      <p className="flex items-center gap-2 text-[13px] font-semibold text-rose-700">
+        <HeartPulse className="w-4 h-4 shrink-0" />
         {t('incidents.medical.title')}
       </p>
 

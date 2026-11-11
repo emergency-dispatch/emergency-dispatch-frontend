@@ -70,6 +70,7 @@ export const layoutVi = {
     assignTrafficTeam: 'Mở điểm ùn tắc',
     openFieldRequest: 'Xem yêu cầu',
     viewCompletion: 'Xem nghiệm thu',
+    reassign: 'Giao lại',
     dismiss: 'Đóng thông báo',
     outOfAreaTitle: 'SOS ngoài khu vực phục vụ',
     outOfAreaMessage: '{{title}} — {{address}} (cách {{area}} {{km}} km).',
@@ -95,6 +96,10 @@ export const layoutVi = {
     fieldRequestBackupContent: 'cần thêm {{count}} xe {{type}}',
     teamCompletedTitle: 'Tổ đã nghiệm thu',
     teamCompletedMessage: '{{team}} đã ký nghiệm thu · {{incident}}',
+    // Đội từ chối / không phản hồi: báo ở mọi trang vì Operator thường đã quay về Hàng đợi sau khi giao xe.
+    crewRejectedTitle: 'Đội từ chối nhiệm vụ',
+    crewTimeoutTitle: 'Đội không phản hồi',
+    crewRejectedMessage: '{{unit}} · {{incident}} · {{reason}}',
   },
   stationNotAssigned: {
     title: 'Chưa có trạm phụ trách',

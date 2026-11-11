@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { HeroRadarMap } from './HeroRadarMap';
 import { useSosCooldown } from '../../hooks/useSosCooldown';
+import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../i18n';
 
 interface HeroSectionProps {
@@ -22,7 +23,8 @@ interface HeroSectionProps {
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenReports }) => {
   const { t } = useTranslation();
-  const { isCooldown, cooldownLabel } = useSosCooldown();
+  const { user } = useAuth();
+  const { isCooldown, cooldownLabel } = useSosCooldown(user?.id);
   const [etaTime, setEtaTime] = useState(135); // seconds
   const [radarStats, setRadarStats] = useState<{
     stationCount: number;

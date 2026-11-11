@@ -16,6 +16,7 @@ import {
   Shield,
   Gauge,
   Radio,
+  PlusCircle,
 } from 'lucide-react';
 import {
   MAPBOX_ACCESS_TOKEN,
@@ -37,6 +38,7 @@ import type { IncidentResponseDto, IncidentCategory, SeverityLevel } from '../..
 import type { VehicleStatus, VehicleType } from '../../types/vehicle';
 import { haversineDistanceKm } from '../../utils/serviceArea';
 import { useTranslation } from '../../i18n';
+import { CitizenSupplementModal } from './CitizenSupplementModal';
 
 interface CitizenLiveTrackingMapModalProps {
   incident: IncidentResponseDto;
@@ -71,9 +73,12 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
 
   const [mapLoaded, setMapLoaded] = useState<boolean>(false);
   const [isFollowingVehicle, setIsFollowingVehicle] = useState<boolean>(false);
+  const [showSupplementModal, setShowSupplementModal] = useState<boolean>(false);
+  const isPollingStoppedRef = useRef<boolean>(false);
 
   // Fetch initial tracking data
   const fetchTracking = useCallback(async (isSilent = false) => {
+    if (isPollingStoppedRef.current && isSilent) return;
     try {
       if (!isSilent) setIsLoading(true);
       const res = await incidentService.getTracking(incident.id);
@@ -92,7 +97,15 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
         setErrorMsg('Chưa có thông tin xe cứu hộ đang di chuyển.');
       }
     } catch (err: any) {
-      if (!isSilent) {
+      if (err?.response?.status === 403) {
+        isPollingStoppedRef.current = true;
+        setErrorMsg(
+          err?.response?.data?.message ||
+            'Bạn chưa có quyền theo dõi trực tiếp sự cố gốc này (Backend chưa phân quyền cho tài khoản báo cáo trùng).'
+        );
+      } else if (err?.response?.status === 401) {
+        isPollingStoppedRef.current = true;
+      } else if (!isSilent) {
         const msg = err?.response?.data?.message || err?.message || 'Chưa thể lấy thông tin điều phối xe.';
         setErrorMsg(msg);
       }
@@ -103,9 +116,12 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
 
   // Initial fetch and polling fallback
   useEffect(() => {
+    isPollingStoppedRef.current = false;
     fetchTracking(false);
     const interval = setInterval(() => {
-      fetchTracking(true);
+      if (!isPollingStoppedRef.current) {
+        fetchTracking(true);
+      }
     }, 4000);
     return () => clearInterval(interval);
   }, [fetchTracking]);
@@ -501,14 +517,14 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
   }, [isOnScene, dynamicDistKm, liveVehicle?.speedKmh, trackingData?.estimatedArrivalMinutes]);
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-0 sm:p-5 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-4xl h-full sm:h-[86vh] max-h-[100dvh] sm:max-h-[850px] rounded-none sm:rounded-3xl bg-white border-0 sm:border border-slate-200 shadow-2xl flex flex-col overflow-hidden text-slate-900">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-0 sm:p-4 lg:p-6 bg-slate-950/50 backdrop-blur-sm animate-fadeIn">
+      <div className="relative w-full max-w-6xl xl:max-w-7xl h-full sm:h-[90vh] max-h-[100dvh] sm:max-h-[920px] rounded-none sm:rounded-3xl bg-white border-0 sm:border border-slate-200 shadow-2xl flex flex-col overflow-hidden text-slate-900 transition-all">
         
-        {/* Top Header */}
-        <div className="px-4 py-3 sm:px-5 sm:py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0 border-b border-slate-800">
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="relative p-1.5 sm:p-2 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30">
-              <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+        {/* Top Header - ResQ CAD Web Style */}
+        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="relative p-2 sm:p-2.5 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 shrink-0">
+              <Truck className="w-5 h-5 text-blue-600" />
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
@@ -516,43 +532,71 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-xs sm:text-base font-bold text-white tracking-wide">
+                <h3 className="text-sm sm:text-base lg:text-lg font-bold text-slate-900 tracking-tight">
                   {t('citizen.reports.trackingModalTitle')}
                 </h3>
-                <span className="px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                  GPS LIVE
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>GPS LIVE</span>
                 </span>
               </div>
-              <p className="text-[10px] sm:text-[11px] font-mono text-slate-400 line-clamp-1">
-                {t('citizen.reports.trackingIncidentCode')} <span className="text-amber-400 font-bold">#INC-{incident.id.substring(0, 8).toUpperCase()}</span> · {incident.title || t('citizen.reports.incidentTypes.sosSignal')}
+              <p className="text-xs text-slate-500 font-medium line-clamp-1 mt-0.5">
+                {t('citizen.reports.trackingIncidentCode')}{' '}
+                <span className="text-red-600 font-bold font-mono">#INC-{incident.id.substring(0, 8).toUpperCase()}</span>
+                {incident.title ? ` · ${incident.title}` : ''}
               </p>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2.5">
+            {incident.status !== 'Completed' && incident.status !== 'Cancelled' && (
+              <button
+                type="button"
+                onClick={() => setShowSupplementModal(true)}
+                className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-sm shadow-red-500/20 cursor-pointer shrink-0 active:scale-95"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">Bổ sung thông tin</span>
+                <span className="sm:hidden">Bổ sung</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-xl bg-slate-100 text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition-colors cursor-pointer shrink-0"
+              aria-label="Đóng"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
+        {/* Access Warning / Error Banner */}
+        {errorMsg && (
+          <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-3 text-xs text-amber-900 shrink-0">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span className="font-medium">{errorMsg}</span>
+            </div>
+          </div>
+        )}
+
         {/* Content Body: Map + Info Sidebar */}
-        <div className="flex-1 min-h-0 flex flex-col lg:flex-row relative overflow-y-auto lg:overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row relative overflow-hidden">
           
           {/* Map View Area */}
-          <div className="relative h-[280px] sm:h-[360px] lg:h-full w-full bg-slate-100 shrink-0 lg:shrink lg:flex-1">
+          <div className="relative h-[320px] sm:h-[400px] lg:h-full w-full bg-slate-100 shrink-0 lg:shrink lg:flex-1 overflow-hidden">
             <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
             {/* Floating Top Controls inside Map */}
-            <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+            <div className="absolute top-4 left-4 z-10 flex items-center gap-2.5 pointer-events-auto">
               <button
                 type="button"
                 onClick={fitRouteBounds}
-                className="px-3 py-1.5 rounded-xl bg-white/95 backdrop-blur-md hover:bg-white text-slate-800 border border-slate-200 text-xs font-mono font-bold shadow-md flex items-center gap-1.5 hover:text-blue-600 transition-all cursor-pointer"
+                className="px-3.5 py-2 rounded-xl bg-white/95 backdrop-blur-md hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200/90 text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer active:scale-95"
               >
-                <Maximize2 className="w-3.5 h-3.5" />
+                <Maximize2 className="w-3.5 h-3.5 text-blue-600" />
                 <span>{t('citizen.reports.viewFullRoute')}</span>
               </button>
 
@@ -569,13 +613,13 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
                       });
                     }
                   }}
-                  className={`px-3 py-1.5 rounded-xl backdrop-blur-md text-xs font-mono font-bold shadow-md flex items-center gap-1.5 transition-all cursor-pointer ${
+                  className={`px-3.5 py-2 rounded-xl backdrop-blur-md text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer active:scale-95 ${
                     isFollowingVehicle
-                      ? 'bg-blue-600 text-white border border-blue-500'
-                      : 'bg-white/95 hover:bg-white text-slate-800 border border-slate-200'
+                      ? 'bg-blue-600 text-white border border-blue-500 shadow-blue-500/20'
+                      : 'bg-white/95 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200/90'
                   }`}
                 >
-                  <Navigation className="w-3.5 h-3.5" />
+                  <Navigation className={`w-3.5 h-3.5 ${isFollowingVehicle ? 'text-white' : 'text-blue-600'}`} />
                   <span>{isFollowingVehicle ? t('citizen.reports.followingVehicle') : t('citizen.reports.followVehicle')}</span>
                 </button>
               )}
@@ -583,60 +627,68 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
 
             {/* Floating Live Telemetry Overlay over Map */}
             {trackingData && (
-              <div className="absolute bottom-3 left-3 right-3 sm:right-auto z-10 sm:max-w-md">
-                <div className="p-3.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-700/80 shadow-2xl text-white font-mono space-y-2.5">
+              <div className="absolute bottom-4 left-4 right-4 sm:right-auto z-10 sm:max-w-lg w-auto pointer-events-auto">
+                <div className="p-4 sm:p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl text-slate-900 space-y-3.5">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-[10px] text-slate-400">{t('citizen.reports.responseStatusTitle')}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        {t('citizen.reports.responseStatusTitle')}
+                      </span>
+                    </div>
                     <span
-                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                      className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
                         isOnScene
-                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           : isEnRoute
-                            ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 animate-pulse'
-                            : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
                       }`}
                     >
-                      {isOnScene
-                        ? t('citizen.reports.statusOnScene')
-                        : dispatchStatus === 'EnRoute'
-                          ? t('citizen.reports.statusEnRoute')
-                          : dispatchStatus === 'Accepted'
-                            ? t('citizen.reports.statusMissionAccepted')
-                            : t('citizen.reports.statusDispatching')}
+                      <span className={`w-1.5 h-1.5 rounded-full ${isOnScene ? 'bg-emerald-500' : isEnRoute ? 'bg-blue-500' : 'bg-amber-500'}`} />
+                      <span>
+                        {isOnScene
+                          ? t('citizen.reports.statusOnScene')
+                          : dispatchStatus === 'EnRoute'
+                            ? t('citizen.reports.statusEnRoute')
+                            : dispatchStatus === 'Accepted'
+                              ? t('citizen.reports.statusMissionAccepted')
+                              : t('citizen.reports.statusDispatching')}
+                      </span>
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-center">
-                    <div className="p-2 rounded-xl bg-slate-800/60">
-                      <div className="text-[9px] text-slate-400 flex items-center justify-center gap-1">
-                        <Clock className="w-3 h-3 text-amber-400" />
-                        <span>{t('citizen.reports.etaTitle')}</span>
+                  <div className="grid grid-cols-3 gap-2.5 sm:gap-3 pt-3 border-t border-slate-100 text-center">
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
+                      <div className="text-[11px] font-medium text-slate-500 flex items-center justify-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-amber-600" />
+                        <span>{t('citizen.reports.etaTitle').replace(':', '')}</span>
                       </div>
-                      <div className="text-base font-extrabold text-amber-400 mt-0.5">
-                        ~{dynamicEtaMinutes} {t('citizen.reports.minutes')}
+                      <div className="text-lg sm:text-2xl font-black text-amber-600 mt-1">
+                        ~{dynamicEtaMinutes} <span className="text-xs font-bold text-amber-700">{t('citizen.reports.minutes')}</span>
                       </div>
                     </div>
 
-                    <div className="p-2 rounded-xl bg-slate-800/60">
-                      <div className="text-[9px] text-slate-400 flex items-center justify-center gap-1">
-                        <Navigation className="w-3 h-3 text-sky-400" />
-                        <span>{t('citizen.reports.distanceTitle')}</span>
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
+                      <div className="text-[11px] font-medium text-slate-500 flex items-center justify-center gap-1">
+                        <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                        <span>{t('citizen.reports.distanceTitle').replace(':', '')}</span>
                       </div>
-                      <div className="text-base font-extrabold text-white mt-0.5">
-                        {dynamicDistKm !== null ? dynamicDistKm.toFixed(1) : (trackingData.distanceKm ? trackingData.distanceKm.toFixed(1) : '1.2')} km
+                      <div className="text-lg sm:text-2xl font-black text-blue-600 mt-1">
+                        {dynamicDistKm !== null ? dynamicDistKm.toFixed(1) : (trackingData.distanceKm ? trackingData.distanceKm.toFixed(1) : '1.2')} <span className="text-xs font-bold text-blue-700">km</span>
                         {trackingData.isApproximateRoute && (
-                          <span className="block text-[9px] font-normal text-amber-300">{t('citizen.reports.approximateNote')}</span>
+                          <span className="block text-[10px] font-medium text-amber-600">{t('citizen.reports.approximateNote')}</span>
                         )}
                       </div>
                     </div>
 
-                    <div className="p-2 rounded-xl bg-slate-800/60">
-                      <div className="text-[9px] text-slate-400 flex items-center justify-center gap-1">
-                        <Gauge className="w-3 h-3 text-emerald-400" />
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
+                      <div className="text-[11px] font-medium text-slate-500 flex items-center justify-center gap-1">
+                        <Gauge className="w-3.5 h-3.5 text-emerald-600" />
                         <span>{t('citizen.reports.vehicleSpeedTitle')}</span>
                       </div>
-                      <div className="text-base font-extrabold text-emerald-400 mt-0.5">
-                        {liveVehicle?.speedKmh || (isEnRoute ? 35 : 0)} km/h
+                      <div className="text-lg sm:text-2xl font-black text-emerald-600 mt-1">
+                        {liveVehicle?.speedKmh || (isEnRoute ? 35 : 0)} <span className="text-xs font-bold text-emerald-700">km/h</span>
                       </div>
                     </div>
                   </div>
@@ -646,36 +698,41 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           </div>
 
           {/* Right Detail Panel */}
-          <div className="w-full lg:w-80 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-slate-50 p-4 sm:p-5 flex flex-col justify-between overflow-y-auto space-y-4">
-            <div className="space-y-4 font-mono text-xs">
+          <div className="w-full lg:w-[400px] xl:w-[420px] shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-slate-50/70 p-5 sm:p-6 flex flex-col justify-between overflow-y-auto space-y-5">
+            <div className="space-y-4">
               
               {/* Unit Info Card */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3">
-                <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-                  <Shield className="w-4 h-4 text-blue-600" />
-                  <span className="font-bold text-slate-900 text-xs uppercase tracking-wide">
-                    {t('citizen.reports.rescueVehicleTitle')}
-                  </span>
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3.5">
+                <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
+                    <Shield className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 text-xs sm:text-sm tracking-wide">
+                      {t('citizen.reports.rescueVehicleTitle')}
+                    </span>
+                    <p className="text-[11px] text-slate-400">Đơn vị chuyên trách ứng cứu</p>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">{t('citizen.reports.plateNumberTitle')}</span>
-                    <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
+                    <span className="text-xs text-slate-500 font-medium">{t('citizen.reports.plateNumberTitle').replace(':', '')}</span>
+                    <span className="font-mono font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-lg text-xs tracking-wider">
                       {trackingData?.plateNumber || '51A-114.99'}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">{t('citizen.reports.unitTypeTitle')}</span>
-                    <span className="font-bold text-slate-900">
+                    <span className="text-xs text-slate-500 font-medium">{t('citizen.reports.unitTypeTitle').replace(':', '')}</span>
+                    <span className="font-bold text-slate-900 text-xs sm:text-sm">
                       {trackingData?.unitTypeName || t('citizen.reports.rescueUnitDefault')}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">{t('citizen.reports.stationTitle')}</span>
-                    <span className="font-bold text-slate-900 text-right max-w-[150px] truncate">
+                    <span className="text-xs text-slate-500 font-medium">{t('citizen.reports.stationTitle').replace(':', '')}</span>
+                    <span className="font-bold text-slate-900 text-xs sm:text-sm text-right max-w-[200px] truncate" title={trackingData?.stationName || t('citizen.reports.cadStationDefault')}>
                       {trackingData?.stationName || t('citizen.reports.cadStationDefault')}
                     </span>
                   </div>
@@ -683,36 +740,41 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
               </div>
 
               {/* Destination Card */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2.5">
-                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></div>
-                  <span className="font-bold text-slate-900 text-xs uppercase tracking-wide">
-                    {t('citizen.reports.incidentLocationTitle')}
-                  </span>
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
+                <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
+                  <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 border border-red-100 flex items-center justify-center shrink-0">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 text-xs sm:text-sm tracking-wide">
+                      {t('citizen.reports.incidentLocationTitle')}
+                    </span>
+                    <p className="text-[11px] text-slate-400">Địa điểm cứu nạn được chỉ định</p>
+                  </div>
                 </div>
-                <p className="text-[11px] text-slate-700 leading-relaxed font-sans">
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
                   {incident.locationAddress || 'Vị trí hiện trường ghi nhận'}
                 </p>
               </div>
 
               {/* Instruction banner */}
-              <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-[11px] text-blue-900 space-y-1.5 font-sans">
-                <div className="font-bold flex items-center gap-1.5 text-blue-800">
-                  <Radio className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+              <div className="p-4 rounded-2xl bg-blue-50/80 border border-blue-200/90 text-xs text-blue-900 space-y-2">
+                <div className="font-bold flex items-center gap-2 text-blue-800 text-xs sm:text-sm">
+                  <Radio className="w-4 h-4 text-blue-600 animate-pulse" />
                   <span>{t('citizen.reports.dispatchChannelTitle')}</span>
                 </div>
-                <p className="text-blue-700 leading-relaxed text-[11px]">
+                <p className="text-blue-700 leading-relaxed text-xs">
                   {t('citizen.reports.dispatchChannelDesc')}
                 </p>
               </div>
             </div>
 
             {/* Bottom Actions */}
-            <div className="space-y-2 pt-2">
+            <div className="space-y-2.5 pt-2">
               {trackingData?.stationPhoneNumber && (
                 <a
                   href={`tel:${trackingData.stationPhoneNumber}`}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                  className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-[0.99] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-md shadow-red-600/20 transition-all cursor-pointer"
                 >
                   <PhoneCall className="w-4 h-4" />
                   <span>{t('citizen.reports.callStation')} ({trackingData.stationPhoneNumber})</span>
@@ -722,7 +784,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-mono font-bold text-xs transition-colors cursor-pointer"
+                className="w-full py-3 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs transition-colors cursor-pointer"
               >
                 {t('citizen.reports.closeWindow')}
               </button>
@@ -730,6 +792,15 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           </div>
         </div>
       </div>
+
+      {/* Citizen Supplement Modal */}
+      <CitizenSupplementModal
+        isOpen={showSupplementModal}
+        onClose={() => setShowSupplementModal(false)}
+        incidentId={incident.id}
+        incidentTitle={incident.title}
+        isLinked={incident.status === 'Linked'}
+      />
     </div>
   );
 };

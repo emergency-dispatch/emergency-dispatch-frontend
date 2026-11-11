@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRightLeft, ClipboardCheck, HandHelping, MapPinOff, MessageSquarePlus, Radio, TrafficCone, X } from 'lucide-react';
+import { ArrowRightLeft, ClipboardCheck, HandHelping, MapPinOff, MessageSquarePlus, Radio, TrafficCone, UserX, X } from 'lucide-react';
 import { useDispatchStore, type OperatorAlert } from '../../context/DispatchContext';
 import { useTranslation } from '../../i18n';
 import { COMPLETION_PATH } from '../../data/dashboardMock';
@@ -11,7 +11,7 @@ const KIND_META: Record<
     icon: React.ElementType;
     className: string;
     iconClassName: string;
-    action?: 'verify' | 'viewOnMap' | 'viewDetail' | 'assignTrafficTeam' | 'openFieldRequest' | 'viewCompletion';
+    action?: 'verify' | 'viewOnMap' | 'viewDetail' | 'assignTrafficTeam' | 'openFieldRequest' | 'viewCompletion' | 'reassign';
   }
 > = {
   out_of_area: {
@@ -66,6 +66,13 @@ const KIND_META: Record<
     iconClassName: 'text-emerald-600',
     action: 'viewCompletion',
   },
+  // BR-21: đội từ chối / không phản hồi → mở ca trên Live Map để giao lại; giữ tới khi Operator xử lý.
+  crew_rejected: {
+    icon: UserX,
+    className: 'border-red-300 bg-red-600 text-white',
+    iconClassName: 'text-white',
+    action: 'reassign',
+  },
 };
 
 /**
@@ -113,7 +120,10 @@ export const OperatorAlerts: React.FC = () => {
         const meta = KIND_META[alert.kind];
         const Icon = meta.icon;
         const isDanger =
-          alert.kind === 'out_of_area' || alert.kind === 'traffic_escalation' || alert.kind === 'field_request_escalated';
+          alert.kind === 'out_of_area' ||
+          alert.kind === 'traffic_escalation' ||
+          alert.kind === 'field_request_escalated' ||
+          alert.kind === 'crew_rejected';
         return (
           <div
             key={alert.id}

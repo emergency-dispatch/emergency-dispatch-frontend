@@ -135,24 +135,36 @@ export const MAPBOX_STREETS_STYLE: Style = {
 export const MAPBOX_LIGHT_STYLE: Style = MAPBOX_STREETS_STYLE;
 export const MAPBOX_STYLE: Style = MAPBOX_REALISTIC_STYLE;
 
+let isMapboxGeocodeDisabled = false;
+const geocodeCache = new Map<string, string>();
+
 export const mapboxService = {
   /**
    * Tra cứu địa chỉ tiếng Việt từ tọa độ GPS (Reverse Geocoding)
    * Tự động thử Mapbox API nếu token hợp lệ, dự phòng OpenStreetMap Nominatim tiếng Việt cực nhạy
    */
   async reverseGeocode(lng: number, lat: number): Promise<string> {
-    if (MAPBOX_ACCESS_TOKEN && !MAPBOX_ACCESS_TOKEN.includes('dummy')) {
+    const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+    if (geocodeCache.has(cacheKey)) {
+      return geocodeCache.get(cacheKey)!;
+    }
+
+    if (MAPBOX_ACCESS_TOKEN && !MAPBOX_ACCESS_TOKEN.includes('dummy') && !isMapboxGeocodeDisabled) {
       try {
         const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}&country=VN&language=vi`;
         const res = await fetch(url);
-        if (res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          isMapboxGeocodeDisabled = true;
+        } else if (res.ok) {
           const data = await res.json();
           if (data.features && data.features.length > 0) {
-            return data.features[0].place_name;
+            const place = data.features[0].place_name;
+            geocodeCache.set(cacheKey, place);
+            return place;
           }
         }
       } catch (err) {
-        console.warn('Mapbox reverseGeocode failed, switching to OSM Nominatim:', err);
+        // Fallback to OSM
       }
     }
 
@@ -163,6 +175,7 @@ export const mapboxService = {
       if (res.ok) {
         const data = await res.json();
         if (data.display_name) {
+          geocodeCache.set(cacheKey, data.display_name);
           return data.display_name;
         }
       }
@@ -170,7 +183,9 @@ export const mapboxService = {
       // Ignore
     }
 
-    return `Tọa độ (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+    const fallback = `Tọa độ (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+    geocodeCache.set(cacheKey, fallback);
+    return fallback;
   },
 
   /**
@@ -203,12 +218,14 @@ export const mapboxService = {
       }
     }
 
-    // 2. Thử Mapbox Geocoding nếu token hợp lệ
-    if (MAPBOX_ACCESS_TOKEN && !MAPBOX_ACCESS_TOKEN.includes('dummy')) {
+    // 2. Thử Mapbox Geocoding nếu token hợp lệ và chưa bị cấm/lỗi
+    if (MAPBOX_ACCESS_TOKEN && !MAPBOX_ACCESS_TOKEN.includes('dummy') && !isMapboxGeocodeDisabled) {
       try {
         const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(trimmed)}.json?access_token=${MAPBOX_ACCESS_TOKEN}&country=VN&language=vi`;
         const res = await fetch(url);
-        if (res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          isMapboxGeocodeDisabled = true;
+        } else if (res.ok) {
           const data = await res.json();
           if (data.features && data.features.length > 0) {
             const first = data.features[0];
@@ -221,7 +238,7 @@ export const mapboxService = {
           }
         }
       } catch (err) {
-        console.warn('Mapbox forwardGeocode failed, switching to OSM Nominatim:', err);
+        // Fallback to OSM
       }
     }
 

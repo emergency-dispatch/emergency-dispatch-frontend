@@ -73,6 +73,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
     assignTrafficTeam: 'Open hotspot',
     openFieldRequest: 'View request',
     viewCompletion: 'View completion',
+    reassign: 'Reassign',
     dismiss: 'Dismiss notification',
     outOfAreaTitle: 'SOS outside the service area',
     outOfAreaMessage: '{{title}} — {{address}} ({{km}} km outside {{area}}).',
@@ -98,6 +99,9 @@ export const layoutEn: Messages<typeof layoutVi> = {
     fieldRequestBackupContent: 'needs {{count}} more vehicle(s) {{type}}',
     teamCompletedTitle: 'Team signed off',
     teamCompletedMessage: '{{team}} signed the completion report · {{incident}}',
+    crewRejectedTitle: 'Crew declined the mission',
+    crewTimeoutTitle: 'Crew did not respond',
+    crewRejectedMessage: '{{unit}} · {{incident}} · {{reason}}',
   },
   stationNotAssigned: {
     title: 'No assigned station',

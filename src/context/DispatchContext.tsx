@@ -81,6 +81,42 @@ const UNIT_TYPE_TO_VEHICLE_TYPE: Record<string, DispatchVehicleType | undefined>
 };
 const BACKEND_ALGORITHM = { nearest: 'NearestAvailable', load_aware: 'LoadAware' } as const;
 
+/**
+ * Sau giao xe / đổi trạng thái nhiệm vụ, backend (DispatchService.MapIncidentToSlimDto) phát ReceiveIncidentUpdate bằng
+ * bản rút gọn: thiếu eventType, media, kết quả AI, nguồn, khóa, số báo cáo gộp… Ghi đè nguyên bản sẽ làm mất ảnh / loại /
+ * tóm tắt AI và cả thông tin khóa. Sự cố đã xác minh luôn có eventType ≠ None, nên "đã xác minh mà eventType = None"
+ * là dấu hiệu bản rút gọn → chỉ ghép các trường bản rút gọn thực sự mang lên bản đầy đủ đang có.
+ */
+const SLIM_INCIDENT_FIELDS = [
+  'title',
+  'description',
+  'latitude',
+  'longitude',
+  'locationAddress',
+  'status',
+  'severity',
+  'reporterName',
+  'reporterPhone',
+  'verifiedAt',
+  'operatorNotes',
+  'createdAt',
+  'updatedAt',
+  'responsibleStationId',
+  'responsibleStationName',
+  'isOutOfServiceArea',
+  'distanceOutsideAreaKm',
+] as const satisfies readonly (keyof IncidentResponseDto)[];
+
+function mergeSlimIncidentDto(prev: IncidentResponseDto | undefined, dto: IncidentResponseDto): IncidentResponseDto {
+  const isSlim = !!dto.verifiedAt && (dto.eventType ?? 'None') === 'None';
+  if (!prev || !isSlim) return dto;
+  const merged: IncidentResponseDto = { ...prev };
+  for (const key of SLIM_INCIDENT_FIELDS) {
+    if (key in dto) (merged as unknown as Record<string, unknown>)[key] = dto[key];
+  }
+  return merged;
+}
+
 
 interface LivePosition {
   lat: number;
@@ -170,7 +206,9 @@ export interface OperatorAlert {
     | 'field_request'
     | 'field_request_escalated'
     /** §26.2: một tổ vừa nộp báo cáo nghiệm thu (chữ ký đại diện). */
-    | 'team_completed';
+    | 'team_completed'
+    /** BR-21: đội từ chối / không phản hồi lệnh — trả về Operator để giao lại (báo ở mọi trang). */
+    | 'crew_rejected';
   /** Sự cố liên quan; `traffic_escalation` dùng `trafficJamId` (incidentId = id điểm ùn tắc). */
   incidentId: string;
   trafficJamId?: string;
@@ -497,7 +535,10 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const upsertIncidents = useCallback((dtos: IncidentResponseDto[]) => {
     setIncidentDtos((prev) => {
       const next = new Map(prev);
-      dtos.forEach((dto) => (toOperatorStatus(dto) === null ? next.delete(dto.id) : next.set(dto.id, dto)));
+      dtos.forEach((dto) => {
+        if (toOperatorStatus(dto) === null) next.delete(dto.id);
+        else next.set(dto.id, mergeSlimIncidentDto(prev.get(dto.id), dto));
+      });
       return next;
     });
   }, []);
@@ -819,8 +860,27 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ),
       incidentHubService.on<DispatchAssignmentResponseDto>(HubEvents.ReceiveAssignmentStatus, (a) => {
         const report = a.completionReport;
-        const wasCompleted = assignmentsRef.current.get(a.id)?.status === 'Completed';
+        const previousStatus = assignmentsRef.current.get(a.id)?.status;
+        const wasCompleted = previousStatus === 'Completed';
         const incident = incidentDtosRef.current.get(a.incidentId);
+        // BR-21: đội vừa từ chối / không phản hồi → báo ở mọi trang (Operator thường đã quay về Hàng đợi sau khi giao).
+        if (a.status === 'Rejected' && previousStatus !== 'Rejected' && incident) {
+          staffAudioService.playPriorityBeep();
+          pushOperatorAlert({
+            kind: 'crew_rejected',
+            incidentId: a.incidentId,
+            title: i18n.t(
+              a.rejectionReason === 'NoResponse'
+                ? 'layout.operatorAlerts.crewTimeoutTitle'
+                : 'layout.operatorAlerts.crewRejectedTitle'
+            ),
+            message: i18n.t('layout.operatorAlerts.crewRejectedMessage', {
+              unit: a.rescueUnit?.plateNumber ?? '—',
+              incident: incident.title,
+              reason: a.rejectionNotes?.trim() || i18n.t(`enums.rejectionReason.${a.rejectionReason ?? 'Other'}`),
+            }),
+          });
+        }
         // Tổ vừa nộp nghiệm thu cho sự cố trạm mình → báo nhẹ, mở thẳng màn Nghiệm thu.
         if (a.status === 'Completed' && report && !wasCompleted && incident && !announcedReportIdsRef.current.has(report.id)) {
           announcedReportIdsRef.current.add(report.id);
@@ -1084,7 +1144,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         confirmedTrafficJamStatus: trafficJam,
       });
       if (!res.success) return { ok: false, message: res.message || i18n.t('context.verifyFailed') };
-      // Không tự gán xe: sự cố đã duyệt chờ Operator chọn xe từ gợi ý điều phối trên Live Map.
+      // Không tự gán xe: Operator chọn xe ở bước "Điều xe" của Hàng đợi (hoặc sau đó trên Live Map).
       upsertIncidents([res.data]);
       return { ok: true };
     } catch (err) {

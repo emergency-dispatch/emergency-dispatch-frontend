@@ -37,6 +37,8 @@ import { getIncidentVisualMeta, formatCitizenIncidentStatus } from '../../utils/
 import type { RescueUnitResponseDto } from '../../types/rescueUnit';
 import type { Station, VehicleStatus, VehicleType } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
+import { useAuth } from '../../hooks/useAuth';
+import { UserRole } from '../../types/auth';
 import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
 import { DEFAULT_SERVICE_AREA } from '../../utils/serviceArea';
 import type { ServiceAreaDto } from '../../services/liveMapService';
@@ -96,6 +98,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   onStatsUpdate,
 }) => {
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [radarLayer, setRadarLayer] = useState<'satellite' | 'dark'>('satellite');
@@ -224,9 +227,12 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   // Fetch real stations & rescue units
   const fetchRealEntities = useCallback(async () => {
     try {
+      const isPrivileged = user?.role === 'Admin' || user?.role === 'Operator';
       const [fetchedStations, fetchedUnits, fetchedArea] = await Promise.all([
         liveMapService.getStations().catch(() => [] as Station[]),
-        liveMapService.getRescueUnits().catch(() => [] as RescueUnitResponseDto[]),
+        isPrivileged
+          ? liveMapService.getRescueUnits().catch(() => [] as RescueUnitResponseDto[])
+          : Promise.resolve([] as RescueUnitResponseDto[]),
         liveMapService.getServiceArea().catch(() => null),
       ]);
 
@@ -261,33 +267,50 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   // Check citizen reported incident (from storage or API)
   const checkCitizenReportedIncident = useCallback(async () => {
     try {
+      // 1. Nếu công dân đã đăng nhập, ưu tiên dùng getMyReports để tránh bị 403 khi đổi acc
+      if (user?.role === UserRole.Citizen) {
+        const myReportsRes = await incidentService.getMyReports({ pageSize: 5 }).catch(() => null);
+        if (myReportsRes?.success && myReportsRes.data.items.length > 0) {
+          for (const item of myReportsRes.data.items) {
+            if (item.status !== 'Cancelled' && item.status !== 'Completed') {
+              const res = await incidentService.getById(item.id).catch(() => null);
+              if (res?.success && res.data) {
+                setReportedIncident(res.data);
+                return;
+              }
+            }
+          }
+        }
+        setReportedIncident(null);
+        return;
+      }
+
+      // 2. Với khách vãng lai: dùng storedIds trong localStorage
       const storedIds: string[] = JSON.parse(
         localStorage.getItem('resq_my_reported_incident_ids') || '[]'
       );
       if (storedIds.length > 0) {
+        const validIds: string[] = [];
         for (const id of storedIds.slice(0, 5)) {
-          const res = await incidentService.getById(id).catch(() => null);
-          if (res?.success && res.data) {
-            // Prioritize active (non-cancelled, non-completed) incidents for the radar map
-            if (res.data.status !== 'Cancelled' && res.data.status !== 'Completed') {
-              setReportedIncident(res.data);
-              return;
+          try {
+            const res = await incidentService.getById(id);
+            if (res?.success && res.data) {
+              validIds.push(id);
+              if (res.data.status !== 'Cancelled' && res.data.status !== 'Completed') {
+                setReportedIncident(res.data);
+                return;
+              }
             }
+          } catch (err: any) {
+            // Nếu bị 403 Forbidden hoặc 404, không lưu lại ID này nữa
+            if (err?.response?.status === 403 || err?.response?.status === 404) {
+              continue;
+            }
+            validIds.push(id);
           }
         }
-      }
-
-      // Fallback for logged-in citizen without localStorage items
-      const myReportsRes = await incidentService.getMyReports({ pageSize: 5 }).catch(() => null);
-      if (myReportsRes?.success && myReportsRes.data.items.length > 0) {
-        for (const item of myReportsRes.data.items) {
-          if (item.status !== 'Cancelled' && item.status !== 'Completed') {
-            const res = await incidentService.getById(item.id).catch(() => null);
-            if (res?.success && res.data) {
-              setReportedIncident(res.data);
-              return;
-            }
-          }
+        if (validIds.length !== storedIds.length) {
+          localStorage.setItem('resq_my_reported_incident_ids', JSON.stringify(validIds));
         }
       }
 
@@ -296,7 +319,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     } catch {
       // Ignore
     }
-  }, []);
+  }, [user]);
 
   // Load tracking data if incident has active dispatch
   useEffect(() => {

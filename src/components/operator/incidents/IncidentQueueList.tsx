@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { AlertTriangle, Inbox, ListChecks, Loader2, Siren } from 'lucide-react';
+import { AlertTriangle, Inbox, ListChecks, Loader2, Map as MapIcon, Siren } from 'lucide-react';
 import { IncidentRow } from './IncidentRow';
 import { QUEUE_COLUMNS } from './queueColumns';
 import { useNow } from '../../../hooks/useNow';
@@ -15,6 +15,9 @@ interface IncidentQueueListProps {
   onSelect: (id: string) => void;
   isLoading?: boolean;
   loadError?: string | null;
+  /** Số ca đã duyệt đang xử lý — hàng đợi trống thì mời sang Live Map theo dõi. */
+  activeIncidentCount?: number;
+  onOpenLiveMap?: () => void;
 }
 
 interface GroupHeaderProps {
@@ -44,6 +47,8 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
   onSelect,
   isLoading = false,
   loadError = null,
+  activeIncidentCount = 0,
+  onOpenLiveMap,
 }) => {
   const now = useNow();
   const { t } = useTranslation();
@@ -122,6 +127,15 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
           <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-300">
             <Inbox className="w-8 h-8" />
             <p className="text-sm text-slate-500">{t('incidents.queue.empty')}</p>
+            {activeIncidentCount > 0 && onOpenLiveMap && (
+              <button
+                onClick={onOpenLiveMap}
+                className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+              >
+                <MapIcon className="w-4 h-4 text-slate-500" />
+                {t('incidents.queue.emptyFollowUp', { count: activeIncidentCount })}
+              </button>
+            )}
           </div>
         ) : escalated.length === 0 ? (
           waiting.map(renderRow)

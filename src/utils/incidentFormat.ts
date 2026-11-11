@@ -143,6 +143,8 @@ export function formatCitizenIncidentStatus(status?: string | null): string {
       return i18n.t('citizen.reports.status.completed');
     case 'Cancelled':
       return i18n.t('citizen.reports.status.cancelled');
+    case 'Linked':
+      return i18n.t('citizen.reports.status.linked');
     case 'Pending':
     case 'AiProcessing':
     case 'AiProcessed':

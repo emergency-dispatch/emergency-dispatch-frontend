@@ -41,8 +41,8 @@ export const TrafficJamReview: React.FC<TrafficJamReviewProps> = ({
   return (
     <div className="rounded-xl border border-slate-200 p-4 space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="flex items-center gap-2 text-xs font-mono-data uppercase tracking-widest text-slate-500 font-bold">
-          <TrafficCone className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+        <span className="flex items-center gap-2 text-[13px] font-semibold text-slate-700">
+          <TrafficCone className="w-4 h-4 text-blue-600 shrink-0" />
           {t('incidents.traffic.heading')}
         </span>
         <span
