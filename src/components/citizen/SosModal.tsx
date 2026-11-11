@@ -23,6 +23,12 @@ import {
   Video,
   Navigation,
   LogIn,
+  Flame,
+  Car,
+  HelpCircle,
+  Link2,
+  PlusCircle,
+  Split,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSosCooldown } from '../../hooks/useSosCooldown';
@@ -35,6 +41,7 @@ import { mapboxService } from '../../services/mapboxService';
 import { UserRole } from '../../types/auth';
 import type { CreateIncidentDto, IncidentResponseDto } from '../../types/incident';
 import { CitizenPhoneModal } from './CitizenPhoneModal';
+import { CitizenSupplementModal } from './CitizenSupplementModal';
 import { formatCitizenIncidentStatus } from '../../utils/incidentFormat';
 // Vùng phục vụ dùng chung với form Operator tạo sự cố (cùng tâm, cùng bán kính chặn).
 import { DEFAULT_SERVICE_AREA, KCN_RADIUS_KM, haversineDistanceKm } from '../../utils/serviceArea';
@@ -62,7 +69,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { user, isAuthenticated, updateProfile } = useAuth();
-  const { isCooldown, cooldownLabel, triggerCooldown, clearCooldown } = useSosCooldown();
+  const { isCooldown, cooldownLabel, triggerCooldown, clearCooldown } = useSosCooldown(user?.id);
 
   const [description, setDescription] = useState<string>('');
   const [reporterName, setReporterName] = useState<string>('');
@@ -96,6 +103,10 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
   const [createdIncident, setCreatedIncident] = useState<IncidentResponseDto | null>(null);
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
+  const [reportedEventType, setReportedEventType] = useState<'FireExplosion' | 'TrafficAccident' | ''>('');
+  const [isUnlinking, setIsUnlinking] = useState<boolean>(false);
+  const [unlinkSuccessMsg, setUnlinkSuccessMsg] = useState<string>('');
+  const [showSupplementModal, setShowSupplementModal] = useState<boolean>(false);
 
   // Out of service area notice modal & real-time monitoring
   const [showOutOfAreaModal, setShowOutOfAreaModal] = useState<boolean>(false);
@@ -526,6 +537,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
         reporterName: reporterName.trim() || (user?.fullName ?? 'Người dân'),
         reporterPhone: cleanPhone || (user?.phoneNumber ?? undefined),
         mediaUrls,
+        reportedEventType: reportedEventType ? reportedEventType : undefined,
       };
 
       const response = await incidentService.createIncident(payload);
@@ -539,6 +551,9 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
           if (!stored.includes(response.data.id)) {
             stored.unshift(response.data.id);
             localStorage.setItem('resq_my_reported_incident_ids', JSON.stringify(stored));
+          }
+          if (response.data.guestCancellationToken) {
+            localStorage.setItem('resq_guest_token_' + response.data.id, response.data.guestCancellationToken);
           }
           window.dispatchEvent(new CustomEvent('resq_incident_updated', { detail: response.data }));
         } catch {
@@ -559,7 +574,38 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     setCreatedIncident(null);
     setIsCancelling(false);
     setShowCancelConfirm(false);
+    setReportedEventType('');
+    setIsUnlinking(false);
+    setUnlinkSuccessMsg('');
+    setShowSupplementModal(false);
     onClose();
+  };
+
+  const handleUnlink = async () => {
+    if (!createdIncident?.id || isUnlinking) return;
+    setIsUnlinking(true);
+    setUnlinkSuccessMsg('');
+    setErrorMsg('');
+    try {
+      const guestToken =
+        localStorage.getItem('resq_guest_token_' + createdIncident.id) ||
+        createdIncident.guestCancellationToken ||
+        undefined;
+      const unlinked = await incidentService.unlinkReport(
+        createdIncident.id,
+        'Người báo xác nhận đây là sự cố khác',
+        guestToken
+      );
+      setCreatedIncident({ ...unlinked, linkedTo: undefined });
+      setUnlinkSuccessMsg(
+        t('citizen.sos.unlinkSuccess', 'Đã tách báo cáo thành sự cố riêng. Đội điều phối sẽ tiếp nhận ngay.')
+      );
+      window.dispatchEvent(new CustomEvent('resq_incident_updated', { detail: unlinked }));
+    } catch (err: any) {
+      setErrorMsg(getApiErrorMessage(err, 'Không thể tách báo cáo lúc này.'));
+    } finally {
+      setIsUnlinking(false);
+    }
   };
 
   const handleCancelSubmittedIncident = async () => {
@@ -828,6 +874,51 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                           <span>{t('citizen.sos.savePhoneCheckbox')}</span>
                         </label>
                       )}
+                    </div>
+
+                    {/* Reported Event Type (BR-07) */}
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-mono uppercase text-slate-700 font-bold">
+                        {t('citizen.sos.eventTypeLabel', 'Loại sự cố:')}
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setReportedEventType(reportedEventType === 'FireExplosion' ? '' : 'FireExplosion')}
+                          className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            reportedEventType === 'FireExplosion'
+                              ? 'bg-red-50 border-red-500 text-red-600 shadow-2xs ring-1 ring-red-400'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          <Flame className="w-3.5 h-3.5 text-red-500" />
+                          <span>{t('citizen.sos.eventTypeFire', 'Cháy nổ')}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReportedEventType(reportedEventType === 'TrafficAccident' ? '' : 'TrafficAccident')}
+                          className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            reportedEventType === 'TrafficAccident'
+                              ? 'bg-amber-50 border-amber-500 text-amber-700 shadow-2xs ring-1 ring-amber-400'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          <Car className="w-3.5 h-3.5 text-amber-600" />
+                          <span>{t('citizen.sos.eventTypeAccident', 'Tai nạn')}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReportedEventType('')}
+                          className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            reportedEventType === ''
+                              ? 'bg-slate-100 border-slate-400 text-slate-800 shadow-2xs font-bold'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{t('citizen.sos.eventTypeUnknown', 'Không rõ')}</span>
+                        </button>
+                      </div>
                     </div>
 
 
@@ -1106,35 +1197,136 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 </p>
               </div>
 
-              {/* Details Card */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-3 font-mono text-xs w-full max-w-xl mx-auto">
-                <div className="space-y-1.5 pb-2.5 border-b border-slate-200">
-                  <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px] uppercase tracking-wide">
-                    <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                    <span>{t('citizen.sos.sceneLocationLabel')}</span>
+              {/* Linked Incident Card (BR-07) or Regular Details Card */}
+              {createdIncident.linkedTo ? (
+                <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-left space-y-3 font-mono text-xs w-full max-w-xl mx-auto shadow-xs">
+                  <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm">
+                    <Link2 className="w-4 h-4 shrink-0 text-indigo-600" />
+                    <span>{t('citizen.sos.linkedAlertTitle', 'Sự cố này đã được báo')}</span>
                   </div>
-                  <p className="text-slate-900 font-bold text-xs leading-relaxed break-words text-left pl-5">
-                    {createdIncident.locationAddress}
+                  <p className="text-slate-600 text-xs font-sans leading-relaxed">
+                    {t(
+                      'citizen.sos.linkedAlertDesc',
+                      'Hệ thống nhận diện báo cáo của bạn trùng với sự cố đang được điều phối gần đó.'
+                    )}
                   </p>
+
+                  <div className="p-3.5 rounded-xl bg-white border border-indigo-100 space-y-2">
+                    <div className="font-bold text-slate-900 text-xs flex items-center justify-between">
+                      <span>{createdIncident.linkedTo.title || 'Sự cố đang xử lý'}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold">
+                        ĐÃ GỘP
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-1.5 text-slate-600">
+                      <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+                      <span className="text-[11px] leading-relaxed">{createdIncident.linkedTo.locationAddress}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
+                      <span className="text-slate-500">{t('citizen.sos.linkedDistance', 'Cách hiện trường:')}</span>
+                      <span className="font-bold text-indigo-700">
+                        ~{Math.round(createdIncident.linkedTo.distanceMeters)} m
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">{t('citizen.sos.linkedVehicles', 'Xe cứu hộ đang tới:')}</span>
+                      <span className="font-bold text-slate-800">
+                        {createdIncident.linkedTo.assignedUnitPlates &&
+                        createdIncident.linkedTo.assignedUnitPlates.length > 0
+                          ? createdIncident.linkedTo.assignedUnitPlates.join(', ')
+                          : t('citizen.sos.linkedNoUnitsYet', 'Đang điều phối xe')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {unlinkSuccessMsg ? (
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{unlinkSuccessMsg}</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleUnlink}
+                        disabled={isUnlinking}
+                        className="w-full sm:w-auto flex-1 py-2 px-3 rounded-xl border border-indigo-300 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isUnlinking ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Split className="w-3.5 h-3.5" />
+                        )}
+                        <span>{t('citizen.sos.btnUnlink', 'Đây là sự cố khác')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowSupplementModal(true)}
+                        className="w-full sm:w-auto flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" />
+                        <span>{t('citizen.sos.btnSupplement', 'Bổ sung thông tin')}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center justify-between pt-0.5">
-                  <span className="text-slate-500 font-bold shrink-0 text-[11px] uppercase tracking-wide">
-                    {t('citizen.sos.timeReceivedLabel')}
-                  </span>
-                  <span className="text-slate-900 font-bold">
-                    {new Date(createdIncident.createdAt).toLocaleTimeString(dateLocale())}
-                  </span>
+              ) : (
+                /* Details Card */
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-3 font-mono text-xs w-full max-w-xl mx-auto">
+                  <div className="space-y-1.5 pb-2.5 border-b border-slate-200">
+                    <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px] uppercase tracking-wide">
+                      <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                      <span>{t('citizen.sos.sceneLocationLabel')}</span>
+                    </div>
+                    <p className="text-slate-900 font-bold text-xs leading-relaxed break-words text-left pl-5">
+                      {createdIncident.locationAddress}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between pt-0.5">
+                    <span className="text-slate-500 font-bold shrink-0 text-[11px] uppercase tracking-wide">
+                      {t('citizen.sos.timeReceivedLabel')}
+                    </span>
+                    <span className="text-slate-900 font-bold">
+                      {new Date(createdIncident.createdAt).toLocaleTimeString(dateLocale())}
+                    </span>
+                  </div>
+
+                  {/* Quick Supplement Action for regular SOS */}
+                  {createdIncident.status !== 'Cancelled' && createdIncident.status !== 'Completed' && (
+                    <div className="pt-2 border-t border-slate-200 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setShowSupplementModal(true)}
+                        className="py-1.5 px-3 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5 text-red-600" />
+                        <span>{t('citizen.sos.btnSupplement', 'Bổ sung thông tin')}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
+              )}
+
+              {/* Primary Action: Track on CAD Radar */}
+              <div className="max-w-xl mx-auto">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider font-mono shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Navigation className="w-4 h-4 text-white" />
+                  <span>{t('citizen.sos.trackOnRadarDirectly', 'Theo dõi trên Radar CAD')}</span>
+                </button>
               </div>
 
-              {/* Cancel Alarm Action / Inline Confirmation */}
+              {/* Cancel Alarm Action / Secondary Row */}
               {createdIncident.status === 'Cancelled' ? (
-                <div className="p-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 text-xs font-mono font-bold flex items-center justify-center gap-2 max-w-xl mx-auto">
+                <div className="p-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 text-xs font-mono font-bold flex items-center justify-center gap-2 max-w-xl mx-auto mt-2">
                   <XCircle className="w-4 h-4 text-slate-500" />
                   <span>{t('citizen.sos.cancelSuccessNotice')}</span>
                 </div>
               ) : showCancelConfirm ? (
-                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-center space-y-2.5 animate-fadeIn max-w-xl mx-auto">
+                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-center space-y-2.5 animate-fadeIn max-w-xl mx-auto mt-2">
                   <div className="flex items-center justify-center gap-2 text-red-700 font-bold text-xs">
                     <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
                     <span>{t('citizen.sos.cancelConfirmPrompt')}</span>
@@ -1159,7 +1351,20 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                   </div>
                 </div>
               ) : (
-                <div className="max-w-xl mx-auto">
+                <div className="flex flex-col sm:flex-row items-center gap-3 pt-2 max-w-xl mx-auto">
+                  {onOpenReports && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleReset();
+                        onOpenReports();
+                      }}
+                      className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs uppercase tracking-wider font-mono border border-slate-300 transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Clock className="w-4 h-4 text-red-600" />
+                      <span>{t('citizen.sos.viewHistoryBtn')}</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setShowCancelConfirm(true)}
@@ -1170,30 +1375,6 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                   </button>
                 </div>
               )}
-
-              <div className="flex flex-col sm:flex-row items-center gap-3 pt-2 max-w-xl mx-auto">
-                {onOpenReports && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleReset();
-                      onOpenReports();
-                    }}
-                    className="w-full py-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs uppercase tracking-wider font-mono border border-slate-300 transition-all cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <Clock className="w-4 h-4 text-red-600" />
-                    <span>{t('citizen.sos.viewHistoryBtn')}</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider font-mono shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <Navigation className="w-4 h-4 text-white" />
-                  <span>{t('citizen.sos.trackOnRadarDirectly', 'Theo dõi trên Radar CAD')}</span>
-                </button>
-              </div>
             </div>
           )}
         </div>
@@ -1208,6 +1389,17 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
           setShowPhoneModal(false);
         }}
       />
+
+      {/* Citizen Supplement Modal */}
+      {createdIncident && (
+        <CitizenSupplementModal
+          isOpen={showSupplementModal}
+          onClose={() => setShowSupplementModal(false)}
+          incidentId={createdIncident.id}
+          incidentTitle={createdIncident.title}
+          isLinked={Boolean(createdIncident.linkedTo || createdIncident.status === 'Linked')}
+        />
+      )}
 
       {/* Out of Service Area Informational Modal */}
       {showOutOfAreaModal && (

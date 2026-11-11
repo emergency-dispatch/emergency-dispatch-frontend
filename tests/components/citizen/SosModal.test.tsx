@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { SosModal } from '@/components/citizen/SosModal';
 import { AuthContext, type AuthContextType } from '@/contexts/AuthContext';
 import { incidentService } from '@/services/incidentService';
@@ -27,11 +28,20 @@ const inside = { lat: 10.8441, lng: 106.8089, address: 'Đường D1, Khu CNC' }
 const cacheCoords = (c: { lat: number; lng: number; address: string } = inside) =>
   localStorage.setItem('resq_citizen_coords', JSON.stringify({ ...c, updatedAt: Date.now() }));
 
-const renderModal = (user: Partial<AuthContextType['user']> | null = null, extra: Partial<AuthContextType> = {}) =>
+const defaultCitizen: Partial<AuthContextType['user']> = {
+  id: 'c1',
+  fullName: 'Dân A',
+  role: UserRole.Citizen,
+  phoneNumber: '0912345678',
+};
+
+const renderModal = (user: Partial<AuthContextType['user']> | null = defaultCitizen, extra: Partial<AuthContextType> = {}) =>
   render(
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, updateProfile: vi.fn().mockResolvedValue({}), ...extra } as unknown as AuthContextType}>
-      <SosModal isOpen onClose={vi.fn()} onOpenReports={vi.fn()} />
-    </AuthContext.Provider>,
+    <MemoryRouter>
+      <AuthContext.Provider value={{ user, isAuthenticated: !!user, updateProfile: vi.fn().mockResolvedValue({}), ...extra } as unknown as AuthContextType}>
+        <SosModal isOpen onClose={vi.fn()} onOpenReports={vi.fn()} />
+      </AuthContext.Provider>
+    </MemoryRouter>,
   );
 
 const attachPhoto = async (container: HTMLElement = document.body) => {
@@ -62,7 +72,7 @@ describe('SosModal', () => {
 
   it('SĐT sai định dạng', async () => {
     cacheCoords();
-    renderModal();
+    renderModal({ ...defaultCitizen, phoneNumber: '' });
     await userEvent.type(screen.getByPlaceholderText(/09/), '0123');
     submit();
     expect(await screen.findByText(t('citizen.sos.invalidPhoneError'))).toBeInTheDocument();
@@ -122,6 +132,7 @@ describe('SosModal', () => {
 
   it('đang trong cooldown 3 phút → không gửi được', async () => {
     cacheCoords();
+    localStorage.setItem('resq_last_reported_time_c1', String(Date.now()));
     localStorage.setItem('resq_last_reported_time', String(Date.now()));
     renderModal();
     expect(screen.getByRole('button', { name: /3:00|2:59/ })).toBeDisabled();

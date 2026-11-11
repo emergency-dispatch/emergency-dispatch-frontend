@@ -58,7 +58,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem(API_CONFIG.TOKEN_KEY);
     localStorage.removeItem(API_CONFIG.REFRESH_TOKEN_KEY);
     localStorage.removeItem(API_CONFIG.USER_KEY);
+    localStorage.removeItem('resq_last_reported_time');
+    localStorage.removeItem('resq_my_reported_incident_ids');
     setUser(null);
+    window.dispatchEvent(new CustomEvent('resq_sos_cooldown_started', { detail: { timestamp: 0 } }));
   };
 
   const refreshProfile = useCallback(async (): Promise<UserResponseDto | null> => {

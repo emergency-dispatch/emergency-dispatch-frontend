@@ -319,6 +319,23 @@ export interface IncidentResponseDto {
   linkedReportCount?: number;
   /** (Báo cáo đã gom / đã xác nhận trùng) Sự cố gốc. */
   linkedToIncidentId?: string | null;
+  /** (Chỉ trả cho người báo khi SOS vừa được gom) Tóm tắt sự cố gốc */
+  linkedTo?: LinkedToIncidentDto;
+  /** Token dùng để người báo vãng lai (khách) hủy, tách hoặc bổ sung thông tin */
+  guestCancellationToken?: string;
+}
+
+/**
+ * Mirror LinkedToIncidentDto (§21.3): tóm tắt sự cố gốc trả cho người báo khi SOS được tự gom.
+ */
+export interface LinkedToIncidentDto {
+  incidentId: string;
+  title: string;
+  locationAddress: string;
+  eventType: BackendEventType;
+  status: BackendIncidentStatus;
+  distanceMeters: number;
+  assignedUnitPlates: string[];
 }
 
 /**
@@ -423,6 +440,8 @@ export interface CreateIncidentDto {
   reporterName?: string;
   reporterPhone?: string;
   mediaUrls?: string[];
+  /** Loại sự cố người báo tự chọn: FireExplosion / TrafficAccident (tùy chọn) */
+  reportedEventType?: 'FireExplosion' | 'TrafficAccident';
 }
 
 /** Body POST /api/incidents/operator — sự cố được xác minh ngay theo loại / mức Operator chọn. */
@@ -482,6 +501,8 @@ export interface MyReportDto {
   severity: BackendSeverityLevel;
   resolutionSummary?: string;
   cancellationReason?: string;
+  linkedToIncidentId?: string | null;
+  reportedEventType?: BackendEventType | null;
   mediaUrls: string[];
   reportedAt: string;
   verifiedAt?: string;

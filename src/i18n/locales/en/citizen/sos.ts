@@ -109,5 +109,23 @@ export const citizenSosEn: Messages<typeof citizenSosVi> = {
   authRequiredPrompt: 'Please sign in to send emergency SOS signals.',
   loginNowBtn: 'Sign In Now',
   registerBtn: 'Create New Account',
+
+  // Event types for SOS
+  eventTypeLabel: 'Incident type:',
+  eventTypeFire: 'Fire & Explosion',
+  eventTypeAccident: 'Traffic Accident',
+  eventTypeUnknown: 'Unknown',
+
+  // Linked incident (duplicate reports)
+  linkedAlertTitle: 'This incident was already reported',
+  linkedAlertDesc: 'Our system identified that your report matches an ongoing dispatched incident nearby.',
+  linkedDistance: 'Distance to original incident:',
+  linkedVehicles: 'Responding units:',
+  linkedNoUnitsYet: 'Units being assigned',
+  btnTrackOriginal: 'Track Original Incident',
+  btnUnlink: 'This is a different incident',
+  unlinking: 'Unlinking incident...',
+  unlinkSuccess: 'Incident separated successfully. Dispatched operators will respond immediately.',
+  btnSupplement: 'Add Information',
 };
 

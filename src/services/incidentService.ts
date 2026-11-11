@@ -262,6 +262,14 @@ export const incidentService = {
     return unwrapApi(apiClient.get<ApiResponse<IncidentSupplementDto[]>>(`/Incidents/${id}/supplements`));
   },
 
+  /** §21.4: người báo bổ sung ghi chú / ảnh cho sự cố (kể cả khi Linked). */
+  async addSupplement(
+    id: string,
+    dto: { note: string; mediaUrls: string[]; guestCancellationToken?: string }
+  ): Promise<IncidentSupplementDto> {
+    return unwrapApi(apiClient.post<ApiResponse<IncidentSupplementDto>>(`/Incidents/${id}/supplements`, dto));
+  },
+
   /** BR-07: các báo cáo trùng backend đã gom vào sự cố gốc (đang gom + đã xác nhận trùng). */
   async getLinkedReports(parentId: string): Promise<LinkedReportDto[]> {
     return unwrapApi(apiClient.get<ApiResponse<LinkedReportDto[]>>(`/Incidents/${parentId}/linked-reports`));
@@ -269,10 +277,16 @@ export const incidentService = {
 
   /**
    * Tách báo cáo khỏi sự cố gốc (gom nhầm): báo cáo quay lại hàng đợi như SOS mới, giữ thời điểm báo gốc.
-   * Lý do tùy chọn — bỏ trống thì backend ghi "Điều phối viên tách báo cáo".
+   * Lý do tùy chọn — bỏ trống thì backend ghi "Người báo xác nhận đây là sự cố khác" hoặc "Điều phối viên tách báo cáo".
+   * Khách vãng lai gửi kèm guestCancellationToken.
    */
-  async unlinkReport(reportId: string, reason?: string): Promise<IncidentResponseDto> {
-    return unwrapApi(apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${reportId}/unlink`, { reason: reason || undefined }));
+  async unlinkReport(reportId: string, reason?: string, guestCancellationToken?: string): Promise<IncidentResponseDto> {
+    return unwrapApi(
+      apiClient.put<ApiResponse<IncidentResponseDto>>(`/Incidents/${reportId}/unlink`, {
+        reason: reason || undefined,
+        guestCancellationToken: guestCancellationToken || undefined,
+      })
+    );
   },
 
   /** Xác nhận báo cáo đã gom đúng là trùng → đóng báo cáo (Cancelled, lý do Duplicate). Ghi chú tùy chọn. */

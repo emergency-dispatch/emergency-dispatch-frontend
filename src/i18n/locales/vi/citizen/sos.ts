@@ -106,4 +106,22 @@ export const citizenSosVi = {
   authRequiredPrompt: 'Vui lòng đăng nhập để gửi tín hiệu cứu nạn khẩn cấp SOS.',
   loginNowBtn: 'Đăng nhập ngay',
   registerBtn: 'Tạo tài khoản mới',
+
+  // Event types for SOS
+  eventTypeLabel: 'Loại sự cố:',
+  eventTypeFire: 'Cháy nổ',
+  eventTypeAccident: 'Tai nạn',
+  eventTypeUnknown: 'Không rõ',
+
+  // Linked incident (gom báo cáo trùng)
+  linkedAlertTitle: 'Sự cố này đã được báo',
+  linkedAlertDesc: 'Hệ thống nhận diện báo cáo của bạn trùng với sự cố đang được điều phối gần đó.',
+  linkedDistance: 'Cách sự cố gốc:',
+  linkedVehicles: 'Xe cứu hộ đang tới:',
+  linkedNoUnitsYet: 'Đang điều phối xe',
+  btnTrackOriginal: 'Theo dõi sự cố gốc',
+  btnUnlink: 'Đây là sự cố khác',
+  unlinking: 'Đang tách báo cáo...',
+  unlinkSuccess: 'Đã tách báo cáo thành công. Đội điều phối sẽ tiếp nhận ngay.',
+  btnSupplement: 'Bổ sung thông tin',
 } as const;
