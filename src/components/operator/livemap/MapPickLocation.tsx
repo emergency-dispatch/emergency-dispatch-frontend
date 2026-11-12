@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
+import { pickPinMarkerHtml } from './glowMarkers';
 
 export interface PickedPoint {
   lat: number;
@@ -14,13 +15,8 @@ interface MapPickLocationProps {
   flyKey: number;
 }
 
-const PIN_HTML = `
-  <div style="width:30px;height:40px;cursor:grab;filter:drop-shadow(0 3px 4px rgba(0,0,0,0.4));">
-    <svg viewBox="0 0 30 40" width="30" height="40">
-      <path d="M15 1C7.3 1 1 7.2 1 14.9 1 25.3 15 39 15 39s14-13.7 14-24.1C29 7.2 22.7 1 15 1z" fill="#DC2626" stroke="#FFFFFF" stroke-width="2"/>
-      <circle cx="15" cy="15" r="5" fill="#FFFFFF"/>
-    </svg>
-  </div>`;
+// Ghim kiểu Quầng sáng (icons/pick-pin.svg) — mũi ghim nằm đúng đáy phần tử, neo 'bottom'.
+const PIN_HTML = pickPinMarkerHtml();
 
 /**
  * Chế độ chọn vị trí khi Operator tạo sự cố: click bản đồ để đặt ghim, kéo ghim để chỉnh.

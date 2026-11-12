@@ -1,0 +1,29 @@
+<!-- Xe cứu thương (Ambulance) — semi-flat nhiều màu, nhìn ngang, đầu xe quay sang phải (chốt 2026-11-12).
+     viewBox 120×64, mặt đất y≈58. Marker Live Map: viền trắng kiểu hình dán + chấm trạng thái; lật ngang khi xe chạy về phía tây. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 64" width="120" height="64">
+  <rect x="8" y="14" width="72" height="36" rx="3" fill="#F6F6F3" stroke="#BDBDB6" stroke-width="0.8"/>
+  <path d="M80 22h16c3 0 5 1.5 6.5 3.8L110 38V50H80Z" fill="#F6F6F3" stroke="#BDBDB6" stroke-width="0.8"/>
+  <rect x="83" y="26" width="8" height="10" rx="1" fill="#D6E6F5"/>
+  <path d="M94 26h5.5l6.5 11h-12Z" fill="#D6E6F5"/>
+  <path d="M96 26h2.2l-3 7h-1.2Z" fill="rgba(255,255,255,0.7)"/>
+  <rect x="92.5" y="24" width="0.8" height="16" fill="#DEDED8"/>
+  <rect x="85" y="39" width="4" height="1.2" fill="#B8B8B0"/>
+  <rect x="107.5" y="39" width="2.5" height="3" fill="#F5D76E"/>
+  <rect x="30" y="17" width="0.8" height="21" fill="#DEDED8"/>
+  <rect x="8" y="44" width="102" height="6" fill="#DEDED8"/>
+  <rect x="8" y="39" width="102" height="3.5" fill="#D9534F"/>
+  <rect x="40.5" y="19" width="7" height="16" fill="#D9534F"/>
+  <rect x="36" y="23.5" width="16" height="7" fill="#D9534F"/>
+  <rect x="62" y="12" width="16" height="2" rx="0.8" fill="#555B66"/>
+  <rect x="63" y="8.5" width="6.5" height="3.8" rx="1" fill="#4A86E8"/>
+  <rect x="70.5" y="8.5" width="6.5" height="3.8" rx="1" fill="#E05252"/>
+  <rect x="104" y="47" width="9" height="3.5" rx="1" fill="#B5B1A8"/>
+  <circle cx="26" cy="51" r="8.6" fill="#BDBDB5"/>
+  <circle cx="26" cy="51" r="7" fill="#2B2B2B"/>
+  <circle cx="26" cy="51" r="3.3" fill="#BDB9B0"/>
+  <circle cx="26" cy="51" r="1.3" fill="#6E6E6E"/>
+  <circle cx="94" cy="51" r="8.6" fill="#BDBDB5"/>
+  <circle cx="94" cy="51" r="7" fill="#2B2B2B"/>
+  <circle cx="94" cy="51" r="3.3" fill="#BDB9B0"/>
+  <circle cx="94" cy="51" r="1.3" fill="#6E6E6E"/>
+</svg>

@@ -8,13 +8,13 @@ import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { useAuth } from '../../../hooks/useAuth';
 import type { Station, Vehicle } from '../../../types/vehicle';
 import type { Incident, TrafficJamReport } from '../../../types/incident';
+import { MAP_VISIBLE_VEHICLE_STATUSES } from './mapIcons';
 import {
-  MAP_VISIBLE_VEHICLE_STATUSES,
-  incidentMarkerHtml,
-  stationMarkerHtml,
-  trafficJamMarkerHtml,
-  vehicleMarkerHtml,
-} from './mapIcons';
+  glowIncidentMarkerHtml,
+  glowStationMarkerHtml,
+  glowTrafficJamMarkerHtml,
+  stickerVehicleMarkerHtml,
+} from './glowMarkers';
 import { MapMarker } from './MapMarker';
 import { TrafficJamPopup } from './TrafficJamPopup';
 import type { ActionResult } from '../../../context/DispatchContext';
@@ -180,10 +180,12 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam
   );
 };
 
-// Xe đậu tại trạm xếp hàng ngay dưới ghim trạm (pixel), mỗi hàng tối đa PARKED_PER_ROW xe.
-const PARKED_PER_ROW = 4;
-const PARKED_SPACING_PX = 26;
-const PARKED_TOP_PX = 16;
+// Xe đậu tại trạm xếp hàng ngay dưới ô trạm (pixel), mỗi hàng tối đa PARKED_PER_ROW xe.
+// Ô trạm 40px neo tâm; xe semi-flat rộng ~64px, neo đáy (mặt đất) → hàng đầu cách tâm trạm 58px.
+const PARKED_PER_ROW = 3;
+const PARKED_SPACING_PX = 62;
+const PARKED_ROW_SPACING_PX = 36;
+const PARKED_TOP_PX = 58;
 
 interface VehicleMarkersProps {
   map: mapboxgl.Map;
@@ -228,7 +230,7 @@ function computeVehiclePlacements(vehicles: Vehicle[], stations: Station[]): Map
         result.set(v.id, {
           lat: station.lat,
           lng: station.lng,
-          offset: [(col - (inRow - 1) / 2) * PARKED_SPACING_PX, PARKED_TOP_PX + row * PARKED_SPACING_PX],
+          offset: [(col - (inRow - 1) / 2) * PARKED_SPACING_PX, PARKED_TOP_PX + row * PARKED_ROW_SPACING_PX],
         });
       });
   });
@@ -263,9 +265,10 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
             lat={place.lat}
             lng={place.lng}
             offset={place.offset}
-            html={vehicleMarkerHtml(vehicle.type, vehicle.status, isSelected)}
+            anchor="bottom"
+            html={stickerVehicleMarkerHtml(vehicle.type, vehicle.status, isSelected, vehicle.heading)}
             zIndex={isSelected ? VEHICLE_Z_INDEX + 1 : VEHICLE_Z_INDEX}
-            popupOffset={isSelected ? 18 : 14}
+            popupOffset={isSelected ? 40 : 36}
             onClick={() => onSelectVehicle(vehicle.id)}
           >
             <VehiclePopup
@@ -366,7 +369,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
       return station && isParkedAtStation(v) ? { ...v, lat: station.lat, lng: station.lng } : v;
     });
   }, [vehicles, stations]);
-  // Chỉ vẽ xe đang trên đường tới hiện trường; icon theo loại xe (vehicleMarkerHtml).
+  // Chỉ vẽ xe đang trên đường tới hiện trường; hình xe theo loại (stickerVehicleMarkerHtml).
   const movingVehicles = useMemo(
     () => mapVehicles.filter((v) => MAP_VISIBLE_VEHICLE_STATUSES.includes(v.status)),
     [mapVehicles]
@@ -472,10 +475,9 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
                 map={map}
                 lat={station.lat}
                 lng={station.lng}
-                anchor="bottom"
-                html={stationMarkerHtml(isMine)}
+                html={glowStationMarkerHtml(isMine)}
                 zIndex={STATION_Z_INDEX}
-                popupOffset={40}
+                popupOffset={24}
               >
                 <div className="min-w-[200px] space-y-1">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
@@ -505,8 +507,8 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
               map={map}
               lat={jam.lat}
               lng={jam.lng}
-              html={trafficJamMarkerHtml(jam.status, !!jam.escalatedAt)}
-              popupOffset={14}
+              html={glowTrafficJamMarkerHtml(jam.status, !!jam.escalatedAt)}
+              popupOffset={20}
               popupOpenKey={focusTrafficJam?.id === jam.id ? focusTrafficJam.key : undefined}
             >
               <TrafficJamPopup
@@ -544,9 +546,9 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
                 map={map}
                 lat={incident.lat}
                 lng={incident.lng}
-                html={incidentMarkerHtml(incident.category, incident.severity, isSelected)}
+                html={glowIncidentMarkerHtml(incident.category, incident.severity, isSelected)}
                 zIndex={INCIDENT_Z_INDEX}
-                popupOffset={isSelected ? 20 : 16}
+                popupOffset={isSelected ? 28 : 25}
                 onClick={() => onSelectIncident?.(incident.id)}
               >
                 <div className="min-w-[200px] space-y-1.5">
@@ -583,9 +585,9 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
               map={map}
               lat={incident.lat}
               lng={incident.lng}
-              html={incidentMarkerHtml(incident.category, incident.severity, true)}
+              html={glowIncidentMarkerHtml(incident.category, incident.severity, true)}
               zIndex={INCIDENT_Z_INDEX}
-              popupOffset={20}
+              popupOffset={28}
             >
               <div className="min-w-[200px] space-y-1">
                 <span className="text-[10px] font-bold uppercase tracking-wide text-amber-600">

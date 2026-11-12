@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Building2, ChevronDown, Info } from 'lucide-react';
-import { HAZARD_TAG_META, INCIDENT_CATEGORY_META, SEVERITY_LEVEL_COLOR } from '../../../data/incidentMock';
-import {
-  DISPATCH_VEHICLE_TYPES,
-  TRAFFIC_JAM_STATUS_COLOR,
-  VEHICLE_STATUS_META,
-  VEHICLE_TYPE_META,
-} from '../../../data/liveMapMeta';
+import { ChevronDown, Info } from 'lucide-react';
+import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
+import { DISPATCH_VEHICLE_TYPES, VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import type { IncidentCategory } from '../../../types/incident';
 import { MAP_VISIBLE_VEHICLE_STATUSES } from './mapIcons';
+import {
+  legendIncidentIconHtml,
+  legendSeverityIconHtml,
+  legendStationIconHtml,
+  legendTrafficJamIconHtml,
+  legendVehicleIconHtml,
+} from './glowMarkers';
 import { useTranslation } from '../../../i18n';
 
 const SEVERITY_LEGEND = [1, 2, 3] as const;
@@ -24,12 +26,26 @@ const readCollapsed = () => {
   }
 };
 
-const sectionTitle = 'text-[10px] font-mono-data uppercase tracking-widest text-slate-500 font-bold mb-1.5';
+const sectionTitle = 'text-[10px] font-mono-data uppercase tracking-widest text-slate-500 font-bold mb-1';
+// Lưới 2 cột cố định để chú thích gọn trong một khung hẹp, không trải theo chiều ngang bản đồ.
+const grid2 = 'grid grid-cols-2 gap-x-3 gap-y-1';
+const itemClass = 'flex items-center gap-1.5 min-w-0 text-[11px] leading-tight text-slate-700';
+
+/** Icon chú thích lấy đúng hình của marker (SVG tĩnh trong livemap/icons, không có dữ liệu người dùng). */
+const MarkerIcon: React.FC<{ html: string }> = ({ html }) => (
+  <span className="shrink-0 inline-flex" aria-hidden dangerouslySetInnerHTML={{ __html: html }} />
+);
+
+const Item: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
+  <span className={itemClass}>
+    {icon}
+    <span className="min-w-0">{label}</span>
+  </span>
+);
 
 export const MapLegend: React.FC = () => {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(readCollapsed);
-  const TrafficIcon = HAZARD_TAG_META.traffic_jam.icon;
 
   const toggle = () => {
     setCollapsed((prev) => {
@@ -56,9 +72,9 @@ export const MapLegend: React.FC = () => {
   }
 
   return (
-    <div className="absolute bottom-4 left-4 z-[1000] cad-glass rounded-xl px-3.5 py-3 space-y-2.5 max-w-[calc(100%-2rem)]">
+    <div className="absolute bottom-4 left-4 z-[1000] cad-glass rounded-xl px-3 py-2.5 space-y-2 w-[272px] max-w-[calc(100%-2rem)] max-h-[calc(100%-2rem)] overflow-y-auto">
       <div>
-        <div className="flex items-center justify-between gap-3 mb-1.5">
+        <div className="flex items-center justify-between gap-3 mb-1">
           <span className={`${sectionTitle} mb-0`}>{t('liveMap.legend.incidents')}</span>
           <button
             onClick={toggle}
@@ -69,26 +85,18 @@ export const MapLegend: React.FC = () => {
             <ChevronDown className="w-3.5 h-3.5" />
           </button>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          {Object.entries(INCIDENT_CATEGORY_META).map(([key, meta]) => {
-            const Icon = meta.icon;
-            return (
-              <span key={key} className="flex items-center gap-1 text-xs text-slate-700">
-                <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: meta.color }} />
-                {t(`enums.category.${key as IncidentCategory}`)}
-              </span>
-            );
-          })}
+        <div className={grid2}>
+          {(Object.keys(INCIDENT_CATEGORY_META) as IncidentCategory[]).map((key) => (
+            <Item key={key} icon={<MarkerIcon html={legendIncidentIconHtml(key, 16)} />} label={t(`enums.category.${key}`)} />
+          ))}
+        </div>
+        {/* Cấp độ = số cung sáng quanh lõi marker sự cố (Cấp 1 = 1 cung … Cấp 3 = 3 cung). */}
+        <div className="flex items-center gap-2.5 mt-1.5 text-[11px] text-slate-700">
+          <span className="text-slate-500">{t('liveMap.legend.severity')}</span>
           {SEVERITY_LEGEND.map((level) => (
-            // Cấp độ = số nhỏ ở góc marker sự cố.
-            <span key={level} className="flex items-center gap-1 text-xs text-slate-700">
-              <span
-                className="w-3.5 h-3.5 rounded-full shrink-0 flex items-center justify-center text-[8px] font-bold text-white"
-                style={{ backgroundColor: SEVERITY_LEVEL_COLOR[level] }}
-              >
-                {level}
-              </span>
-              {t(`enums.severityShort.level${level}`)}
+            <span key={level} className="flex items-center gap-1" title={t(`enums.severityShort.level${level}`)}>
+              <MarkerIcon html={legendSeverityIconHtml(level, 16)} />
+              <span className="font-mono-data font-bold">{level}</span>
             </span>
           ))}
         </div>
@@ -96,74 +104,52 @@ export const MapLegend: React.FC = () => {
 
       <div className="pt-2 border-t border-slate-200">
         <div className={sectionTitle}>{t('liveMap.legend.vehicles')}</div>
-        <div className="flex items-center gap-3 flex-wrap mb-1.5">
-          {DISPATCH_VEHICLE_TYPES.map((type) => {
-            const TypeIcon = VEHICLE_TYPE_META[type].icon;
-            return (
-              <span key={type} className="flex items-center gap-1 text-xs text-slate-700">
-                <span className="w-4 h-4 rounded-full bg-slate-500 flex items-center justify-center shrink-0">
-                  <TypeIcon className="w-2.5 h-2.5" color="#FFFFFF" />
-                </span>
-                {t(`enums.vehicleType.${type}`)}
-              </span>
-            );
-          })}
+        <div className={grid2}>
+          {DISPATCH_VEHICLE_TYPES.map((type) => (
+            <Item key={type} icon={<MarkerIcon html={legendVehicleIconHtml(type, 26)} />} label={t(`enums.vehicleType.${type}`)} />
+          ))}
         </div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+        <div className="flex items-center gap-3 mt-1.5">
           {MAP_VISIBLE_VEHICLE_STATUSES.map((status) => (
-            <div key={status} className="flex items-center gap-1.5 min-w-0">
-              <span
-                className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: VEHICLE_STATUS_META[status].color }}
-              />
-              <span className="text-xs text-slate-700 truncate">{t(`enums.vehicleStatus.${status}`)}</span>
-            </div>
+            <Item
+              key={status}
+              icon={<span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: VEHICLE_STATUS_META[status].color }} />}
+              label={t(`enums.vehicleStatus.${status}`)}
+            />
           ))}
         </div>
       </div>
 
-      <div className="pt-2 border-t border-slate-200 flex items-center gap-x-4 gap-y-1 flex-wrap">
-        <span className="flex items-center gap-1.5">
-          <span className="w-4 h-4 rounded-[5px] bg-red-700 flex items-center justify-center shrink-0">
-            <Building2 className="w-2.5 h-2.5 text-white" />
-          </span>
-          <span className="text-xs text-slate-700">{t('liveMap.legend.myStation')}</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-4 h-4 rounded-[5px] bg-slate-800 flex items-center justify-center shrink-0">
-            <Building2 className="w-2.5 h-2.5 text-white" />
-          </span>
-          <span className="text-xs text-slate-700">{t('liveMap.legend.otherStation')}</span>
-        </span>
-        {(['active', 'assigned'] as const).map((status) => (
-          <span key={status} className="flex items-center gap-1.5">
-            <span
-              className="w-3.5 h-3.5 rounded flex items-center justify-center shrink-0"
-              style={{ backgroundColor: TRAFFIC_JAM_STATUS_COLOR[status] }}
-            >
-              <TrafficIcon className="w-2.5 h-2.5 text-white" />
-            </span>
-            <span className="text-xs text-slate-700">
-              {status === 'active' ? t('liveMap.legend.trafficJam') : t('liveMap.legend.trafficJamAssigned')}
-            </span>
-          </span>
-        ))}
-        <span className="flex items-center gap-1.5">
-          <span className="w-3.5 h-3.5 rounded-full border-[1.5px] border-red-600 bg-red-600/10 shrink-0" />
-          <span className="text-xs text-slate-700">{t('liveMap.legend.stationCoverage')}</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3.5 h-3.5 rounded-full border-[1.5px] border-violet-600 bg-violet-600/10 shrink-0" />
-          <span className="text-xs text-slate-700">{t('liveMap.legend.otherStationCoverage')}</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-4 h-0 border-t-2 border-dashed border-blue-600 shrink-0" />
-          <span className="text-xs text-slate-700">{t('liveMap.legend.serviceArea')}</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-4 h-0 border-t-2 border-dashed border-slate-500 shrink-0" />
-          <span className="text-xs text-slate-700">{t('liveMap.legend.approximateRoute')}</span>
-        </span>
+      <div className="pt-2 border-t border-slate-200">
+        <div className={sectionTitle}>{t('liveMap.legend.stationsAndTraffic')}</div>
+        <div className={grid2}>
+          <Item icon={<MarkerIcon html={legendStationIconHtml(true, 16)} />} label={t('liveMap.legend.myStation')} />
+          <Item icon={<MarkerIcon html={legendStationIconHtml(false, 16)} />} label={t('liveMap.legend.otherStation')} />
+          <Item icon={<MarkerIcon html={legendTrafficJamIconHtml('active', 16)} />} label={t('liveMap.legend.trafficJam')} />
+          <Item icon={<MarkerIcon html={legendTrafficJamIconHtml('assigned', 16)} />} label={t('liveMap.legend.trafficJamAssigned')} />
+        </div>
+      </div>
+
+      <div className="pt-2 border-t border-slate-200">
+        <div className={sectionTitle}>{t('liveMap.legend.areas')}</div>
+        <div className={grid2}>
+          <Item
+            icon={<span className="w-3.5 h-3.5 rounded-full border-[1.5px] border-red-600 bg-red-600/10 shrink-0" />}
+            label={t('liveMap.legend.stationCoverage')}
+          />
+          <Item
+            icon={<span className="w-3.5 h-3.5 rounded-full border-[1.5px] border-violet-600 bg-violet-600/10 shrink-0" />}
+            label={t('liveMap.legend.otherStationCoverage')}
+          />
+          <Item
+            icon={<span className="w-3.5 h-0 border-t-2 border-dashed border-blue-600 shrink-0" />}
+            label={t('liveMap.legend.serviceArea')}
+          />
+          <Item
+            icon={<span className="w-3.5 h-0 border-t-2 border-dashed border-slate-500 shrink-0" />}
+            label={t('liveMap.legend.approximateRoute')}
+          />
+        </div>
       </div>
     </div>
   );
