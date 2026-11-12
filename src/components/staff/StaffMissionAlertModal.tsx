@@ -45,6 +45,7 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
   const [declineReason, setDeclineReason] = useState<RejectionReason>('VehicleBreakdown');
   const [declineNotes, setDeclineNotes] = useState<string>('');
   const [declineError, setDeclineError] = useState<string | null>(null);
+  const [isAccepting, setIsAccepting] = useState<boolean>(false);
 
   const [routeCoordinates, setRouteCoordinates] = useState<[number, number][]>(() => {
     if (mission.routePolyline && mission.routePolyline.length > 2) {
@@ -88,6 +89,7 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
       setIsDeclineDialogOpen(false);
       setDeclineNotes('');
       setDeclineError(null);
+      setIsAccepting(false);
       return;
     }
 
@@ -312,6 +314,8 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
   };
 
   const handleAccept = () => {
+    if (isAccepting) return;
+    setIsAccepting(true);
     staffAudioService.stopEmergencySiren();
     staffAudioService.playSuccessChime();
     onAccept();
@@ -550,15 +554,16 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
               className="w-full sm:w-1/3 py-3 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
             >
               <XCircle className="w-4 h-4 text-slate-500" />
-              Từ Chối Lệnh (BR-22)
+              Từ Chối Lệnh
             </button>
 
             <button
               onClick={handleAccept}
-              className="w-full sm:w-2/3 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm sm:text-base font-bold shadow-md shadow-red-600/20 border border-red-600 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+              disabled={isAccepting}
+              className="w-full sm:w-2/3 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm sm:text-base font-bold shadow-md shadow-red-600/20 border border-red-600 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
             >
-              <CheckCircle2 className="w-5 h-5 text-white animate-pulse" />
-              Tiếp Nhận Nhiệm Vụ Ngay
+              <CheckCircle2 className={`w-5 h-5 text-white ${isAccepting ? 'animate-spin' : 'animate-pulse'}`} />
+              {isAccepting ? 'Đang tiếp nhận...' : 'Tiếp Nhận Nhiệm Vụ Ngay'}
             </button>
           </div>
         )}

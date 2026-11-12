@@ -1,6 +1,7 @@
 import React from 'react';
 import type { StaffMission, MissionStatus, StaffProfile } from '../../../types/staff';
 import type { FieldRequestDto, CreateFieldRequestDto } from '../../../types/fieldRequest';
+import type { IncidentSupplementDto } from '../../../types/incident';
 import type { ActiveTrafficTask } from '../../../components/staff/StaffTrafficTaskCard';
 import { StaffActiveMissionView } from './StaffActiveMissionView';
 import { StaffStandbyView } from '../../../components/staff/StaffStandbyView';
@@ -14,6 +15,8 @@ interface StaffMissionTabProps {
   fetchError: string | null;
   fieldRequests?: FieldRequestDto[];
   loadingFieldRequests?: boolean;
+  supplements?: IncidentSupplementDto[];
+  onPhoneRevealed?: (fullPhone: string) => void;
   activeTrafficTask?: ActiveTrafficTask | null;
   onResolveTrafficTask?: (hotspotId: string, note?: string) => Promise<boolean>;
   onOpenReportTrafficModal?: () => void;
@@ -39,6 +42,8 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
   fetchError,
   fieldRequests = [],
   loadingFieldRequests = false,
+  supplements = [],
+  onPhoneRevealed,
   activeTrafficTask,
   onResolveTrafficTask,
   onOpenReportTrafficModal,
@@ -63,6 +68,8 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
         fetchError={fetchError}
         fieldRequests={fieldRequests}
         loadingFieldRequests={loadingFieldRequests}
+        supplements={supplements}
+        onPhoneRevealed={onPhoneRevealed}
         activeTrafficTask={activeTrafficTask}
         onResolveTrafficTask={onResolveTrafficTask}
         onOpenReportTrafficModal={onOpenReportTrafficModal}

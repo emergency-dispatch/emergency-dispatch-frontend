@@ -9,6 +9,7 @@ import { StaffTrafficTaskCard, type ActiveTrafficTask } from '../../../component
 import { StaffIncidentCard } from './StaffIncidentCard';
 import { isGuid } from '../utils/staffMissionUtils';
 import type { FieldRequestDto, CreateFieldRequestDto } from '../../../types/fieldRequest';
+import type { IncidentSupplementDto } from '../../../types/incident';
 import {
   Radio,
   EyeOff,
@@ -18,6 +19,7 @@ import {
   Flame,
   CheckCircle2,
   Sparkles,
+  Satellite,
 } from 'lucide-react';
 
 interface StaffActiveMissionViewProps {
@@ -26,6 +28,8 @@ interface StaffActiveMissionViewProps {
   fetchError: string | null;
   fieldRequests?: FieldRequestDto[];
   loadingFieldRequests?: boolean;
+  supplements?: IncidentSupplementDto[];
+  onPhoneRevealed?: (fullPhone: string) => void;
   activeTrafficTask?: ActiveTrafficTask | null;
   onResolveTrafficTask?: (hotspotId: string, note?: string) => Promise<boolean>;
   onOpenReportTrafficModal?: () => void;
@@ -46,6 +50,8 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
   fetchError,
   fieldRequests = [],
   loadingFieldRequests = false,
+  supplements = [],
+  onPhoneRevealed,
   activeTrafficTask,
   onResolveTrafficTask,
   onOpenReportTrafficModal,
@@ -88,6 +94,12 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
               {isGuid(mission.id) && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
                   Kết Nối Trực Tuyến
+                </span>
+              )}
+              {isGuid(mission.vehicleId) && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
+                  GPS Live
                 </span>
               )}
             </div>
@@ -202,8 +214,12 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
           />
         )}
 
-        {/* Incident Information Card */}
-        <StaffIncidentCard mission={mission} />
+        {/* Incident Information Card (with Phone Reveal & Citizen Supplements - Mục 21.4) */}
+        <StaffIncidentCard
+          mission={mission}
+          supplements={supplements}
+          onPhoneRevealed={onPhoneRevealed}
+        />
 
         {/* Emergency Quick Action Panel */}
         <StaffQuickActionPanel

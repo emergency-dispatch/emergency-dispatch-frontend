@@ -50,6 +50,8 @@ export const StaffPage: React.FC = () => {
     loadingFieldRequests,
     handleCreateFieldRequest,
     handleCancelFieldRequest,
+    supplements,
+    handlePhoneRevealed,
     activeTrafficTask,
     isReportTrafficModalOpen,
     setIsReportTrafficModalOpen,
@@ -105,6 +107,8 @@ export const StaffPage: React.FC = () => {
               fetchError={fetchError}
               fieldRequests={fieldRequests}
               loadingFieldRequests={loadingFieldRequests}
+              supplements={supplements}
+              onPhoneRevealed={handlePhoneRevealed}
               activeTrafficTask={activeTrafficTask}
               onResolveTrafficTask={handleResolveTrafficTask}
               onOpenReportTrafficModal={() => setIsReportTrafficModalOpen(true)}
@@ -143,7 +147,7 @@ export const StaffPage: React.FC = () => {
           )}
 
           {/* TAB 5: Vehicle & Equipment Checklist */}
-          {activeTab === 'equipment' && <StaffEquipmentView />}
+          {activeTab === 'equipment' && <StaffEquipmentView profile={profile} />}
 
           {/* TAB 6: Staff Profile & Certifications */}
           {activeTab === 'profile' && (

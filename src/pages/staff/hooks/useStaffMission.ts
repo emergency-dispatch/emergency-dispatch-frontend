@@ -6,13 +6,14 @@ import { dispatchService } from '../../../services/dispatchService';
 import { incidentService } from '../../../services/incidentService';
 import { fieldRequestService } from '../../../services/fieldRequestService';
 import { getApiErrorMessage } from '../../../services/apiClient';
-import { incidentHubService, HubEvents } from '../../../services/realtime/incidentHubService';
+import { incidentHubService, trackingHubService, HubEvents } from '../../../services/realtime/incidentHubService';
 import { staffAudioService } from '../../../services/staffAudioService';
 import { routingService } from '../../../services/routingService';
 import { mediaService } from '../../../services/mediaService';
 import { liveMapService, type TrafficTaskEventDto, type ReportTrafficHotspotDto } from '../../../services/liveMapService';
 import type { ActiveTrafficTask } from '../../../components/staff/StaffTrafficTaskCard';
 import type { FieldRequestDto, CreateFieldRequestDto, FieldRequestEventDto } from '../../../types/fieldRequest';
+import type { IncidentSupplementDto } from '../../../types/incident';
 import type { StaffToastMessage, StaffToastType } from '../../../components/staff/StaffToast';
 import {
   isGuid,
@@ -83,10 +84,28 @@ export const useStaffMission = ({
 
   // Incoming pending mission to be accepted/declined in alert modal
   const [pendingMission, setPendingMission] = useState<StaffMission | null>(null);
+  const [isSubmittingAccept, setIsSubmittingAccept] = useState<boolean>(false);
 
   // §21.2 & 12.2: Yêu cầu chi viện (Backup) và Báo vấn đề khác (Other) từ hiện trường
   const [fieldRequests, setFieldRequests] = useState<FieldRequestDto[]>([]);
   const [loadingFieldRequests, setLoadingFieldRequests] = useState<boolean>(false);
+
+  // §21.4: Bổ sung thông tin / ảnh hiện trường từ người dân (Incident Supplements)
+  const [supplements, setSupplements] = useState<IncidentSupplementDto[]>([]);
+  const [loadingSupplements, setLoadingSupplements] = useState<boolean>(false);
+
+  const fetchSupplements = useCallback(async (incidentId: string) => {
+    if (!isGuid(incidentId)) return;
+    setLoadingSupplements(true);
+    try {
+      const items = await incidentService.getSupplements(incidentId);
+      setSupplements(items);
+    } catch (err) {
+      console.warn('[useStaffMission] Error fetching supplements:', err);
+    } finally {
+      setLoadingSupplements(false);
+    }
+  }, []);
 
   const fetchFieldRequests = useCallback(async (incidentId: string) => {
     if (!isGuid(incidentId)) return;
@@ -445,6 +464,12 @@ export const useStaffMission = ({
             `Đồng đội trong tổ đã hoàn tất báo cáo và đóng ca nhiệm vụ (Xe ${updatedAssignment.rescueUnit?.plateNumber || ''}).`
           );
         } else if (nextStatus === 'Accepted' || nextStatus === 'EnRoute' || nextStatus === 'OnScene') {
+          // Tự động đóng modal báo động và tắt còi hú nếu một đồng đội khác trong tổ đã bấm nhận việc
+          if (nextStatus === 'Accepted') {
+            staffAudioService.stopEmergencySiren();
+            setIsAlertOpen(false);
+            setPendingMission(null);
+          }
           const statusTextMap: Record<string, string> = {
             Accepted: 'Đã tiếp nhận phân công',
             EnRoute: 'Xe đang trên đường di chuyển',
@@ -551,6 +576,62 @@ export const useStaffMission = ({
       }
     );
 
+    // §21.4: Lắng nghe người dân bổ sung thông tin/ảnh hiện trường (SignalR: ReceiveIncidentSupplement)
+    const unsubSupplement = incidentHubService.on<IncidentSupplementDto>(
+      HubEvents.ReceiveIncidentSupplement,
+      (supp) => {
+        if (!supp) return;
+        setSupplements((prev) => {
+          const exists = prev.some((s) => s.id === supp.id);
+          if (exists) return prev;
+          return [supp, ...prev];
+        });
+        staffAudioService.playPriorityBeep();
+        showToast(
+          'warning',
+          'BỔ SUNG THÔNG TIN HIỆN TRƯỜNG (MỤC 21.4)',
+          `${supp.reporterName || 'Người dân'} báo: "${supp.note || 'Có cập nhật ảnh hiện trường mới'}"`
+        );
+      }
+    );
+
+    // Cảnh báo đổi mức độ sự cố: Nếu Operator nâng/điều chỉnh mức độ (SignalR: ReceiveIncidentUpdate / ReceiveIncidentStatus)
+    const handleSeverityChanged = (incidentId: string, newSeverity: any) => {
+      if (!incidentId || !newSeverity) return;
+      setActiveMission((prev) => {
+        if (!prev || prev.incidentId !== incidentId) return prev;
+        if (prev.severity !== newSeverity) {
+          staffAudioService.playEmergencySiren();
+          showToast(
+            'warning',
+            'CẢNH BÁO: ĐỔI MỨC ĐỘ SỰ CỐ',
+            `Tổng đài CAD đã điều chỉnh mức độ sự cố: Cấp độ ${prev.severity} ➔ Cấp độ ${newSeverity}`
+          );
+          return { ...prev, severity: newSeverity };
+        }
+        return prev;
+      });
+    };
+
+    const unsubIncidentUpdate = incidentHubService.on<any>(
+      HubEvents.ReceiveIncidentUpdate,
+      (updatedInc) => {
+        if (updatedInc?.id && updatedInc?.severity) {
+          handleSeverityChanged(updatedInc.id, updatedInc.severity);
+        }
+      }
+    );
+
+    const unsubIncidentStatus = incidentHubService.on<any>(
+      HubEvents.ReceiveIncidentStatus,
+      (statusPayload) => {
+        const id = statusPayload?.id || statusPayload?.incidentId;
+        if (id && statusPayload?.severity) {
+          handleSeverityChanged(id, statusPayload.severity);
+        }
+      }
+    );
+
     // Check active traffic task
     fetchActiveTrafficTask();
 
@@ -565,6 +646,9 @@ export const useStaffMission = ({
       unsubStatus();
       unsubFieldRequest();
       unsubTrafficTask();
+      unsubSupplement();
+      unsubIncidentUpdate();
+      unsubIncidentStatus();
       clearInterval(intervalId);
     };
   }, [
@@ -578,14 +662,16 @@ export const useStaffMission = ({
     showToast,
   ]);
 
-  // Tự động tải danh sách yêu cầu hiện trường của sự cố hiện tại
+  // Tự động tải danh sách yêu cầu hiện trường và thông tin bổ sung của sự cố hiện tại
   useEffect(() => {
     if (activeMission?.incidentId && isGuid(activeMission.incidentId)) {
       fetchFieldRequests(activeMission.incidentId);
+      fetchSupplements(activeMission.incidentId);
     } else {
       setFieldRequests([]);
+      setSupplements([]);
     }
-  }, [activeMission?.incidentId, fetchFieldRequests]);
+  }, [activeMission?.incidentId, fetchFieldRequests, fetchSupplements]);
 
   // Tự động tính toán đường đi thực tế men theo mạng lưới đường bộ (OSRM)
   useEffect(() => {
@@ -617,6 +703,68 @@ export const useStaffMission = ({
       isCancelled = true;
     };
   }, [activeMission?.incidentLat, activeMission?.incidentLng, activeMission?.vehicleLat, activeMission?.vehicleLng]);
+
+  // Truyền tọa độ GPS xe định kỳ 3–5 giây qua SignalR UpdateLocation / REST (Mục 4)
+  // Backend tự động gắn IncidentId từ lượt phân công đang hoạt động của xe.
+  useEffect(() => {
+    if (!activeMission || !activeMission.vehicleId || !isGuid(activeMission.vehicleId)) return;
+    if (activeMission.status === 'completed') return;
+
+    const unitId = activeMission.vehicleId;
+    let heading = 0;
+    let speed = activeMission.status === 'en_route' ? 45 : 0;
+
+    const sendGpsTelemetry = async () => {
+      let lat = activeMission.vehicleLat;
+      let lng = activeMission.vehicleLng;
+
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 3000,
+              maximumAge: 5000,
+            });
+          });
+          if (pos?.coords) {
+            lat = pos.coords.latitude;
+            lng = pos.coords.longitude;
+            heading = pos.coords.heading || 0;
+            speed = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : speed;
+          }
+        } catch {
+          // Fallback to active mission coordinates
+        }
+      }
+
+      try {
+        if (trackingHubService.isConnected()) {
+          await trackingHubService.invoke('UpdateLocation', {
+            rescueUnitId: unitId,
+            latitude: lat,
+            longitude: lng,
+            headingDegrees: heading,
+            speedKmh: speed,
+          });
+        } else {
+          await dispatchService.updateUnitLocation(unitId, {
+            latitude: lat,
+            longitude: lng,
+            headingDegrees: heading,
+            speedKmh: speed,
+          });
+        }
+      } catch (err) {
+        console.debug('[useStaffMission] GPS telemetry sync:', err);
+      }
+    };
+
+    sendGpsTelemetry();
+    const interval = setInterval(sendGpsTelemetry, 4000);
+
+    return () => clearInterval(interval);
+  }, [activeMission?.id, activeMission?.vehicleId, activeMission?.status]);
 
   // Status transition handler (Điều phối công việc)
   const handleStatusChange = async (nextStatus: MissionStatus) => {
@@ -698,7 +846,8 @@ export const useStaffMission = ({
       } catch (err: any) {
         console.warn('[useStaffMission] Update assignment status error:', err);
         const errMsg = getApiErrorMessage(err, 'Nhiệm vụ của xe do tổ khác phụ trách.');
-        showToast('error', 'LỖI PHÂN QUYỀN TỔ', errMsg);
+        const isForbidden = err?.response?.status === 403;
+        showToast('error', isForbidden ? 'LỖI PHÂN QUYỀN TỔ' : 'LỖI TIẾN ĐỘ NHIỆM VỤ', errMsg);
         fetchMyAssignments(true);
       }
     }
@@ -900,40 +1049,60 @@ export const useStaffMission = ({
   };
 
   const handleAcceptMission = async () => {
-    if (pendingMission) {
-      if (isGuid(pendingMission.id)) {
-        try {
-          await dispatchService.updateAssignmentStatus(pendingMission.id, {
-            status: 'Accepted',
-            notes: 'Đội xe đã xác nhận tiếp nhận lệnh điều phối.',
-          });
-          setActiveMission(pendingMission);
-          showToast(
-            'success',
-            'ĐÃ TIẾP NHẬN PHÂN CÔNG',
-            `Kíp xe đã xác nhận nhiệm vụ: ${pendingMission.title}`
-          );
-          fetchMyAssignments(true);
-        } catch (err: any) {
-          console.warn('[useStaffMission] Accept mission update status error:', err);
-          const errMsg = getApiErrorMessage(err, 'Nhiệm vụ của xe do tổ khác phụ trách.');
-          showToast('error', 'LỖI PHÂN QUYỀN TỔ', errMsg);
-          fetchMyAssignments(true);
-          setIsAlertOpen(false);
-          setPendingMission(null);
-          return;
-        }
-      } else {
+    if (!pendingMission || isSubmittingAccept) return;
+    setIsSubmittingAccept(true);
+
+    if (isGuid(pendingMission.id)) {
+      try {
+        await dispatchService.updateAssignmentStatus(pendingMission.id, {
+          status: 'Accepted',
+          notes: 'Đội xe đã xác nhận tiếp nhận lệnh điều phối.',
+        });
         setActiveMission(pendingMission);
         showToast(
           'success',
           'ĐÃ TIẾP NHẬN PHÂN CÔNG',
           `Kíp xe đã xác nhận nhiệm vụ: ${pendingMission.title}`
         );
+        fetchMyAssignments(true);
+      } catch (err: any) {
+        console.warn('[useStaffMission] Accept mission update status error:', err);
+        const errMsg = getApiErrorMessage(err, 'Nhiệm vụ của xe do tổ khác phụ trách.');
+        const isForbidden = err?.response?.status === 403;
+        const isAlreadyAccepted =
+          errMsg.includes("'Accepted' sang 'Accepted'") ||
+          errMsg.includes('Accepted');
+
+        if (isAlreadyAccepted) {
+          // Nhiệm vụ đã được đồng đội trong tổ tiếp nhận trước đó (Mục 29)
+          setActiveMission(pendingMission);
+          showToast(
+            'info',
+            'NHIỆM VỤ ĐÃ ĐƯỢC TIẾP NHẬN',
+            'Đồng đội trong tổ đã tiếp nhận phân công này. Tiến độ đã tự động đồng bộ.'
+          );
+        } else if (isForbidden) {
+          showToast('error', 'LỖI PHÂN QUYỀN TỔ', errMsg);
+        } else {
+          showToast('error', 'LỖI TIẾN ĐỘ NHIỆM VỤ', errMsg);
+        }
+        fetchMyAssignments(true);
+      } finally {
+        setIsSubmittingAccept(false);
+        setIsAlertOpen(false);
+        setPendingMission(null);
       }
+    } else {
+      setActiveMission(pendingMission);
+      showToast(
+        'success',
+        'ĐÃ TIẾP NHẬN PHÂN CÔNG',
+        `Kíp xe đã xác nhận nhiệm vụ: ${pendingMission.title}`
+      );
+      setIsSubmittingAccept(false);
+      setIsAlertOpen(false);
       setPendingMission(null);
     }
-    setIsAlertOpen(false);
   };
 
   const handleDeclineMission = async (reason: RejectionReason, notes?: string) => {
@@ -952,7 +1121,8 @@ export const useStaffMission = ({
       } catch (err: any) {
         console.warn('[useStaffMission] Reject assignment error:', err);
         const errMsg = getApiErrorMessage(err, 'Nhiệm vụ của xe do tổ khác phụ trách.');
-        showToast('error', 'LỖI PHÂN QUYỀN TỔ', errMsg);
+        const isForbidden = err?.response?.status === 403;
+        showToast('error', isForbidden ? 'LỖI PHÂN QUYỀN TỔ' : 'LỖI TỪ CHỐI LỆNH', errMsg);
         fetchMyAssignments(true);
       }
     } else {
@@ -995,6 +1165,13 @@ export const useStaffMission = ({
     fetchFieldRequests,
     handleCreateFieldRequest,
     handleCancelFieldRequest,
+    // Supplements (§21.4)
+    supplements,
+    loadingSupplements,
+    fetchSupplements,
+    handlePhoneRevealed: (fullPhone: string) => {
+      setActiveMission((prev) => (prev ? { ...prev, callerPhone: fullPhone, isPhoneRevealed: true } : null));
+    },
     // Traffic Task (§20)
     activeTrafficTask,
     isReportTrafficModalOpen,

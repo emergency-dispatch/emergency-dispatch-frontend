@@ -1,12 +1,17 @@
 import { apiClient, unwrapApi } from './apiClient';
 import type { ApiResponse } from '../types/auth';
-import type { EquipmentDto, EquipmentInput, EquipmentStatus } from '../types/equipment';
+import type { EquipmentCategory, EquipmentDto, EquipmentInput, EquipmentStatus } from '../types/equipment';
 
-// Thiết bị cứu hộ (§25): /api/equipment. Operator chỉ thấy / sửa thiết bị trạm mình (trạm khác → 403).
+// Thiết bị cứu hộ (§25): /api/equipment. Operator / Staff chỉ thấy / sửa thiết bị trạm mình (trạm khác → 403).
 // Backend không phát sự kiện realtime cho thiết bị → màn hình tự tải lại sau thao tác / khi quay lại tab.
 export const equipmentService = {
-  /** Bỏ trống `stationId` → backend tự lọc theo trạm của Operator. */
-  async list(params: { stationId?: string } = {}): Promise<EquipmentDto[]> {
+  /** Bỏ trống `stationId` → backend tự lọc theo trạm của Operator / RescueStaff. */
+  async list(params: {
+    stationId?: string;
+    rescueUnitId?: string;
+    status?: EquipmentStatus;
+    category?: EquipmentCategory;
+  } = {}): Promise<EquipmentDto[]> {
     return unwrapApi(apiClient.get<ApiResponse<EquipmentDto[]>>('/equipment', { params }));
   },
 

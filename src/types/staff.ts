@@ -1,4 +1,4 @@
-import type { IncidentSeverity, HazardTagKey } from './incident';
+import type { IncidentSeverity, HazardTagKey, IncidentSupplementDto } from './incident';
 import type { VehicleType } from './vehicle';
 
 export type MissionStatus = 'accepted' | 'en_route' | 'on_scene' | 'completed';
@@ -93,6 +93,8 @@ export interface StaffMission {
   routePolyline: [number, number][];
   timeline: MissionLogEntry[];
   closureReport?: DigitalClosureReport;
+  supplements?: IncidentSupplementDto[];
+  isPhoneRevealed?: boolean;
 }
 
 export interface StaffProfile {

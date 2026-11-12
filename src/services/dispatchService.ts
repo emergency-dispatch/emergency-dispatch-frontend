@@ -116,4 +116,19 @@ export const dispatchService = {
     });
     return response.data;
   },
+
+  /**
+   * Cập nhật vị trí GPS xe cứu hộ (PUT /api/rescue-units/{id}/location)
+   * Server tự động gắn incidentId của lượt phân công đang hoạt động.
+   */
+  async updateUnitLocation(
+    rescueUnitId: string,
+    dto: { latitude: number; longitude: number; headingDegrees?: number; speedKmh?: number }
+  ): Promise<ApiResponse<any>> {
+    const response = await apiClient.put<ApiResponse<any>>(
+      `/rescue-units/${rescueUnitId}/location`,
+      dto
+    );
+    return response.data;
+  },
 };
