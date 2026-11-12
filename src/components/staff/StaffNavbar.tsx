@@ -10,6 +10,7 @@ import {
   User,
   Settings,
   LogOut,
+  Menu,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { StaffProfile } from '../../types/staff';
@@ -21,12 +22,14 @@ interface StaffNavbarProps {
   profile: StaffProfile;
   hasActiveMission: boolean;
   onOpenHistory: () => void;
+  onToggleMobileMenu?: () => void;
 }
 
 export const StaffNavbar: React.FC<StaffNavbarProps> = ({
   profile,
   hasActiveMission,
   onOpenHistory,
+  onToggleMobileMenu,
 }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -77,12 +80,25 @@ export const StaffNavbar: React.FC<StaffNavbarProps> = ({
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-3 md:px-6 flex items-center justify-between shrink-0 select-none z-30">
       {/* Left: Clean Operational Context */}
-      <div className="flex items-center gap-3">
-        <h1 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-          <span>Kíp Trực Tác Chiến</span>
-          <span className="text-xs font-mono font-bold text-red-600 px-2.5 py-0.5 rounded-full bg-red-50 border border-red-200">
-            {profile.vehiclePlate}
-          </span>
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {onToggleMobileMenu && (
+          <button
+            type="button"
+            onClick={onToggleMobileMenu}
+            className="md:hidden p-2 -ml-1 text-slate-700 hover:text-red-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+            title="Mở menu chức năng tác chiến"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+
+        <h1 className="text-xs sm:text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5 sm:gap-2 whitespace-nowrap min-w-0">
+          <span className="truncate">Kíp Trực Tác Chiến</span>
+          {profile.vehiclePlate && (
+            <span className="text-[10px] sm:text-xs font-mono font-bold text-red-600 px-2 py-0.5 rounded-full bg-red-50 border border-red-200 shrink-0">
+              {profile.vehiclePlate}
+            </span>
+          )}
         </h1>
         {hasActiveMission ? (
           <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-red-50 text-red-700 border border-red-200">

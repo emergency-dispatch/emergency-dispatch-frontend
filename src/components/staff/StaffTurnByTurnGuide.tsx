@@ -20,27 +20,29 @@ interface StaffTurnByTurnGuideProps {
   onNextStep: () => void;
   onPrevStep: () => void;
   isEnRoute: boolean;
+  variant?: 'full' | 'compact-overlay';
 }
 
-const getManeuverIcon = (maneuver: TurnByTurnStep['maneuver']) => {
+const getManeuverIcon = (maneuver: TurnByTurnStep['maneuver'], iconClass?: string) => {
+  const cls = iconClass || 'w-8 h-8 text-red-600 stroke-[2.5]';
   switch (maneuver) {
     case 'turn_left':
-      return <CornerUpLeft className="w-8 h-8 text-red-600 stroke-[2.5]" />;
+      return <CornerUpLeft className={cls} />;
     case 'turn_right':
-      return <CornerUpRight className="w-8 h-8 text-red-600 stroke-[2.5]" />;
+      return <CornerUpRight className={cls} />;
     case 'slight_left':
-      return <CornerUpLeft className="w-8 h-8 text-red-500 stroke-[2] -rotate-45" />;
+      return <CornerUpLeft className={`${cls} -rotate-45`} />;
     case 'slight_right':
-      return <CornerUpRight className="w-8 h-8 text-emerald-300 stroke-[2] rotate-45" />;
+      return <CornerUpRight className={`${cls} rotate-45`} />;
     case 'roundabout':
-      return <RotateCcw className="w-8 h-8 text-amber-400 stroke-[2.5]" />;
+      return <RotateCcw className={cls} />;
     case 'u_turn':
-      return <RotateCcw className="w-8 h-8 text-rose-400 stroke-[2.5]" />;
+      return <RotateCcw className={cls} />;
     case 'arrive':
-      return <MapPin className="w-8 h-8 text-red-500 stroke-[2.5] animate-bounce" />;
+      return <MapPin className={`${cls} animate-bounce`} />;
     case 'straight':
     default:
-      return <MoveUp className="w-8 h-8 text-blue-400 stroke-[2.5]" />;
+      return <MoveUp className={cls} />;
   }
 };
 
@@ -50,6 +52,7 @@ export const StaffTurnByTurnGuide: React.FC<StaffTurnByTurnGuideProps> = ({
   onNextStep,
   onPrevStep,
   isEnRoute,
+  variant = 'full',
 }) => {
   if (!steps || steps.length === 0) return null;
 
@@ -64,11 +67,66 @@ export const StaffTurnByTurnGuide: React.FC<StaffTurnByTurnGuideProps> = ({
   const remainingKm = (remainingMeters / 1000).toFixed(1);
   const remainingMinutes = Math.max(1, Math.ceil(remainingSeconds / 60));
 
+  // Compact floating HUD overlay (designed for Mobile full-screen map navigation)
+  if (variant === 'compact-overlay') {
+    return (
+      <div className="bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-2xl p-2.5 sm:p-3 text-white shadow-2xl flex items-center gap-2.5 sm:gap-3">
+        {/* Maneuver Icon */}
+        <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+          {getManeuverIcon(currentStep.maneuver, 'w-6 h-6 text-red-500 stroke-[2.5]')}
+        </div>
+
+        {/* Direction Text & Road name */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-base sm:text-lg font-extrabold text-red-400 font-mono leading-none">
+              {currentStep.distanceMeters < 1000
+                ? `${currentStep.distanceMeters}m`
+                : `${(currentStep.distanceMeters / 1000).toFixed(1)} km`}
+            </span>
+            <span className="text-xs font-bold text-slate-100 truncate leading-none">
+              {currentStep.instruction}
+            </span>
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono truncate mt-1">
+            <span className="text-slate-300 font-semibold">{currentStep.roadName}</span>
+            {nextStep && <span className="text-slate-500"> • Kế tiếp: {nextStep.instruction}</span>}
+          </div>
+        </div>
+
+        {/* Step Prev/Next */}
+        <div className="flex items-center gap-1 shrink-0 ml-auto">
+          <button
+            type="button"
+            onClick={onPrevStep}
+            disabled={currentStepIndex === 0}
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-colors cursor-pointer"
+            title="Chặng trước"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-[10px] font-mono font-bold text-slate-400 px-1">
+            {currentStepIndex + 1}/{steps.length}
+          </span>
+          <button
+            type="button"
+            onClick={onNextStep}
+            disabled={currentStepIndex >= steps.length - 1}
+            className="p-1.5 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-colors cursor-pointer"
+            title="Chặng kế tiếp"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm relative overflow-hidden shrink-0 text-slate-900">
       <div className="flex flex-col gap-3.5 relative z-10">
         {/* Top Header: Title & Step counter */}
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-2.5 flex-wrap">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="p-2 rounded-lg bg-red-50 text-red-600 border border-red-200 shrink-0 flex items-center justify-center">
               <Route className="w-4 h-4" />
@@ -84,10 +142,10 @@ export const StaffTurnByTurnGuide: React.FC<StaffTurnByTurnGuideProps> = ({
           </div>
 
           {/* Navigation Status Indicator */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-mono shrink-0">
-            <Compass className="w-4 h-4 text-red-600 shrink-0" />
-            <span className="text-xs text-slate-500 font-semibold leading-none">ĐIỀU HƯỚNG:</span>
-            <span className="text-xs font-bold text-slate-900 leading-none">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-mono shrink-0 ml-auto">
+            <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600 shrink-0" />
+            <span className="text-[11px] sm:text-xs text-slate-500 font-semibold leading-none">ĐIỀU HƯỚNG:</span>
+            <span className="text-[11px] sm:text-xs font-bold text-slate-900 leading-none">
               {isEnRoute ? 'Đang dẫn đường' : 'Sẵn sàng'}
             </span>
           </div>

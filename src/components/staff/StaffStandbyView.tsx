@@ -184,7 +184,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
 
         {/* Card 1: Standby Operational Radar Banner / BR-27 CoolDown */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             {cooldownSeconds > 0 ? (
               <div className="flex items-center gap-2.5">
                 <span className="relative flex h-3.5 w-3.5">
@@ -234,7 +234,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
 
           {cooldownSeconds > 0 ? (
             <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-300 text-amber-950 space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 font-bold text-sm text-amber-900">
                   <Clock className="w-5 h-5 text-amber-600 animate-spin" />
                   <span>Phương Tiện Đang Trong Thời Gian Hồi Sức</span>
@@ -327,7 +327,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
 
         {/* Card 3: Recent Mission Archive (Real completed history) */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
               <History className="w-4 h-4 text-slate-600" />
               <span>NHẬT KÝ ĐIỀU PHỐI GẦN ĐÂY</span>

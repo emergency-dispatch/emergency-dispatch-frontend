@@ -26,6 +26,7 @@ export { isGuid, getSavedClosureReports, saveClosureReportLocally };
 export const StaffPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<StaffNavTab>('mission');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
 
   const { profile, handleProfileUpdated } = useStaffProfile();
 
@@ -76,14 +77,19 @@ export const StaffPage: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen bg-slate-50 text-slate-900 overflow-hidden font-sans select-none">
-      {/* 1. Left Feature Sidebar Component */}
+      {/* 1. Left Feature Sidebar Component (Desktop + Mobile Drawer) */}
       <StaffSidebar
         activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          setMobileDrawerOpen(false);
+        }}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
         hasActiveMission={hasActiveMission}
         profile={profile}
+        mobileOpen={mobileDrawerOpen}
+        onCloseMobile={() => setMobileDrawerOpen(false)}
       />
 
       {/* 2. Main Content View Area */}
@@ -93,6 +99,7 @@ export const StaffPage: React.FC = () => {
           profile={profile}
           hasActiveMission={hasActiveMission}
           onOpenHistory={() => setIsHistoryOpen(true)}
+          onToggleMobileMenu={() => setMobileDrawerOpen((v) => !v)}
         />
 
         {/* Content Body based on selected Tab */}

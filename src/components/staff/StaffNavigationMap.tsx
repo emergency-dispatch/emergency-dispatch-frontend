@@ -299,7 +299,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     if (!vehicleMarkerRef.current) {
       const el = document.createElement('div');
       el.className = 'cursor-pointer select-none';
-      el.style.zIndex = '100';
+      el.style.zIndex = '10';
       el.innerHTML = `
         <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
           <div style="position: absolute; width: 50px; height: 50px; border-radius: 9999px; background: rgba(220, 38, 38, 0.4); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
@@ -354,7 +354,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
       const color = mission.severity >= 3 ? '#DC2626' : mission.severity === 2 ? '#EA580C' : '#CA8A04';
       const el = document.createElement('div');
       el.className = 'cursor-pointer select-none';
-      el.style.zIndex = '90';
+      el.style.zIndex = '8';
       el.innerHTML = `
         <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
           <div style="position: absolute; width: 54px; height: 54px; border-radius: 9999px; background: ${color}50; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
@@ -411,7 +411,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
       // Vẫn hiển thị badge nhưng nếu trùng xe thì hạ zIndex xuống dưới xe
       const el = document.createElement('div');
       el.className = 'cursor-pointer select-none';
-      el.style.zIndex = isVehiclePos ? '40' : isLastStep ? '40' : '50';
+      el.style.zIndex = isVehiclePos ? '5' : isLastStep ? '4' : '2';
       el.innerHTML = `
         <div style="display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
           <div style="width: ${isVehiclePos ? '28px' : '22px'}; height: ${isVehiclePos ? '28px' : '22px'}; border-radius: 9999px; background: ${isVehiclePos ? '#DC2626' : '#334155'}; border: 2px solid #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: ${isVehiclePos ? '12px' : '10px'}; font-weight: 800; color: #FFFFFF; font-family: monospace; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
@@ -510,7 +510,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
 
   return (
     <div
-      className={`relative w-full h-full min-h-[420px] rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-950 transition-all ${
+      className={`relative w-full h-full min-h-[420px] rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-950 transition-all isolate ${
         isFullscreen ? 'fixed inset-0 z-[9999] rounded-none border-none' : ''
       }`}
     >
@@ -656,8 +656,8 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
         </button>
       </div>
 
-      {/* Floating Top Header: Telemetry Card + Direct Map Style Switcher Pills */}
-      <div className="absolute top-4 left-4 right-16 sm:right-auto z-10 flex flex-wrap items-center gap-2 pointer-events-none">
+      {/* Floating Top Header: Telemetry Card + Direct Map Style Switcher Pills (Desktop & Tablet) */}
+      <div className="hidden sm:flex absolute top-4 left-4 right-16 sm:right-auto z-10 flex-wrap items-center gap-2 pointer-events-none">
         <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-2 text-white shadow-xl pointer-events-auto flex items-center gap-3">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <div>
@@ -671,11 +671,11 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
         </div>
 
         {/* Quick Map Style Switcher Pills (Direct 1-Click UI Change) */}
-        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1 shadow-xl pointer-events-auto flex items-center gap-1">
+        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-0.5 sm:p-1 shadow-xl pointer-events-auto flex items-center gap-1">
           <button
             type="button"
             onClick={() => handleSwitchLayer('satellite')}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               layerMode === 'satellite'
                 ? 'bg-red-600 text-white shadow-md'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -688,7 +688,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
           <button
             type="button"
             onClick={() => handleSwitchLayer('dark')}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               layerMode === 'dark'
                 ? 'bg-red-600 text-white shadow-md'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -701,7 +701,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
           <button
             type="button"
             onClick={() => handleSwitchLayer('streets')}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               layerMode === 'streets'
                 ? 'bg-red-600 text-white shadow-md'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -713,8 +713,8 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
         </div>
       </div>
 
-      {/* Floating Bottom HUD Status Pill */}
-      <div className="absolute bottom-4 left-4 right-4 sm:right-auto z-10 flex flex-wrap items-center gap-2 pointer-events-none">
+      {/* Floating Bottom HUD Status Pill (Desktop & Tablet) */}
+      <div className="hidden sm:flex absolute bottom-4 left-4 right-4 sm:right-auto z-10 flex-wrap items-center gap-2 pointer-events-none">
         {/* GPS Coordinates & Satellite Lock */}
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 backdrop-blur-md text-xs font-mono text-slate-200 shadow-xl pointer-events-auto">
           <Radio className="w-3.5 h-3.5 text-red-500 animate-pulse shrink-0" />

@@ -126,17 +126,17 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
     <div className="bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-4 shadow-sm space-y-3 shrink-0">
       {/* Top Header: Mission ID & Stopwatch */}
       <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono uppercase tracking-wider text-slate-500 font-bold">
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+          <span className="text-xs font-mono uppercase tracking-wider text-slate-500 font-bold shrink-0">
             Trạng Thái:
           </span>
-          <span className="px-2 py-0.5 rounded-md text-xs font-bold font-mono border bg-red-50 text-red-600 border-red-200">
+          <span className="px-2 py-0.5 rounded-md text-[11px] sm:text-xs font-bold font-mono border bg-red-50 text-red-600 border-red-200">
             {STEPS[currentIndex]?.label.toUpperCase()} ({STEPS[currentIndex]?.sublabel})
           </span>
         </div>
 
         {/* Stopwatch timer */}
-        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-slate-50 border border-slate-200 font-mono">
+        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-slate-50 border border-slate-200 font-mono shrink-0 ml-auto">
           <Clock className="w-3.5 h-3.5 text-red-600" />
           <span className="text-[11px] text-slate-500 font-medium">THỜI GIAN:</span>
           <span className="text-xs sm:text-sm font-bold text-red-600">{formatTimer(elapsedSeconds)}</span>
@@ -198,7 +198,7 @@ export const StaffStatusStepper: React.FC<StaffStatusStepperProps> = ({
                 {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
               </div>
 
-              <div className="text-[11px] sm:text-xs font-bold truncate w-full text-slate-900">
+              <div className="text-[10px] sm:text-xs font-bold truncate w-full text-slate-900">
                 {step.label}
               </div>
               <div className="text-[9px] text-slate-500 truncate w-full hidden sm:block">
