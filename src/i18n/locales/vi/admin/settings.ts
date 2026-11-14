@@ -158,7 +158,7 @@ export const adminSettingsVi = {
     radiusRange: 'Từ {{min}} đến {{max}} km.',
     center: 'Tâm khu vực',
     viewWholeArea: 'Xem cả khu vực',
-    centerHint: 'Bấm lên bản đồ hoặc kéo chấm đỏ để đặt tâm ·',
+    centerHint: 'Bấm lên bản đồ hoặc kéo chấm đỏ để đặt tâm.',
     outsideStations:
       'Trạm nằm ngoài khu vực: <b>{{stations}}</b>. Vẫn lưu được, nhưng nên mở rộng bán kính hoặc dời tâm để các trạm nằm trong vùng phục vụ.',
   },

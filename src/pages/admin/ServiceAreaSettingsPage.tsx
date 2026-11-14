@@ -185,6 +185,31 @@ const ServiceAreaForm: React.FC<{
         setRecenterKey((k) => k + 1);
         setNotice(null);
       }}
+      aside={
+        <>
+          <div className="absolute inset-0">
+            <StationMapPicker
+              lat={draft.centerLat}
+              lng={draft.centerLng}
+              radiusKm={radiusValid ? values.radiusKm : undefined}
+              onChange={(lat, lng) => setDraft((d) => ({ ...d, centerLat: lat, centerLng: lng }))}
+              recenterKey={recenterKey}
+              color={AREA_COLOR}
+              fitToRadius
+              referenceStations={referenceStations}
+            />
+          </div>
+          {/* Góc trên-trái: tránh nút zoom (trên-phải) và logo/attribution Mapbox (dưới). */}
+          <button
+            type="button"
+            onClick={() => setRecenterKey((k) => k + 1)}
+            className="absolute top-3 left-3 z-10 flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 shadow-md ring-1 ring-slate-900/10 hover:text-red-600 transition-colors"
+          >
+            <LocateFixed className="w-3.5 h-3.5" />
+            {t('admin.settings.serviceArea.viewWholeArea')}
+          </button>
+        </>
+      }
     >
       <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer select-none">
         <input
@@ -204,7 +229,8 @@ const ServiceAreaForm: React.FC<{
       {/* §22: xử lý SOS của người dân nằm ngoài khu vực — chỉ có ý nghĩa khi đang bật kiểm tra */}
       <fieldset disabled={!draft.enabled} className={`space-y-1.5 ${draft.enabled ? '' : 'opacity-50'}`}>
         <legend className={`${labelClass} mb-1.5`}>{t('admin.settings.serviceArea.outsideTitle')}</legend>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {/* Cột form hẹp ở ≥ xl → hai lựa chọn xếp dọc. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2">
           {([true, false] as const).map((reject) => {
             const active = draft.rejectOutside === reject;
             const key = reject ? 'reject' : 'flag';
@@ -271,7 +297,7 @@ const ServiceAreaForm: React.FC<{
             aria-label={t('admin.settings.serviceArea.radiusAria')}
             className="flex-1 accent-red-600"
           />
-          <div className="flex items-stretch w-32 shrink-0">
+          <div className="flex items-stretch w-28 shrink-0">
             <input
               type="number"
               inputMode="decimal"
@@ -297,37 +323,17 @@ const ServiceAreaForm: React.FC<{
         )}
       </div>
 
+      {/* Bản đồ chọn tâm nằm ở cột bên phải (aside) — ở đây chỉ hiện tọa độ đang chọn. */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-3">
-          <label className={labelClass}>{t('admin.settings.serviceArea.center')}</label>
-          <button
-            type="button"
-            onClick={() => setRecenterKey((k) => k + 1)}
-            className="flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-red-600"
-          >
-            <LocateFixed className="w-3.5 h-3.5" />
-            {t('admin.settings.serviceArea.viewWholeArea')}
-          </button>
-        </div>
-        <div className="h-80 rounded-lg overflow-hidden border border-slate-200">
-          <StationMapPicker
-            lat={draft.centerLat}
-            lng={draft.centerLng}
-            radiusKm={radiusValid ? values.radiusKm : undefined}
-            onChange={(lat, lng) => setDraft((d) => ({ ...d, centerLat: lat, centerLng: lng }))}
-            recenterKey={recenterKey}
-            color={AREA_COLOR}
-            fitToRadius
-            referenceStations={referenceStations}
-          />
-        </div>
-        <p className="text-[11px] text-slate-500">
-          {t('admin.settings.serviceArea.centerHint')}{' '}
-          <span className="font-mono-data">
-            {draft.centerLat.toFixed(5)}, {draft.centerLng.toFixed(5)}
-          </span>
+        <span className={labelClass}>{t('admin.settings.serviceArea.center')}</span>
+        <p className="font-mono-data text-sm text-slate-800">
+          {draft.centerLat.toFixed(5)}, {draft.centerLng.toFixed(5)}
         </p>
-        {errors.centerLat && <p className="text-[11px] text-red-600">{errors.centerLat}</p>}
+        {errors.centerLat ? (
+          <p className="text-[11px] text-red-600">{errors.centerLat}</p>
+        ) : (
+          <p className="text-[11px] text-slate-500">{t('admin.settings.serviceArea.centerHint')}</p>
+        )}
       </div>
 
       {outsideStations.length > 0 && (

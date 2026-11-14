@@ -160,7 +160,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     radiusRange: 'From {{min}} to {{max}} km.',
     center: 'Area center',
     viewWholeArea: 'View whole area',
-    centerHint: 'Click the map or drag the red dot to set the center ·',
+    centerHint: 'Click the map or drag the red dot to set the center.',
     outsideStations:
       'Stations outside the area: <b>{{stations}}</b>. You can still save, but consider widening the radius or moving the center so all stations are inside the service area.',
   },

@@ -138,6 +138,8 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
   // Latest values for the style 'load' callback, which fires after the initial render.
   const latestRef = useRef({ lat, lng, radiusKm, color, fitToRadius });
   latestRef.current = { lat, lng, radiusKm, color, fitToRadius };
+  // Người dùng đã tự kéo/zoom bản đồ → thôi tự căn lại theo vòng khi khung đổi kích thước.
+  const userMovedRef = useRef(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -197,10 +199,23 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
       if (cFit) map.fitBounds(boundsOfCircle(cLat, cLng, cRadius), { padding: 24, duration: 0 });
     });
 
+    // Chỉ thao tác của người dùng mới có originalEvent (fitBounds / flyTo trong code thì không).
+    map.on('movestart', (e) => {
+      if (e.originalEvent) userMovedRef.current = true;
+    });
+
     // The picker lives inside a drawer that animates in, so the canvas must track container size.
+    // fitToRadius: lúc 'load' khung có thể chưa đạt kích thước cuối (bố cục co giãn theo màn hình) → căn lại
+    // vòng sau mỗi lần đổi kích thước, cho tới khi người dùng tự kéo/zoom.
     let resizeObserver: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => map.resize());
+      resizeObserver = new ResizeObserver(() => {
+        map.resize();
+        const { lat: cLat, lng: cLng, radiusKm: cRadius, fitToRadius: cFit } = latestRef.current;
+        if (cFit && cRadius !== undefined && !userMovedRef.current && map.isStyleLoaded()) {
+          map.fitBounds(boundsOfCircle(cLat, cLng, cRadius), { padding: 24, duration: 0 });
+        }
+      });
       resizeObserver.observe(containerRef.current);
     }
 
@@ -288,6 +303,7 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
 
   useEffect(() => {
     if (!recenterKey) return;
+    userMovedRef.current = false;
     const { lat: cLat, lng: cLng, radiusKm: cRadius, fitToRadius: cFit } = latestRef.current;
     if (cFit && cRadius !== undefined) {
       mapRef.current?.fitBounds(boundsOfCircle(cLat, cLng, cRadius), { padding: 24, duration: 800 });
