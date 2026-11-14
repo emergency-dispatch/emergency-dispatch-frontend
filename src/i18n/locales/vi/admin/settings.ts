@@ -21,8 +21,7 @@ export const adminSettingsVi = {
     autoExpireRange: 'Phải từ {{min}} đến {{max}} giờ.',
   },
   dispatch: {
-    scopeNote:
-      'Tham số gợi ý điều phối xe, áp dụng ngay cho lần gợi ý tiếp theo ở Command Center. Dùng cho thí nghiệm so sánh thuật toán Nearest-Available và Load-Aware (RQ2).',
+    sectionTitle: 'Tham số điều phối',
     saved: 'Đã lưu tham số điều phối.',
     weightsTitle: 'Trọng số Load-Aware',
     weightsFormula: 'Cost = w₁ × khoảng cách + w₂ × tải trạm + w₃ × nhiệm vụ đang chạy',
@@ -44,6 +43,7 @@ export const adminSettingsVi = {
     autoExpireHint: 'Sự cố chưa được Operator duyệt quá thời gian này thì tự hủy ({{min}}–{{max}} giờ).',
   },
   escalation: {
+    sectionTitle: 'Cấu hình leo thang',
     saved: 'Đã lưu cấu hình leo thang.',
     thresholdTitle: 'Ngưỡng chờ đội nhận',
     day: 'Ban ngày',

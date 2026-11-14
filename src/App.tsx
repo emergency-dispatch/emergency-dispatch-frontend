@@ -30,7 +30,6 @@ const AdminCitizensPage = lazy(() => import('./pages/admin/CitizensPage'));
 const AdminBlockedNumbersPage = lazy(() => import('./pages/admin/BlockedNumbersPage'));
 const AdminAuditTrailPage = lazy(() => import('./pages/admin/AuditTrailPage'));
 const AdminEscalationSettingsPage = lazy(() => import('./pages/admin/EscalationSettingsPage'));
-const AdminDispatchSettingsPage = lazy(() => import('./pages/admin/DispatchSettingsPage'));
 const AdminServiceAreaSettingsPage = lazy(() => import('./pages/admin/ServiceAreaSettingsPage'));
 const AdminDuplicateDetectionSettingsPage = lazy(() => import('./pages/admin/DuplicateDetectionSettingsPage'));
 const AdminReportsPage = lazy(() => import('./pages/admin/ReportsPage'));
@@ -102,7 +101,8 @@ const App: React.FC = () => {
             <Route path="citizens" element={<AdminCitizensPage />} />
             <Route path="blocked-numbers" element={<AdminBlockedNumbersPage />} />
             <Route path="settings/escalation" element={<AdminEscalationSettingsPage />} />
-            <Route path="settings/dispatch" element={<AdminDispatchSettingsPage />} />
+            {/* Tham số điều phối đã gộp vào trang Điều phối & leo thang — giữ đường dẫn cũ. */}
+            <Route path="settings/dispatch" element={<Navigate to="/admin/settings/escalation" replace />} />
             <Route path="settings/service-area" element={<AdminServiceAreaSettingsPage />} />
             <Route path="settings/duplicate-detection" element={<AdminDuplicateDetectionSettingsPage />} />
             <Route path="reports" element={<AdminReportsPage />} />

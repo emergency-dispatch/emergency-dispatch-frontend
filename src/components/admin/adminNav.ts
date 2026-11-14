@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Package,
   ScrollText,
-  SlidersHorizontal,
   Siren,
   Truck,
   UserCog,
@@ -52,8 +51,8 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     key: 'settings',
     items: [
+      // Gồm cả tham số điều phối (đường dẫn cũ /admin/settings/dispatch chuyển về đây).
       { key: 'escalation', path: '/admin/settings/escalation', icon: Siren },
-      { key: 'dispatch', path: '/admin/settings/dispatch', icon: SlidersHorizontal },
       { key: 'serviceArea', path: '/admin/settings/service-area', icon: CircleDashed },
       { key: 'duplicateDetection', path: '/admin/settings/duplicate-detection', icon: Combine },
     ],

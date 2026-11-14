@@ -8,6 +8,10 @@ const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString(dateLocale(), { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
 
 interface SettingsFormProps {
+  /** Tiêu đề khung — cần khi một trang có nhiều form (mỗi form một nút Lưu riêng). */
+  title?: React.ReactNode;
+  /** Nằm trong trang đã có lề (VD trang Điều phối & leo thang) → bỏ lề ngoài của form. */
+  embedded?: boolean;
   /** Ghi chú phạm vi áp dụng, hiện đầu form. Không truyền → không hiện khung ghi chú. */
   scopeNote?: React.ReactNode;
   updatedAt: string | null;
@@ -33,6 +37,8 @@ interface SettingsFormProps {
 
 /** Khung chung cho các màn cấu hình tham số: ghi chú, người cập nhật gần nhất, thanh nút Lưu / Hủy / Mặc định. */
 export const SettingsForm: React.FC<SettingsFormProps> = ({
+  title,
+  embedded = false,
   scopeNote,
   updatedAt,
   updatedByName,
@@ -53,6 +59,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
 
   const header = (
     <>
+      {title && <h2 className="text-sm font-bold text-slate-900">{title}</h2>}
       {scopeNote && (
         <div className="flex gap-2.5 p-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 text-sm">
           <Info className="w-4 h-4 shrink-0 mt-0.5" />
@@ -127,7 +134,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
           </div>
         </div>
       ) : (
-        <div className={`p-4 sm:p-6 space-y-4 ${wide ? '' : 'max-w-3xl'}`}>
+        <div className={`${title ? 'space-y-3' : 'space-y-4'} ${embedded ? '' : 'p-4 sm:p-6'} ${wide ? '' : 'max-w-3xl'}`}>
           {header}
           <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white shadow-xs">
             <div className="p-4 sm:p-5 space-y-5">{children}</div>

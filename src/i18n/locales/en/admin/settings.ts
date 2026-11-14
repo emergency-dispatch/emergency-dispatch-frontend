@@ -23,8 +23,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     autoExpireRange: 'Must be between {{min}} and {{max}} hours.',
   },
   dispatch: {
-    scopeNote:
-      'Vehicle dispatch suggestion parameters, applied to the next suggestion in the Command Center. Used for the Nearest-Available vs Load-Aware algorithm experiment (RQ2).',
+    sectionTitle: 'Dispatch parameters',
     saved: 'Dispatch parameters saved.',
     weightsTitle: 'Load-Aware weights',
     weightsFormula: 'Cost = w₁ × distance + w₂ × station load + w₃ × active missions',
@@ -46,6 +45,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     autoExpireHint: 'Incidents not verified by an Operator within this time are cancelled automatically ({{min}}–{{max}} hours).',
   },
   escalation: {
+    sectionTitle: 'Escalation settings',
     saved: 'Escalation settings saved.',
     thresholdTitle: 'Team acceptance wait threshold',
     day: 'Daytime',

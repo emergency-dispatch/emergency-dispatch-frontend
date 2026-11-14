@@ -26,8 +26,14 @@ function describeNightWindow(start: string, end: string): string | null {
     : i18n.t('admin.settings.escalation.nightSameDay', { start, end });
 }
 
-/** Ngưỡng chờ + mở rộng bán kính khi leo thang (GET/PUT /api/settings/escalation). */
-export const EscalationSettingsSection: React.FC = () => {
+/**
+ * Ngưỡng chờ + mở rộng bán kính khi leo thang (GET/PUT /api/settings/escalation).
+ * reloadKey đổi (khung tham số điều phối vừa lưu) → tải lại để kiểm tra theo nấc bán kính mới; bản nháp được giữ.
+ */
+export const EscalationSettingsSection: React.FC<{ reloadKey?: number; onSaved?: () => void }> = ({
+  reloadKey = 0,
+  onSaved,
+}) => {
   const { t } = useTranslation();
   // Bán kính tối đa không được nhỏ hơn nấc cuối của tham số điều phối → tải cả hai.
   const query = useServiceQuery(async () => {
@@ -36,12 +42,12 @@ export const EscalationSettingsSection: React.FC = () => {
       adminSettingsService.getDispatchSettings(),
     ]);
     return { escalation, dispatch };
-  }, 'escalation-settings');
+  }, `escalation-settings|${reloadKey}`);
   // Thông báo "đã lưu" giữ ở đây vì form được dựng lại sau khi lưu.
   const [flash, setFlash] = useState<NoticeState>(null);
 
-  if (query.error && !query.data) return <div className="p-4 sm:p-6"><Notice notice={{ kind: 'error', message: query.error }} /></div>;
-  if (!query.data) return <div className="p-4 sm:p-6 text-sm text-slate-400">{t('admin.common.settings.loading')}</div>;
+  if (query.error && !query.data) return <Notice notice={{ kind: 'error', message: query.error }} />;
+  if (!query.data) return <div className="text-sm text-slate-400">{t('admin.common.settings.loading')}</div>;
 
   return (
     <EscalationForm
@@ -52,6 +58,7 @@ export const EscalationSettingsSection: React.FC = () => {
       onSaved={(message) => {
         setFlash({ kind: 'success', message });
         query.reload();
+        onSaved?.();
       }}
     />
   );
@@ -103,6 +110,8 @@ const EscalationForm: React.FC<{
 
   return (
     <SettingsForm
+      title={t('admin.settings.escalation.sectionTitle')}
+      embedded
       updatedAt={record.updatedAt}
       updatedByName={record.updatedByName}
       notice={notice}
