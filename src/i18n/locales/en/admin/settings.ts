@@ -46,8 +46,6 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     autoExpireHint: 'Incidents not verified by an Operator within this time are cancelled automatically ({{min}}–{{max}} hours).',
   },
   escalation: {
-    scopeNote:
-      'The Escalation Daemon scans periodically: incidents covered by an active rule that have no accepting team beyond the <b>wait threshold</b> below are escalated, raising an alert in the Command Center and widening the vehicle search radius.',
     saved: 'Escalation settings saved.',
     thresholdTitle: 'Team acceptance wait threshold',
     day: 'Daytime',

@@ -44,8 +44,6 @@ export const adminSettingsVi = {
     autoExpireHint: 'Sự cố chưa được Operator duyệt quá thời gian này thì tự hủy ({{min}}–{{max}} giờ).',
   },
   escalation: {
-    scopeNote:
-      'Escalation Daemon quét định kỳ: sự cố thuộc phạm vi của quy tắc đang bật mà chưa có đội nhận quá <b>ngưỡng chờ</b> dưới đây sẽ chuyển sang Leo thang, báo động tới Command Center và mở rộng bán kính tìm xe.',
     saved: 'Đã lưu cấu hình leo thang.',
     thresholdTitle: 'Ngưỡng chờ đội nhận',
     day: 'Ban ngày',

@@ -26,6 +26,8 @@ interface SettingsFormProps {
    * form là cột trái cố định độ rộng (cuộn riêng), vùng này chiếm phần còn lại. Màn < xl (1280px): xếp trên form.
    */
   aside?: React.ReactNode;
+  /** Bỏ giới hạn độ rộng (max-w-3xl) — form tự chia cột bên trong để lấp chiều ngang. */
+  wide?: boolean;
   children: React.ReactNode;
 }
 
@@ -43,6 +45,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
   onDiscard,
   onRestoreDefaults,
   aside,
+  wide = false,
   children,
 }) => {
   const { t } = useTranslation();
@@ -124,7 +127,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
           </div>
         </div>
       ) : (
-        <div className="p-4 sm:p-6 max-w-3xl space-y-4">
+        <div className={`p-4 sm:p-6 space-y-4 ${wide ? '' : 'max-w-3xl'}`}>
           {header}
           <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white shadow-xs">
             <div className="p-4 sm:p-5 space-y-5">{children}</div>
