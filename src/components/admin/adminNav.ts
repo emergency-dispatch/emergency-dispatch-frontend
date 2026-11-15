@@ -6,9 +6,11 @@ import {
   FileBarChart,
   Building2,
   LayoutDashboard,
+  ListTree,
   Package,
   ScrollText,
   Siren,
+  Tags,
   Truck,
   UserCog,
   Users,
@@ -38,6 +40,14 @@ export const adminNavGroups: AdminNavGroup[] = [
       { key: 'stations', path: '/admin/stations', icon: Building2 },
       { key: 'vehicles', path: '/admin/vehicles', icon: Truck },
       { key: 'equipment', path: '/admin/equipment', icon: Package },
+    ],
+  },
+  {
+    // Danh mục loại xe / loại sự cố (§31–32).
+    key: 'catalogs',
+    items: [
+      { key: 'unitTypes', path: '/admin/unit-types', icon: Tags },
+      { key: 'incidentTypes', path: '/admin/incident-types', icon: ListTree },
     ],
   },
   {

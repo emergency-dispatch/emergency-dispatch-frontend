@@ -14,6 +14,7 @@ export const adminLayoutEn: Messages<typeof adminLayoutVi> = {
   unsavedChanges: 'You have unsaved changes. Leave this page and discard them?',
   groups: {
     operations: 'Operations',
+    catalogs: 'Catalogs',
     users: 'Users',
     settings: 'Configuration',
     monitoring: 'Monitoring',
@@ -23,6 +24,8 @@ export const adminLayoutEn: Messages<typeof adminLayoutVi> = {
     stations: 'Rescue stations',
     vehicles: 'Fleet',
     equipment: 'Equipment',
+    unitTypes: 'Vehicle types',
+    incidentTypes: 'Incident types',
     accounts: 'Internal accounts',
     citizens: 'Citizen accounts',
     blockedNumbers: 'Blocked numbers',

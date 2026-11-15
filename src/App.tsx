@@ -24,6 +24,8 @@ import { AdminLayout } from './components/admin/AdminLayout';
 const AdminStationsPage = lazy(() => import('./pages/admin/StationsPage'));
 const AdminVehiclesPage = lazy(() => import('./pages/admin/VehiclesPage'));
 const AdminEquipmentPage = lazy(() => import('./pages/admin/EquipmentPage'));
+const AdminUnitTypesPage = lazy(() => import('./pages/admin/UnitTypesPage'));
+const AdminIncidentTypesPage = lazy(() => import('./pages/admin/IncidentTypesPage'));
 const AdminAccountsPage = lazy(() => import('./pages/admin/AccountsPage'));
 const AdminOverviewPage = lazy(() => import('./pages/admin/OverviewPage'));
 const AdminCitizensPage = lazy(() => import('./pages/admin/CitizensPage'));
@@ -97,6 +99,8 @@ const App: React.FC = () => {
             <Route path="stations" element={<AdminStationsPage />} />
             <Route path="vehicles" element={<AdminVehiclesPage />} />
             <Route path="equipment" element={<AdminEquipmentPage />} />
+            <Route path="unit-types" element={<AdminUnitTypesPage />} />
+            <Route path="incident-types" element={<AdminIncidentTypesPage />} />
             <Route path="accounts" element={<AdminAccountsPage />} />
             <Route path="citizens" element={<AdminCitizensPage />} />
             <Route path="blocked-numbers" element={<AdminBlockedNumbersPage />} />

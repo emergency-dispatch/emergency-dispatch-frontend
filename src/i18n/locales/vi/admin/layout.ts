@@ -11,6 +11,7 @@ export const adminLayoutVi = {
   unsavedChanges: 'Bạn có thay đổi chưa lưu. Rời trang và bỏ các thay đổi này?',
   groups: {
     operations: 'Vận hành',
+    catalogs: 'Danh mục',
     users: 'Người dùng',
     settings: 'Cấu hình',
     monitoring: 'Giám sát',
@@ -20,6 +21,8 @@ export const adminLayoutVi = {
     stations: 'Trạm cứu hộ',
     vehicles: 'Đội xe',
     equipment: 'Thiết bị',
+    unitTypes: 'Loại xe',
+    incidentTypes: 'Loại sự cố',
     accounts: 'Tài khoản nội bộ',
     citizens: 'Tài khoản Citizen',
     blockedNumbers: 'Số bị chặn',
