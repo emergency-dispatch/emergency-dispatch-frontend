@@ -169,8 +169,21 @@ export const adminSettingsVi = {
     name: 'Tên khu vực',
     namePlaceholder: 'VD: Khu Công nghệ cao TP.HCM',
     nameHint: 'Hiện trong cảnh báo cho người dân và thông báo cho Operator.',
-    boundaryActive:
-      'Khu vực đang dùng ranh giới đa giác đã cấu hình: SOS được kiểm tra trong / ngoài vùng theo đa giác, tâm và bán kính bên dưới chỉ dùng để hiển thị bản đồ. Lưu trang này vẫn giữ nguyên đa giác.',
+    shapeTitle: 'Ranh giới khu vực',
+    shape: {
+      circle: 'Hình tròn',
+      circleHint: 'Tâm + bán kính.',
+      polygon: 'Đa giác',
+      polygonHint: 'Vẽ đúng ranh giới thật trên bản đồ.',
+    },
+    polygonTitle: 'Đa giác',
+    redraw: 'Vẽ lại từ đầu',
+    polygonSummary: '{{vertices}} đỉnh · {{parts}} vùng',
+    drawHint:
+      'Bấm từng điểm trên bản đồ, bấm lại điểm đầu (hoặc nhấp đúp) để khép đa giác. Bấm vào đa giác rồi kéo đỉnh để chỉnh, kéo chấm giữa cạnh để thêm đỉnh; nút thùng rác trên bản đồ xóa đa giác đang chọn. Nút đa giác trên bản đồ thêm vùng mới.',
+    derivedCircle:
+      'Tâm {{lat}}, {{lng}} · bán kính {{km}} km: tự tính bao quanh đa giác, chỉ để hiển thị bản đồ (VD vòng khu vực trên Live Map của Operator).',
+    boundaryRequired: 'Vẽ ít nhất một đa giác (từ 3 đỉnh) trên bản đồ.',
     radius: 'Bán kính',
     radiusAria: 'Bán kính khu vực (km)',
     radiusRange: 'Từ {{min}} đến {{max}} km.',
@@ -179,6 +192,8 @@ export const adminSettingsVi = {
     centerHint: 'Bấm lên bản đồ hoặc kéo chấm đỏ để đặt tâm.',
     outsideStations:
       'Trạm nằm ngoài khu vực: <b>{{stations}}</b>. Vẫn lưu được, nhưng nên mở rộng bán kính hoặc dời tâm để các trạm nằm trong vùng phục vụ.',
+    outsideStationsPolygon:
+      'Trạm nằm ngoài đa giác: <b>{{stations}}</b>. Vẫn lưu được, nhưng nên vẽ lại ranh giới để các trạm nằm trong vùng phục vụ.',
   },
   // BR-07: tự gộp SOS trùng của người dân vào sự cố đang mở.
   duplicateDetection: {

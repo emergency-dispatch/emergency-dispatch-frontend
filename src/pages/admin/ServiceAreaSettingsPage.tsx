@@ -1,8 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, LocateFixed } from 'lucide-react';
+import { AlertTriangle, Circle, Hexagon, LocateFixed, RotateCcw } from 'lucide-react';
 import { SettingsForm } from '../../components/admin/settings/SettingsForm';
 import { sameSettings, toNumber } from '../../components/admin/settings/settingsDraft';
-import { StationMapPicker, type MapReferenceStation } from '../../components/admin/stations/StationMapPicker';
+import { StationMapPicker, type MapReferenceArea, type MapReferenceStation } from '../../components/admin/stations/StationMapPicker';
+import {
+  boundaryCircle,
+  boundaryToGeoJson,
+  boundaryVertexCount,
+  haversineKm,
+  isValidBoundary,
+  parseBoundary,
+  pointInBoundary,
+  type PolygonCoords,
+} from '../../components/admin/settings/serviceAreaBoundary';
+import { createBoundaryDraw, polygonsFromDraw } from '../../components/admin/settings/serviceAreaDraw';
 import { MAP_CENTER } from '../../components/admin/fleetMeta';
 import { Notice, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass, labelClass } from '../../components/admin/common/styles';
@@ -22,13 +33,6 @@ import { Trans, useTranslation } from '../../i18n';
 // Cùng màu với vòng khu vực trên Live Map của Operator (MapServiceAreaLayer).
 const AREA_COLOR = '#2563EB';
 const NAME_MAX = 100;
-
-const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-  const rad = (d: number) => (d * Math.PI) / 180;
-  const a =
-    Math.sin(rad(lat2 - lat1) / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lng2 - lng1) / 2) ** 2;
-  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
 
 const ServiceAreaSettingsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -81,19 +85,30 @@ interface ServiceAreaDraft {
   centerLat: number;
   centerLng: number;
   radiusKm: string;
-  /** §33: đa giác ranh giới — trang này chưa sửa được, chỉ giữ nguyên để PUT không xóa mất. */
-  boundaryGeoJson: string | null;
+  /** §33: hình tròn (tâm + bán kính) hoặc đa giác vẽ trên bản đồ. */
+  shape: AreaShape;
+  /** Đa giác đang vẽ — giữ cả khi tạm chuyển sang hình tròn để quay lại không mất. */
+  polygons: PolygonCoords[];
 }
 
-const toSettings = (d: ServiceAreaDraft): ServiceAreaSettings => ({
-  enabled: d.enabled,
-  rejectOutside: d.rejectOutside,
-  name: d.name.trim(),
-  centerLat: Number(d.centerLat.toFixed(6)),
-  centerLng: Number(d.centerLng.toFixed(6)),
-  radiusKm: toNumber(d.radiusKm),
-  boundaryGeoJson: d.boundaryGeoJson,
-});
+type AreaShape = 'circle' | 'polygon';
+
+/**
+ * Đa giác: backend xét trong / ngoài vùng theo đa giác nhưng vẫn bắt buộc tâm + bán kính (hiển thị bản đồ, VD vòng
+ * khu vực trên Live Map của Operator) → tự tính vòng bao quanh đa giác. Hình tròn: gửi boundaryGeoJson = null.
+ */
+const toSettings = (d: ServiceAreaDraft): ServiceAreaSettings => {
+  const circle = d.shape === 'polygon' ? boundaryCircle(d.polygons) : null;
+  return {
+    enabled: d.enabled,
+    rejectOutside: d.rejectOutside,
+    name: d.name.trim(),
+    centerLat: circle?.centerLat ?? Number(d.centerLat.toFixed(6)),
+    centerLng: circle?.centerLng ?? Number(d.centerLng.toFixed(6)),
+    radiusKm: circle?.radiusKm ?? toNumber(d.radiusKm),
+    boundaryGeoJson: d.shape === 'polygon' ? boundaryToGeoJson(d.polygons) : null,
+  };
+};
 
 const ServiceAreaForm: React.FC<{
   record: SettingsRecord<ServiceAreaSettings>;
@@ -105,6 +120,7 @@ const ServiceAreaForm: React.FC<{
   // Bản nháp ban đầu (chưa cấu hình thì tâm đã được đặt mặc định) — mốc để biết có thay đổi chưa lưu.
   const [initialDraft] = useState<ServiceAreaDraft>(() => {
     const center = initialCenter(record.values, stations);
+    const polygons = parseBoundary(record.values.boundaryGeoJson);
     return {
       enabled: record.values.enabled,
       // Backend cũ chưa có trường này → mặc định của backend là từ chối.
@@ -114,30 +130,51 @@ const ServiceAreaForm: React.FC<{
       centerLng: center.lng,
       // Ô số giữ dạng chuỗi để gõ dở không bị nhảy.
       radiusKm: String(record.values.radiusKm),
-      boundaryGeoJson: record.values.boundaryGeoJson?.trim() || null,
+      shape: polygons.length > 0 ? 'polygon' : 'circle',
+      polygons,
     };
   });
   const [draft, setDraft] = useState(initialDraft);
   const [recenterKey, setRecenterKey] = useState(0);
+  // Đổi để dựng lại bản đồ vẽ (Hủy thay đổi / Vẽ lại từ đầu) — công cụ vẽ chỉ nạp đa giác lúc khởi tạo.
+  const [mapKey, setMapKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<NoticeState>(initialNotice);
 
   const values = toSettings(draft);
   const errors = validateServiceArea(values);
+  const isPolygon = draft.shape === 'polygon';
+  const polygonValid = isValidBoundary(draft.polygons);
+  const boundaryError = isPolygon && !polygonValid ? t('admin.settings.serviceArea.boundaryRequired') : null;
   const dirty = !sameSettings(values, toSettings(initialDraft));
-  const canSave = dirty && Object.keys(errors).length === 0;
+  const canSave = dirty && Object.keys(errors).length === 0 && !boundaryError;
   useUnsavedChangesGuard(dirty);
   const radiusValid = !errors.radiusKm;
+  const circleRadius = toNumber(draft.radiusKm);
+
+  // Chế độ đa giác: vẽ nét đứt vòng tròn đang cấu hình làm mốc khi vẽ.
+  const referenceArea = useMemo<MapReferenceArea | null>(
+    () =>
+      isPolygon && Number.isFinite(circleRadius) && circleRadius > 0
+        ? { lat: draft.centerLat, lng: draft.centerLng, radiusKm: circleRadius }
+        : null,
+    [isPolygon, draft.centerLat, draft.centerLng, circleRadius]
+  );
 
   // Backend chỉ cảnh báo (không chặn) trạm nằm ngoài khu vực → hiện trước để Admin cân nhắc.
+  // Đa giác: xét theo đa giác (giống backend), hình tròn: theo tâm + bán kính.
   const outsideStations = useMemo(
     () =>
-      radiusValid
-        ? stations.filter(
-          (s) => distanceKm(values.centerLat, values.centerLng, s.latitude, s.longitude) > values.radiusKm
-        )
-        : [],
-    [stations, values.centerLat, values.centerLng, values.radiusKm, radiusValid]
+      isPolygon
+        ? polygonValid
+          ? stations.filter((s) => !pointInBoundary(s.latitude, s.longitude, draft.polygons))
+          : []
+        : radiusValid
+          ? stations.filter(
+            (s) => haversineKm(values.centerLat, values.centerLng, s.latitude, s.longitude) > values.radiusKm
+          )
+          : [],
+    [stations, isPolygon, polygonValid, draft.polygons, values.centerLat, values.centerLng, values.radiusKm, radiusValid]
   );
 
   // Hiện các trạm (vòng phủ sóng + tên) trên bản đồ để thấy trạm nào lọt ngoài khu vực.
@@ -187,20 +224,34 @@ const ServiceAreaForm: React.FC<{
       onDiscard={() => {
         setDraft(initialDraft);
         setRecenterKey((k) => k + 1);
+        setMapKey((k) => k + 1);
         setNotice(null);
       }}
       aside={
         <>
           <div className="absolute inset-0">
+            {/* Đổi hình dạng / vẽ lại → key đổi → dựng lại bản đồ đúng chế độ. */}
             <StationMapPicker
+              key={`${draft.shape}-${mapKey}`}
               lat={draft.centerLat}
               lng={draft.centerLng}
-              radiusKm={radiusValid ? values.radiusKm : undefined}
+              radiusKm={!isPolygon && radiusValid ? values.radiusKm : undefined}
               onChange={(lat, lng) => setDraft((d) => ({ ...d, centerLat: lat, centerLng: lng }))}
               recenterKey={recenterKey}
               color={AREA_COLOR}
               fitToRadius
+              referenceArea={referenceArea}
               referenceStations={referenceStations}
+              boundary={
+                isPolygon
+                  ? {
+                      polygons: draft.polygons,
+                      onChange: (polygons) => setDraft((d) => ({ ...d, polygons })),
+                      createDraw: createBoundaryDraw,
+                      readPolygons: polygonsFromDraw,
+                    }
+                  : undefined
+              }
             />
           </div>
           {/* Góc trên-trái: tránh nút zoom (trên-phải) và logo/attribution Mapbox (dưới). */}
@@ -288,71 +339,148 @@ const ServiceAreaForm: React.FC<{
         )}
       </div>
 
-      {/* Có đa giác thì backend xét trong / ngoài vùng theo đa giác; tâm + bán kính chỉ để hiển thị. */}
-      {draft.boundaryGeoJson && (
-        <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          {t('admin.settings.serviceArea.boundaryActive')}
-        </p>
+      {/* §33: ranh giới hình tròn (tâm + bán kính) hoặc đa giác vẽ trên bản đồ. */}
+      <fieldset className="space-y-1.5">
+        <legend className={`${labelClass} mb-1.5`}>{t('admin.settings.serviceArea.shapeTitle')}</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {(['circle', 'polygon'] as const).map((shape) => {
+            const active = draft.shape === shape;
+            const Icon = shape === 'circle' ? Circle : Hexagon;
+            return (
+              <label
+                key={shape}
+                className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  active ? 'border-red-500 bg-red-50/60' : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="service-area-shape"
+                  checked={active}
+                  onChange={() => set('shape', shape)}
+                  className="sr-only"
+                />
+                <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${active ? 'text-red-600' : 'text-slate-400'}`} />
+                <span>
+                  <span className="block text-sm font-bold text-slate-900">
+                    {t(`admin.settings.serviceArea.shape.${shape}`)}
+                  </span>
+                  <span className="block text-[11px] text-slate-500 mt-0.5">
+                    {t(`admin.settings.serviceArea.shape.${shape}Hint`)}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      {isPolygon && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className={labelClass}>{t('admin.settings.serviceArea.polygonTitle')}</span>
+            <button
+              type="button"
+              onClick={() => {
+                setDraft((d) => ({ ...d, polygons: [] }));
+                setMapKey((k) => k + 1);
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-300 text-[11px] font-bold text-slate-600 hover:border-red-400 hover:text-red-600"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              {t('admin.settings.serviceArea.redraw')}
+            </button>
+          </div>
+          {polygonValid ? (
+            <p className="font-mono-data text-sm text-slate-800">
+              {t('admin.settings.serviceArea.polygonSummary', {
+                vertices: boundaryVertexCount(draft.polygons),
+                parts: draft.polygons.length,
+              })}
+            </p>
+          ) : (
+            <p role="alert" className="text-[11px] font-medium text-red-600">
+              {boundaryError}
+            </p>
+          )}
+          <p className="text-[11px] text-slate-500">{t('admin.settings.serviceArea.drawHint')}</p>
+          {polygonValid && (
+            <p className="text-[11px] text-slate-500">
+              {t('admin.settings.serviceArea.derivedCircle', {
+                lat: values.centerLat.toFixed(5),
+                lng: values.centerLng.toFixed(5),
+                km: values.radiusKm,
+              })}
+            </p>
+          )}
+        </div>
       )}
 
-      <div className="space-y-2">
-        <label className={labelClass}>{t('admin.settings.serviceArea.radius')}</label>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min={SERVICE_AREA_RADIUS_KM.min}
-            max={SERVICE_AREA_RADIUS_KM.max}
-            step={0.5}
-            value={radiusValid ? values.radiusKm : SERVICE_AREA_RADIUS_KM.min}
-            onChange={(e) => set('radiusKm', e.target.value)}
-            aria-label={t('admin.settings.serviceArea.radiusAria')}
-            className="flex-1 accent-red-600"
-          />
-          <div className="flex items-stretch w-28 shrink-0">
+      {!isPolygon && (
+        <div className="space-y-2">
+          <label className={labelClass}>{t('admin.settings.serviceArea.radius')}</label>
+          <div className="flex items-center gap-3">
             <input
-              type="number"
-              inputMode="decimal"
+              type="range"
               min={SERVICE_AREA_RADIUS_KM.min}
               max={SERVICE_AREA_RADIUS_KM.max}
               step={0.5}
-              value={draft.radiusKm}
+              value={radiusValid ? values.radiusKm : SERVICE_AREA_RADIUS_KM.min}
               onChange={(e) => set('radiusKm', e.target.value)}
-              aria-invalid={!!errors.radiusKm}
-              className={`${inputClass} rounded-r-none font-mono-data ${errors.radiusKm ? 'border-red-400' : ''}`}
+              aria-label={t('admin.settings.serviceArea.radiusAria')}
+              className="flex-1 accent-red-600"
             />
-            <span className="px-3 flex items-center rounded-r-lg border border-l-0 border-slate-300 bg-slate-50 text-xs text-slate-500">
-              km
-            </span>
+            <div className="flex items-stretch w-28 shrink-0">
+              <input
+                type="number"
+                inputMode="decimal"
+                min={SERVICE_AREA_RADIUS_KM.min}
+                max={SERVICE_AREA_RADIUS_KM.max}
+                step={0.5}
+                value={draft.radiusKm}
+                onChange={(e) => set('radiusKm', e.target.value)}
+                aria-invalid={!!errors.radiusKm}
+                className={`${inputClass} rounded-r-none font-mono-data ${errors.radiusKm ? 'border-red-400' : ''}`}
+              />
+              <span className="px-3 flex items-center rounded-r-lg border border-l-0 border-slate-300 bg-slate-50 text-xs text-slate-500">
+                km
+              </span>
+            </div>
           </div>
+          {errors.radiusKm ? (
+            <p className="text-[11px] text-red-600">{errors.radiusKm}</p>
+          ) : (
+            <p className="text-[11px] text-slate-500">
+              {t('admin.settings.serviceArea.radiusRange', SERVICE_AREA_RADIUS_KM)}
+            </p>
+          )}
         </div>
-        {errors.radiusKm ? (
-          <p className="text-[11px] text-red-600">{errors.radiusKm}</p>
-        ) : (
-          <p className="text-[11px] text-slate-500">
-            {t('admin.settings.serviceArea.radiusRange', SERVICE_AREA_RADIUS_KM)}
-          </p>
-        )}
-      </div>
+
+      )}
 
       {/* Bản đồ chọn tâm nằm ở cột bên phải (aside) — ở đây chỉ hiện tọa độ đang chọn. */}
-      <div className="space-y-1.5">
-        <span className={labelClass}>{t('admin.settings.serviceArea.center')}</span>
-        <p className="font-mono-data text-sm text-slate-800">
-          {draft.centerLat.toFixed(5)}, {draft.centerLng.toFixed(5)}
-        </p>
-        {errors.centerLat ? (
-          <p className="text-[11px] text-red-600">{errors.centerLat}</p>
-        ) : (
-          <p className="text-[11px] text-slate-500">{t('admin.settings.serviceArea.centerHint')}</p>
-        )}
-      </div>
+      {!isPolygon && (
+        <div className="space-y-1.5">
+          <span className={labelClass}>{t('admin.settings.serviceArea.center')}</span>
+          <p className="font-mono-data text-sm text-slate-800">
+            {draft.centerLat.toFixed(5)}, {draft.centerLng.toFixed(5)}
+          </p>
+          {errors.centerLat ? (
+            <p className="text-[11px] text-red-600">{errors.centerLat}</p>
+          ) : (
+            <p className="text-[11px] text-slate-500">{t('admin.settings.serviceArea.centerHint')}</p>
+          )}
+        </div>
+      )}
 
       {outsideStations.length > 0 && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span>
             <Trans
-              i18nKey="admin.settings.serviceArea.outsideStations"
+              i18nKey={
+                isPolygon ? 'admin.settings.serviceArea.outsideStationsPolygon' : 'admin.settings.serviceArea.outsideStations'
+              }
               values={{ stations: outsideStations.map((s) => s.name).join(', ') }}
               components={{ b: <strong /> }}
             />

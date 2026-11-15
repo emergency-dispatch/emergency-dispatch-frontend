@@ -170,8 +170,21 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     name: 'Area name',
     namePlaceholder: 'E.g. Saigon Hi-Tech Park',
     nameHint: 'Shown in warnings to citizens and notifications to Operators.',
-    boundaryActive:
-      'This area uses a configured polygon boundary: SOS reports are checked inside / outside the polygon, and the center and radius below are only used to display the map. Saving this page keeps the polygon unchanged.',
+    shapeTitle: 'Area boundary',
+    shape: {
+      circle: 'Circle',
+      circleHint: 'Center + radius.',
+      polygon: 'Polygon',
+      polygonHint: 'Draw the real boundary on the map.',
+    },
+    polygonTitle: 'Polygon',
+    redraw: 'Redraw from scratch',
+    polygonSummary: '{{vertices}} vertices · {{parts}} area(s)',
+    drawHint:
+      'Click each point on the map, then click the first point again (or double-click) to close the polygon. Click the polygon and drag its vertices to adjust, drag a midpoint to add a vertex; the trash button on the map deletes the selected polygon. The polygon button on the map adds another area.',
+    derivedCircle:
+      'Center {{lat}}, {{lng}} · radius {{km}} km: computed to enclose the polygon, used only to display maps (e.g. the area circle on the Operator Live Map).',
+    boundaryRequired: 'Draw at least one polygon (3+ vertices) on the map.',
     radius: 'Radius',
     radiusAria: 'Area radius (km)',
     radiusRange: 'From {{min}} to {{max}} km.',
@@ -180,6 +193,8 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     centerHint: 'Click the map or drag the red dot to set the center.',
     outsideStations:
       'Stations outside the area: <b>{{stations}}</b>. You can still save, but consider widening the radius or moving the center so all stations are inside the service area.',
+    outsideStationsPolygon:
+      'Stations outside the polygon: <b>{{stations}}</b>. You can still save, but consider redrawing the boundary so all stations are inside the service area.',
   },
   duplicateDetection: {
     scopeNote:
