@@ -19,6 +19,7 @@ export const adminSettingsVi = {
     notifyRolesRequired: 'Chọn ít nhất 1 vai trò nhận cảnh báo.',
     descriptionTooLong: 'Mô tả tối đa {{max}} ký tự.',
     autoExpireRange: 'Phải từ {{min}} đến {{max}} giờ.',
+    confidenceRange: 'Phải từ {{min}}% đến {{max}}%.',
   },
   dispatch: {
     sectionTitle: 'Tham số điều phối',
@@ -41,6 +42,22 @@ export const adminSettingsVi = {
     autoExpire: 'Tự hủy sự cố chưa xác minh',
     hoursUnit: 'giờ',
     autoExpireHint: 'Sự cố chưa được Operator duyệt quá thời gian này thì tự hủy ({{min}}–{{max}} giờ).',
+    // AI tự điều phối (FE_MOBILE_HANDOFF §31.E)
+    auto: {
+      title: 'AI tự điều phối',
+      description:
+        'Hệ thống tự xác minh và điều xe theo kế hoạch điều xe của loại sự cố, không chờ Operator duyệt. Chỉ áp dụng cho SOS cháy nổ / tai nạn Cấp 1–3 trong khu vực phục vụ, người báo không chọn "Khác", không Operator nào đang mở ca, và độ tin cậy là xác suất đo thật từ model TriageVL.',
+      enable: 'Bật AI tự điều phối',
+      enableHint:
+        'Tắt: mọi sự cố đều chờ Operator duyệt. Ca bị bỏ qua (nghi trùng, hết xe…) vẫn vào hàng đợi kèm lý do.',
+      confidence: 'Ngưỡng độ tin cậy tối thiểu',
+      confidenceHint: 'Từ {{min}}% đến {{max}}%. Thấp hơn ngưỡng thì chờ Operator.',
+      duplicateRadius: 'Bán kính nghi trùng',
+      duplicateRadiusHint:
+        'Từ {{min}} đến {{max}} m. Đã có sự cố khác được điều xe trong bán kính này (không xét loại) thì không tự điều, chuyển Operator.',
+      duplicateWindow: 'Khung thời gian nghi trùng',
+      duplicateWindowHint: 'Từ {{min}} đến {{max}} phút: chỉ xét các sự cố có hoạt động trong khoảng thời gian này gần nhất.',
+    },
   },
   escalation: {
     sectionTitle: 'Cấu hình leo thang',
@@ -151,6 +168,8 @@ export const adminSettingsVi = {
     name: 'Tên khu vực',
     namePlaceholder: 'VD: Khu Công nghệ cao TP.HCM',
     nameHint: 'Hiện trong cảnh báo cho người dân và thông báo cho Operator.',
+    boundaryActive:
+      'Khu vực đang dùng ranh giới đa giác đã cấu hình: SOS được kiểm tra trong / ngoài vùng theo đa giác, tâm và bán kính bên dưới chỉ dùng để hiển thị bản đồ. Lưu trang này vẫn giữ nguyên đa giác.',
     radius: 'Bán kính',
     radiusAria: 'Bán kính khu vực (km)',
     radiusRange: 'Từ {{min}} đến {{max}} km.',

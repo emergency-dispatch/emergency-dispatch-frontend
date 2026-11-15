@@ -1,4 +1,8 @@
-import type { DispatchSettings, EscalationSettings } from '../../../services/admin/adminSettingsService';
+import {
+  AUTO_DISPATCH_DEFAULTS,
+  type DispatchSettings,
+  type EscalationSettings,
+} from '../../../services/admin/adminSettingsService';
 
 // Form giữ giá trị dạng chuỗi (để gõ dở không bị nhảy), đổi sang số khi validate / lưu.
 // Ô trống → NaN → validator báo "Phải lớn hơn 0".
@@ -11,7 +15,15 @@ export interface DispatchDraft {
   radiusStepsKm: string[];
   recoveryMinutes: string;
   autoExpireHours: string;
+  autoDispatchEnabled: boolean;
+  /** Ngưỡng tin cậy theo % (backend lưu 0.5–1) cho Admin dễ đọc. */
+  autoDispatchMinConfidencePercent: string;
+  autoDispatchDuplicateRadiusMeters: string;
+  autoDispatchDuplicateWindowMinutes: string;
 }
+
+// Làm tròn để 0.9 ↔ 90% không sinh số lẻ dấu phẩy động (0.9 * 100 = 90.00000000000001).
+const round = (n: number, digits: number) => (Number.isFinite(n) ? Number(n.toFixed(digits)) : n);
 
 export const dispatchToDraft = (s: DispatchSettings): DispatchDraft => ({
   distance: String(s.weights.distance),
@@ -20,6 +32,17 @@ export const dispatchToDraft = (s: DispatchSettings): DispatchDraft => ({
   radiusStepsKm: s.radiusStepsKm.map(String),
   recoveryMinutes: String(s.recoveryMinutes),
   autoExpireHours: String(s.autoExpireHours),
+  // Backend cũ chưa có các trường này → dùng mặc định của DispatchSettingsDto.
+  autoDispatchEnabled: s.autoDispatchEnabled ?? AUTO_DISPATCH_DEFAULTS.autoDispatchEnabled,
+  autoDispatchMinConfidencePercent: String(
+    round((s.autoDispatchMinConfidence ?? AUTO_DISPATCH_DEFAULTS.autoDispatchMinConfidence) * 100, 2)
+  ),
+  autoDispatchDuplicateRadiusMeters: String(
+    s.autoDispatchDuplicateRadiusMeters ?? AUTO_DISPATCH_DEFAULTS.autoDispatchDuplicateRadiusMeters
+  ),
+  autoDispatchDuplicateWindowMinutes: String(
+    s.autoDispatchDuplicateWindowMinutes ?? AUTO_DISPATCH_DEFAULTS.autoDispatchDuplicateWindowMinutes
+  ),
 });
 
 export const draftToDispatch = (d: DispatchDraft): DispatchSettings => ({
@@ -31,6 +54,11 @@ export const draftToDispatch = (d: DispatchDraft): DispatchSettings => ({
   radiusStepsKm: d.radiusStepsKm.map(toNumber),
   recoveryMinutes: toNumber(d.recoveryMinutes),
   autoExpireHours: toNumber(d.autoExpireHours),
+  // PUT ghi đè cả object: thiếu các trường này thì backend tắt tự điều phối và đặt lại ngưỡng.
+  autoDispatchEnabled: d.autoDispatchEnabled,
+  autoDispatchMinConfidence: round(toNumber(d.autoDispatchMinConfidencePercent) / 100, 4),
+  autoDispatchDuplicateRadiusMeters: toNumber(d.autoDispatchDuplicateRadiusMeters),
+  autoDispatchDuplicateWindowMinutes: toNumber(d.autoDispatchDuplicateWindowMinutes),
 });
 
 export interface EscalationDraft {

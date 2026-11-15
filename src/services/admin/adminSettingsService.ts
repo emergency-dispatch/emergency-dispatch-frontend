@@ -13,7 +13,34 @@ export interface DispatchSettings {
   recoveryMinutes: number;
   /** Sự cố chưa được xác minh quá số giờ này thì tự hủy (AutoExpired). Backend: 1–168. */
   autoExpireHours: number;
+  /**
+   * AI tự điều phối (FE_MOBILE_HANDOFF §31.E): TriageVL đủ tin cậy với sự cố cháy nổ / tai nạn Cấp 1–3
+   * → hệ thống tự xác minh và điều xe theo kế hoạch điều xe. Mặc định tắt.
+   */
+  autoDispatchEnabled: boolean;
+  /** Ngưỡng độ tin cậy tối thiểu, dạng 0.5–1 (mặc định 0.90). */
+  autoDispatchMinConfidence: number;
+  /** Đã có sự cố được điều xe trong bán kính này (m, không xét loại) → nghi trùng, chuyển Operator. */
+  autoDispatchDuplicateRadiusMeters: number;
+  /** Khung thời gian (phút) xét nghi trùng. */
+  autoDispatchDuplicateWindowMinutes: number;
 }
+
+/** Giới hạn của SystemSettingsService.ValidateDispatch cho phần AI tự điều phối. */
+export const AUTO_DISPATCH_LIMITS = {
+  /** Hiển thị theo %, backend lưu 0.5–1. */
+  minConfidencePercent: { min: 50, max: 100 },
+  duplicateRadiusMeters: { min: 50, max: 5000 },
+  duplicateWindowMinutes: { min: 1, max: 240 },
+} as const;
+
+/** Mặc định của DispatchSettingsDto — dùng khi backend cũ chưa trả các trường AI tự điều phối. */
+export const AUTO_DISPATCH_DEFAULTS = {
+  autoDispatchEnabled: false,
+  autoDispatchMinConfidence: 0.9,
+  autoDispatchDuplicateRadiusMeters: 500,
+  autoDispatchDuplicateWindowMinutes: 30,
+} as const;
 
 /** Cấu hình Escalation Daemon (FR-SYS-02): ngưỡng chờ và mở rộng bán kính khi leo thang. */
 export interface EscalationSettings {
@@ -40,6 +67,12 @@ export interface ServiceAreaSettings {
   centerLat: number;
   centerLng: number;
   radiusKm: number;
+  /**
+   * §33: ranh giới đa giác (chuỗi GeoJSON Polygon / MultiPolygon, tọa độ [kinh độ, vĩ độ]). Có giá trị thì backend
+   * kiểm tra trong / ngoài vùng theo đa giác; tâm + bán kính chỉ còn để hiển thị bản đồ.
+   * PUT ghi đè cả object → phải gửi lại giá trị đang có, nếu không đa giác bị xóa.
+   */
+  boundaryGeoJson?: string | null;
 }
 
 /** Giới hạn bán kính của StationAssignment.ValidateServiceArea. */
@@ -115,6 +148,20 @@ export function validateDispatchSettings(s: DispatchSettings, maxRadiusKm: numbe
   if (!isPositive(s.recoveryMinutes)) errors.recoveryMinutes = i18n.t('admin.common.settings.mustBePositive');
   if (!(s.autoExpireHours >= AUTO_EXPIRE_HOURS.min && s.autoExpireHours <= AUTO_EXPIRE_HOURS.max)) {
     errors.autoExpireHours = i18n.t('admin.settings.validation.autoExpireRange', AUTO_EXPIRE_HOURS);
+  }
+
+  // Backend kiểm tra cả khi đang tắt tự điều phối → kiểm tra luôn, không phụ thuộc autoDispatchEnabled.
+  const { minConfidencePercent: conf, duplicateRadiusMeters: radius, duplicateWindowMinutes: window } =
+    AUTO_DISPATCH_LIMITS;
+  const confPercent = s.autoDispatchMinConfidence * 100;
+  if (!(confPercent >= conf.min - 1e-9 && confPercent <= conf.max + 1e-9)) {
+    errors.autoDispatchMinConfidence = i18n.t('admin.settings.validation.confidenceRange', conf);
+  }
+  if (!(s.autoDispatchDuplicateRadiusMeters >= radius.min && s.autoDispatchDuplicateRadiusMeters <= radius.max)) {
+    errors.autoDispatchDuplicateRadiusMeters = i18n.t('admin.settings.validation.duplicateRadiusRange', radius);
+  }
+  if (!(s.autoDispatchDuplicateWindowMinutes >= window.min && s.autoDispatchDuplicateWindowMinutes <= window.max)) {
+    errors.autoDispatchDuplicateWindowMinutes = i18n.t('admin.settings.validation.duplicateWindowRange', window);
   }
 
   return stripEmpty(errors);

@@ -12,6 +12,7 @@ import { Notice, type NoticeState } from '../common/ui';
 import { inputClass, labelClass } from '../common/styles';
 import { useServiceQuery, useUnsavedChangesGuard } from '../common/hooks';
 import {
+  AUTO_DISPATCH_LIMITS,
   AUTO_EXPIRE_HOURS,
   WEIGHT_SUM_TOLERANCE,
   adminSettingsService,
@@ -91,7 +92,7 @@ const DispatchForm: React.FC<{
   const weightSum = WEIGHT_FIELDS.reduce((sum, key) => sum + (toNumber(draft[key]) || 0), 0);
   const weightSumOk = Math.abs(weightSum - 1) <= WEIGHT_SUM_TOLERANCE;
 
-  const set = (key: Exclude<keyof DispatchDraft, 'radiusStepsKm'>) => (value: string) =>
+  const set = (key: Exclude<keyof DispatchDraft, 'radiusStepsKm' | 'autoDispatchEnabled'>) => (value: string) =>
     setDraft((d) => ({ ...d, [key]: value }));
   const setStep = (index: number, value: string) =>
     setDraft((d) => ({ ...d, radiusStepsKm: d.radiusStepsKm.map((r, i) => (i === index ? value : r)) }));
@@ -273,6 +274,60 @@ const DispatchForm: React.FC<{
               onChange={set('autoExpireHours')}
               error={errors.autoExpireHours}
               hint={t('admin.settings.dispatch.autoExpireHint', AUTO_EXPIRE_HOURS)}
+            />
+          </div>
+        </section>
+
+        {/* AI tự điều phối (FE_MOBILE_HANDOFF §31.E). Hàng riêng, rộng hết. */}
+        <section className="space-y-3 pt-5 border-t border-slate-100 xl:col-span-3 2xl:col-span-5 xl:row-start-3 xl:mt-5">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">{t('admin.settings.dispatch.auto.title')}</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">{t('admin.settings.dispatch.auto.description')}</p>
+          </div>
+          <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={draft.autoDispatchEnabled}
+              onChange={(e) => setDraft((d) => ({ ...d, autoDispatchEnabled: e.target.checked }))}
+              className="w-4 h-4 mt-0.5 accent-red-600"
+            />
+            <span>
+              <span className="block text-sm font-bold text-slate-900">{t('admin.settings.dispatch.auto.enable')}</span>
+              <span className="block text-[11px] text-slate-500 mt-0.5">{t('admin.settings.dispatch.auto.enableHint')}</span>
+            </span>
+          </label>
+          {/* Tắt → làm mờ nhưng vẫn sửa được (backend lưu và kiểm tra cả khi tắt). */}
+          <div
+            className={`grid grid-cols-1 sm:grid-cols-3 gap-4 transition-opacity sm:[&>div]:grid sm:[&>div]:grid-rows-subgrid sm:[&>div]:row-span-3 sm:gap-y-0 ${
+              draft.autoDispatchEnabled ? '' : 'opacity-50'
+            }`}
+          >
+            <NumberSettingField
+              label={t('admin.settings.dispatch.auto.confidence')}
+              unit="%"
+              step={1}
+              value={draft.autoDispatchMinConfidencePercent}
+              onChange={set('autoDispatchMinConfidencePercent')}
+              error={errors.autoDispatchMinConfidence}
+              hint={t('admin.settings.dispatch.auto.confidenceHint', AUTO_DISPATCH_LIMITS.minConfidencePercent)}
+            />
+            <NumberSettingField
+              label={t('admin.settings.dispatch.auto.duplicateRadius')}
+              unit="m"
+              step={50}
+              value={draft.autoDispatchDuplicateRadiusMeters}
+              onChange={set('autoDispatchDuplicateRadiusMeters')}
+              error={errors.autoDispatchDuplicateRadiusMeters}
+              hint={t('admin.settings.dispatch.auto.duplicateRadiusHint', AUTO_DISPATCH_LIMITS.duplicateRadiusMeters)}
+            />
+            <NumberSettingField
+              label={t('admin.settings.dispatch.auto.duplicateWindow')}
+              unit={t('admin.settings.dispatch.minutesUnit')}
+              step={1}
+              value={draft.autoDispatchDuplicateWindowMinutes}
+              onChange={set('autoDispatchDuplicateWindowMinutes')}
+              error={errors.autoDispatchDuplicateWindowMinutes}
+              hint={t('admin.settings.dispatch.auto.duplicateWindowHint', AUTO_DISPATCH_LIMITS.duplicateWindowMinutes)}
             />
           </div>
         </section>

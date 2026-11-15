@@ -81,6 +81,8 @@ interface ServiceAreaDraft {
   centerLat: number;
   centerLng: number;
   radiusKm: string;
+  /** §33: đa giác ranh giới — trang này chưa sửa được, chỉ giữ nguyên để PUT không xóa mất. */
+  boundaryGeoJson: string | null;
 }
 
 const toSettings = (d: ServiceAreaDraft): ServiceAreaSettings => ({
@@ -90,6 +92,7 @@ const toSettings = (d: ServiceAreaDraft): ServiceAreaSettings => ({
   centerLat: Number(d.centerLat.toFixed(6)),
   centerLng: Number(d.centerLng.toFixed(6)),
   radiusKm: toNumber(d.radiusKm),
+  boundaryGeoJson: d.boundaryGeoJson,
 });
 
 const ServiceAreaForm: React.FC<{
@@ -111,6 +114,7 @@ const ServiceAreaForm: React.FC<{
       centerLng: center.lng,
       // Ô số giữ dạng chuỗi để gõ dở không bị nhảy.
       radiusKm: String(record.values.radiusKm),
+      boundaryGeoJson: record.values.boundaryGeoJson?.trim() || null,
     };
   });
   const [draft, setDraft] = useState(initialDraft);
@@ -283,6 +287,13 @@ const ServiceAreaForm: React.FC<{
           <p className="text-[11px] text-slate-500">{t('admin.settings.serviceArea.nameHint')}</p>
         )}
       </div>
+
+      {/* Có đa giác thì backend xét trong / ngoài vùng theo đa giác; tâm + bán kính chỉ để hiển thị. */}
+      {draft.boundaryGeoJson && (
+        <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          {t('admin.settings.serviceArea.boundaryActive')}
+        </p>
+      )}
 
       <div className="space-y-2">
         <label className={labelClass}>{t('admin.settings.serviceArea.radius')}</label>

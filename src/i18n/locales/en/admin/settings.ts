@@ -21,6 +21,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     notifyRolesRequired: 'Choose at least 1 role to notify.',
     descriptionTooLong: 'The description can be at most {{max}} characters.',
     autoExpireRange: 'Must be between {{min}} and {{max}} hours.',
+    confidenceRange: 'Must be between {{min}}% and {{max}}%.',
   },
   dispatch: {
     sectionTitle: 'Dispatch parameters',
@@ -43,6 +44,21 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     autoExpire: 'Auto-cancel unverified incidents',
     hoursUnit: 'hours',
     autoExpireHint: 'Incidents not verified by an Operator within this time are cancelled automatically ({{min}}–{{max}} hours).',
+    auto: {
+      title: 'AI auto-dispatch',
+      description:
+        "The system verifies the incident and dispatches vehicles according to the incident type's dispatch plan without waiting for an Operator. Applies only to fire / traffic accident SOS at Level 1–3 inside the service area, when the reporter did not choose \"Other\", no Operator has the case open, and the confidence is a measured probability from the TriageVL model.",
+      enable: 'Enable AI auto-dispatch',
+      enableHint:
+        'Off: every incident waits for Operator review. Skipped cases (suspected duplicate, no vehicles…) still enter the queue with the reason.',
+      confidence: 'Minimum confidence',
+      confidenceHint: 'From {{min}}% to {{max}}%. Below the threshold, the case waits for an Operator.',
+      duplicateRadius: 'Suspected-duplicate radius',
+      duplicateRadiusHint:
+        'From {{min}} to {{max}} m. If another incident within this radius already has vehicles dispatched (any type), it is not auto-dispatched and goes to an Operator.',
+      duplicateWindow: 'Suspected-duplicate window',
+      duplicateWindowHint: 'From {{min}} to {{max}} minutes: only incidents with activity within this most recent period are checked.',
+    },
   },
   escalation: {
     sectionTitle: 'Escalation settings',
@@ -153,6 +169,8 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     name: 'Area name',
     namePlaceholder: 'E.g. Saigon Hi-Tech Park',
     nameHint: 'Shown in warnings to citizens and notifications to Operators.',
+    boundaryActive:
+      'This area uses a configured polygon boundary: SOS reports are checked inside / outside the polygon, and the center and radius below are only used to display the map. Saving this page keeps the polygon unchanged.',
     radius: 'Radius',
     radiusAria: 'Area radius (km)',
     radiusRange: 'From {{min}} to {{max}} km.',
