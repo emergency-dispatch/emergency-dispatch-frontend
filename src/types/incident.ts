@@ -19,15 +19,16 @@ export type HazardTagKey =
 // Thang cấp độ mới (Cấp 1–3, không có Cấp 0). AI không phân loại được → Cấp 1 + % tin cậy thấp.
 export type SeverityLevel = 1 | 2 | 3;
 
-// Hai nhánh sự kiện có chấm cấp độ; 'unknown' = AI không xác định và không suy được từ loại SOS người dân chọn
+// Nhóm sự cố: Cháy nổ / Tai nạn (AI nhận diện được) và 'other' = loại khác (đuối nước, ngập, rò rỉ hóa chất…; AI không
+// nhận diện, không tự điều phối — §31). 'unknown' = AI không xác định và không suy được từ loại SOS người dân chọn
 // (Operator phải chọn khi duyệt).
-export type IncidentCategory = 'fire' | 'accident' | 'unknown';
+export type IncidentCategory = 'fire' | 'accident' | 'other' | 'unknown';
 
 // #Traffic_Jam chỉ là cảnh báo trên bản đồ, không vào hàng đợi / không chấm cấp.
 export type HazardTag = 'fire' | 'accident' | 'traffic_jam';
 
 /** IncidentEventType của backend. */
-export type BackendEventType = 'None' | 'FireExplosion' | 'TrafficAccident';
+export type BackendEventType = 'None' | 'FireExplosion' | 'TrafficAccident' | 'Other';
 
 /**
  * Kênh tiếp nhận sự cố. CitizenApp = người dân gửi SOS qua app; còn lại = Operator tự tạo khi biết tin
@@ -552,11 +553,13 @@ const SEVERITY_FROM_BACKEND: Record<BackendSeverityLevel, SeverityLevel> = {
 export const CATEGORY_FROM_EVENT_TYPE: Partial<Record<BackendEventType, Exclude<IncidentCategory, 'unknown'>>> = {
   FireExplosion: 'fire',
   TrafficAccident: 'accident',
+  Other: 'other',
 };
 
 export const EVENT_TYPE_FROM_CATEGORY: Record<Exclude<IncidentCategory, 'unknown'>, Exclude<BackendEventType, 'None'>> = {
   fire: 'FireExplosion',
   accident: 'TrafficAccident',
+  other: 'Other',
 };
 
 /**
@@ -659,11 +662,16 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
   const hazardTags = allTags.filter((tag) => !AI_SYSTEM_TAGS.has(tag));
   const jamStatus = ai?.trafficJamStatus ?? 'NoEvidence';
   const jamReviewed = jamStatus === 'Confirmed' || jamStatus === 'Dismissed';
-  // Loại sự cố: đã xác nhận / AI xác định → dùng luôn; chưa rõ → gợi ý theo loại SOS người dân chọn; không suy được → 'unknown'.
+  // Loại sự cố: đã xác nhận / AI xác định → dùng luôn; chưa rõ → gợi ý theo loại người báo chọn (reportedEventType),
+  // rồi theo tiêu đề SOS; không suy được → 'unknown'.
   const knownCategory =
     CATEGORY_FROM_EVENT_TYPE[dto.eventType ?? 'None'] ??
     (ai?.isSuccess !== false ? CATEGORY_FROM_EVENT_TYPE[ai?.eventType ?? 'None'] : undefined);
-  const category: IncidentCategory = knownCategory ?? inferCategoryFromTitle(dto.title) ?? 'unknown';
+  const category: IncidentCategory =
+    knownCategory ??
+    CATEGORY_FROM_EVENT_TYPE[dto.reportedEventType ?? 'None'] ??
+    inferCategoryFromTitle(dto.title) ??
+    'unknown';
   const hasActiveLock =
     !!dto.lockedByOperatorId && !!dto.lockExpiresAt && new Date(dto.lockExpiresAt).getTime() > Date.now();
 

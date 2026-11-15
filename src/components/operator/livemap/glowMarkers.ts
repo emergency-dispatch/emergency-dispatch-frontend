@@ -1,6 +1,7 @@
 import fireSvg from './icons/fire.svg?raw';
 import accidentSvg from './icons/accident.svg?raw';
 import sosSvg from './icons/sos.svg?raw';
+import otherSvg from './icons/other.svg?raw';
 import stationSvg from './icons/station.svg?raw';
 import trafficJamSvg from './icons/traffic-jam.svg?raw';
 import pickPinSvg from './icons/pick-pin.svg?raw';
@@ -52,7 +53,12 @@ function severityArcs(severity: SeverityLevel, r = 17.5, width = 3.6): string {
   return s;
 }
 
-const INCIDENT_GLYPH: Record<IncidentCategory, string> = { fire: fireSvg, accident: accidentSvg, unknown: sosSvg };
+const INCIDENT_GLYPH: Record<IncidentCategory, string> = {
+  fire: fireSvg,
+  accident: accidentSvg,
+  other: otherSvg,
+  unknown: sosSvg,
+};
 
 /** Sự cố: lõi tối + 3 cung cấp độ + quầng màu loại sự cố. Neo tâm. */
 export function glowIncidentMarkerHtml(category: IncidentCategory, severity: SeverityLevel, selected: boolean): string {

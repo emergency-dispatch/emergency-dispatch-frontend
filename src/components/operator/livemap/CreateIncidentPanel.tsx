@@ -400,7 +400,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
         </Section>
 
         <Section step={3} label={t('liveMap.create.sectionType')} error={shown('category')}>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {CONFIRMABLE_CATEGORIES.map((key) => {
               const meta = INCIDENT_CATEGORY_META[key];
               const Icon = meta.icon;

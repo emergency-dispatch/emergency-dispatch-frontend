@@ -197,7 +197,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     confirmedSeverity !== null && (!hasAiSeverity || confirmedSeverity !== incident.severity);
   const overrideReasonLength = overrideReason.trim().length;
   const overrideReasonValid = !isOverride || overrideReasonLength >= OVERRIDE_REASON_MIN_LENGTH;
-  // Backend chưa có loại sự cố (eventType None) → bắt buộc chọn Cháy nổ / Tai nạn.
+  // Backend chưa có loại sự cố (eventType None) → bắt buộc chọn Cháy nổ / Tai nạn / Khác.
   const categoryValid = !incident.needsEventType || (confirmedCategory !== null && confirmedCategory !== 'unknown');
   const canApprove = canAct && !isSubmitting && confirmedSeverity !== null && overrideReasonValid && categoryValid;
 

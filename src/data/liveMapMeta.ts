@@ -52,7 +52,7 @@ export const GLOW_MARKER_COLORS: {
 } = {
   core: '#0F172A',
   arcIdle: 'rgba(203,213,225,0.75)',
-  categoryGlyph: { fire: '#FF7A6E', accident: '#FDBA74', unknown: '#FF7A6E' },
+  categoryGlyph: { fire: '#FF7A6E', accident: '#FDBA74', other: '#67E8F9', unknown: '#FF7A6E' },
   severityArc: { 1: '#34D399', 2: '#FBBF24', 3: '#F87171' },
   station: { mine: '#F87171', mineHalo: '#DC2626', other: '#CBD5E1' },
   trafficJam: {

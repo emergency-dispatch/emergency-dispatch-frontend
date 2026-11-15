@@ -4,7 +4,7 @@ import type { enumsVi } from '../vi/enums';
 export const enumsEn: Messages<typeof enumsVi> = {
   severity: { level1: 'Level 1 · Minor', level2: 'Level 2 · Moderate', level3: 'Level 3 · Severe' },
   severityShort: { level1: 'Level 1', level2: 'Level 2', level3: 'Level 3' },
-  category: { fire: 'Fire / explosion', accident: 'Accident', unknown: 'Unidentified' },
+  category: { fire: 'Fire / explosion', accident: 'Accident', other: 'Other', unknown: 'Unidentified' },
   incidentSource: {
     CitizenApp: 'SOS app',
     PhoneCall: 'Phone',
