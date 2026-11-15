@@ -291,11 +291,12 @@ const DispatchForm: React.FC<{
               onChange={(e) => setDraft((d) => ({ ...d, autoDispatchEnabled: e.target.checked }))}
               className="w-4 h-4 mt-0.5 accent-red-600"
             />
-            <span>
-              <span className="block text-sm font-bold text-slate-900">{t('admin.settings.dispatch.auto.enable')}</span>
-              <span className="block text-[11px] text-slate-500 mt-0.5">{t('admin.settings.dispatch.auto.enableHint')}</span>
-            </span>
+            <span className="text-sm font-bold text-slate-900">{t('admin.settings.dispatch.auto.enable')}</span>
           </label>
+          <p className="text-[11px] text-slate-500">
+            <span className="font-bold text-slate-700">{t('admin.settings.dispatch.auto.noteLabel')}</span>{' '}
+            {t('admin.settings.dispatch.auto.enableHint')}
+          </p>
           {/* Tắt → làm mờ nhưng vẫn sửa được (backend lưu và kiểm tra cả khi tắt). */}
           <div
             className={`grid grid-cols-1 sm:grid-cols-3 gap-4 transition-opacity sm:[&>div]:grid sm:[&>div]:grid-rows-subgrid sm:[&>div]:row-span-3 sm:gap-y-0 ${

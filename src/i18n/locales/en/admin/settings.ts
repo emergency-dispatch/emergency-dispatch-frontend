@@ -46,11 +46,12 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     autoExpireHint: 'Incidents not verified by an Operator within this time are cancelled automatically ({{min}}–{{max}} hours).',
     auto: {
       title: 'AI auto-dispatch',
+      noteLabel: 'Note:',
       description:
         "The system verifies the incident and dispatches vehicles according to the incident type's dispatch plan without waiting for an Operator. Applies only to fire / traffic accident SOS at Level 1–3 inside the service area, when the reporter did not choose \"Other\", no Operator has the case open, and the confidence is a measured probability from the TriageVL model.",
       enable: 'Enable AI auto-dispatch',
       enableHint:
-        'Off: every incident waits for Operator review. Skipped cases (suspected duplicate, no vehicles…) still enter the queue with the reason.',
+        'When off, every incident waits for Operator review. Skipped cases (suspected duplicate, no vehicles…) still enter the queue with the reason.',
       confidence: 'Minimum confidence',
       confidenceHint: 'From {{min}}% to {{max}}%. Below the threshold, the case waits for an Operator.',
       duplicateRadius: 'Suspected-duplicate radius',

@@ -45,11 +45,12 @@ export const adminSettingsVi = {
     // AI tự điều phối (FE_MOBILE_HANDOFF §31.E)
     auto: {
       title: 'AI tự điều phối',
+      noteLabel: 'Lưu ý:',
       description:
         'Hệ thống tự xác minh và điều xe theo kế hoạch điều xe của loại sự cố, không chờ Operator duyệt. Chỉ áp dụng cho SOS cháy nổ / tai nạn Cấp 1–3 trong khu vực phục vụ, người báo không chọn "Khác", không Operator nào đang mở ca, và độ tin cậy là xác suất đo thật từ model TriageVL.',
       enable: 'Bật AI tự điều phối',
       enableHint:
-        'Tắt: mọi sự cố đều chờ Operator duyệt. Ca bị bỏ qua (nghi trùng, hết xe…) vẫn vào hàng đợi kèm lý do.',
+        'Khi tắt, mọi sự cố đều chờ Operator duyệt. Ca bị bỏ qua (nghi trùng, hết xe…) vẫn vào hàng đợi kèm lý do.',
       confidence: 'Ngưỡng độ tin cậy tối thiểu',
       confidenceHint: 'Từ {{min}}% đến {{max}}%. Thấp hơn ngưỡng thì chờ Operator.',
       duplicateRadius: 'Bán kính nghi trùng',
