@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Lock, X } from 'lucide-react';
 import { labelClass } from '../common/styles';
 import {
+  actorNameLabel,
   actorRoleLabel,
   compareStates,
   entityDisplayName,
@@ -75,7 +76,7 @@ export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = (
               <span className="font-mono-data">{formatAuditTime(entry.timestamp)}</span>
             </Row>
             <Row label={t('admin.monitoring.audit.actor')}>
-              {entry.actorName || '—'} <span className="text-slate-500">· {actorRoleLabel(entry.actorRole)}</span>
+              {actorNameLabel(entry.actorName, entry.actorRole)} <span className="text-slate-500">· {actorRoleLabel(entry.actorRole)}</span>
             </Row>
             <Row label={t('admin.monitoring.audit.entity')}>
               <div>

@@ -178,6 +178,8 @@ export const adminMonitoringVi = {
       DuplicateConfirmed: 'Xác nhận báo cáo trùng',
       SupplementAdded: 'Người báo bổ sung thông tin',
       LinkedReportsRestored: 'Trả báo cáo đã gom về hàng đợi',
+      AutoDispatched: 'AI tự điều phối',
+      AutoDispatchSkipped: 'AI bỏ qua tự điều phối',
     },
     systemAction: {
       Created: 'Tạo mới',
@@ -207,6 +209,8 @@ export const adminMonitoringVi = {
       Report: 'Báo cáo',
       TrafficHotspot: 'Điểm nghẽn giao thông',
       Equipment: 'Thiết bị',
+      RescueUnitType: 'Loại xe',
+      IncidentType: 'Loại sự cố',
     },
     settingsKey: {
       dispatch: 'Tham số điều phối',
@@ -220,7 +224,12 @@ export const adminMonitoringVi = {
       RescueStaff: 'Đội cứu hộ',
       Citizen: 'Người dân',
       AI_Worker: 'AI',
+      AI_AutoDispatch: 'AI',
       System: 'Hệ thống',
+    },
+    // Tác vụ nền: backend ghi tên = mã vai trò.
+    actorName: {
+      AI_AutoDispatch: 'AI tự điều phối',
     },
     // Khóa có dấu chấm (VD weights.distance) đổi thành gạch dưới.
     field: {
@@ -278,6 +287,11 @@ export const adminMonitoringVi = {
       notes: 'Ghi chú',
       note: 'Ghi chú',
       statusNote: 'Lý do bảo trì',
+      autoDispatchEnabled: 'Bật AI tự điều phối',
+      autoDispatchMinConfidence: 'Ngưỡng tin cậy tự điều phối',
+      autoDispatchDuplicateRadiusMeters: 'Bán kính nghi trùng khi tự điều phối (m)',
+      autoDispatchDuplicateWindowMinutes: 'Khung thời gian nghi trùng khi tự điều phối (phút)',
+      boundaryGeoJson: 'Ranh giới đa giác (GeoJSON)',
     },
   },
 } as const;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { thClass } from '../common/styles';
-import { actorRoleLabel, entityDisplayName, entityTypeMeta, formatAuditTime, systemActionMeta } from './auditMeta';
+import { actorNameLabel, actorRoleLabel, entityDisplayName, entityTypeMeta, formatAuditTime, systemActionMeta } from './auditMeta';
 import type { SystemAuditLogDto } from '../../../types/auditTrail';
 import { useTranslation } from '../../../i18n';
 
@@ -59,7 +59,7 @@ export const SystemAuditTable: React.FC<SystemAuditTableProps> = ({ entries, loa
             >
               <td className="px-4 py-3 font-mono-data text-xs text-slate-600 whitespace-nowrap">{formatAuditTime(e.timestamp)}</td>
               <td className="px-4 py-3 whitespace-nowrap">
-                <div className="font-semibold text-slate-900">{e.actorName || '—'}</div>
+                <div className="font-semibold text-slate-900">{actorNameLabel(e.actorName, e.actorRole)}</div>
                 <div className="text-[11px] text-slate-500">{actorRoleLabel(e.actorRole)}</div>
               </td>
               <td className="px-4 py-3">
