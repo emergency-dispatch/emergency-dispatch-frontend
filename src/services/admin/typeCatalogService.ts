@@ -9,11 +9,11 @@ import type {
 } from '../../types/typeCatalog';
 
 // Danh mục loại xe / loại sự cố (FE_MOBILE_HANDOFF §31–32). Backend trả nguyên danh sách (không phân trang);
-// FE xếp lại theo displayOrder rồi theo mã để thứ tự ổn định.
+// FE xếp lại giống backend (TypeCatalogRepository): displayOrder rồi tên tiếng Việt.
 // Xóa: loại hệ thống → 400; loại đang được dùng → 409 (gợi ý Admin ẩn bằng isActive = false).
 
-const byDisplayOrder = <T extends { displayOrder: number; code: string }>(items: T[]) =>
-  [...items].sort((a, b) => a.displayOrder - b.displayOrder || a.code.localeCompare(b.code));
+const byDisplayOrder = <T extends { displayOrder: number; nameVi: string }>(items: T[]) =>
+  [...items].sort((a, b) => a.displayOrder - b.displayOrder || a.nameVi.localeCompare(b.nameVi, 'vi'));
 
 export const typeCatalogService = {
   /** includeInactive = true (Admin) để thấy cả loại đã ẩn — xe cũ vẫn có thể mang loại đó. */
