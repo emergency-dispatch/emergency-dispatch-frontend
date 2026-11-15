@@ -58,7 +58,7 @@ const FieldRequestCard: React.FC<FieldRequestCardProps> = ({
     ? request.requestedUnitType
       ? t('liveMap.fieldRequests.backupType', {
           count: request.quantity,
-          type: t(`enums.unitType.${request.requestedUnitType}`),
+          type: t(`enums.unitType.${request.requestedUnitType}`, { defaultValue: request.requestedUnitType ?? '' }),
         })
       : t('liveMap.fieldRequests.backup', { count: request.quantity })
     : t('liveMap.fieldRequests.other');

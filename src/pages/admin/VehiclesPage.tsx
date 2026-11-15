@@ -6,9 +6,11 @@ import { ConfirmModal, Notice, Pagination, type NoticeState } from '../../compon
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { stationAdminService } from '../../services/admin/stationAdminService';
+import { typeCatalogService } from '../../services/admin/typeCatalogService';
 import { vehicleAdminService, type VehicleStatusFilter } from '../../services/admin/vehicleAdminService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import { HubEvents, incidentHubService } from '../../services/realtime/incidentHubService';
+import { unitTypeLabel } from '../../components/admin/fleetMeta';
 import {
   RESCUE_UNIT_STATUSES,
   RESCUE_UNIT_TYPES,
@@ -27,7 +29,8 @@ const VehiclesPage: React.FC = () => {
   const initial = useInitialQueryParams();
   const [search, setSearch] = useState(() => initial.text('search'));
   const [stationId, setStationId] = useState(() => initial.text('stationId'));
-  const [type, setType] = useState<RescueUnitType | ''>(() => initial.oneOf('type', RESCUE_UNIT_TYPES));
+  // Mã loại xe là danh mục mở (Admin thêm được) → nhận mọi mã từ query string; mã lạ chỉ làm danh sách rỗng.
+  const [type, setType] = useState<RescueUnitType>(() => initial.text('type'));
   const [status, setStatus] = useState<VehicleStatusFilter | ''>(() => initial.oneOf('status', STATUS_FILTERS));
   const [pageIndex, setPageIndex] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
@@ -42,6 +45,9 @@ const VehiclesPage: React.FC = () => {
   };
   const query = useServiceQuery(() => vehicleAdminService.list(params), JSON.stringify(params));
   const stations = useServiceQuery(() => stationAdminService.list({ pageIndex: 1, pageSize: 500 }), 'vehicle-stations');
+  // Cả loại đã ẩn: xe cũ vẫn có thể mang loại đó, bộ lọc / nhãn phải nhận ra.
+  const unitTypes = useServiceQuery(() => typeCatalogService.listUnitTypes(true), 'vehicle-unit-types');
+  const typeOptions: RescueUnitType[] = unitTypes.data?.map((u) => u.code) ?? RESCUE_UNIT_TYPES;
 
   // Realtime: xe đổi trạng thái (giao xe, tới nơi, hồi sức, hết hồi sức, Operator đổi tay, thêm / xóa xe) → tải lại
   // trang hiện tại để giữ đúng bộ lọc và phân trang. Kết nối lại sau khi rớt mạng cũng tải lại vì có thể đã lỡ sự kiện.
@@ -140,16 +146,18 @@ const VehiclesPage: React.FC = () => {
           </select>
           <select
             value={type}
-            onChange={(e) => withPageReset(setType)(e.target.value as RescueUnitType | '')}
+            onChange={(e) => withPageReset(setType)(e.target.value)}
             aria-label={t('admin.vehicles.filterByType')}
             className={`${inputClass} lg:w-40`}
           >
             <option value="">{t('admin.vehicles.allTypes')}</option>
-            {RESCUE_UNIT_TYPES.map((unitType) => (
+            {typeOptions.map((unitType) => (
               <option key={unitType} value={unitType}>
-                {t(`enums.unitType.${unitType}`)}
+                {unitTypeLabel(unitType, unitTypes.data)}
               </option>
             ))}
+            {/* Mã lấy từ query string nhưng không có trong danh mục → vẫn hiện để không mất bộ lọc đang áp dụng. */}
+            {type && !typeOptions.includes(type) && <option value={type}>{type}</option>}
           </select>
           <select
             value={status}
@@ -181,6 +189,7 @@ const VehiclesPage: React.FC = () => {
       <VehiclesTable
         vehicles={query.data?.items ?? []}
         loading={query.loading}
+        unitTypes={unitTypes.data ?? null}
         pendingId={pendingId}
         onEdit={setFormVehicle}
         onToggleMaintenance={handleToggleMaintenance}
@@ -199,6 +208,8 @@ const VehiclesPage: React.FC = () => {
       {formVehicle && (
         <VehicleFormDrawer
           initialVehicle={formVehicle === 'new' ? null : formVehicle}
+          unitTypes={unitTypes.data ?? null}
+          unitTypesError={unitTypes.error}
           onClose={() => setFormVehicle(null)}
           onSaved={(saved) => {
             setNotice({

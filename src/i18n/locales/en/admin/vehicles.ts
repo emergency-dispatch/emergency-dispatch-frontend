@@ -44,6 +44,8 @@ export const adminVehiclesEn: Messages<typeof adminVehiclesVi> = {
     stationDeleted: 'The vehicle’s previous station was deleted — choose a new station.',
     noStation: '— No station —',
     missingStation: 'Station no longer exists',
+    hiddenType: 'Hidden',
+    typesLoadFailed: 'Could not load the vehicle type catalog — showing the 6 default types.',
     inactiveSuffix: ' (suspended)',
     statusOnMission: 'Vehicle is on a mission — status updates automatically with mission progress.',
     statusHint: 'Dispatched / On scene / Returning / Recovering are set by the system.',

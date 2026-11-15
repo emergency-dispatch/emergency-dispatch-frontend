@@ -143,7 +143,7 @@ export const TrafficJamPopup: React.FC<TrafficJamPopupProps> = ({
               >
                 {assignableUnits.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.plateNumber} · {t(`enums.unitType.${u.unitType}`)}
+                    {u.plateNumber} · {t(`enums.unitType.${u.unitType}`, { defaultValue: u.unitType })}
                   </option>
                 ))}
               </select>

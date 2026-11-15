@@ -2,14 +2,17 @@ import React from 'react';
 import { Pencil, Trash2, Wrench, CircleCheck } from 'lucide-react';
 import { LockableButton, VehicleStatusBadge } from '../common/ui';
 import { iconButtonClass, thClass } from '../common/styles';
-import { RESCUE_UNIT_STATUS_META, RESCUE_UNIT_TYPE_META } from '../fleetMeta';
+import { RESCUE_UNIT_STATUS_META, unitTypeIcon, unitTypeLabel } from '../fleetMeta';
 import { isOffMission } from '../../../services/admin/vehicleAdminService';
 import { ON_MISSION_UNIT_STATUSES, type RescueUnitResponseDto } from '../../../types/rescueUnit';
+import type { RescueUnitTypeDto } from '../../../types/typeCatalog';
 import { dateLocale, useTranslation } from '../../../i18n';
 
 interface VehiclesTableProps {
   vehicles: RescueUnitResponseDto[];
   loading: boolean;
+  /** Danh mục loại xe (tên theo ngôn ngữ); null khi chưa tải được → dùng nhãn dịch / mã. */
+  unitTypes: RescueUnitTypeDto[] | null;
   /** Xe đang chờ phản hồi đổi trạng thái (khóa nút để tránh bấm 2 lần). */
   pendingId: string | null;
   onEdit: (vehicle: RescueUnitResponseDto) => void;
@@ -23,6 +26,7 @@ const formatTime = (iso: string | null) =>
 export const VehiclesTable: React.FC<VehiclesTableProps> = ({
   vehicles,
   loading,
+  unitTypes,
   pendingId,
   onEdit,
   onToggleMaintenance,
@@ -55,7 +59,7 @@ export const VehiclesTable: React.FC<VehiclesTableProps> = ({
             </tr>
           )}
           {vehicles.map((vehicle) => {
-            const TypeIcon = RESCUE_UNIT_TYPE_META[vehicle.unitType]?.icon;
+            const TypeIcon = unitTypeIcon(vehicle.unitType);
             const statusLabel = t(`enums.unitStatus.${vehicle.status}`, { defaultValue: vehicle.statusName });
             const inMaintenance = vehicle.status === 'Maintenance';
             const pending = pendingId === vehicle.id;
@@ -75,8 +79,8 @@ export const VehiclesTable: React.FC<VehiclesTableProps> = ({
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2 text-slate-700 whitespace-nowrap">
-                    {TypeIcon && <TypeIcon className="w-4 h-4 text-red-600 shrink-0" />}
-                    {t(`enums.unitType.${vehicle.unitType}`, { defaultValue: vehicle.unitTypeName })}
+                    <TypeIcon className="w-4 h-4 text-red-600 shrink-0" />
+                    {unitTypeLabel(vehicle.unitType, unitTypes)}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{vehicle.stationName || '—'}</td>

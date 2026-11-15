@@ -67,7 +67,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({ team, staffById, vehiclesByI
                       {vehicle ? (
                         <>
                           <span className="font-mono-data font-bold text-red-600">{vehicle.plate}</span>·{' '}
-                          {t(`enums.unitType.${vehicle.unitType}`)}
+                          {t(`enums.unitType.${vehicle.unitType}`, { defaultValue: vehicle.unitType })}
                         </>
                       ) : (
                         <>

@@ -930,7 +930,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                   ? i18n
                       .t('layout.operatorAlerts.fieldRequestBackupContent', {
                         count: r.quantity,
-                        type: r.requestedUnitType ? i18n.t(`enums.unitType.${r.requestedUnitType}`) : '',
+                        type: r.requestedUnitType ? i18n.t(`enums.unitType.${r.requestedUnitType}`, { defaultValue: r.requestedUnitType ?? '' }) : '',
                       })
                       .trim()
                   : (r.description ?? ''),

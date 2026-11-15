@@ -291,7 +291,7 @@ export const VehiclesPage: React.FC = () => {
                           <div className="min-w-0">
                             <p className="font-mono-data font-bold text-slate-900">{v.plate}</p>
                             <p className="text-[11px] text-slate-500">
-                              {t(`enums.unitType.${v.unitType}`)} · {t(`enums.teamFunction.${v.type}`)}
+                              {t(`enums.unitType.${v.unitType}`, { defaultValue: v.unitType })} · {t(`enums.teamFunction.${v.type}`)}
                             </p>
                           </div>
                         </div>

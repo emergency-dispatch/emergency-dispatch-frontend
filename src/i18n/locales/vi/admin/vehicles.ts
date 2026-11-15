@@ -42,6 +42,8 @@ export const adminVehiclesVi = {
     noStation: '— Chưa có trạm —',
     missingStation: 'Trạm không còn tồn tại',
     inactiveSuffix: ' (tạm ngưng)',
+    hiddenType: 'Đã ẩn',
+    typesLoadFailed: 'Không tải được danh mục loại xe — đang hiện 6 loại mặc định.',
     statusOnMission: 'Xe đang làm nhiệm vụ — trạng thái tự cập nhật theo tiến độ nhiệm vụ.',
     statusHint: 'Đã điều động / Tại hiện trường / Đang quay về / Hồi sức do hệ thống tự đặt.',
     newVehicleNote: 'Xe mới được tạo ở trạng thái Sẵn sàng, vị trí ban đầu tại trạm.',

@@ -9,7 +9,7 @@ export const vehicleToUnitOption = (v: Vehicle): EquipmentUnitOption => ({
   plate: v.plate,
   stationId: v.stationId,
   icon: VEHICLE_TYPE_META[v.type].icon,
-  typeLabel: i18n.t(`enums.unitType.${v.unitType}`),
+  typeLabel: i18n.t(`enums.unitType.${v.unitType}`, { defaultValue: v.unitType }),
   statusLabel: i18n.t(`enums.vehicleStatus.${v.status}`),
   statusColor: VEHICLE_STATUS_META[v.status].color,
 });

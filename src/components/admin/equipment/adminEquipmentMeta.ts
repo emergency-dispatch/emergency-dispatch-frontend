@@ -1,5 +1,4 @@
-import { Truck } from 'lucide-react';
-import { RESCUE_UNIT_STATUS_META, RESCUE_UNIT_TYPE_META } from '../fleetMeta';
+import { RESCUE_UNIT_STATUS_META, unitTypeIcon } from '../fleetMeta';
 import { STOCK_KEY, isOnDeletedUnit, type EquipmentUnitOption } from '../../equipment/equipmentMeta';
 import type { EquipmentDto } from '../../../types/equipment';
 import type { RescueUnitResponseDto } from '../../../types/rescueUnit';
@@ -10,8 +9,8 @@ export const rescueUnitToOption = (u: RescueUnitResponseDto): EquipmentUnitOptio
   id: u.id,
   plate: u.plateNumber,
   stationId: u.stationId,
-  icon: RESCUE_UNIT_TYPE_META[u.unitType]?.icon ?? Truck,
-  typeLabel: i18n.t(`enums.unitType.${u.unitType}`, { defaultValue: u.unitTypeName }),
+  icon: unitTypeIcon(u.unitType),
+  typeLabel: i18n.t(`enums.unitType.${u.unitType}`, { defaultValue: u.unitType }),
   statusLabel: i18n.t(`enums.unitStatus.${u.status}`, { defaultValue: u.statusName }),
   statusColor: RESCUE_UNIT_STATUS_META[u.status]?.color ?? '#94A3B8',
 });

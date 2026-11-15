@@ -130,7 +130,7 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam
         </div>
         <p className="flex items-center gap-1 text-xs text-slate-600 mt-0.5">
           <TypeIcon className="w-3.5 h-3.5 shrink-0" />
-          {t(`enums.unitType.${vehicle.unitType}`)} · {t(`enums.teamFunction.${vehicle.type}`)}
+          {t(`enums.unitType.${vehicle.unitType}`, { defaultValue: vehicle.unitType })} · {t(`enums.teamFunction.${vehicle.type}`)}
         </p>
       </div>
 

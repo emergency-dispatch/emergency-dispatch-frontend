@@ -1,6 +1,7 @@
 // Mirror EmergencyDispatch.Application.DTOs.RescueUnit (enum trả về dạng chuỗi — JsonStringEnumConverter).
 
-export type RescueUnitType =
+/** 6 loại xe hệ thống (seed sẵn trong danh mục, không xóa được) — có icon / nhãn dịch riêng trên FE. */
+export type SystemRescueUnitType =
   | 'Ambulance'
   | 'FireTruck'
   | 'LadderTruck'
@@ -8,7 +9,14 @@ export type RescueUnitType =
   | 'HeavyRescueVehicle'
   | 'PolicePatrol';
 
-export const RESCUE_UNIT_TYPES: RescueUnitType[] = [
+/**
+ * Mã loại xe trong danh mục GET /api/rescue-unit-types (§31): ngoài 6 loại hệ thống, Admin có thể thêm mã mới
+ * (VD "WaterTanker") → không được giả định chỉ có 6 loại; tên hiển thị lấy từ danh mục theo mã.
+ */
+export type RescueUnitType = string;
+
+/** Danh sách dự phòng khi chưa tải được danh mục. */
+export const RESCUE_UNIT_TYPES: SystemRescueUnitType[] = [
   'FireTruck',
   'LadderTruck',
   'Ambulance',
@@ -51,6 +59,7 @@ export interface RescueUnitResponseDto {
   id: string;
   plateNumber: string;
   unitType: RescueUnitType;
+  /** Backend hiện trả đúng bằng mã (UnitType.ToString()), không phải tên — tên lấy từ danh mục. */
   unitTypeName: string;
   status: RescueUnitStatus;
   statusName: string;
