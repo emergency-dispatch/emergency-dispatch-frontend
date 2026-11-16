@@ -176,21 +176,54 @@ function simplifyRing(ring: Ring, toleranceM: number): Ring {
   return result.length >= 4 ? result : ring;
 }
 
+/** Hai đoạn thẳng cắt nhau thực sự (không tính chạm ở đầu mút). */
+function segmentsCross(a: LngLat, b: LngLat, c: LngLat, d: LngLat): boolean {
+  const cross = (o: LngLat, p: LngLat, q: LngLat) => (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]);
+  const d1 = cross(c, d, a);
+  const d2 = cross(c, d, b);
+  const d3 = cross(a, b, c);
+  const d4 = cross(a, b, d);
+  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+}
+
+/** Vòng tự cắt (hai cạnh không kề nhau cắt nhau) hoặc lặp đỉnh → PostGIS ST_IsValid = false, backend từ chối. */
+function ringSelfIntersects(ring: Ring): boolean {
+  const closed = closeRing(ring);
+  const n = closed.length - 1;
+  const seen = new Set<string>();
+  for (let i = 0; i < n; i++) {
+    const key = `${closed[i][0]},${closed[i][1]}`;
+    if (seen.has(key)) return true;
+    seen.add(key);
+  }
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue; // cạnh đầu và cạnh cuối kề nhau qua điểm khép vòng
+      if (segmentsCross(closed[i], closed[i + 1], closed[j], closed[j + 1])) return true;
+    }
+  }
+  return false;
+}
+
+/** Có vòng nào tự cắt không (kiểm tra trước khi gửi backend để báo lỗi rõ ràng). */
+export const boundarySelfIntersects = (polygons: PolygonCoords[]) => polygons.some((p) => p.some(ringSelfIntersects));
+
 /**
  * Rút gọn đa giác nhập vào (VD 374 đỉnh từ OpenStreetMap) còn ≤ `maxVertices` đỉnh để vẽ / kéo đỉnh không nặng:
- * tăng dần sai số cho phép (từ 2 m) tới khi đủ ít đỉnh. Lỗ bị co còn < 3 đỉnh thì bỏ.
+ * tăng dần sai số cho phép (từ 2 m) tới khi đủ ít đỉnh. Vòng nào rút gọn xong bị tự cắt thì giữ bản trước đó
+ * (chấp nhận dư đỉnh) để đa giác vẫn hợp lệ với PostGIS.
  */
 export function simplifyBoundary(polygons: PolygonCoords[], maxVertices = 80): PolygonCoords[] {
-  let tolerance = 2;
   let result = polygons;
-  while (boundaryVertexCount(result) > maxVertices && tolerance < 2000) {
-    result = polygons
-      .map(([outer, ...holes]) => [
-        simplifyRing(outer, tolerance),
-        ...holes.map((h) => simplifyRing(h, tolerance)).filter((h) => h.length >= 4),
-      ])
-      .filter((p) => isValidBoundary([p]));
-    tolerance *= 1.5;
+  for (let tolerance = 2; boundaryVertexCount(result) > maxVertices && tolerance < 2000; tolerance *= 1.2) {
+    result = result.map((polygon, pi) =>
+      polygon
+        .map((ring, ri) => {
+          const candidate = simplifyRing(polygons[pi][ri] ?? ring, tolerance);
+          // Bản rút gọn tự cắt → giữ vòng hiện tại (đã hợp lệ ở bước trước).
+          return candidate.length >= 4 && !ringSelfIntersects(candidate) ? candidate : ring;
+        })
+    );
   }
-  return result;
+  return result.filter((p) => isValidBoundary([p]));
 }

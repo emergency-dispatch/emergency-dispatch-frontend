@@ -197,6 +197,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     derivedCircle:
       'Center {{lat}}, {{lng}} · radius {{km}} km: computed to enclose the polygon, used only to display maps (e.g. the area circle on the Operator Live Map).',
     boundaryRequired: 'Draw at least one polygon (3+ vertices) on the map.',
+    boundarySelfIntersect: 'The polygon intersects itself (edges cross) — drag vertices so edges no longer cross, or redraw / re-import.',
     radius: 'Radius',
     radiusAria: 'Area radius (km)',
     radiusRange: 'From {{min}} to {{max}} km.',

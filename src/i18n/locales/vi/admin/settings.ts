@@ -196,6 +196,7 @@ export const adminSettingsVi = {
     derivedCircle:
       'Tâm {{lat}}, {{lng}} · bán kính {{km}} km: tự tính bao quanh đa giác, chỉ để hiển thị bản đồ (VD vòng khu vực trên Live Map của Operator).',
     boundaryRequired: 'Vẽ ít nhất một đa giác (từ 3 đỉnh) trên bản đồ.',
+    boundarySelfIntersect: 'Đa giác bị tự cắt (các cạnh cắt nhau) — kéo lại đỉnh cho cạnh không cắt nhau, hoặc vẽ / nhập lại.',
     radius: 'Bán kính',
     radiusAria: 'Bán kính khu vực (km)',
     radiusRange: 'Từ {{min}} đến {{max}} km.',

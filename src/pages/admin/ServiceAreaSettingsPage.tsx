@@ -5,6 +5,7 @@ import { sameSettings, toNumber } from '../../components/admin/settings/settings
 import { StationMapPicker, type MapReferenceArea, type MapReferenceStation } from '../../components/admin/stations/StationMapPicker';
 import {
   boundaryCircle,
+  boundarySelfIntersects,
   boundaryToGeoJson,
   boundaryVertexCount,
   haversineKm,
@@ -147,7 +148,15 @@ const ServiceAreaForm: React.FC<{
   const errors = validateServiceArea(values);
   const isPolygon = draft.shape === 'polygon';
   const polygonValid = isValidBoundary(draft.polygons);
-  const boundaryError = isPolygon && !polygonValid ? t('admin.settings.serviceArea.boundaryRequired') : null;
+  // PostGIS (ST_IsValid) từ chối đa giác tự cắt → chặn trước, báo rõ thay cho lỗi chung của backend.
+  const selfIntersects = isPolygon && polygonValid && boundarySelfIntersects(draft.polygons);
+  const boundaryError = !isPolygon
+    ? null
+    : !polygonValid
+      ? t('admin.settings.serviceArea.boundaryRequired')
+      : selfIntersects
+        ? t('admin.settings.serviceArea.boundarySelfIntersect')
+        : null;
   const dirty = !sameSettings(values, toSettings(initialDraft));
   const canSave = dirty && Object.keys(errors).length === 0 && !boundaryError;
   useUnsavedChangesGuard(dirty);
@@ -422,14 +431,15 @@ const ServiceAreaForm: React.FC<{
               }}
             />
           )}
-          {polygonValid ? (
+          {polygonValid && (
             <p className="font-mono-data text-sm text-slate-800">
               {t('admin.settings.serviceArea.polygonSummary', {
                 vertices: boundaryVertexCount(draft.polygons),
                 parts: draft.polygons.length,
               })}
             </p>
-          ) : (
+          )}
+          {boundaryError && (
             <p role="alert" className="text-[11px] font-medium text-red-600">
               {boundaryError}
             </p>
