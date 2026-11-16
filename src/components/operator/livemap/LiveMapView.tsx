@@ -17,7 +17,7 @@ import {
 } from './glowMarkers';
 import { MapMarker } from './MapMarker';
 import { TrafficJamPopup } from './TrafficJamPopup';
-import type { ActionResult } from '../../../context/DispatchContext';
+import { useDispatchStore, type ActionResult } from '../../../context/DispatchContext';
 import type { RescueUnitResponseDto } from '../../../types/rescueUnit';
 import { MapRouteLayer } from './MapRouteLayer';
 import { MapServiceAreaLayer } from './MapServiceAreaLayer';
@@ -106,6 +106,7 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam
   trafficJam,
 }) => {
   const { t } = useTranslation();
+  const { unitTypeLabel } = useDispatchStore();
   const team = useTeamByVehicle().get(vehicle.id);
   const statusMeta =
     vehicle.unitStatus === 'OutOfService'
@@ -130,7 +131,7 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam
         </div>
         <p className="flex items-center gap-1 text-xs text-slate-600 mt-0.5">
           <TypeIcon className="w-3.5 h-3.5 shrink-0" />
-          {t(`enums.unitType.${vehicle.unitType}`, { defaultValue: vehicle.unitType })} · {t(`enums.teamFunction.${vehicle.type}`)}
+          {unitTypeLabel(vehicle.unitType)} · {t(`enums.teamFunction.${vehicle.type}`)}
         </p>
       </div>
 

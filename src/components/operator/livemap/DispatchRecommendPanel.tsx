@@ -95,6 +95,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   );
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
+  const { unitTypeLabel } = useDispatchStore();
 
   useEffect(() => {
     setExtraMode(false);
@@ -437,7 +438,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                 count: fieldRequest.quantity,
                 type: fieldRequest.requestedUnitType
                   ? t('liveMap.fieldRequests.serveTypeSuffix', {
-                      type: t(`enums.unitType.${fieldRequest.requestedUnitType}`, { defaultValue: fieldRequest.requestedUnitType ?? '' }),
+                      type: unitTypeLabel(fieldRequest.requestedUnitType ?? ''),
                     })
                   : '',
               })}
@@ -631,7 +632,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                       // Xe hỗ trợ trạm khác: không xem được tổ → hiện theo xe.
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-slate-900 truncate">
-                          {t(`enums.unitType.${vehicle.unitType}`, { defaultValue: vehicle.unitType })}
+                          {unitTypeLabel(vehicle.unitType)}
                         </p>
                         <p className="text-[10px] text-slate-400 truncate">
                           <span className="font-mono-data">{vehicle.plate}</span>

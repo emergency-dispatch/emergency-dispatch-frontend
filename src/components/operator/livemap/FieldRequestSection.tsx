@@ -25,6 +25,7 @@ const FieldRequestCard: React.FC<FieldRequestCardProps> = ({
 }) => {
   const { acknowledgeFieldRequest, fulfillFieldRequest, declineFieldRequest } = useDispatchStore();
   const { t } = useTranslation();
+  const { unitTypeLabel } = useDispatchStore();
   const [mode, setMode] = useState<'idle' | 'fulfill' | 'decline'>('idle');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -58,7 +59,7 @@ const FieldRequestCard: React.FC<FieldRequestCardProps> = ({
     ? request.requestedUnitType
       ? t('liveMap.fieldRequests.backupType', {
           count: request.quantity,
-          type: t(`enums.unitType.${request.requestedUnitType}`, { defaultValue: request.requestedUnitType ?? '' }),
+          type: unitTypeLabel(request.requestedUnitType ?? ''),
         })
       : t('liveMap.fieldRequests.backup', { count: request.quantity })
     : t('liveMap.fieldRequests.other');

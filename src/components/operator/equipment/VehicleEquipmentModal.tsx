@@ -13,6 +13,7 @@ import { useNow } from '../../../hooks/useNow';
 import type { EquipmentDto } from '../../../types/equipment';
 import type { Vehicle } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
+import { useDispatchStore } from '../../../context/DispatchContext';
 
 interface VehicleEquipmentModalProps {
   vehicle: Vehicle;
@@ -43,6 +44,7 @@ export const VehicleEquipmentModal: React.FC<VehicleEquipmentModalProps> = ({
   onOpenTab,
 }) => {
   const { t } = useTranslation();
+  const { unitTypeLabel } = useDispatchStore();
   const now = useNow(60_000);
   const [notice, setNotice] = useState<NoticeState>(null);
   /** undefined = đóng · null = thêm mới · dto = sửa. */
@@ -57,7 +59,7 @@ export const VehicleEquipmentModal: React.FC<VehicleEquipmentModalProps> = ({
   const TypeIcon = VEHICLE_TYPE_META[vehicle.type].icon;
   const childOpen = editing !== undefined || !!statusTarget || !!deleteTarget;
   // Tính mỗi lần render để nhãn xe theo kịp khi đổi ngôn ngữ.
-  const unitOptions = vehicles.map(vehicleToUnitOption);
+  const unitOptions = vehicles.map((v) => vehicleToUnitOption(v, unitTypeLabel));
 
   // Esc đóng popup — trừ khi đang mở form / hộp thoại con bên trên.
   useEffect(() => {
@@ -105,7 +107,7 @@ export const VehicleEquipmentModal: React.FC<VehicleEquipmentModalProps> = ({
                 <VehicleStatusBadge label={status.label} color={status.color} />
               </div>
               <p className="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-1.5">
-                <span>{t(`enums.unitType.${vehicle.unitType}`, { defaultValue: vehicle.unitType })}</span>
+                <span>{unitTypeLabel(vehicle.unitType)}</span>
                 {teamName && (
                   <>
                     <span aria-hidden>·</span>

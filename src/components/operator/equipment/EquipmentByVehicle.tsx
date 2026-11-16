@@ -7,6 +7,7 @@ import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMet
 import type { EquipmentDto } from '../../../types/equipment';
 import type { Vehicle } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
+import { useDispatchStore } from '../../../context/DispatchContext';
 
 interface EquipmentByVehicleProps {
   /** Thiết bị đã lọc + sắp xếp. */
@@ -45,6 +46,7 @@ export const EquipmentByVehicle: React.FC<EquipmentByVehicleProps> = ({
   onDelete,
 }) => {
   const { t } = useTranslation();
+  const { unitTypeLabel } = useDispatchStore();
 
   const byUnit = new Map<string, EquipmentDto[]>();
   for (const e of items) {
@@ -86,7 +88,7 @@ export const EquipmentByVehicle: React.FC<EquipmentByVehicleProps> = ({
                 </div>
                 <p className="text-[11px] text-slate-500">
                   {g.vehicle
-                    ? t(`enums.unitType.${g.vehicle.unitType}`, { defaultValue: g.vehicle.unitType })
+                    ? unitTypeLabel(g.vehicle.unitType)
                     : isStock
                       ? t('vehicles.equipment.group.stockHint')
                       : null}

@@ -40,7 +40,8 @@ import {
 } from '../types/incident';
 import type { BackendDispatchStatus, DispatchAssignmentResponseDto } from '../types/dispatch';
 import type { RescueUnitResponseDto, RescueUnitType } from '../types/rescueUnit';
-import type { IncidentTypeDto } from '../types/typeCatalog';
+import type { IncidentTypeDto, RescueUnitTypeDto } from '../types/typeCatalog';
+import { unitTypeLabel as catalogUnitTypeLabel } from '../components/admin/fleetMeta';
 import { typeCatalogService } from '../services/typeCatalogService';
 import type { DispatchAlgorithm, DispatchVehicleType, Station, Vehicle, VehicleStatus } from '../types/vehicle';
 
@@ -74,13 +75,20 @@ const UNIT_STATUS_TO_VEHICLE_STATUS: Record<string, VehicleStatus> = {
   OutOfService: 'unavailable',
 };
 // Bối cảnh KCN/Khu CNC: Operator không điều xe tuần tra (PolicePatrol bị ẩn khỏi Live Map).
-const UNIT_TYPE_TO_VEHICLE_TYPE: Record<string, DispatchVehicleType | undefined> = {
+const UNIT_TYPE_TO_VEHICLE_TYPE: Record<string, DispatchVehicleType | null> = {
   Ambulance: 'ambulance',
   FireTruck: 'fire_truck',
   LadderTruck: 'fire_truck',
   HeavyRescueVehicle: 'rescue',
   RescueBoat: 'rescue',
+  PolicePatrol: null,
 };
+/**
+ * §31: loại xe là danh mục do Admin quản lý — loại mới (VD "WaterTanker") vẫn phải hiện và điều được trên Live Map
+ * → xếp vào nhóm cứu hộ chung (icon / bộ lọc), tên hiển thị lấy từ danh mục theo mã.
+ */
+const vehicleTypeOfUnit = (unitType: string): DispatchVehicleType | null =>
+  unitType in UNIT_TYPE_TO_VEHICLE_TYPE ? UNIT_TYPE_TO_VEHICLE_TYPE[unitType] : 'rescue';
 const BACKEND_ALGORITHM = { nearest: 'NearestAvailable', load_aware: 'LoadAware' } as const;
 
 /**
@@ -379,6 +387,10 @@ interface DispatchContextValue {
   serviceArea: ServiceAreaDto | null;
   /** §31–32: danh mục loại sự cố đang dùng (kèm kế hoạch điều xe theo mức); null = chưa tải được. */
   incidentTypes: IncidentTypeDto[] | null;
+  /** §31: danh mục loại xe đang dùng; null = chưa tải được (tên loại xe dùng nhãn dịch / mã). */
+  rescueUnitTypes: RescueUnitTypeDto[] | null;
+  /** Tên loại xe theo ngôn ngữ đang chọn: danh mục → nhãn dịch của 6 loại hệ thống → mã. */
+  unitTypeLabel: (code: string) => string;
   /**
    * BR-14 theo kế hoạch điều xe (§32): số xe tối đa không cần lý do + thành phần kế hoạch của mức đang áp dụng.
    * Chưa có kế hoạch / chưa tải được danh mục → giới hạn cũ (Cấp 1–2: 1 xe, Cấp 3: 5 xe).
@@ -434,6 +446,10 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [escalationTiers, setEscalationTiers] = useState<Map<string, number>>(new Map());
   const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(null);
   const [incidentTypes, setIncidentTypes] = useState<IncidentTypeDto[] | null>(null);
+  const [rescueUnitTypes, setRescueUnitTypes] = useState<RescueUnitTypeDto[] | null>(null);
+  // Handler SignalR đăng ký một lần → đọc danh mục mới nhất qua ref.
+  const rescueUnitTypesRef = useRef(rescueUnitTypes);
+  rescueUnitTypesRef.current = rescueUnitTypes;
   const [operatorAlerts, setOperatorAlerts] = useState<OperatorAlert[]>([]);
   const [supplementVersions, setSupplementVersions] = useState<Map<string, number>>(new Map());
   const [fieldRequests, setFieldRequests] = useState<FieldRequestDto[]>([]);
@@ -637,13 +653,17 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [highlight, announceIncoming]);
 
   // Poll dự phòng + sau khi nối lại SignalR: tải lại cả điểm ùn tắc và yêu cầu hiện trường (có thể lỡ sự kiện).
-  // Danh mục loại sự cố + kế hoạch điều xe: Admin sửa không phát sự kiện realtime → tải lại theo nhịp poll.
-  // Lỗi thì giữ bản cũ (null = dùng giới hạn cũ).
-  const reloadIncidentTypes = useCallback(() => {
+  // Danh mục loại sự cố (+ kế hoạch điều xe) và loại xe: Admin sửa không phát sự kiện realtime → tải lại theo nhịp poll.
+  // Lỗi thì giữ bản cũ (null = dùng giới hạn cũ / nhãn dịch).
+  const reloadCatalogs = useCallback(() => {
     typeCatalogService
       .listIncidentTypes(false)
       .then(setIncidentTypes)
       .catch((err) => console.warn('Không tải được danh mục loại sự cố:', err));
+    typeCatalogService
+      .listUnitTypes(false)
+      .then(setRescueUnitTypes)
+      .catch((err) => console.warn('Không tải được danh mục loại xe:', err));
   }, []);
 
   const refreshAll = useCallback(() => {
@@ -651,8 +671,10 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     refreshUnits();
     reloadTrafficJams();
     reloadFieldRequests();
-    reloadIncidentTypes();
-  }, [refreshBoard, refreshUnits, reloadTrafficJams, reloadFieldRequests, reloadIncidentTypes]);
+    reloadCatalogs();
+  }, [refreshBoard, refreshUnits, reloadTrafficJams, reloadFieldRequests, reloadCatalogs]);
+
+  const unitTypeLabel = useCallback((code: string) => catalogUnitTypeLabel(code, rescueUnitTypes), [rescueUnitTypes]);
 
   const vehicleLimitFor = useCallback<DispatchContextValue['vehicleLimitFor']>(
     (incident) => dispatchVehicleLimit(incident, incidentTypes),
@@ -955,7 +977,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                   ? i18n
                       .t('layout.operatorAlerts.fieldRequestBackupContent', {
                         count: r.quantity,
-                        type: r.requestedUnitType ? i18n.t(`enums.unitType.${r.requestedUnitType}`, { defaultValue: r.requestedUnitType ?? '' }) : '',
+                        type: r.requestedUnitType ? catalogUnitTypeLabel(r.requestedUnitType, rescueUnitTypesRef.current) : '',
                       })
                       .trim()
                   : (r.description ?? ''),
@@ -1049,7 +1071,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const vehicles = useMemo<Vehicle[]>(() => {
     const now = Date.now();
     return units.flatMap((unit) => {
-      const type = UNIT_TYPE_TO_VEHICLE_TYPE[unit.unitType];
+      const type = vehicleTypeOfUnit(unit.unitType);
       if (!type) return [];
       const assignment = activeAssignmentByUnit.get(unit.id);
       const live = positions.get(unit.id);
@@ -1562,6 +1584,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         serviceArea,
         incidentTypes,
         vehicleLimitFor,
+        rescueUnitTypes,
+        unitTypeLabel,
         operatorAlerts,
         dismissOperatorAlert,
         supplementVersions,

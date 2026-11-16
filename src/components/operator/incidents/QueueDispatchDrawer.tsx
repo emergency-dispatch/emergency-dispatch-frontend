@@ -48,6 +48,7 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
   const { incidents, vehicles, stations, escalatedIncidentIds, assignVehicle, vehicleLimitFor } = useDispatchStore();
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
+  const { unitTypeLabel } = useDispatchStore();
   const [algorithm, setAlgorithm] = useState<DispatchAlgorithm>('nearest');
   const [assigningVehicleId, setAssigningVehicleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -220,7 +221,7 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                                 <DispatchTeamLabel team={team} vehicle={vehicle} />
                               ) : (
                                 <p className="text-sm font-semibold text-slate-900 truncate">
-                                  {t(`enums.unitType.${vehicle.unitType}`, { defaultValue: vehicle.unitType })}{' '}
+                                  {unitTypeLabel(vehicle.unitType)}{' '}
                                   <span className="font-mono-data font-normal text-slate-500">{vehicle.plate}</span>
                                 </p>
                               )}
@@ -354,7 +355,7 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                                 // Xe hỗ trợ trạm khác: không xem được tổ → hiện theo xe.
                                 <div className="min-w-0">
                                   <p className="text-sm font-semibold text-slate-900 truncate">
-                                    {t(`enums.unitType.${vehicle.unitType}`, { defaultValue: vehicle.unitType })}
+                                    {unitTypeLabel(vehicle.unitType)}
                                   </p>
                                   <p className="text-xs text-slate-400 truncate">
                                     <span className="font-mono-data">{vehicle.plate}</span>

@@ -3,7 +3,7 @@ import { Building2, CheckCircle2, Clock, Loader2, Siren, Truck, Undo2, UserPlus 
 import { TRAFFIC_JAM_STATUS_COLOR } from '../../../data/liveMapMeta';
 import { OVERRIDE_REASON_MIN_LENGTH } from '../../../data/incidentMock';
 import { useNow } from '../../../hooks/useNow';
-import type { ActionResult } from '../../../context/DispatchContext';
+import { useDispatchStore, type ActionResult } from '../../../context/DispatchContext';
 import type { RescueUnitResponseDto } from '../../../types/rescueUnit';
 import type { TrafficJamReport } from '../../../types/incident';
 import { dateLocale, useTranslation } from '../../../i18n';
@@ -34,6 +34,7 @@ export const TrafficJamPopup: React.FC<TrafficJamPopupProps> = ({
   onResolve,
 }) => {
   const { t } = useTranslation();
+  const { unitTypeLabel } = useDispatchStore();
   const now = useNow();
   const [mode, setMode] = useState<Mode>('idle');
   const [unitId, setUnitId] = useState('');
@@ -143,7 +144,7 @@ export const TrafficJamPopup: React.FC<TrafficJamPopupProps> = ({
               >
                 {assignableUnits.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.plateNumber} · {t(`enums.unitType.${u.unitType}`, { defaultValue: u.unitType })}
+                    {u.plateNumber} · {unitTypeLabel(u.unitType)}
                   </option>
                 ))}
               </select>

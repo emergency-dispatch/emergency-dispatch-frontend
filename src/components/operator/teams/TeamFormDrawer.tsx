@@ -15,6 +15,7 @@ import {
 } from '../../../types/stationTeam';
 import type { DispatchVehicleType, Vehicle } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
+import { useDispatchStore } from '../../../context/DispatchContext';
 
 // Vai trò gợi ý khi tick chọn thành viên, theo loại xe tổ phụ trách.
 const DEFAULT_ROLE_BY_VEHICLE: Record<DispatchVehicleType, CrewRole> = {
@@ -44,6 +45,7 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
   onSaved,
 }) => {
   const { t } = useTranslation();
+  const { unitTypeLabel } = useDispatchStore();
   const [name, setName] = useState(team?.name ?? t('teams.form.defaultName', { index: stationTeams.length + 1 }));
   const [vehicleIds, setVehicleIds] = useState<string[]>(team?.vehicleIds ?? []);
   const [members, setMembers] = useState<TeamMember[]>(team?.members ?? []);
@@ -149,7 +151,7 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
                     className="accent-red-600"
                   />
                   <span className="flex-1 min-w-0 text-sm text-slate-900 truncate">
-                    <span className="font-mono-data font-bold">{v.plate}</span> · {t(`enums.unitType.${v.unitType}`, { defaultValue: v.unitType })}
+                    <span className="font-mono-data font-bold">{v.plate}</span> · {unitTypeLabel(v.unitType)}
                   </span>
                   {(otherTeam || busy) && (
                     <span className="text-[11px] text-slate-500 whitespace-nowrap">

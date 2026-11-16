@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { DrawerFooter, DrawerShell, FormField, Notice } from '../../admin/common/ui';
 import { inputClass, validatedInputClass } from '../../admin/common/styles';
-import { RESCUE_UNIT_TYPE_META } from '../../admin/fleetMeta';
+import { unitTypeIcon } from '../../admin/fleetMeta';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { liveMapService } from '../../../services/liveMapService';
 import { getApiErrorMessage } from '../../../services/apiClient';
@@ -22,14 +22,30 @@ interface VehicleFormDrawerProps {
 const PLATE_MAX_LENGTH = 50;
 
 // Bối cảnh KCN/Khu CNC: Operator không điều xe tuần tra (bị ẩn khỏi Live Map / Đội xe) nên không cho tạo.
-const OPERATOR_UNIT_TYPES = RESCUE_UNIT_TYPES.filter((t) => t !== 'PolicePatrol');
+const HIDDEN_UNIT_TYPE = 'PolicePatrol';
+// Danh mục chưa tải được → 5 loại hệ thống.
+const FALLBACK_UNIT_TYPES = RESCUE_UNIT_TYPES.filter((t) => t !== HIDDEN_UNIT_TYPE);
+const DEFAULT_UNIT_TYPE = 'FireTruck';
 
 /** Thêm / sửa xe của trạm Operator phụ trách. Trạm cố định; đổi trạng thái làm ở bảng, xóa / chuyển trạm do Admin. */
 export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ vehicle, stationId, stationName, onClose, onSaved }) => {
-  const { saveVehicle } = useDispatchStore();
+  const { saveVehicle, rescueUnitTypes, unitTypeLabel } = useDispatchStore();
   const { t } = useTranslation();
+  // §31: loại xe lấy từ danh mục (Operator chỉ nhận loại đang dùng). Loại hiện tại của xe (có thể đã bị Admin ẩn)
+  // vẫn giữ trong danh sách để không mất giá trị khi sửa biển số.
+  const activeTypes: RescueUnitType[] = rescueUnitTypes
+    ? rescueUnitTypes.map((u) => u.code).filter((c) => c !== HIDDEN_UNIT_TYPE)
+    : FALLBACK_UNIT_TYPES;
   const [plateNumber, setPlateNumber] = useState(vehicle?.plate ?? '');
-  const [unitType, setUnitType] = useState<RescueUnitType | null>(vehicle ? null : 'FireTruck');
+  // Thêm mới: '' = chưa chọn → mặc định Xe chữa cháy (hoặc loại đầu tiên nếu loại đó bị ẩn).
+  const [pickedType, setUnitType] = useState<RescueUnitType | null>(vehicle ? null : '');
+  const unitType =
+    pickedType === ''
+      ? activeTypes.includes(DEFAULT_UNIT_TYPE)
+        ? DEFAULT_UNIT_TYPE
+        : (activeTypes[0] ?? null)
+      : pickedType;
+  const typeOptions = unitType && !activeTypes.includes(unitType) ? [unitType, ...activeTypes] : activeTypes;
   const [plateTouched, setPlateTouched] = useState(false);
   // Biển số backend báo trùng — hiện dưới ô biển số cho tới khi người dùng sửa thành giá trị khác.
   const [duplicatePlate, setDuplicatePlate] = useState<string | null>(null);
@@ -107,9 +123,8 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ vehicle, s
           <p className="text-xs text-slate-500">{t('common.loading')}</p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {OPERATOR_UNIT_TYPES.map((type) => {
-              const meta = RESCUE_UNIT_TYPE_META[type];
-              const Icon = meta.icon;
+            {typeOptions.map((type) => {
+              const Icon = unitTypeIcon(type);
               const active = unitType === type;
               return (
                 <button
@@ -121,7 +136,7 @@ export const VehicleFormDrawer: React.FC<VehicleFormDrawerProps> = ({ vehicle, s
                   }`}
                 >
                   <Icon className="w-5 h-5" />
-                  {t(`enums.unitType.${type}`)}
+                  <span className="text-center leading-tight px-1">{unitTypeLabel(type)}</span>
                 </button>
               );
             })}
