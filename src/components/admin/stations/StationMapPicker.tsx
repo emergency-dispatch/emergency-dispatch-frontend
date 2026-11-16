@@ -29,6 +29,8 @@ export interface MapReferenceArea {
   lat: number;
   lng: number;
   radiusKm: number;
+  /** §33: ranh giới đa giác đã lưu — có thì vẽ đa giác thay cho vòng tròn tâm + bán kính. */
+  polygons?: PolygonCoords[];
 }
 
 const toReferenceCollection = (area: MapReferenceArea | null, stations: MapReferenceStation[]) => ({
@@ -40,9 +42,17 @@ const toReferenceCollection = (area: MapReferenceArea | null, stations: MapRefer
         ...buildCoveragePolygon(s.lat, s.lng, s.radiusKm),
         properties: { kind: 'station', color: s.inactive ? INACTIVE_STATION_COLOR : OTHER_STATION_COLOR },
       })),
-    ...(area && area.radiusKm > 0
-      ? [{ ...buildCoveragePolygon(area.lat, area.lng, area.radiusKm, 96), properties: { kind: 'area', color: SERVICE_AREA_COLOR } }]
-      : []),
+    ...(area?.polygons?.length
+      ? [
+          {
+            type: 'Feature' as const,
+            geometry: { type: 'MultiPolygon' as const, coordinates: area.polygons },
+            properties: { kind: 'area', color: SERVICE_AREA_COLOR },
+          },
+        ]
+      : area && area.radiusKm > 0
+        ? [{ ...buildCoveragePolygon(area.lat, area.lng, area.radiusKm, 96), properties: { kind: 'area', color: SERVICE_AREA_COLOR } }]
+        : []),
   ],
 });
 

@@ -20,6 +20,7 @@ import {
   type StationUpsertDto,
 } from '../../../types/station';
 import { useTranslation } from '../../../i18n';
+import { parseBoundary } from '../settings/serviceAreaBoundary';
 
 interface StationFormDrawerProps {
   initialStation: StationResponseDto | null;
@@ -78,7 +79,13 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
     const area = references.data?.area;
     // Tâm 0,0 = chưa cấu hình (xem ServiceAreaSettingsPage).
     if (!area || !area.enabled || area.radiusKm <= 0 || (area.centerLat === 0 && area.centerLng === 0)) return null;
-    return { lat: area.centerLat, lng: area.centerLng, radiusKm: area.radiusKm };
+    // §33: có đa giác ranh giới thì vẽ đúng đa giác (giống trang Khu vực phục vụ / Live Map).
+    return {
+      lat: area.centerLat,
+      lng: area.centerLng,
+      radiusKm: area.radiusKm,
+      polygons: parseBoundary(area.boundaryGeoJson),
+    };
   }, [references.data]);
   const referenceStations = useMemo<MapReferenceStation[]>(
     () =>
