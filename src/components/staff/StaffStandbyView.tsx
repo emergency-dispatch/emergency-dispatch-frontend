@@ -17,9 +17,12 @@ import {
   CheckCircle2,
   Sparkles,
   Car,
+  Shield,
 } from 'lucide-react';
 import type { StaffProfile, StaffMission } from '../../types/staff';
 import { StaffTrafficTaskCard, type ActiveTrafficTask } from './StaffTrafficTaskCard';
+import type { ServiceAreaDto } from '../../services/liveMapService';
+import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
 import {
   MAPBOX_ACCESS_TOKEN,
   MAPBOX_REALISTIC_STYLE,
@@ -35,6 +38,7 @@ interface StaffStandbyViewProps {
   activeTrafficTask?: ActiveTrafficTask | null;
   onResolveTrafficTask?: (hotspotId: string, note?: string) => Promise<boolean>;
   onOpenReportTrafficModal?: () => void;
+  serviceArea?: ServiceAreaDto | null;
   onSelectMission?: (mission: StaffMission) => void;
   onOpenHistory?: () => void;
 }
@@ -49,11 +53,13 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
   activeTrafficTask,
   onResolveTrafficTask,
   onOpenReportTrafficModal,
+  serviceArea,
   onSelectMission,
   onOpenHistory,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const trafficMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const [layerMode, setLayerMode] = useState<MapLayerMode>('satellite');
   const [is3DMode, setIs3DMode] = useState<boolean>(true);
   const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
@@ -103,6 +109,74 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
     }
   };
 
+  // Helper để thêm/cập nhật GeoJSON Ranh giới phục vụ của Trạm
+  const setupServiceAreaLayer = React.useCallback((map: mapboxgl.Map, area: ServiceAreaDto | null | undefined) => {
+    const SOURCE_ID = 'standby-service-area-source';
+    const FILL_ID = 'standby-service-area-fill';
+    const LINE_ID = 'standby-service-area-line';
+
+    const addOrUpdate = () => {
+      try {
+        const featureCollection = {
+          type: 'FeatureCollection' as const,
+          features:
+            area && area.enabled && area.radiusKm > 0
+              ? [
+                {
+                  type: 'Feature' as const,
+                  properties: { name: area.name ?? 'Ranh giới phục vụ trạm' },
+                  geometry: {
+                    type: 'Polygon' as const,
+                    coordinates: [circlePolygon(area.centerLat, area.centerLng, area.radiusKm)],
+                  },
+                },
+              ]
+              : [],
+        };
+
+        if (!map.getSource(SOURCE_ID)) {
+          map.addSource(SOURCE_ID, {
+            type: 'geojson',
+            data: featureCollection,
+          });
+
+          map.addLayer({
+            id: FILL_ID,
+            type: 'fill',
+            source: SOURCE_ID,
+            paint: {
+              'fill-color': '#2563EB',
+              'fill-opacity': 0.08,
+            },
+          });
+
+          map.addLayer({
+            id: LINE_ID,
+            type: 'line',
+            source: SOURCE_ID,
+            paint: {
+              'line-color': '#3B82F6',
+              'line-width': 2.2,
+              'line-opacity': 0.85,
+              'line-dasharray': [3, 2],
+            },
+          });
+        } else {
+          const src = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource;
+          src.setData(featureCollection);
+        }
+      } catch (err) {
+        console.warn('Standby Mapbox service area layer warning:', err);
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      addOrUpdate();
+    } else {
+      map.once('style.load', addOrUpdate);
+    }
+  }, []);
+
   useEffect(() => {
     if (!mapContainerRef.current) return;
     if (MAPBOX_ACCESS_TOKEN) {
@@ -121,6 +195,14 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
 
     map.on('error', (e) => {
       console.warn('Standby Mapbox notice:', e?.error?.message || e);
+    });
+
+    map.on('load', () => {
+      setupServiceAreaLayer(map, serviceArea);
+    });
+
+    map.on('style.load', () => {
+      setupServiceAreaLayer(map, serviceArea);
     });
 
     // Marker trạm trực chiến (Xanh lá sẵn sàng)
@@ -149,10 +231,101 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
 
     return () => {
       marker.remove();
+      if (trafficMarkerRef.current) {
+        trafficMarkerRef.current.remove();
+        trafficMarkerRef.current = null;
+      }
       map.remove();
       mapRef.current = null;
     };
   }, []);
+
+  // Cập nhật Service Area khi prop thay đổi
+  useEffect(() => {
+    if (mapRef.current) {
+      setupServiceAreaLayer(mapRef.current, serviceArea);
+    }
+  }, [serviceArea, setupServiceAreaLayer]);
+
+  // Cập nhật hoặc tạo Marker Điểm nghẽn giao thông (Traffic Hotspot Marker) trên bản đồ Standby
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (!activeTrafficTask) {
+      if (trafficMarkerRef.current) {
+        trafficMarkerRef.current.remove();
+        trafficMarkerRef.current = null;
+      }
+      return;
+    }
+
+    const { latitude, longitude, title, locationAddress, congestionLevelName, congestionLevel, taskNotes } =
+      activeTrafficTask;
+    if (!latitude || !longitude) return;
+
+    const isSevere =
+      congestionLevel === 'Blocked' ||
+      congestionLevel === 'Severe' ||
+      congestionLevelName === 'Blocked' ||
+      congestionLevelName === 'Severe';
+    const color = isSevere ? '#DC2626' : '#EA580C';
+    const badgeText = isSevere ? 'TẮC NGHẼN NẶNG' : 'ÙN TẮC GIAO THÔNG';
+
+    if (!trafficMarkerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'cursor-pointer select-none';
+      el.style.zIndex = '7';
+      el.innerHTML = `
+        <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
+          <div style="position: absolute; width: 48px; height: 48px; border-radius: 9999px; background: ${color}50; animation: ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+          
+          <div style="width: 38px; height: 38px; border-radius: 12px; background: ${color}; border: 2.5px solid #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px ${color}80; color: white;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 11.1 2 11.5 2 12v4c0 .6.4 1 1 1h2"/>
+              <circle cx="7" cy="17" r="2"/>
+              <path d="M9 17h6"/>
+              <circle cx="17" cy="17" r="2"/>
+            </svg>
+          </div>
+
+          <div style="margin-top: 4px; white-space: nowrap; background: #0F172A; color: #FDBA74; border: 1.5px solid ${color}; padding: 2px 7px; border-radius: 6px; font-family: monospace; font-size: 10px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 4px;">
+            <span style="width: 6px; height: 6px; border-radius: 9999px; background: ${color}; box-shadow: 0 0 6px ${color};"></span>
+            <span>${badgeText}</span>
+          </div>
+        </div>
+      `;
+
+      const popup = new mapboxgl.Popup({ offset: 25, closeButton: true }).setHTML(`
+        <div class="p-1 font-mono text-xs max-w-xs">
+          <div class="font-bold text-amber-600 text-sm flex items-center gap-1.5">
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 font-bold">NHIỆM VỤ GIẢI TỎA</span>
+            <span>${title}</span>
+          </div>
+          <div class="text-slate-800 mt-1 font-sans text-xs font-semibold">${locationAddress || 'Vị trí điểm nghẽn'}</div>
+          ${taskNotes ? `<div class="text-slate-600 mt-1 text-[11px] font-sans bg-amber-50 p-1.5 rounded border border-amber-200">📌 ${taskNotes}</div>` : ''}
+          <div class="text-slate-500 mt-1 text-[11px] font-mono">${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E</div>
+        </div>
+      `);
+
+      el.addEventListener('click', () => {
+        map.flyTo({
+          center: [longitude, latitude],
+          zoom: 16.5,
+          duration: 700,
+        });
+      });
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([longitude, latitude])
+        .setPopup(popup)
+        .addTo(map);
+
+      trafficMarkerRef.current = marker;
+    } else {
+      trafficMarkerRef.current.setLngLat([longitude, latitude]);
+    }
+  }, [activeTrafficTask]);
 
   const handleSwitchLayer = (newMode: MapLayerMode) => {
     if (!mapRef.current) return;
@@ -244,7 +417,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
                 </span>
               </div>
               <p className="text-xs text-amber-900 leading-relaxed">
-                Theo quy định <strong>BR-27</strong>: Sau khi tổ hoàn tất nghiệm thu ca sự cố, toàn bộ phương tiện ({profile.teamPlates?.length ? profile.teamPlates.join(', ') : (profile.vehiclePlate || 'xe kíp trực')}) tự động bước vào <strong>5 phút CoolDown</strong> để bảo dưỡng trang bị, nạp dưỡng khí và kiểm tra sẵn sàng trước khi CAD phát lệnh mới.
+                Theo quy định: Sau khi tổ hoàn tất nghiệm thu ca sự cố, toàn bộ phương tiện ({profile.teamPlates?.length ? profile.teamPlates.join(', ') : (profile.vehiclePlate || 'xe kíp trực')}) tự động bước vào <strong>5 phút CoolDown</strong> để bảo dưỡng trang bị, nạp dưỡng khí và kiểm tra sẵn sàng trước khi CAD phát lệnh mới.
               </p>
               <div className="w-full bg-amber-200 rounded-full h-1.5 overflow-hidden">
                 <div
@@ -397,40 +570,65 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
           <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1 shadow-xl flex items-center gap-1">
             <button
               onClick={() => handleSwitchLayer('satellite')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                layerMode === 'satellite' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${layerMode === 'satellite' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
             >
               VỆ TINH
             </button>
             <button
               onClick={() => handleSwitchLayer('dark')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                layerMode === 'dark' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${layerMode === 'dark' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
             >
               CAD TỐI
             </button>
             <button
               onClick={() => handleSwitchLayer('streets')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                layerMode === 'streets' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${layerMode === 'streets' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
             >
               ĐƯỜNG PHỐ
             </button>
           </div>
+
+          {/* Service Area Geofence Pill */}
+          {serviceArea && serviceArea.enabled && serviceArea.radiusKm > 0 && (
+            <div className="hidden sm:flex bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl px-2.5 py-1.5 text-blue-300 text-xs font-mono font-bold items-center gap-1.5 shadow-xl">
+              <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span>RANH GIỚI TRẠM: {serviceArea.name || `${serviceArea.radiusKm} km`}</span>
+            </div>
+          )}
+
+          {/* Quick Fly-to Traffic Hotspot Button (Mục 20) */}
+          {activeTrafficTask && (
+            <button
+              type="button"
+              onClick={() => {
+                if (mapRef.current && activeTrafficTask.longitude && activeTrafficTask.latitude) {
+                  mapRef.current.flyTo({
+                    center: [activeTrafficTask.longitude, activeTrafficTask.latitude],
+                    zoom: 16.5,
+                    duration: 700,
+                  });
+                }
+              }}
+              className="bg-amber-500 hover:bg-amber-400 border border-amber-300 rounded-xl px-2.5 py-1.5 text-slate-950 text-xs font-mono font-bold flex items-center gap-1.5 shadow-xl cursor-pointer active:scale-95 transition-all"
+              title="Bấm để bay camera tới điểm kẹt xe cần giải tỏa"
+            >
+              <Car className="w-3.5 h-3.5 text-slate-950 shrink-0" />
+              <span className="max-w-[130px] truncate">KẸT XE: {activeTrafficTask.title}</span>
+            </button>
+          )}
         </div>
 
         {/* 3D tilt switch */}
         <div className="absolute top-4 right-4 z-10">
           <button
             onClick={handleToggle3D}
-            className={`p-2.5 rounded-xl border shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer flex items-center justify-center font-mono font-bold text-xs ${
-              is3DMode
+            className={`p-2.5 rounded-xl border shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer flex items-center justify-center font-mono font-bold text-xs ${is3DMode
                 ? 'bg-red-600 text-white border-red-600'
                 : 'bg-white/95 hover:bg-white text-slate-700 border-slate-200'
-            }`}
+              }`}
             title="Đổi góc nghiêng 2D / 3D"
           >
             <Compass className={`w-5 h-5 ${is3DMode ? 'rotate-45 text-white' : ''}`} />
@@ -444,8 +642,15 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
             <span className="text-slate-400">TRẠNG THÁI:</span>
             <span className="font-bold text-emerald-400">TÚC TRỰC TẠI TRẠM SẴN SÀNG</span>
             <span className="text-slate-600">|</span>
-            <span className="text-slate-300">ĐANG LẮNG NGHE TỔNG ĐÀI CAD 114</span>
+            <span className="text-slate-300">ĐANG LẮNG NGHE TỔNG ĐÀI CAD</span>
           </div>
+
+          {serviceArea && serviceArea.enabled && serviceArea.radiusKm > 0 && (
+            <div className="flex sm:hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-blue-950/90 border border-blue-700/80 backdrop-blur-md text-[11px] font-mono text-blue-200 shadow-xl">
+              <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span>VÙNG PHỤC VỤ: {serviceArea.radiusKm} KM</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -16,8 +16,15 @@ import {
   ShieldAlert,
   Gauge,
   Clock,
+  Car,
+  Shield,
+  AlertTriangle,
 } from 'lucide-react';
 import type { StaffMission, TurnByTurnStep } from '../../types/staff';
+import type { ActiveTrafficTask } from './StaffTrafficTaskCard';
+import type { ServiceAreaDto } from '../../services/liveMapService';
+import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
+import { getDistanceFromLatLonInKm } from '../../pages/staff/utils/staffMissionUtils';
 import {
   MAPBOX_ACCESS_TOKEN,
   MAPBOX_REALISTIC_STYLE,
@@ -29,6 +36,9 @@ interface StaffNavigationMapProps {
   mission: StaffMission;
   currentStepIndex: number;
   onSelectStep?: (index: number) => void;
+  activeTrafficTask?: ActiveTrafficTask | null;
+  onResolveTrafficTask?: (hotspotId: string, note?: string) => Promise<boolean>;
+  serviceArea?: ServiceAreaDto | null;
 }
 
 type MapLayerMode = 'satellite' | 'dark' | 'streets';
@@ -49,6 +59,9 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
   mission,
   currentStepIndex,
   onSelectStep,
+  activeTrafficTask,
+  onResolveTrafficTask,
+  serviceArea,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -62,6 +75,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
   // Markers refs for update without full recreate
   const vehicleMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const incidentMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const trafficMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const stepMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const prevStepIndexRef = useRef<number>(currentStepIndex);
 
@@ -166,6 +180,82 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     }
   }, []);
 
+  // Helper để thêm/cập nhật GeoJSON Ranh giới phục vụ của Trạm (Service Area Geofence Boundary)
+  const setupServiceAreaLayer = useCallback((map: mapboxgl.Map, area: ServiceAreaDto | null | undefined) => {
+    const SOURCE_ID = 'staff-service-area-source';
+    const FILL_ID = 'staff-service-area-fill';
+    const LINE_ID = 'staff-service-area-line';
+
+    const addOrUpdate = () => {
+      try {
+        const featureCollection = {
+          type: 'FeatureCollection' as const,
+          features:
+            area && area.enabled && area.radiusKm > 0
+              ? [
+                  {
+                    type: 'Feature' as const,
+                    properties: { name: area.name ?? 'Ranh giới phục vụ trạm' },
+                    geometry: {
+                      type: 'Polygon' as const,
+                      coordinates: [circlePolygon(area.centerLat, area.centerLng, area.radiusKm)],
+                    },
+                  },
+                ]
+              : [],
+        };
+
+        if (!map.getSource(SOURCE_ID)) {
+          map.addSource(SOURCE_ID, {
+            type: 'geojson',
+            data: featureCollection,
+          });
+
+          // Lớp nền phủ mờ ranh giới trạm (0.08)
+          map.addLayer(
+            {
+              id: FILL_ID,
+              type: 'fill',
+              source: SOURCE_ID,
+              paint: {
+                'fill-color': '#2563EB',
+                'fill-opacity': 0.08,
+              },
+            },
+            map.getLayer('mission-route-glow') ? 'mission-route-glow' : undefined
+          );
+
+          // Lớp đường viền nét đứt ranh giới trạm
+          map.addLayer(
+            {
+              id: LINE_ID,
+              type: 'line',
+              source: SOURCE_ID,
+              paint: {
+                'line-color': '#3B82F6',
+                'line-width': 2.2,
+                'line-opacity': 0.85,
+                'line-dasharray': [3, 2],
+              },
+            },
+            map.getLayer('mission-route-glow') ? 'mission-route-glow' : undefined
+          );
+        } else {
+          const src = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource;
+          src.setData(featureCollection);
+        }
+      } catch (err) {
+        console.warn('Staff Mapbox service area layer warning:', err);
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      addOrUpdate();
+    } else {
+      map.once('style.load', addOrUpdate);
+    }
+  }, []);
+
   // 1. Khởi tạo Mapbox Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -197,6 +287,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
       setMapLoaded(true);
       map.resize();
       setupRouteLayers(map, routeCoordsLngLat);
+      setupServiceAreaLayer(map, serviceArea);
 
       // Fit bounds bao quát xe và địa điểm sự cố với padding thoáng
       const bounds = new mapboxgl.LngLatBounds();
@@ -213,6 +304,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
 
     map.on('style.load', () => {
       setupRouteLayers(map, routeCoordsLngLat);
+      setupServiceAreaLayer(map, serviceArea);
     });
 
     mapRef.current = map;
@@ -236,6 +328,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
       // Dọn dẹp markers
       if (vehicleMarkerRef.current) vehicleMarkerRef.current.remove();
       if (incidentMarkerRef.current) incidentMarkerRef.current.remove();
+      if (trafficMarkerRef.current) trafficMarkerRef.current.remove();
       stepMarkersRef.current.forEach((m) => m.remove());
       stepMarkersRef.current = [];
       map.remove();
@@ -487,6 +580,113 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     }
   }, [routeCoordsLngLat, mapLoaded, setupRouteLayers]);
 
+  // 10. Cập nhật Service Area Layer khi serviceArea prop thay đổi
+  useEffect(() => {
+    if (mapRef.current && mapLoaded) {
+      setupServiceAreaLayer(mapRef.current, serviceArea);
+    }
+  }, [serviceArea, mapLoaded, setupServiceAreaLayer]);
+
+  // 11. Cập nhật hoặc tạo Marker Điểm nghẽn giao thông (Traffic Hotspot Marker - Mục 20)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (!activeTrafficTask) {
+      if (trafficMarkerRef.current) {
+        trafficMarkerRef.current.remove();
+        trafficMarkerRef.current = null;
+      }
+      return;
+    }
+
+    const { latitude, longitude, title, locationAddress, congestionLevelName, congestionLevel, taskNotes } =
+      activeTrafficTask;
+    if (!latitude || !longitude) return;
+
+    const isSevere =
+      congestionLevel === 'Blocked' ||
+      congestionLevel === 'Severe' ||
+      congestionLevelName === 'Blocked' ||
+      congestionLevelName === 'Severe';
+    const color = isSevere ? '#DC2626' : '#EA580C';
+    const badgeText = isSevere ? 'TẮC NGHẼN NẶNG' : 'ÙN TẮC GIAO THÔNG';
+
+    if (!trafficMarkerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'cursor-pointer select-none';
+      el.style.zIndex = '7';
+      el.innerHTML = `
+        <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
+          <div style="position: absolute; width: 48px; height: 48px; border-radius: 9999px; background: ${color}50; animation: ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+          
+          <div style="width: 38px; height: 38px; border-radius: 12px; background: ${color}; border: 2.5px solid #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px ${color}80; color: white;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 11.1 2 11.5 2 12v4c0 .6.4 1 1 1h2"/>
+              <circle cx="7" cy="17" r="2"/>
+              <path d="M9 17h6"/>
+              <circle cx="17" cy="17" r="2"/>
+            </svg>
+          </div>
+
+          <div style="margin-top: 4px; white-space: nowrap; background: #0F172A; color: #FDBA74; border: 1.5px solid ${color}; padding: 2px 7px; border-radius: 6px; font-family: monospace; font-size: 10px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 4px;">
+            <span style="width: 6px; height: 6px; border-radius: 9999px; background: ${color}; box-shadow: 0 0 6px ${color};"></span>
+            <span>${badgeText}</span>
+          </div>
+        </div>
+      `;
+
+      const popup = new mapboxgl.Popup({ offset: 25, closeButton: true }).setHTML(`
+        <div class="p-1 font-mono text-xs max-w-xs">
+          <div class="font-bold text-amber-600 text-sm flex items-center gap-1.5">
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 font-bold">NHIỆM VỤ GIẢI TỎA</span>
+            <span>${title}</span>
+          </div>
+          <div class="text-slate-800 mt-1 font-sans text-xs font-semibold">${locationAddress || 'Vị trí điểm nghẽn'}</div>
+          ${taskNotes ? `<div class="text-slate-600 mt-1 text-[11px] font-sans bg-amber-50 p-1.5 rounded border border-amber-200">📌 ${taskNotes}</div>` : ''}
+          <div class="text-slate-500 mt-1 text-[11px] font-mono">${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E</div>
+        </div>
+      `);
+
+      el.addEventListener('click', () => {
+        map.flyTo({
+          center: [longitude, latitude],
+          zoom: 16.5,
+          duration: 700,
+        });
+      });
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([longitude, latitude])
+        .setPopup(popup)
+        .addTo(map);
+
+      trafficMarkerRef.current = marker;
+    } else {
+      trafficMarkerRef.current.setLngLat([longitude, latitude]);
+    }
+  }, [activeTrafficTask]);
+
+  // 12. Tính toán vị trí xe so với Ranh giới phục vụ của Trạm (Geofence status)
+  const geofenceInfo = React.useMemo(() => {
+    if (!serviceArea || !serviceArea.enabled || serviceArea.radiusKm <= 0) {
+      return null;
+    }
+    const dist = getDistanceFromLatLonInKm(
+      mission.vehicleLat,
+      mission.vehicleLng,
+      serviceArea.centerLat,
+      serviceArea.centerLng
+    );
+    const isInside = dist <= serviceArea.radiusKm;
+    return {
+      isInside,
+      distKm: dist.toFixed(1),
+      radiusKm: serviceArea.radiusKm,
+      name: serviceArea.name || 'Địa bàn quản lý trạm',
+    };
+  }, [serviceArea, mission.vehicleLat, mission.vehicleLng]);
+
   // Mở Google Maps điều hướng ngoài
   const openGoogleMaps = () => {
     const url = `https://www.google.com/maps/dir/?api=1&origin=${mission.vehicleLat},${mission.vehicleLng}&destination=${mission.incidentLat},${mission.incidentLng}&travelmode=driving`;
@@ -711,6 +911,27 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
             <span>ĐƯỜNG PHỐ</span>
           </button>
         </div>
+
+        {/* Quick Fly-to Traffic Hotspot Button (Mục 20) */}
+        {activeTrafficTask && (
+          <button
+            type="button"
+            onClick={() => {
+              if (mapRef.current && activeTrafficTask.longitude && activeTrafficTask.latitude) {
+                mapRef.current.flyTo({
+                  center: [activeTrafficTask.longitude, activeTrafficTask.latitude],
+                  zoom: 16.5,
+                  duration: 700,
+                });
+              }
+            }}
+            className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 border border-amber-300 text-slate-950 shadow-xl backdrop-blur-md text-xs font-mono font-bold flex items-center gap-1.5 pointer-events-auto cursor-pointer transition-all active:scale-95"
+            title="Bấm để bay camera tới Điểm nghẽn giao thông cần giải tỏa"
+          >
+            <Car className="w-3.5 h-3.5 text-slate-950 shrink-0" />
+            <span className="max-w-[140px] truncate">KẸT XE: {activeTrafficTask.title}</span>
+          </button>
+        )}
       </div>
 
       {/* Floating Bottom HUD Status Pill (Desktop & Tablet) */}
@@ -725,6 +946,22 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
           <span className="hidden sm:inline text-slate-600">|</span>
           <span className="hidden sm:inline text-emerald-400 font-bold">12 VỆ TINH KHÓA</span>
         </div>
+
+        {/* Geofence Boundary Status Pill (Mục GIS Geofence) */}
+        {geofenceInfo && (
+          <div
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl border backdrop-blur-md text-xs font-mono font-bold shadow-xl pointer-events-auto ${
+              geofenceInfo.isInside
+                ? 'bg-blue-950/90 text-blue-200 border-blue-700/80'
+                : 'bg-amber-950/90 text-amber-200 border-amber-600 animate-pulse'
+            }`}
+            title={`Khoảng cách đến tâm trạm: ${geofenceInfo.distKm} km • Bán kính phục vụ: ${geofenceInfo.radiusKm} km`}
+          >
+            <Shield className={`w-3.5 h-3.5 shrink-0 ${geofenceInfo.isInside ? 'text-blue-400' : 'text-amber-400'}`} />
+            <span>{geofenceInfo.isInside ? 'TRONG RANH GIỚI TRẠM' : 'NGOÀI RANH GIỚI TRẠM'}</span>
+            <span className="text-[10px] text-slate-400 font-normal">({geofenceInfo.radiusKm}km)</span>
+          </div>
+        )}
 
         {/* Distance & ETA remaining pill */}
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-600/95 border border-red-500 text-white backdrop-blur-md text-xs font-mono font-bold shadow-xl shadow-red-600/25 pointer-events-auto">

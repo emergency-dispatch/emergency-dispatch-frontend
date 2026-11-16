@@ -10,7 +10,7 @@ import { incidentHubService, trackingHubService, HubEvents } from '../../../serv
 import { staffAudioService } from '../../../services/staffAudioService';
 import { routingService } from '../../../services/routingService';
 import { mediaService } from '../../../services/mediaService';
-import { liveMapService, type TrafficTaskEventDto, type ReportTrafficHotspotDto } from '../../../services/liveMapService';
+import { liveMapService, type TrafficTaskEventDto, type ReportTrafficHotspotDto, type ServiceAreaDto } from '../../../services/liveMapService';
 import type { ActiveTrafficTask } from '../../../components/staff/StaffTrafficTaskCard';
 import type { FieldRequestDto, CreateFieldRequestDto, FieldRequestEventDto } from '../../../types/fieldRequest';
 import type { IncidentSupplementDto } from '../../../types/incident';
@@ -93,6 +93,17 @@ export const useStaffMission = ({
   // §21.4: Bổ sung thông tin / ảnh hiện trường từ người dân (Incident Supplements)
   const [supplements, setSupplements] = useState<IncidentSupplementDto[]>([]);
   const [loadingSupplements, setLoadingSupplements] = useState<boolean>(false);
+
+  // GIS Service Area Geofence Boundary (§12 & §20)
+  const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(null);
+
+  useEffect(() => {
+    liveMapService.getServiceArea()
+      .then((area) => {
+        if (area) setServiceArea(area);
+      })
+      .catch((err) => console.warn('[useStaffMission] ServiceArea load notice:', err));
+  }, []);
 
   const fetchSupplements = useCallback(async (incidentId: string) => {
     if (!isGuid(incidentId)) return;
@@ -1178,6 +1189,8 @@ export const useStaffMission = ({
     setIsReportTrafficModalOpen,
     handleResolveTrafficTask,
     handleReportTrafficHotspot,
+    // GIS Service Area Geofence Boundary
+    serviceArea,
     // Operations
     fetchMyAssignments,
     handleStatusChange,

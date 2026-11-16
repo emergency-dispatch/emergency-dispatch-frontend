@@ -58,6 +58,7 @@ export const StaffPage: React.FC = () => {
     setIsReportTrafficModalOpen,
     handleResolveTrafficTask,
     handleReportTrafficHotspot,
+    serviceArea,
     fetchMyAssignments,
     handleStatusChange,
     handleNextStep,
@@ -121,6 +122,7 @@ export const StaffPage: React.FC = () => {
               onOpenReportTrafficModal={() => setIsReportTrafficModalOpen(true)}
               onCreateFieldRequest={handleCreateFieldRequest}
               onCancelFieldRequest={handleCancelFieldRequest}
+              serviceArea={serviceArea}
               profile={profile}
               completedMissions={missionHistory}
               onRefresh={() => fetchMyAssignments(false)}

@@ -3,6 +3,7 @@ import type { StaffMission, MissionStatus, StaffProfile } from '../../../types/s
 import type { FieldRequestDto, CreateFieldRequestDto } from '../../../types/fieldRequest';
 import type { IncidentSupplementDto } from '../../../types/incident';
 import type { ActiveTrafficTask } from '../../../components/staff/StaffTrafficTaskCard';
+import type { ServiceAreaDto } from '../../../services/liveMapService';
 import { StaffActiveMissionView } from './StaffActiveMissionView';
 import { StaffStandbyView } from '../../../components/staff/StaffStandbyView';
 import { Radio } from 'lucide-react';
@@ -22,6 +23,7 @@ interface StaffMissionTabProps {
   onOpenReportTrafficModal?: () => void;
   onCreateFieldRequest?: (dto: CreateFieldRequestDto) => Promise<boolean>;
   onCancelFieldRequest?: (requestId: string, note?: string) => Promise<boolean>;
+  serviceArea?: ServiceAreaDto | null;
   profile: StaffProfile;
   completedMissions: StaffMission[];
   onRefresh: () => void;
@@ -49,6 +51,7 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
   onOpenReportTrafficModal,
   onCreateFieldRequest,
   onCancelFieldRequest,
+  serviceArea,
   profile,
   completedMissions,
   onRefresh,
@@ -75,6 +78,7 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
         onOpenReportTrafficModal={onOpenReportTrafficModal}
         onCreateFieldRequest={onCreateFieldRequest}
         onCancelFieldRequest={onCancelFieldRequest}
+        serviceArea={serviceArea}
         onRefresh={onRefresh}
         onViewStandby={() => setIsViewingStandby(true)}
         onStatusChange={onStatusChange}
@@ -122,6 +126,7 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
         activeTrafficTask={activeTrafficTask}
         onResolveTrafficTask={onResolveTrafficTask}
         onOpenReportTrafficModal={onOpenReportTrafficModal}
+        serviceArea={serviceArea}
         onSelectMission={onSelectStandbyMission}
         onOpenHistory={onOpenHistory}
       />

@@ -323,7 +323,7 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
 
   const handleConfirmDecline = () => {
     if (declineReason === 'Other' && declineNotes.trim().length < 5) {
-      setDeclineError('Khi chọn "Lý do khác", bắt buộc nhập ghi chú tối thiểu 5 ký tự (theo quy định BR-22).');
+      setDeclineError('Khi chọn "Lý do khác", bắt buộc nhập ghi chú tối thiểu 5 ký tự.');
       return;
     }
     setDeclineError(null);

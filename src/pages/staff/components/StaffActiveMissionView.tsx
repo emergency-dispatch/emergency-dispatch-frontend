@@ -10,6 +10,7 @@ import { StaffIncidentCard } from './StaffIncidentCard';
 import { isGuid } from '../utils/staffMissionUtils';
 import type { FieldRequestDto, CreateFieldRequestDto } from '../../../types/fieldRequest';
 import type { IncidentSupplementDto } from '../../../types/incident';
+import type { ServiceAreaDto } from '../../../services/liveMapService';
 import {
   Radio,
   EyeOff,
@@ -35,6 +36,7 @@ interface StaffActiveMissionViewProps {
   onOpenReportTrafficModal?: () => void;
   onCreateFieldRequest?: (dto: CreateFieldRequestDto) => Promise<boolean>;
   onCancelFieldRequest?: (requestId: string, note?: string) => Promise<boolean>;
+  serviceArea?: ServiceAreaDto | null;
   onRefresh: () => void;
   onViewStandby: () => void;
   onStatusChange: (nextStatus: MissionStatus) => void;
@@ -59,6 +61,7 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
   onOpenReportTrafficModal,
   onCreateFieldRequest,
   onCancelFieldRequest,
+  serviceArea,
   onRefresh,
   onViewStandby,
   onStatusChange,
@@ -390,6 +393,9 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
             mission={mission}
             currentStepIndex={mission.currentStepIndex}
             onSelectStep={onSelectStep}
+            activeTrafficTask={activeTrafficTask}
+            onResolveTrafficTask={onResolveTrafficTask}
+            serviceArea={serviceArea}
           />
         </div>
       </div>
