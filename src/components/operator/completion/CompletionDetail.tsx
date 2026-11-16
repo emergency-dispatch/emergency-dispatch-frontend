@@ -11,6 +11,7 @@ import { formatDateTime, formatWaitDuration } from '../../../utils/incidentForma
 import type { DispatchAssignmentResponseDto } from '../../../types/dispatch';
 import type { Incident } from '../../../types/incident';
 import { dateLocale, useTranslation } from '../../../i18n';
+import { useDispatchStore } from '../../../context/DispatchContext';
 
 // Viền sáng của thẻ tổ vừa nghiệm thu trong lúc đang xem.
 const JUST_SIGNED_MS = 4000;
@@ -43,6 +44,7 @@ export const CompletionDetail: React.FC<CompletionDetailProps> = ({
   now,
 }) => {
   const { t } = useTranslation();
+  const { incidentKindLabel } = useDispatchStore();
   const navigate = useNavigate();
   const [showHistory, setShowHistory] = useState(false);
   const [lightbox, setLightbox] = useState<{
@@ -103,7 +105,7 @@ export const CompletionDetail: React.FC<CompletionDetailProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1 text-xs font-bold" style={{ color: category.color }}>
                 <CategoryIcon className="w-3.5 h-3.5" />
-                {t(`enums.category.${incident.category}`)}
+                {incidentKindLabel(incident)}
               </span>
               <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
               <span

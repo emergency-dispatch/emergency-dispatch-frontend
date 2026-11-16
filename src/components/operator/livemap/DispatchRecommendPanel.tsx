@@ -21,7 +21,7 @@ import { LinkedReportsPanel } from '../incidents/LinkedReportsPanel';
 import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
 import { INCIDENT_CATEGORY_META, OVERRIDE_REASON_MIN_LENGTH } from '../../../data/incidentMock';
-import { DISPATCH_ALGORITHM_META, MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
+import { DISPATCH_ALGORITHM_META } from '../../../data/dispatchConfig';
 import { useDispatchStore, type AssignOptions } from '../../../context/DispatchContext';
 import { useDispatchRecommendations } from '../../../hooks/useDispatchRecommendations';
 import { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
@@ -30,6 +30,7 @@ import type { DispatchAlgorithm } from '../../../types/vehicle';
 import type { FieldRequestDto } from '../../../types/fieldRequest';
 import { getBusyTeamIds } from '../../../utils/teamAvailability';
 import { useTranslation } from '../../../i18n';
+import { AutoDispatchNotice } from '../incidents/AutoDispatchInfo';
 
 interface DispatchRecommendPanelProps {
   selectedIncidentId: string | null;
@@ -69,6 +70,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     currentOperatorId,
     supplementVersions,
     assignForFieldRequest,
+    vehicleLimitFor,
   } = useDispatchStore();
   // Xe đã chọn / lỗi gắn với id yêu cầu → đổi yêu cầu là tự bỏ, không cần effect reset.
   const [requestSelection, setRequestSelection] = useState<{ requestId: string; ids: string[] }>({ requestId: '', ids: [] });
@@ -94,6 +96,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   );
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
+  const { incidentKindLabel } = useDispatchStore();
+  const { unitTypeLabel } = useDispatchStore();
 
   useEffect(() => {
     setExtraMode(false);
@@ -112,7 +116,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   );
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
 
-  const maxVehicles = selectedIncident ? MAX_VEHICLES_BY_LEVEL[selectedIncident.severity] : 1;
+  // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
+  const maxVehicles = selectedIncident ? vehicleLimitFor(selectedIncident).max : 1;
   const activeCount = selectedIncident
     ? selectedIncident.assignedVehicleIds.length - selectedIncident.reportedVehicleIds.length
     : 0;
@@ -320,8 +325,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
           currentOperatorId={currentOperatorId}
           activeVehicleCount={activeCount}
           onClose={() => setSeverityOpen(false)}
-          onSubmit={(severity, category, reason) =>
-            changeIncidentSeverity(selectedIncident.id, severity, category, reason)
+          onSubmit={(severity, category, reason, incidentTypeCode) =>
+            changeIncidentSeverity(selectedIncident.id, severity, category, reason, incidentTypeCode)
           }
           onDone={(message) => {
             setSeverityOpen(false);
@@ -345,7 +350,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
           <>
             <div className="flex items-center gap-1.5 mb-1">
               <category.icon className="w-3.5 h-3.5 shrink-0" style={{ color: category.color }} />
-              <span className="text-[10px] font-bold" style={{ color: category.color }}>{t(`enums.category.${selectedIncident.category}`)}</span>
+              <span className="text-[10px] font-bold" style={{ color: category.color }}>{incidentKindLabel(selectedIncident)}</span>
               <SeverityBadge severity={selectedIncident.severity} unclassified={selectedIncident.aiUnclassified} />
               <SourceChip source={selectedIncident.source} />
               {isEscalated && (
@@ -356,6 +361,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
             </div>
             <p className="text-sm font-bold text-slate-900 truncate leading-snug">{selectedIncident.title}</p>
             <p className="text-[10px] text-slate-500 truncate mt-0.5">{selectedIncident.area}</p>
+            <AutoDispatchNotice incident={selectedIncident} className="mt-2" />
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               <button
                 onClick={() => setHistoryOpen(true)}
@@ -435,7 +441,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                 count: fieldRequest.quantity,
                 type: fieldRequest.requestedUnitType
                   ? t('liveMap.fieldRequests.serveTypeSuffix', {
-                      type: t(`enums.unitType.${fieldRequest.requestedUnitType}`, { defaultValue: fieldRequest.requestedUnitType ?? '' }),
+                      type: unitTypeLabel(fieldRequest.requestedUnitType ?? ''),
                     })
                   : '',
               })}
@@ -629,7 +635,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                       // Xe hỗ trợ trạm khác: không xem được tổ → hiện theo xe.
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-slate-900 truncate">
-                          {t(`enums.unitType.${vehicle.unitType}`, { defaultValue: vehicle.unitType })}
+                          {unitTypeLabel(vehicle.unitType)}
                         </p>
                         <p className="text-[10px] text-slate-400 truncate">
                           <span className="font-mono-data">{vehicle.plate}</span>

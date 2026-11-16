@@ -17,7 +17,7 @@ import {
   type PlanDraft,
   type PlanRowDraft,
 } from './catalogMeta';
-import { typeCatalogService } from '../../../services/admin/typeCatalogService';
+import { typeCatalogService } from '../../../services/typeCatalogService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import type { DispatchPlanSeverity, IncidentTypeDto, RescueUnitTypeDto } from '../../../types/typeCatalog';
 import { useTranslation } from '../../../i18n';

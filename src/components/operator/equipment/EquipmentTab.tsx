@@ -29,6 +29,7 @@ import {
 } from '../../../types/equipment';
 import type { Vehicle } from '../../../types/vehicle';
 import { dateLocale, useTranslation } from '../../../i18n';
+import { useDispatchStore } from '../../../context/DispatchContext';
 
 type EquipmentView = 'table' | 'vehicle';
 
@@ -61,9 +62,10 @@ export const EquipmentTab: React.FC<EquipmentTabProps> = ({ title, tabs, station
   const [deleteTarget, setDeleteTarget] = useState<EquipmentDto | null>(null);
 
   const { items, loading, error, loadedAt, reload, upsert, removeLocal } = equipment;
+  const { unitTypeLabel } = useDispatchStore();
   const vehicleById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
   // Tính mỗi lần render (danh sách nhỏ) để nhãn loại / trạng thái xe theo kịp khi đổi ngôn ngữ.
-  const unitOptions = vehicles.map(vehicleToUnitOption);
+  const unitOptions = vehicles.map((v) => vehicleToUnitOption(v, unitTypeLabel));
   const unitById = new Map(unitOptions.map((u) => [u.id, u]));
 
   const unitParam = params.get('unit') ?? '';

@@ -149,6 +149,7 @@ export const liveMapVi = {
     addressHint: 'Tự điền theo ghim. Hoặc gõ địa chỉ người báo đọc rồi chọn gợi ý (chỉ trong {{area}}).',
     outOfAreaTitle: 'Ngoài phạm vi cứu hộ',
     outOfAreaBody: 'Vị trí cách {{area}} {{km}} km (vùng phục vụ bán kính {{radius}} km). Không thể tạo sự cố ngoài khu vực — hướng dẫn người báo gọi 114 / 115.',
+    outOfAreaBodyPolygon: 'Vị trí cách ranh giới {{area}} {{km}} km. Không thể tạo sự cố ngoài khu vực — hướng dẫn người báo gọi 114 / 115.',
     resolvingAddress: 'Đang lấy địa chỉ…',
     duplicateTitle: 'Có {{count}} sự cố đang mở gần đây — có thể trùng',
     duplicateMeta: 'cách {{distance}} m · {{minutes}} phút trước',
@@ -308,5 +309,9 @@ export const liveMapVi = {
     level3Full: 'Sự cố Cấp 3 đã đủ {{max}} xe — không giao thêm được. Từ chối yêu cầu kèm lý do hoặc rút bớt xe.',
     level3Remaining: 'Cấp 3 tối đa {{max}} xe — chỉ còn giao được {{count}} xe.',
     served: 'Đã giao xe và đáp ứng yêu cầu chi viện.',
+  },
+  // §32: kế hoạch điều xe theo mức của loại sự cố.
+  plan: {
+    label: 'Kế hoạch Cấp {{level}}:',
   },
 } as const;

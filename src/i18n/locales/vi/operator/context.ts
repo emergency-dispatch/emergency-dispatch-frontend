@@ -13,7 +13,7 @@ export const contextVi = {
   lockFailed: 'Không thể nhận ca xử lý.',
   incidentOrVehicleNotFound: 'Không tìm thấy sự cố hoặc xe.',
   vehicleNotAvailable: 'Xe {{plate}} không còn sẵn sàng.',
-  singleVehicleOnly: 'Sự cố Cấp 1–2 chỉ được giao 1 xe.',
+  levelVehicleLimit: 'Sự cố Cấp {{level}} được giao {{max}} xe theo kế hoạch điều xe; giao thêm phải ghi lý do.',
   maxVehicles: 'Sự cố Cấp 3 được giao tối đa {{max}} xe.',
   assignFailed: 'Giao xe thất bại.',
   noActiveAssignment: 'Xe không có lượt điều phối đang chạy.',

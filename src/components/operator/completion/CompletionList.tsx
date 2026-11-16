@@ -21,6 +21,7 @@ import {
   type CompletionTab,
 } from './completionGroups';
 import { useTranslation } from '../../../i18n';
+import { useDispatchStore } from '../../../context/DispatchContext';
 
 /** Viên tổ trên dòng danh sách — tối đa 3 viên, còn lại gộp "+N". */
 const MAX_PILLS = 3;
@@ -222,6 +223,7 @@ const CompletionListRow: React.FC<{ row: CompletionRow; isSelected: boolean; onC
   now,
 }) => {
   const { t } = useTranslation();
+  const { incidentKindLabel } = useDispatchStore();
   const { incident, groups, completedAt } = row;
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
@@ -258,7 +260,7 @@ const CompletionListRow: React.FC<{ row: CompletionRow; isSelected: boolean; onC
       <div className="flex items-center gap-2.5 mt-1 text-[11px] min-w-0">
         <span className="inline-flex items-center gap-1 font-semibold shrink-0" style={{ color: category.color }}>
           <CategoryIcon className="w-3 h-3" />
-          {t(`enums.category.${incident.category}`)}
+          {incidentKindLabel(incident)}
         </span>
         <span className="inline-flex items-center gap-1 text-slate-500 min-w-0">
           <MapPin className="w-3 h-3 shrink-0 text-slate-400" />

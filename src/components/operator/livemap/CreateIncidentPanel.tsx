@@ -30,6 +30,7 @@ import {
 import type { NearbyIncident } from '../../../utils/nearbyIncidents';
 import type { PickedPoint } from './MapPickLocation';
 import i18n, { useTranslation } from '../../../i18n';
+import { IncidentTypePicker } from '../incidents/IncidentTypePicker';
 
 // Khớp CreateOperatorIncidentDtoValidator của backend.
 const NOTES_MIN_LENGTH = 5;
@@ -104,6 +105,8 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
 
   const [source, setSource] = useState<OperatorIncidentSource | null>(null);
   const [category, setCategory] = useState<ConfirmableCategory | null>(null);
+  // §31: loại chi tiết trong nhóm (mặc định loại chung của nhóm, mã trùng tên nhóm).
+  const [typeCode, setTypeCode] = useState<string | null>(null);
   const [severity, setSeverity] = useState<SeverityLevel | null>(null);
   const [address, setAddress] = useState('');
   // Địa chỉ do Operator gõ thì không bị địa chỉ tra ngược từ ghim ghi đè.
@@ -223,6 +226,8 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
       locationAddress: address.trim(),
       source,
       eventType: EVENT_TYPE_FROM_CATEGORY[category],
+      // Chỉ gửi khi chọn loại chi tiết; loại chung thì backend tự lấy theo nhóm.
+      incidentTypeCode: typeCode && typeCode !== EVENT_TYPE_FROM_CATEGORY[category] ? typeCode : undefined,
       severity: severityToBackend(severity) as 'Level1' | 'Level2' | 'Level3',
       operatorNotes: notes.trim(),
       reporterName: reporterName.trim() || undefined,
@@ -335,7 +340,9 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
               <div>
                 <p className="font-bold text-red-800">{t('liveMap.create.outOfAreaTitle')}</p>
                 <p className="mt-0.5">
-                  {t('liveMap.create.outOfAreaBody', { km: outsideKm, area: area.name, radius: area.radiusKm })}
+                  {area.polygons.length > 0
+                    ? t('liveMap.create.outOfAreaBodyPolygon', { km: outsideKm, area: area.name })
+                    : t('liveMap.create.outOfAreaBody', { km: outsideKm, area: area.name, radius: area.radiusKm })}
                 </p>
               </div>
             </div>
@@ -400,7 +407,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
         </Section>
 
         <Section step={3} label={t('liveMap.create.sectionType')} error={shown('category')}>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {CONFIRMABLE_CATEGORIES.map((key) => {
               const meta = INCIDENT_CATEGORY_META[key];
               const Icon = meta.icon;
@@ -409,7 +416,10 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
                 <button
                   key={key}
                   type="button"
-                  onClick={() => setCategory(key)}
+                  onClick={() => {
+                    setCategory(key);
+                    setTypeCode(EVENT_TYPE_FROM_CATEGORY[key]);
+                  }}
                   aria-pressed={active}
                   className={`flex flex-col items-center gap-1.5 py-3 rounded-lg border text-xs font-bold transition-colors ${
                     active ? 'border-2' : 'border-slate-300 text-slate-500 hover:text-slate-900'
@@ -421,6 +431,9 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
                 </button>
               );
             })}
+          </div>
+          <div className="mt-3 empty:hidden">
+            <IncidentTypePicker category={category} value={typeCode} onChange={setTypeCode} />
           </div>
         </Section>
 

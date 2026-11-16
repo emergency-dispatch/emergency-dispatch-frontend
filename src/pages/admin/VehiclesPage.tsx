@@ -6,7 +6,7 @@ import { ConfirmModal, Notice, Pagination, type NoticeState } from '../../compon
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { stationAdminService } from '../../services/admin/stationAdminService';
-import { typeCatalogService } from '../../services/admin/typeCatalogService';
+import { typeCatalogService } from '../../services/typeCatalogService';
 import { vehicleAdminService, type VehicleStatusFilter } from '../../services/admin/vehicleAdminService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import { HubEvents, incidentHubService } from '../../services/realtime/incidentHubService';

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { isAxiosError } from 'axios';
-import { MAX_VEHICLES_BY_LEVEL } from '../data/dispatchConfig';
+import { dispatchVehicleLimit, type DispatchVehicleLimit } from '../data/dispatchConfig';
 import { incidentService } from '../services/incidentService';
 import { dispatchService } from '../services/dispatchService';
 import {
@@ -37,9 +37,13 @@ import {
   type SeverityLevel,
   type TrafficJamDecision,
   type TrafficJamReport,
+  type AutoDispatchEventDto,
 } from '../types/incident';
 import type { BackendDispatchStatus, DispatchAssignmentResponseDto } from '../types/dispatch';
 import type { RescueUnitResponseDto, RescueUnitType } from '../types/rescueUnit';
+import type { IncidentTypeDto, RescueUnitTypeDto } from '../types/typeCatalog';
+import { unitTypeLabel as catalogUnitTypeLabel } from '../components/admin/fleetMeta';
+import { typeCatalogService } from '../services/typeCatalogService';
 import type { DispatchAlgorithm, DispatchVehicleType, Station, Vehicle, VehicleStatus } from '../types/vehicle';
 
 // Poll dự phòng: sự cố, lượt phân công, trạng thái xe, khóa mềm đều có sự kiện SignalR — poll chỉ để bù khi mất kết nối.
@@ -72,13 +76,20 @@ const UNIT_STATUS_TO_VEHICLE_STATUS: Record<string, VehicleStatus> = {
   OutOfService: 'unavailable',
 };
 // Bối cảnh KCN/Khu CNC: Operator không điều xe tuần tra (PolicePatrol bị ẩn khỏi Live Map).
-const UNIT_TYPE_TO_VEHICLE_TYPE: Record<string, DispatchVehicleType | undefined> = {
+const UNIT_TYPE_TO_VEHICLE_TYPE: Record<string, DispatchVehicleType | null> = {
   Ambulance: 'ambulance',
   FireTruck: 'fire_truck',
   LadderTruck: 'fire_truck',
   HeavyRescueVehicle: 'rescue',
   RescueBoat: 'rescue',
+  PolicePatrol: null,
 };
+/**
+ * §31: loại xe là danh mục do Admin quản lý — loại mới (VD "WaterTanker") vẫn phải hiện và điều được trên Live Map
+ * → xếp vào nhóm cứu hộ chung (icon / bộ lọc), tên hiển thị lấy từ danh mục theo mã.
+ */
+const vehicleTypeOfUnit = (unitType: string): DispatchVehicleType | null =>
+  unitType in UNIT_TYPE_TO_VEHICLE_TYPE ? UNIT_TYPE_TO_VEHICLE_TYPE[unitType] : 'rescue';
 const BACKEND_ALGORITHM = { nearest: 'NearestAvailable', load_aware: 'LoadAware' } as const;
 
 /**
@@ -208,7 +219,11 @@ export interface OperatorAlert {
     /** §26.2: một tổ vừa nộp báo cáo nghiệm thu (chữ ký đại diện). */
     | 'team_completed'
     /** BR-21: đội từ chối / không phản hồi lệnh — trả về Operator để giao lại (báo ở mọi trang). */
-    | 'crew_rejected';
+    | 'crew_rejected'
+    /** §31.E: AI đã tự xác minh + điều xe. */
+    | 'auto_dispatched'
+    /** §31.E: AI đủ tin cậy nhưng bỏ qua (nghi trùng, hết xe…) → Operator xử lý. */
+    | 'auto_dispatch_skipped';
   /** Sự cố liên quan; `traffic_escalation` dùng `trafficJamId` (incidentId = id điểm ùn tắc). */
   incidentId: string;
   trafficJamId?: string;
@@ -324,7 +339,9 @@ interface DispatchContextValue {
     operatorNotes?: string,
     category?: IncidentCategory,
     /** Thẩm định ùn tắc gửi kèm (confirmedTrafficJamStatus); bỏ trống = giữ nhận định hiện tại. */
-    trafficJam?: TrafficJamDecision
+    trafficJam?: TrafficJamDecision,
+    /** §31: loại chi tiết (confirmedIncidentTypeCode); bỏ trống = giữ loại hiện tại / theo nhóm. */
+    incidentTypeCode?: string
   ) => Promise<ActionResult>;
   /** Chốt cảnh báo ùn tắc của một sự cố đã xác minh (PUT /api/incidents/{id}/traffic-jam-status). */
   reviewTrafficJam: (id: string, decision: TrafficJamDecision, notes?: string) => Promise<ActionResult>;
@@ -349,7 +366,9 @@ interface DispatchContextValue {
     id: string,
     severity: SeverityLevel,
     category: Exclude<IncidentCategory, 'unknown'> | undefined,
-    reason: string
+    reason: string,
+    /** §31: loại chi tiết mới (newIncidentTypeCode); bỏ trống = giữ loại / theo nhóm mới. */
+    incidentTypeCode?: string
   ) => Promise<ActionResult>;
   lockIncident: (id: string) => Promise<ActionResult>;
   releaseIncident: (id: string) => void;
@@ -375,6 +394,24 @@ interface DispatchContextValue {
   escalationTiers: Map<string, number>;
   /** Khu vực phục vụ (vẽ vòng trên Live Map khi enabled). */
   serviceArea: ServiceAreaDto | null;
+  /** §31–32: danh mục loại sự cố đang dùng (kèm kế hoạch điều xe theo mức); null = chưa tải được. */
+  incidentTypes: IncidentTypeDto[] | null;
+  /** §31: danh mục loại xe đang dùng; null = chưa tải được (tên loại xe dùng nhãn dịch / mã). */
+  rescueUnitTypes: RescueUnitTypeDto[] | null;
+  /** Tên loại xe theo ngôn ngữ đang chọn: danh mục → nhãn dịch của 6 loại hệ thống → mã. */
+  unitTypeLabel: (code: string) => string;
+  /** §31: các loại sự cố (đang dùng) thuộc một nhóm, theo thứ tự hiển thị; danh mục chưa tải được → []. */
+  incidentTypesOf: (category: Exclude<IncidentCategory, 'unknown'>) => IncidentTypeDto[];
+  /**
+   * Nhãn loại sự cố để hiển thị: tên nhóm, kèm tên loại chi tiết nếu không phải loại chung của nhóm
+   * (VD "Khác · Tràn dầu"). Không có trong danh mục (đã ẩn) → chỉ tên nhóm.
+   */
+  incidentKindLabel: (incident: Pick<Incident, 'category' | 'incidentTypeCode'>) => string;
+  /**
+   * BR-14 theo kế hoạch điều xe (§32): số xe tối đa không cần lý do + thành phần kế hoạch của mức đang áp dụng.
+   * Chưa có kế hoạch / chưa tải được danh mục → giới hạn cũ (Cấp 1–2: 1 xe, Cấp 3: 5 xe).
+   */
+  vehicleLimitFor: (incident: Pick<Incident, 'severity' | 'incidentTypeCode' | 'category' | 'needsEventType'>) => DispatchVehicleLimit;
   operatorAlerts: OperatorAlert[];
   dismissOperatorAlert: (id: string) => void;
   /**
@@ -424,6 +461,11 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [incomingIds, setIncomingIds] = useState<string[]>([]);
   const [escalationTiers, setEscalationTiers] = useState<Map<string, number>>(new Map());
   const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(null);
+  const [incidentTypes, setIncidentTypes] = useState<IncidentTypeDto[] | null>(null);
+  const [rescueUnitTypes, setRescueUnitTypes] = useState<RescueUnitTypeDto[] | null>(null);
+  // Handler SignalR đăng ký một lần → đọc danh mục mới nhất qua ref.
+  const rescueUnitTypesRef = useRef(rescueUnitTypes);
+  rescueUnitTypesRef.current = rescueUnitTypes;
   const [operatorAlerts, setOperatorAlerts] = useState<OperatorAlert[]>([]);
   const [supplementVersions, setSupplementVersions] = useState<Map<string, number>>(new Map());
   const [fieldRequests, setFieldRequests] = useState<FieldRequestDto[]>([]);
@@ -627,12 +669,53 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [highlight, announceIncoming]);
 
   // Poll dự phòng + sau khi nối lại SignalR: tải lại cả điểm ùn tắc và yêu cầu hiện trường (có thể lỡ sự kiện).
+  // Danh mục loại sự cố (+ kế hoạch điều xe) và loại xe: Admin sửa không phát sự kiện realtime → tải lại theo nhịp poll.
+  // Lỗi thì giữ bản cũ (null = dùng giới hạn cũ / nhãn dịch).
+  const reloadCatalogs = useCallback(() => {
+    typeCatalogService
+      .listIncidentTypes(false)
+      .then(setIncidentTypes)
+      .catch((err) => console.warn('Không tải được danh mục loại sự cố:', err));
+    typeCatalogService
+      .listUnitTypes(false)
+      .then(setRescueUnitTypes)
+      .catch((err) => console.warn('Không tải được danh mục loại xe:', err));
+  }, []);
+
   const refreshAll = useCallback(() => {
     refreshBoard();
     refreshUnits();
     reloadTrafficJams();
     reloadFieldRequests();
-  }, [refreshBoard, refreshUnits, reloadTrafficJams, reloadFieldRequests]);
+    reloadCatalogs();
+  }, [refreshBoard, refreshUnits, reloadTrafficJams, reloadFieldRequests, reloadCatalogs]);
+
+  const unitTypeLabel = useCallback((code: string) => catalogUnitTypeLabel(code, rescueUnitTypes), [rescueUnitTypes]);
+
+  // Danh mục loại sự cố đã xếp theo displayOrder (typeCatalogService) → lọc theo nhóm giữ nguyên thứ tự.
+  const incidentTypesOf = useCallback<DispatchContextValue['incidentTypesOf']>(
+    (category) => (incidentTypes ?? []).filter((t) => t.category === EVENT_TYPE_FROM_CATEGORY[category]),
+    [incidentTypes]
+  );
+
+  const incidentKindLabel = useCallback<DispatchContextValue['incidentKindLabel']>(
+    (incident) => {
+      const categoryLabel = i18n.t(`enums.category.${incident.category}`);
+      const code = incident.incidentTypeCode;
+      // Mã loại chung trùng tên nhóm (FireExplosion / TrafficAccident / Other) → không lặp lại tên.
+      if (!code || (Object.values(EVENT_TYPE_FROM_CATEGORY) as string[]).includes(code)) return categoryLabel;
+      const type = incidentTypes?.find((t) => t.code === code);
+      if (!type) return categoryLabel;
+      const name = (getLanguage() === 'en' ? type.nameEn : type.nameVi) || type.name || type.code;
+      return `${categoryLabel} · ${name}`;
+    },
+    [incidentTypes]
+  );
+
+  const vehicleLimitFor = useCallback<DispatchContextValue['vehicleLimitFor']>(
+    (incident) => dispatchVehicleLimit(incident, incidentTypes),
+    [incidentTypes]
+  );
 
   // Dữ liệu ít thay đổi: trạm, tổ của các trạm, điểm ùn tắc, ngưỡng leo thang.
   useEffect(() => {
@@ -805,6 +888,36 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }),
         });
       }),
+      // §31.E: AI tự điều phối xong (Dispatched) hoặc bỏ qua (Skipped). Lệnh giao xe vẫn đi qua sự kiện cũ, nhưng tải
+      // lại bảng để có ngay sự cố đã xác minh + lượt phân công; GET sự cố để lấy tiêu đề cho thông báo.
+      incidentHubService.on<AutoDispatchEventDto>(HubEvents.ReceiveAutoDispatched, (evt) => {
+        refreshBoard();
+        const notify = (title: string) => {
+          const dispatched = evt.state === 'Dispatched';
+          pushOperatorAlert(
+            {
+              kind: dispatched ? 'auto_dispatched' : 'auto_dispatch_skipped',
+              incidentId: evt.incidentId,
+              title: i18n.t(
+                dispatched ? 'layout.operatorAlerts.autoDispatchedTitle' : 'layout.operatorAlerts.autoDispatchSkippedTitle'
+              ),
+              message: dispatched
+                ? i18n.t('layout.operatorAlerts.autoDispatchedMessage', {
+                    incident: title,
+                    plates: evt.plates ?? '',
+                    confidence: Math.round((evt.confidence ?? 0) * 100),
+                  })
+                : i18n.t('layout.operatorAlerts.autoDispatchSkippedMessage', { incident: title, note: evt.note ?? '' }),
+            },
+            // Đã điều xe: chỉ để biết → tự đóng; bỏ qua: Operator phải xử lý → giữ tới khi đóng.
+            dispatched ? INFO_ALERT_MS : undefined
+          );
+        };
+        incidentService
+          .getById(evt.incidentId)
+          .then((res) => notify(res.success ? res.data.title : ''))
+          .catch(() => notify(''));
+      }),
       incidentHubService.on<DispatchAssignmentResponseDto>(HubEvents.ReceiveSupportDispatched, (a) => {
         setAssignments((prev) => upsert(prev, [a]));
         pushOperatorAlert(
@@ -930,7 +1043,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                   ? i18n
                       .t('layout.operatorAlerts.fieldRequestBackupContent', {
                         count: r.quantity,
-                        type: r.requestedUnitType ? i18n.t(`enums.unitType.${r.requestedUnitType}`, { defaultValue: r.requestedUnitType ?? '' }) : '',
+                        type: r.requestedUnitType ? catalogUnitTypeLabel(r.requestedUnitType, rescueUnitTypesRef.current) : '',
                       })
                       .trim()
                   : (r.description ?? ''),
@@ -988,6 +1101,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     announceIncoming,
     refreshUnits,
     refreshAll,
+    refreshBoard,
     setIncidentLock,
     removeIncident,
     pushOperatorAlert,
@@ -1024,7 +1138,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const vehicles = useMemo<Vehicle[]>(() => {
     const now = Date.now();
     return units.flatMap((unit) => {
-      const type = UNIT_TYPE_TO_VEHICLE_TYPE[unit.unitType];
+      const type = vehicleTypeOfUnit(unit.unitType);
       if (!type) return [];
       const assignment = activeAssignmentByUnit.get(unit.id);
       const live = positions.get(unit.id);
@@ -1134,12 +1248,14 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     confirmedSeverity: SeverityLevel,
     operatorNotes?: string,
     category?: IncidentCategory,
-    trafficJam?: TrafficJamDecision
+    trafficJam?: TrafficJamDecision,
+    incidentTypeCode?: string
   ) => {
     try {
       const res = await incidentService.verify(id, {
         confirmedSeverity: severityToBackend(confirmedSeverity),
         confirmedEventType: category && category !== 'unknown' ? EVENT_TYPE_FROM_CATEGORY[category] : undefined,
+        confirmedIncidentTypeCode: incidentTypeCode,
         operatorNotes,
         confirmedTrafficJamStatus: trafficJam,
       });
@@ -1226,12 +1342,14 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     id: string,
     severity: SeverityLevel,
     category: Exclude<IncidentCategory, 'unknown'> | undefined,
-    reason: string
+    reason: string,
+    incidentTypeCode?: string
   ): Promise<ActionResult> => {
     try {
       const { incident, message } = await incidentService.changeSeverity(id, {
         newSeverity: severityToBackend(severity),
         newEventType: category ? EVENT_TYPE_FROM_CATEGORY[category] : undefined,
+        newIncidentTypeCode: incidentTypeCode,
         reason,
       });
       upsertIncidents([incident]);
@@ -1309,7 +1427,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!incident || !vehicle) return { ok: false, message: i18n.t('context.incidentOrVehicleNotFound') };
     if (vehicle.status !== 'available') return { ok: false, message: i18n.t('context.vehicleNotAvailable', { plate: vehicle.plate }) };
 
-    const maxVehicles = MAX_VEHICLES_BY_LEVEL[incident.severity];
+    // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
+    const maxVehicles = vehicleLimitFor(incident).max;
     const activeCount = incident.assignedVehicleIds.length - incident.reportedVehicleIds.length;
     // Cấp 1–2 được giao thêm khi có lý do; Cấp 3 tối đa 5 xe, không vượt được.
     const extraAllowed = !!options.allowExtraUnits && incident.severity !== 3;
@@ -1317,7 +1436,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return {
         ok: false,
         message:
-          maxVehicles === 1 ? i18n.t('context.singleVehicleOnly') : i18n.t('context.maxVehicles', { max: maxVehicles }),
+          incident.severity === 3
+            ? i18n.t('context.maxVehicles', { max: maxVehicles })
+            : i18n.t('context.levelVehicleLimit', { level: incident.severity, max: maxVehicles }),
       };
     }
 
@@ -1532,6 +1653,12 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incomingTransferNotes,
         escalationTiers,
         serviceArea,
+        incidentTypes,
+        vehicleLimitFor,
+        rescueUnitTypes,
+        unitTypeLabel,
+        incidentTypesOf,
+        incidentKindLabel,
         operatorAlerts,
         dismissOperatorAlert,
         supplementVersions,

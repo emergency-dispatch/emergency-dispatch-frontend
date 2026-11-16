@@ -1,14 +1,15 @@
-import { apiClient, unwrapApi } from '../apiClient';
-import type { ApiResponse } from '../../types/auth';
+import { apiClient, unwrapApi } from './apiClient';
+import type { ApiResponse } from '../types/auth';
 import type {
   IncidentTypeDto,
   RescueUnitTypeDto,
   UpdateDispatchPlanDto,
   UpsertIncidentTypeDto,
   UpsertRescueUnitTypeDto,
-} from '../../types/typeCatalog';
+} from '../types/typeCatalog';
 
-// Danh mục loại xe / loại sự cố (FE_MOBILE_HANDOFF §31–32). Backend trả nguyên danh sách (không phân trang);
+// Danh mục loại xe / loại sự cố (FE_MOBILE_HANDOFF §31–32) — dùng chung Admin (quản lý) + Operator (kế hoạch điều xe).
+// includeInactive chỉ có tác dụng với Admin; Operator luôn nhận loại đang dùng. Backend trả nguyên danh sách (không phân trang);
 // FE xếp lại giống backend (TypeCatalogRepository): displayOrder rồi tên tiếng Việt.
 // Xóa: loại hệ thống → 400; loại đang được dùng → 409 (gợi ý Admin ẩn bằng isActive = false).
 

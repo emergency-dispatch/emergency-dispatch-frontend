@@ -1,4 +1,5 @@
 import type { ServiceAreaDto } from '../services/liveMapService';
+import { parseBoundary, pointInBoundary, type PolygonCoords } from '../components/admin/settings/serviceAreaBoundary';
 
 // Bán kính hoạt động thực tế của nền tảng tại Khu Công nghệ cao (SHTP) — SOS / tạo sự cố ngoài vòng này bị chặn.
 export const KCN_RADIUS_KM = 4.5;
@@ -17,6 +18,8 @@ export interface EffectiveServiceArea {
   lat: number;
   lng: number;
   radiusKm: number;
+  /** §33: đa giác ranh giới (rỗng = dùng hình tròn tâm + bán kính). */
+  polygons: PolygonCoords[];
 }
 
 export function resolveServiceArea(area?: ServiceAreaDto | null): EffectiveServiceArea {
@@ -26,6 +29,7 @@ export function resolveServiceArea(area?: ServiceAreaDto | null): EffectiveServi
     lat: area?.centerLat ? area.centerLat : DEFAULT_SERVICE_AREA.centerLat,
     lng: area?.centerLng ? area.centerLng : DEFAULT_SERVICE_AREA.centerLng,
     radiusKm: radius,
+    polygons: parseBoundary(area?.boundaryGeoJson),
   };
 }
 
@@ -37,8 +41,34 @@ export function haversineDistanceKm(lat1: number, lng1: number, lat2: number, ln
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** Số km nằm ngoài vùng (làm tròn 0.1); 0 = trong vùng. */
+/**
+ * Khoảng cách (km) từ điểm tới cạnh gần nhất của các đa giác. Chiếu phẳng quanh điểm (equirectangular) — đủ chính xác
+ * cho khu vực vài chục km; backend tính lại bằng PostGIS.
+ */
+function distanceToBoundaryKm(point: { lat: number; lng: number }, polygons: PolygonCoords[]): number {
+  const kx = 111.32 * Math.cos((point.lat * Math.PI) / 180);
+  const ky = 110.574;
+  let best = Infinity;
+  for (const ring of polygons.flat()) {
+    for (let i = 1; i < ring.length; i++) {
+      const [ax, ay] = [(ring[i - 1][0] - point.lng) * kx, (ring[i - 1][1] - point.lat) * ky];
+      const [bx, by] = [(ring[i][0] - point.lng) * kx, (ring[i][1] - point.lat) * ky];
+      const [dx, dy] = [bx - ax, by - ay];
+      const lenSq = dx * dx + dy * dy;
+      const t = lenSq > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / lenSq)) : 0;
+      best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+    }
+  }
+  return best;
+}
+
+/** Số km nằm ngoài vùng (làm tròn 0.1); 0 = trong vùng. Có đa giác (§33) thì xét theo đa giác. */
 export function distanceOutsideAreaKm(point: { lat: number; lng: number }, area: EffectiveServiceArea): number {
-  const outside = haversineDistanceKm(point.lat, point.lng, area.lat, area.lng) - area.radiusKm;
+  const outside =
+    area.polygons.length > 0
+      ? pointInBoundary(point.lat, point.lng, area.polygons)
+        ? 0
+        : distanceToBoundaryKm(point, area.polygons)
+      : haversineDistanceKm(point.lat, point.lng, area.lat, area.lng) - area.radiusKm;
   return outside > 0 ? Math.max(0.1, Math.round(outside * 10) / 10) : 0;
 }

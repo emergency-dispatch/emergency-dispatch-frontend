@@ -1,6 +1,18 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRightLeft, ClipboardCheck, HandHelping, MapPinOff, MessageSquarePlus, Radio, TrafficCone, UserX, X } from 'lucide-react';
+import {
+  ArrowRightLeft,
+  Bot,
+  BotOff,
+  ClipboardCheck,
+  HandHelping,
+  MapPinOff,
+  MessageSquarePlus,
+  Radio,
+  TrafficCone,
+  UserX,
+  X,
+} from 'lucide-react';
 import { useDispatchStore, type OperatorAlert } from '../../context/DispatchContext';
 import { useTranslation } from '../../i18n';
 import { COMPLETION_PATH } from '../../data/dashboardMock';
@@ -73,6 +85,19 @@ const KIND_META: Record<
     iconClassName: 'text-white',
     action: 'reassign',
   },
+  // §31.E: AI đã tự điều xe → xem trên Live Map (Operator vẫn hủy / đổi xe được); bỏ qua → mở thẩm định ở hàng đợi.
+  auto_dispatched: {
+    icon: Bot,
+    className: 'border-indigo-200 bg-white text-slate-800',
+    iconClassName: 'text-indigo-600',
+    action: 'viewOnMap',
+  },
+  auto_dispatch_skipped: {
+    icon: BotOff,
+    className: 'border-amber-300 bg-white text-slate-800',
+    iconClassName: 'text-amber-600',
+    action: 'verify',
+  },
 };
 
 /**
@@ -106,7 +131,10 @@ export const OperatorAlerts: React.FC = () => {
     }
     const incident = incidents.find((i) => i.id === alert.incidentId);
     // Sự cố chưa duyệt → mở drawer thẩm định ở hàng đợi; đã duyệt → chọn trên Live Map.
-    if ((alert.kind === 'out_of_area' || alert.kind === 'supplement') && incident?.status === 'pending') {
+    if (
+      (alert.kind === 'out_of_area' || alert.kind === 'supplement' || alert.kind === 'auto_dispatch_skipped') &&
+      incident?.status === 'pending'
+    ) {
       navigate('/dashboard/command-center/incidents', { state: { openIncidentId: alert.incidentId } });
     } else {
       navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: alert.incidentId } });

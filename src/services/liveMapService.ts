@@ -78,6 +78,11 @@ export interface ServiceAreaDto {
   centerLat: number;
   centerLng: number;
   radiusKm: number;
+  /**
+   * §33: ranh giới đa giác (chuỗi GeoJSON Polygon / MultiPolygon). Có giá trị thì vùng phục vụ là đa giác; tâm + bán
+   * kính chỉ còn là vòng bao để hiển thị / tìm địa chỉ.
+   */
+  boundaryGeoJson?: string | null;
 }
 
 export const DEFAULT_ESCALATION_SETTINGS: EscalationSettingsDto = {

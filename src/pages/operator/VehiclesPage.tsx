@@ -50,6 +50,7 @@ export const VehiclesPage: React.FC = () => {
   const teamByVehicle = useTeamByVehicle();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { unitTypeLabel } = useDispatchStore();
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [target, setTarget] = useState<Vehicle | null>(null);
@@ -291,7 +292,7 @@ export const VehiclesPage: React.FC = () => {
                           <div className="min-w-0">
                             <p className="font-mono-data font-bold text-slate-900">{v.plate}</p>
                             <p className="text-[11px] text-slate-500">
-                              {t(`enums.unitType.${v.unitType}`, { defaultValue: v.unitType })} · {t(`enums.teamFunction.${v.type}`)}
+                              {unitTypeLabel(v.unitType)} · {t(`enums.teamFunction.${v.type}`)}
                             </p>
                           </div>
                         </div>

@@ -19,15 +19,33 @@ export type HazardTagKey =
 // Thang cấp độ mới (Cấp 1–3, không có Cấp 0). AI không phân loại được → Cấp 1 + % tin cậy thấp.
 export type SeverityLevel = 1 | 2 | 3;
 
-// Hai nhánh sự kiện có chấm cấp độ; 'unknown' = AI không xác định và không suy được từ loại SOS người dân chọn
+// Nhóm sự cố: Cháy nổ / Tai nạn (AI nhận diện được) và 'other' = loại khác (đuối nước, ngập, rò rỉ hóa chất…; AI không
+// nhận diện, không tự điều phối — §31). 'unknown' = AI không xác định và không suy được từ loại SOS người dân chọn
 // (Operator phải chọn khi duyệt).
-export type IncidentCategory = 'fire' | 'accident' | 'unknown';
+export type IncidentCategory = 'fire' | 'accident' | 'other' | 'unknown';
 
 // #Traffic_Jam chỉ là cảnh báo trên bản đồ, không vào hàng đợi / không chấm cấp.
 export type HazardTag = 'fire' | 'accident' | 'traffic_jam';
 
 /** IncidentEventType của backend. */
-export type BackendEventType = 'None' | 'FireExplosion' | 'TrafficAccident';
+export type BackendEventType = 'None' | 'FireExplosion' | 'TrafficAccident' | 'Other';
+
+/** §31.E: kết quả AI tự điều phối của một sự cố. */
+export type AutoDispatchState = 'None' | 'Dispatched' | 'Skipped';
+
+/** SignalR ReceiveAutoDispatched (Operator trạm phụ trách + Admin). */
+export interface AutoDispatchEventDto {
+  incidentId: string;
+  responsibleStationId: string | null;
+  state: Exclude<AutoDispatchState, 'None'>;
+  note: string | null;
+  /** 0–1. */
+  confidence: number | null;
+  /** Biển số các xe đã điều (khi Dispatched), chuỗi nối sẵn. */
+  plates: string | null;
+  suspectedDuplicateOfIncidentId: string | null;
+  at: string;
+}
 
 /**
  * Kênh tiếp nhận sự cố. CitizenApp = người dân gửi SOS qua app; còn lại = Operator tự tạo khi biết tin
@@ -102,6 +120,19 @@ export interface Incident {
    * `category` lúc này chỉ là gợi ý suy từ tiêu đề SOS (hoặc 'unknown').
    */
   needsEventType: boolean;
+  /**
+   * Mã loại sự cố chi tiết trong danh mục (§31, VD "FloodDrowning"); backend tự suy khi chưa có. Dùng để lấy kế hoạch
+   * điều xe theo mức (§32). null = backend cũ chưa trả.
+   */
+  incidentTypeCode: string | null;
+  /** §31.E: AI tự điều phối — null = không áp dụng (state None). */
+  autoDispatch: {
+    state: Exclude<AutoDispatchState, 'None'>;
+    note: string | null;
+    suspectedDuplicateOfId: string | null;
+  } | null;
+  /** Độ tin cậy AI là xác suất đo thật (logprob); false = chỉ tham khảo; null = không rõ nguồn (AI / backend cũ). */
+  confidenceMeasured: boolean | null;
   hazardTags: string[];
   severity: SeverityLevel;
   /** % tin cậy của AI (0–100). Vô nghĩa khi aiPending. */
@@ -266,6 +297,11 @@ export interface AiClassificationResultDto {
   /** Mô hình chưa sinh tiếng Anh → summaryEn chỉ là câu thay thế, không phải bản dịch. */
   summaryEnIsFallback?: boolean;
   confidenceScore?: number;
+  /**
+   * §31.D: nguồn độ tin cậy — "logprob" / "logprob-consensus" = xác suất đo thật từ TriageVL (dùng cho AI tự điều
+   * phối); "heuristic" / "self-reported" = chỉ để tham khảo; null = backend / AI cũ.
+   */
+  confidenceSource?: string | null;
   isSuccess: boolean;
   modelName?: string;
   rawResponse?: string;
@@ -315,6 +351,16 @@ export interface IncidentResponseDto {
   emergencySmsDispatchLog?: string | null;
   /** Loại sự cố người báo tự chọn khi gửi SOS (nếu có). */
   reportedEventType?: BackendEventType | null;
+  /** §31: loại chi tiết người báo chọn (mã danh mục). */
+  reportedIncidentTypeCode?: string | null;
+  /** §31: loại chi tiết hiện tại (mã danh mục); eventType là nhóm của loại này. */
+  incidentTypeCode?: string | null;
+  /** §31.E: kết quả AI tự điều phối (None = không áp dụng). */
+  autoDispatchState?: AutoDispatchState;
+  /** Lý do / mô tả kết quả tự điều phối (song ngữ theo Accept-Language). */
+  autoDispatchNote?: string | null;
+  /** AI phát hiện nghi trùng với sự cố đã được điều xe → Operator kiểm tra, gộp hoặc điều thêm. */
+  suspectedDuplicateOfIncidentId?: string | null;
   /** (Sự cố gốc) Số báo cáo đang được gom vào sự cố này — hiện "+N người cùng báo". */
   linkedReportCount?: number;
   /** (Báo cáo đã gom / đã xác nhận trùng) Sự cố gốc. */
@@ -456,6 +502,8 @@ export interface CreateOperatorIncidentDto {
   locationAddress: string;
   source: OperatorIncidentSource;
   eventType: Exclude<BackendEventType, 'None'>;
+  /** §31: loại chi tiết (mã danh mục, tùy chọn) — quyết định kế hoạch điều xe; nhóm lấy theo danh mục. */
+  incidentTypeCode?: string;
   severity: Exclude<BackendSeverityLevel, 'Unclassified'>;
   /** Nội dung tin báo / căn cứ đánh giá, ≥ 5 ký tự. */
   operatorNotes: string;
@@ -519,6 +567,8 @@ export interface VerifyIncidentRequestDto {
   confirmedSeverity: BackendSeverityLevel;
   /** Bắt buộc khi sự cố đang có eventType = None. */
   confirmedEventType?: Exclude<BackendEventType, 'None'>;
+  /** §31: loại chi tiết (mã danh mục); có giá trị thì backend lấy nhóm theo danh mục, bỏ qua confirmedEventType. */
+  confirmedIncidentTypeCode?: string;
   adjustedTitle?: string;
   operatorNotes?: string;
   /** Thẩm định ùn tắc cùng lúc với xác minh; bỏ trống = giữ nguyên nhận định hiện tại. */
@@ -532,6 +582,8 @@ export interface VerifyIncidentRequestDto {
 export interface ChangeSeverityRequestDto {
   newSeverity: Exclude<BackendSeverityLevel, 'Unclassified'>;
   newEventType?: Exclude<BackendEventType, 'None'>;
+  /** §31: loại chi tiết mới (mã danh mục); có giá trị thì backend bỏ qua newEventType. */
+  newIncidentTypeCode?: string;
   reason: string;
 }
 
@@ -552,11 +604,13 @@ const SEVERITY_FROM_BACKEND: Record<BackendSeverityLevel, SeverityLevel> = {
 export const CATEGORY_FROM_EVENT_TYPE: Partial<Record<BackendEventType, Exclude<IncidentCategory, 'unknown'>>> = {
   FireExplosion: 'fire',
   TrafficAccident: 'accident',
+  Other: 'other',
 };
 
 export const EVENT_TYPE_FROM_CATEGORY: Record<Exclude<IncidentCategory, 'unknown'>, Exclude<BackendEventType, 'None'>> = {
   fire: 'FireExplosion',
   accident: 'TrafficAccident',
+  other: 'Other',
 };
 
 /**
@@ -659,11 +713,16 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
   const hazardTags = allTags.filter((tag) => !AI_SYSTEM_TAGS.has(tag));
   const jamStatus = ai?.trafficJamStatus ?? 'NoEvidence';
   const jamReviewed = jamStatus === 'Confirmed' || jamStatus === 'Dismissed';
-  // Loại sự cố: đã xác nhận / AI xác định → dùng luôn; chưa rõ → gợi ý theo loại SOS người dân chọn; không suy được → 'unknown'.
+  // Loại sự cố: đã xác nhận / AI xác định → dùng luôn; chưa rõ → gợi ý theo loại người báo chọn (reportedEventType),
+  // rồi theo tiêu đề SOS; không suy được → 'unknown'.
   const knownCategory =
     CATEGORY_FROM_EVENT_TYPE[dto.eventType ?? 'None'] ??
     (ai?.isSuccess !== false ? CATEGORY_FROM_EVENT_TYPE[ai?.eventType ?? 'None'] : undefined);
-  const category: IncidentCategory = knownCategory ?? inferCategoryFromTitle(dto.title) ?? 'unknown';
+  const category: IncidentCategory =
+    knownCategory ??
+    CATEGORY_FROM_EVENT_TYPE[dto.reportedEventType ?? 'None'] ??
+    inferCategoryFromTitle(dto.title) ??
+    'unknown';
   const hasActiveLock =
     !!dto.lockedByOperatorId && !!dto.lockExpiresAt && new Date(dto.lockExpiresAt).getTime() > Date.now();
 
@@ -674,6 +733,17 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
     category,
     source: dto.source ?? 'CitizenApp',
     needsEventType: !CATEGORY_FROM_EVENT_TYPE[dto.eventType ?? 'None'],
+    // Backend cũ chưa có trường này → dùng mã của nhóm (mã loại hệ thống trùng tên nhóm).
+    incidentTypeCode: dto.incidentTypeCode || (dto.eventType && dto.eventType !== 'None' ? dto.eventType : null),
+    autoDispatch:
+      dto.autoDispatchState && dto.autoDispatchState !== 'None'
+        ? {
+            state: dto.autoDispatchState,
+            note: dto.autoDispatchNote ?? null,
+            suspectedDuplicateOfId: dto.suspectedDuplicateOfIncidentId ?? null,
+          }
+        : null,
+    confidenceMeasured: ai?.confidenceSource ? ai.confidenceSource.startsWith('logprob') : null,
     hazardTags,
     severity: SEVERITY_FROM_BACKEND[dto.severity] ?? 1,
     confidenceScore: Math.round((ai?.confidenceScore ?? 0) * 100),

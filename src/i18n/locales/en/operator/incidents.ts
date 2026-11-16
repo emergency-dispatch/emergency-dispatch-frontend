@@ -378,4 +378,23 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
       imageFailed: 'Could not load the image.',
     },
   },
+  typePicker: {
+    label: 'Detailed type',
+    hint: 'Determines the dispatch plan (vehicle types, standard count).',
+  },
+  autoDispatch: {
+    badgeDispatched: 'AI auto-dispatch · {{confidence}}%',
+    badgeSkipped: 'AI skipped',
+    badgeDuplicate: 'possible duplicate',
+    dispatchedTitle: 'AI verified and dispatched vehicles ({{confidence}}% confidence)',
+    skippedTitle: 'AI was confident but did not auto-dispatch',
+    dispatchedHint: 'Operators can still cancel, change or add vehicles as usual.',
+    skippedHint: 'This case waits for Operator review and dispatch as usual.',
+    suspectedDuplicate: 'Possible duplicate of "{{title}}"',
+    duplicateHint: 'If it is a duplicate: cancel this case with the reason "Duplicate of another incident". If not: verify and dispatch as usual.',
+  },
+  confidence: {
+    estimated: 'estimated',
+    estimatedTitle: 'Confidence self-estimated by the model, for reference only (not used for AI auto-dispatch).',
+  },
 };

@@ -36,11 +36,13 @@ export const UNKNOWN_HAZARD_TAG_META = { label: 'Khác', color: '#64748B', icon:
 export const INCIDENT_CATEGORY_META: Record<IncidentCategory, { label: string; color: string; icon: LucideIcon }> = {
   fire: { label: 'Cháy nổ', color: '#DC2626', icon: Flame },
   accident: { label: 'Tai nạn', color: '#F97316', icon: CarFront },
+  // §31: loại khác (đuối nước, ngập, hóa chất…) — AI không nhận diện, Operator thẩm định thủ công.
+  other: { label: 'Khác', color: '#0891B2', icon: ShieldAlert },
   unknown: { label: 'Tín hiệu SOS', color: '#DC2626', icon: AlertCircle },
 };
 
-// Hai nhánh Operator chọn được khi duyệt (bắt buộc nếu backend chưa có loại sự cố).
-export const CONFIRMABLE_CATEGORIES: Array<Exclude<IncidentCategory, 'unknown'>> = ['fire', 'accident'];
+// Ba nhóm Operator chọn được khi duyệt / tạo / đổi loại (bắt buộc chọn khi backend chưa có loại sự cố).
+export const CONFIRMABLE_CATEGORIES: Array<Exclude<IncidentCategory, 'unknown'>> = ['fire', 'accident', 'other'];
 
 // Lý do hủy Operator chọn (CancellationReason của backend). Citizen tự hủy / tự hết hạn do backend đặt.
 export const CANCELLATION_REASON_OPTIONS: Array<{ value: OperatorCancellationCode; label: string }> = [

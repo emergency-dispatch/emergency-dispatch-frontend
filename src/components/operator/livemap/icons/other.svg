@@ -1,0 +1,7 @@
+<!-- Sự cố loại Khác (đuối nước, ngập, hóa chất… — §31) — tạm dùng "Tam giác cảnh báo" (2026-11-15), chờ chốt phương án.
+     Lưới 24×24, một màu; code tô màu qua currentColor. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <path d="M12 3.4 21.6 20H2.4Z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>
+  <path d="M12 9.6v4.8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+  <circle cx="12" cy="17.2" r="1.45" fill="currentColor"/>
+</svg>

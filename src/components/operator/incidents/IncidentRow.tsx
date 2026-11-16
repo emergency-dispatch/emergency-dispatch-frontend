@@ -15,6 +15,8 @@ import { QUEUE_COLUMNS } from './queueColumns';
 import { formatCountdown, formatDateTime, formatWaitDuration } from '../../../utils/incidentFormat';
 import { isAiFallbackTag, type Incident } from '../../../types/incident';
 import { useTranslation } from '../../../i18n';
+import { useDispatchStore } from '../../../context/DispatchContext';
+import { AutoDispatchBadge } from './AutoDispatchInfo';
 
 interface IncidentRowProps {
   incident: Incident;
@@ -37,6 +39,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
   onClick,
 }) => {
   const { t } = useTranslation();
+  const { incidentKindLabel } = useDispatchStore();
   const elapsedMs = now - new Date(incident.createdAt).getTime();
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
@@ -82,7 +85,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
         <div className="flex items-center gap-3 mt-1 text-xs min-w-0">
           <span className="inline-flex items-center gap-1 font-semibold shrink-0" style={{ color: category.color }}>
             <CategoryIcon className="w-3.5 h-3.5" />
-            {t(`enums.category.${incident.category}`)}
+            {incidentKindLabel(incident)}
           </span>
           <span className="inline-flex items-center gap-1 text-slate-500 min-w-0" title={incident.area}>
             <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
@@ -102,6 +105,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
               {t('incidents.row.linkedReports', { count: incident.linkedReportCount })}
             </span>
           )}
+          <AutoDispatchBadge incident={incident} />
           {jamChip && jamStatus && (
             <span
               title={jamChip.title}

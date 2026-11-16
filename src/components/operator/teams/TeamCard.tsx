@@ -8,6 +8,7 @@ import { VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMet
 import type { StationStaff, StationTeam } from '../../../types/stationTeam';
 import type { Vehicle } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
+import { useDispatchStore } from '../../../context/DispatchContext';
 
 interface TeamCardProps {
   team: StationTeam;
@@ -22,6 +23,7 @@ interface TeamCardProps {
 
 export const TeamCard: React.FC<TeamCardProps> = ({ team, staffById, vehiclesById, lockedReason, onEdit, onDelete }) => {
   const { t } = useTranslation();
+  const { unitTypeLabel } = useDispatchStore();
   const members = [...team.members].sort(
     (a, b) => Number(b.crewRole === 'commander') - Number(a.crewRole === 'commander')
   );
@@ -67,7 +69,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({ team, staffById, vehiclesByI
                       {vehicle ? (
                         <>
                           <span className="font-mono-data font-bold text-red-600">{vehicle.plate}</span>·{' '}
-                          {t(`enums.unitType.${vehicle.unitType}`, { defaultValue: vehicle.unitType })}
+                          {unitTypeLabel(vehicle.unitType)}
                         </>
                       ) : (
                         <>

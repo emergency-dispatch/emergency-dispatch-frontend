@@ -5,7 +5,6 @@ import { SourceChip } from '../incidents/SourceChip';
 import { FieldRequestSection } from './FieldRequestSection';
 import { getAttentionReason, getCaseGroup, type AttentionReason, type CaseGroup } from './caseGroups';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
-import { MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useNow } from '../../../hooks/useNow';
@@ -13,6 +12,7 @@ import type { FieldRequestDto } from '../../../types/fieldRequest';
 import type { Incident } from '../../../types/incident';
 import type { Vehicle } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
+import { AutoDispatchBadge } from '../incidents/AutoDispatchInfo';
 
 const GROUP_ORDER: CaseGroup[] = ['attention', 'active', 'completed'];
 
@@ -41,10 +41,13 @@ const CaseCard: React.FC<CaseCardProps> = ({
   onAction,
 }) => {
   const { t } = useTranslation();
+  const { incidentKindLabel } = useDispatchStore();
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
   const waitMinutes = Math.max(0, Math.round((now - new Date(incident.createdAt).getTime()) / 60000));
-  const maxVehicles = MAX_VEHICLES_BY_LEVEL[incident.severity];
+  const { vehicleLimitFor } = useDispatchStore();
+  // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
+  const maxVehicles = vehicleLimitFor(incident).max;
   const active = incident.assignedVehicleIds
     .filter((id) => !incident.reportedVehicleIds.includes(id))
     .map((id) => vehiclesById.get(id))
@@ -95,7 +98,7 @@ const CaseCard: React.FC<CaseCardProps> = ({
         <div className="flex items-center gap-1.5">
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold shrink-0" style={{ color: category.color }}>
             <CategoryIcon className="w-3.5 h-3.5" />
-            {t(`enums.category.${incident.category}`)}
+            {incidentKindLabel(incident)}
           </span>
           <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
           {isEscalated && (
@@ -109,7 +112,10 @@ const CaseCard: React.FC<CaseCardProps> = ({
         </div>
         <p className="mt-1 text-sm font-semibold text-slate-900 truncate leading-snug">{incident.title}</p>
         <p className="text-[11px] text-slate-500 truncate">{incident.area}</p>
-        {(incident.source !== 'CitizenApp' || incident.isOutOfServiceArea || incident.linkedReportCount > 0) && (
+        {(incident.source !== 'CitizenApp' ||
+          incident.isOutOfServiceArea ||
+          incident.linkedReportCount > 0 ||
+          !!incident.autoDispatch) && (
           <div className="mt-1 flex flex-wrap gap-1">
             {incident.source !== 'CitizenApp' && <SourceChip source={incident.source} />}
             {incident.isOutOfServiceArea && (
@@ -123,6 +129,7 @@ const CaseCard: React.FC<CaseCardProps> = ({
                 {t('liveMap.incidentList.linkedReports', { count: incident.linkedReportCount })}
               </span>
             )}
+            <AutoDispatchBadge incident={incident} />
           </div>
         )}
       </button>

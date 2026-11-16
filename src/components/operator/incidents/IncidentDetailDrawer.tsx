@@ -41,16 +41,20 @@ import {
 import { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
 import { useNow } from '../../../hooks/useNow';
 import { formatCountdown, formatDateTime, formatWaitDuration } from '../../../utils/incidentFormat';
-import type {
-  BlockDuration,
-  Incident,
-  IncidentCategory,
-  OperatorCancellationCode,
-  SeverityLevel,
-  TrafficJamDecision,
+import {
+  EVENT_TYPE_FROM_CATEGORY,
+  type BlockDuration,
+  type Incident,
+  type IncidentCategory,
+  type OperatorCancellationCode,
+  type SeverityLevel,
+  type TrafficJamDecision,
 } from '../../../types/incident';
 import type { Station } from '../../../types/vehicle';
 import { dateLocale, useTranslation } from '../../../i18n';
+import { IncidentTypePicker } from './IncidentTypePicker';
+import { useDispatchStore } from '../../../context/DispatchContext';
+import { AutoDispatchNotice } from './AutoDispatchInfo';
 
 const CONFIRMABLE_LEVELS: SeverityLevel[] = [1, 2, 3];
 // Lý do chuyển trạm: backend yêu cầu tối thiểu 5 ký tự.
@@ -78,7 +82,9 @@ interface IncidentDetailDrawerProps {
     overrideReason: string | undefined,
     category: IncidentCategory | undefined,
     /** Thẩm định ùn tắc gửi kèm; undefined = giữ nguyên nhận định hiện tại. */
-    trafficJam: TrafficJamDecision | undefined
+    trafficJam: TrafficJamDecision | undefined,
+    /** §31: loại chi tiết khi Operator đổi so với loại hiện tại; undefined = giữ nguyên. */
+    incidentTypeCode: string | undefined
   ) => void;
   onReject: (id: string, reason: string, blockDuration: BlockDuration | null, reasonCode: OperatorCancellationCode) => void;
   /** Chuyển sự cố sang trạm khác. Không truyền → ẩn nút "Chuyển trạm". */
@@ -115,9 +121,12 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
 }) => {
   const now = useNow();
   const { t } = useTranslation();
+  const { incidentKindLabel } = useDispatchStore();
   const supplements = useIncidentSupplements(incident?.id ?? null, supplementVersion);
   const [confirmedSeverity, setConfirmedSeverity] = useState<SeverityLevel | null>(null);
   const [confirmedCategory, setConfirmedCategory] = useState<IncidentCategory | null>(null);
+  // §31: loại chi tiết (mã danh mục) — mặc định loại hiện tại của sự cố.
+  const [confirmedTypeCode, setConfirmedTypeCode] = useState<string | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
   const [mode, setMode] = useState<DrawerMode>('review');
   // Tab nội dung: thẩm định (media + AI), báo cáo trùng đã gom (BR-07) hoặc lịch sử xử lý (audit trail).
@@ -150,6 +159,9 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     setConfirmedSeverity(incident.aiUnclassified || incident.aiFailed ? null : incident.severity);
     // Loại sự cố chưa xác nhận → gợi ý sẵn theo loại SOS người dân chọn (nếu suy được), Operator vẫn đổi được.
     setConfirmedCategory(incident.category === 'unknown' ? null : incident.category);
+    setConfirmedTypeCode(
+      incident.incidentTypeCode ?? (incident.category === 'unknown' ? null : EVENT_TYPE_FROM_CATEGORY[incident.category])
+    );
     setOverrideReason('');
     setMode('review');
     setTab('review');
@@ -197,12 +209,16 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     confirmedSeverity !== null && (!hasAiSeverity || confirmedSeverity !== incident.severity);
   const overrideReasonLength = overrideReason.trim().length;
   const overrideReasonValid = !isOverride || overrideReasonLength >= OVERRIDE_REASON_MIN_LENGTH;
-  // Backend chưa có loại sự cố (eventType None) → bắt buộc chọn Cháy nổ / Tai nạn.
+  // Backend chưa có loại sự cố (eventType None) → bắt buộc chọn Cháy nổ / Tai nạn / Khác.
   const categoryValid = !incident.needsEventType || (confirmedCategory !== null && confirmedCategory !== 'unknown');
   const canApprove = canAct && !isSubmitting && confirmedSeverity !== null && overrideReasonValid && categoryValid;
 
   const transferReasonValid = transferReason.trim().length >= TRANSFER_REASON_MIN_LENGTH;
   const canTransfer = canAct && !isSubmitting && !!transferStationId && transferReasonValid;
+
+  // Nhóm để chọn loại chi tiết: nhóm Operator đang chọn (sự cố chưa có loại) hoặc nhóm hiện tại.
+  const pickerCategory = incident.needsEventType ? confirmedCategory : incident.category;
+  const typeCategory = pickerCategory && pickerCategory !== 'unknown' ? pickerCategory : null;
 
   const handleApprove = () => {
     if (!confirmedSeverity) return;
@@ -211,7 +227,9 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
       confirmedSeverity,
       isOverride ? overrideReason.trim() : undefined,
       incident.needsEventType ? (confirmedCategory ?? undefined) : undefined,
-      trafficJamDecision && trafficJamDecision !== incident.trafficJam?.status ? trafficJamDecision : undefined
+      trafficJamDecision && trafficJamDecision !== incident.trafficJam?.status ? trafficJamDecision : undefined,
+      // Chỉ gửi khi Operator đổi loại chi tiết (backend lấy nhóm theo danh mục).
+      confirmedTypeCode && confirmedTypeCode !== incident.incidentTypeCode ? confirmedTypeCode : undefined
     );
   };
 
@@ -296,7 +314,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
             <span className="inline-flex items-center gap-1 font-semibold" style={{ color: category.color }}>
               <CategoryIcon className="w-3.5 h-3.5" />
-              {t(`enums.category.${incident.category}`)}
+              {incidentKindLabel(incident)}
             </span>
             <span className="inline-flex items-center gap-1 min-w-0 max-w-full">
               <MapPin className="w-3.5 h-3.5 shrink-0" />
@@ -406,6 +424,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
             </button>
           </div>
         )}
+
+        {tab === 'review' && <AutoDispatchNotice incident={incident} className="shrink-0 mx-5 mt-3" />}
 
         <div className="flex-1 overflow-y-auto min-h-0">
           {tab === 'history' ? (
@@ -567,7 +587,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                       <p className="text-slate-500 mb-1">{t('incidents.drawer.eventType')}</p>
                       <span className="inline-flex items-center gap-1 font-bold" style={{ color: category.color }}>
                         <CategoryIcon className="w-3.5 h-3.5" />
-                        {t(`enums.category.${incident.category}`)}
+                        {incidentKindLabel(incident)}
                       </span>
                       {incident.needsEventType && incident.category !== 'unknown' && (
                         <p className="text-[11px] text-slate-400 mt-0.5">{t('incidents.drawer.suggestedFromSos')}</p>
@@ -578,7 +598,18 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                       {aiFailed ? (
                         <span className="text-slate-400">—</span>
                       ) : (
-                        <ConfidenceBadge score={incident.confidenceScore} />
+                        <>
+                          <ConfidenceBadge score={incident.confidenceScore} />
+                          {/* §31.D: không phải xác suất đo thật (logprob) → chỉ để tham khảo. */}
+                          {incident.confidenceMeasured === false && (
+                            <span
+                              title={t('incidents.confidence.estimatedTitle')}
+                              className="ml-1 text-[10px] font-semibold text-slate-400 underline decoration-dotted cursor-help"
+                            >
+                              {t('incidents.confidence.estimated')}
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
                     <div>
@@ -760,7 +791,11 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                             <button
                               key={cat}
                               type="button"
-                              onClick={() => setConfirmedCategory(cat)}
+                              onClick={() => {
+                                setConfirmedCategory(cat);
+                                // Đổi nhóm → về loại chung của nhóm (loại chi tiết cũ thuộc nhóm khác).
+                                if (cat !== confirmedCategory) setConfirmedTypeCode(EVENT_TYPE_FROM_CATEGORY[cat]);
+                              }}
                               disabled={!canAct}
                               aria-pressed={isActive}
                               title={t('incidents.drawer.chooseTypeHelp')}
@@ -777,6 +812,13 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                       </div>
                     </div>
                   )}
+                  <IncidentTypePicker
+                    category={typeCategory}
+                    value={confirmedTypeCode}
+                    onChange={setConfirmedTypeCode}
+                    disabled={!canAct}
+                    labelClassName={DOCK_LABEL}
+                  />
                   <div>
                     <p className={DOCK_LABEL}>{t('incidents.drawer.levelLabel')}</p>
                     <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('incidents.drawer.confirmSeverity')}>
