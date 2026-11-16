@@ -151,6 +151,7 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     addressHint: 'Filled in from the pin. Or type the address the caller gives and pick a suggestion (within {{area}} only).',
     outOfAreaTitle: 'Outside the rescue area',
     outOfAreaBody: 'This location is {{km}} km outside {{area}} (service radius {{radius}} km). Incidents cannot be created outside the area — direct the caller to 114 / 115.',
+    outOfAreaBodyPolygon: 'The location is {{km}} km outside the {{area}} boundary. Incidents cannot be created outside the service area — direct the caller to 114 / 115.',
     resolvingAddress: 'Looking up address…',
     duplicateTitle: '{{count}} open incident(s) nearby — possible duplicate',
     duplicateMeta: '{{distance}} m away · {{minutes}} min ago',

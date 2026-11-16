@@ -149,6 +149,7 @@ export const liveMapVi = {
     addressHint: 'Tự điền theo ghim. Hoặc gõ địa chỉ người báo đọc rồi chọn gợi ý (chỉ trong {{area}}).',
     outOfAreaTitle: 'Ngoài phạm vi cứu hộ',
     outOfAreaBody: 'Vị trí cách {{area}} {{km}} km (vùng phục vụ bán kính {{radius}} km). Không thể tạo sự cố ngoài khu vực — hướng dẫn người báo gọi 114 / 115.',
+    outOfAreaBodyPolygon: 'Vị trí cách ranh giới {{area}} {{km}} km. Không thể tạo sự cố ngoài khu vực — hướng dẫn người báo gọi 114 / 115.',
     resolvingAddress: 'Đang lấy địa chỉ…',
     duplicateTitle: 'Có {{count}} sự cố đang mở gần đây — có thể trùng',
     duplicateMeta: 'cách {{distance}} m · {{minutes}} phút trước',

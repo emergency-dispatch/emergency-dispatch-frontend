@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type mapboxgl from 'mapbox-gl';
 import type { GeoJSONSource } from 'mapbox-gl';
 import type { ServiceAreaDto } from '../../../services/liveMapService';
+import { parseBoundary } from '../../admin/settings/serviceAreaBoundary';
 
 const SOURCE_ID = 'service-area';
 const FILL_LAYER_ID = 'service-area-fill';
@@ -27,22 +28,40 @@ export function circlePolygon(lat: number, lng: number, radiusKm: number): [numb
   return points;
 }
 
-const toFeatureCollection = (area: ServiceAreaDto | null) => ({
-  type: 'FeatureCollection' as const,
-  features:
-    area && area.enabled && area.radiusKm > 0
-      ? [
-          {
-            type: 'Feature' as const,
-            properties: { name: area.name ?? '' },
-            geometry: {
-              type: 'Polygon' as const,
-              coordinates: [circlePolygon(area.centerLat, area.centerLng, area.radiusKm)],
+// §33: có đa giác ranh giới → vẽ đúng đa giác; không có → vòng tròn tâm + bán kính như trước.
+const toFeatureCollection = (area: ServiceAreaDto | null) => {
+  if (!area || !area.enabled) return { type: 'FeatureCollection' as const, features: [] };
+  const polygons = parseBoundary(area.boundaryGeoJson);
+  const properties = { name: area.name ?? '' };
+  if (polygons.length > 0) {
+    return {
+      type: 'FeatureCollection' as const,
+      features: [
+        {
+          type: 'Feature' as const,
+          properties,
+          geometry: { type: 'MultiPolygon' as const, coordinates: polygons },
+        },
+      ],
+    };
+  }
+  return {
+    type: 'FeatureCollection' as const,
+    features:
+      area.radiusKm > 0
+        ? [
+            {
+              type: 'Feature' as const,
+              properties,
+              geometry: {
+                type: 'Polygon' as const,
+                coordinates: [circlePolygon(area.centerLat, area.centerLng, area.radiusKm)],
+              },
             },
-          },
-        ]
-      : [],
-});
+          ]
+        : [],
+  };
+};
 
 interface MapServiceAreaLayerProps {
   map: mapboxgl.Map;
@@ -50,7 +69,7 @@ interface MapServiceAreaLayerProps {
 }
 
 /**
- * Vòng khu vực phục vụ (Admin cấu hình ở GET/PUT /api/settings/service-area). SOS ngoài vòng vẫn được nhận nhưng gắn
+ * Khu vực phục vụ (Admin cấu hình ở GET/PUT /api/settings/service-area): đa giác ranh giới nếu có (§33), không thì vòng tròn. SOS ngoài vòng vẫn được nhận nhưng gắn
  * cờ "ngoài khu vực". Admin tắt (enabled = false) thì không vẽ. Nằm dưới đường đi và các marker.
  */
 export const MapServiceAreaLayer: React.FC<MapServiceAreaLayerProps> = ({ map, area }) => {

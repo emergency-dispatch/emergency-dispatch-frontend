@@ -340,7 +340,9 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
               <div>
                 <p className="font-bold text-red-800">{t('liveMap.create.outOfAreaTitle')}</p>
                 <p className="mt-0.5">
-                  {t('liveMap.create.outOfAreaBody', { km: outsideKm, area: area.name, radius: area.radiusKm })}
+                  {area.polygons.length > 0
+                    ? t('liveMap.create.outOfAreaBodyPolygon', { km: outsideKm, area: area.name })
+                    : t('liveMap.create.outOfAreaBody', { km: outsideKm, area: area.name, radius: area.radiusKm })}
                 </p>
               </div>
             </div>
