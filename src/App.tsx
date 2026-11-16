@@ -24,13 +24,14 @@ import { AdminLayout } from './components/admin/AdminLayout';
 const AdminStationsPage = lazy(() => import('./pages/admin/StationsPage'));
 const AdminVehiclesPage = lazy(() => import('./pages/admin/VehiclesPage'));
 const AdminEquipmentPage = lazy(() => import('./pages/admin/EquipmentPage'));
+const AdminUnitTypesPage = lazy(() => import('./pages/admin/UnitTypesPage'));
+const AdminIncidentTypesPage = lazy(() => import('./pages/admin/IncidentTypesPage'));
 const AdminAccountsPage = lazy(() => import('./pages/admin/AccountsPage'));
 const AdminOverviewPage = lazy(() => import('./pages/admin/OverviewPage'));
 const AdminCitizensPage = lazy(() => import('./pages/admin/CitizensPage'));
 const AdminBlockedNumbersPage = lazy(() => import('./pages/admin/BlockedNumbersPage'));
 const AdminAuditTrailPage = lazy(() => import('./pages/admin/AuditTrailPage'));
 const AdminEscalationSettingsPage = lazy(() => import('./pages/admin/EscalationSettingsPage'));
-const AdminDispatchSettingsPage = lazy(() => import('./pages/admin/DispatchSettingsPage'));
 const AdminServiceAreaSettingsPage = lazy(() => import('./pages/admin/ServiceAreaSettingsPage'));
 const AdminDuplicateDetectionSettingsPage = lazy(() => import('./pages/admin/DuplicateDetectionSettingsPage'));
 const AdminReportsPage = lazy(() => import('./pages/admin/ReportsPage'));
@@ -98,11 +99,14 @@ const App: React.FC = () => {
             <Route path="stations" element={<AdminStationsPage />} />
             <Route path="vehicles" element={<AdminVehiclesPage />} />
             <Route path="equipment" element={<AdminEquipmentPage />} />
+            <Route path="unit-types" element={<AdminUnitTypesPage />} />
+            <Route path="incident-types" element={<AdminIncidentTypesPage />} />
             <Route path="accounts" element={<AdminAccountsPage />} />
             <Route path="citizens" element={<AdminCitizensPage />} />
             <Route path="blocked-numbers" element={<AdminBlockedNumbersPage />} />
             <Route path="settings/escalation" element={<AdminEscalationSettingsPage />} />
-            <Route path="settings/dispatch" element={<AdminDispatchSettingsPage />} />
+            {/* Tham số điều phối đã gộp vào trang Điều phối & leo thang — giữ đường dẫn cũ. */}
+            <Route path="settings/dispatch" element={<Navigate to="/admin/settings/escalation" replace />} />
             <Route path="settings/service-area" element={<AdminServiceAreaSettingsPage />} />
             <Route path="settings/duplicate-detection" element={<AdminDuplicateDetectionSettingsPage />} />
             <Route path="reports" element={<AdminReportsPage />} />

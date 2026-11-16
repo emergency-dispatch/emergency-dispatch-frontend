@@ -3,6 +3,8 @@ import {
   AlertTriangle,
   ArrowRightLeft,
   Ban,
+  Bot,
+  BotOff,
   BrainCircuit,
   CheckCircle2,
   CircleDot,
@@ -70,11 +72,14 @@ const ACTION_META: Record<IncidentAuditAction, { icon: LucideIcon; color: string
   ReportUnlinked: { icon: Split, color: '#2563EB' },
   DuplicateConfirmed: { icon: CopyCheck, color: '#64748B' },
   LinkedReportsRestored: { icon: RotateCcw, color: '#D97706' },
+  // §31.E: hệ thống tự xác minh + điều xe / bỏ qua (nghi trùng, hết xe…) → chuyển Operator.
+  AutoDispatched: { icon: Bot, color: '#4F46E5' },
+  AutoDispatchSkipped: { icon: BotOff, color: '#D97706' },
 };
 
 const UNKNOWN_ACTION = { icon: CircleDot, color: '#64748B' };
 
-const KNOWN_ROLES = ['Operator', 'Admin', 'RescueStaff', 'Citizen', 'System'] as const;
+const KNOWN_ROLES = ['Operator', 'Admin', 'RescueStaff', 'Citizen', 'System', 'AI_AutoDispatch'] as const;
 type KnownRole = (typeof KNOWN_ROLES)[number];
 const isKnownRole = (role: string): role is KnownRole => (KNOWN_ROLES as readonly string[]).includes(role);
 
@@ -117,7 +122,10 @@ const TimelineItem: React.FC<{ entry: IncidentAuditEntryDto; isLast: boolean }> 
         </div>
         {(entry.actorName || role) && (
           <p className="text-xs text-slate-500 mt-0.5">
-            {entry.actorName ?? t('incidents.audit.system')}
+            {/* AI tự điều phối không có tài khoản → backend ghi tên = mã vai trò "AI_AutoDispatch". */}
+            {entry.actorRole === 'AI_AutoDispatch'
+              ? t('incidents.audit.autoDispatchActor')
+              : (entry.actorName ?? t('incidents.audit.system'))}
             {role && <span className="text-slate-400"> · {role}</span>}
           </p>
         )}

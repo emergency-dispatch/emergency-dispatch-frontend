@@ -3,6 +3,7 @@ import { adminCommonVi } from './common';
 import { adminStationsVi } from './stations';
 import { adminVehiclesVi } from './vehicles';
 import { adminEquipmentVi } from './equipment';
+import { adminCatalogVi } from './catalog';
 import { adminUsersVi } from './users';
 import { adminSettingsVi } from './settings';
 import { adminMonitoringVi } from './monitoring';
@@ -13,6 +14,7 @@ export const adminVi = {
   stations: adminStationsVi,
   vehicles: adminVehiclesVi,
   equipment: adminEquipmentVi,
+  catalog: adminCatalogVi,
   users: adminUsersVi,
   settings: adminSettingsVi,
   monitoring: adminMonitoringVi,

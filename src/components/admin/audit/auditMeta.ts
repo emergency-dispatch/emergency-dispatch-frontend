@@ -1,11 +1,13 @@
 import {
   Ban,
+  Bot,
   Building2,
   CircleCheck,
   ClipboardList,
   Combine,
   FileDown,
   EyeOff,
+  ListTree,
   Lock,
   LockOpen,
   Megaphone,
@@ -15,6 +17,7 @@ import {
   Settings,
   ShieldAlert,
   Siren,
+  Tags,
   TrafficCone,
   Trash2,
   TriangleAlert,
@@ -30,7 +33,7 @@ import { trafficJamAuditDecision } from '../../../utils/trafficJamAudit';
 import { adminMonitoringVi } from '../../../i18n/locales/vi/admin/monitoring';
 
 // Nhóm chỉ để tô màu / gắn icon — backend lọc theo từng hành động, không theo nhóm.
-type AuditGroup = 'incident' | 'dispatch' | 'escalation' | 'privacy' | 'field' | 'duplicate';
+type AuditGroup = 'incident' | 'dispatch' | 'escalation' | 'privacy' | 'field' | 'duplicate' | 'autoDispatch';
 
 const GROUP_META: Record<AuditGroup, { icon: LucideIcon; badgeClass: string }> = {
   incident: { icon: Siren, badgeClass: 'bg-red-50 text-red-700 border-red-200' },
@@ -41,6 +44,8 @@ const GROUP_META: Record<AuditGroup, { icon: LucideIcon; badgeClass: string }> =
   field: { icon: Megaphone, badgeClass: 'bg-sky-50 text-sky-700 border-sky-200' },
   // BR-07 gom / tách báo cáo trùng.
   duplicate: { icon: Combine, badgeClass: 'bg-teal-50 text-teal-700 border-teal-200' },
+  // §31.E hệ thống tự xác minh + điều xe (hoặc bỏ qua, chuyển Operator).
+  autoDispatch: { icon: Bot, badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
 };
 
 // Nhãn dịch theo admin.monitoring.audit.* (incidentAction, systemAction, entityType, settingsKey, actorRole, field).
@@ -76,6 +81,8 @@ const ACTION_GROUP: Record<AuditAction, AuditGroup> = {
   ReportUnlinked: 'duplicate',
   DuplicateConfirmed: 'duplicate',
   LinkedReportsRestored: 'duplicate',
+  AutoDispatched: 'autoDispatch',
+  AutoDispatchSkipped: 'autoDispatch',
 };
 
 const has = <T extends object>(obj: T, key: string): key is Extract<keyof T, string> => Object.prototype.hasOwnProperty.call(obj, key);
@@ -145,6 +152,8 @@ const ENTITY_TYPE_ICON: Record<SystemAuditEntityType, LucideIcon> = {
   Report: FileDown,
   TrafficHotspot: TrafficCone,
   Equipment: Package,
+  RescueUnitType: Tags,
+  IncidentType: ListTree,
 };
 
 export function entityTypeMeta(type: string): { label: string; icon: LucideIcon } {
@@ -161,6 +170,16 @@ export const entityDisplayName = (type: string, name: string | null) =>
 
 export const actorRoleLabel = (role: string | null) =>
   !role ? '—' : has(adminMonitoringVi.audit.actorRole, role) ? i18n.t(`admin.monitoring.audit.actorRole.${role}`) : role;
+
+/**
+ * Tên người thao tác. Tác vụ nền không có tài khoản → backend ghi tên = mã vai trò (VD "AI_AutoDispatch") → đổi sang nhãn dễ đọc.
+ */
+export const actorNameLabel = (name: string | null, role: string | null) =>
+  !name
+    ? '—'
+    : name === role && has(adminMonitoringVi.audit.actorName, name)
+      ? i18n.t(`admin.monitoring.audit.actorName.${name}`)
+      : name;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 

@@ -180,6 +180,8 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       DuplicateConfirmed: 'Duplicate report confirmed',
       SupplementAdded: 'Reporter added information',
       LinkedReportsRestored: 'Merged reports returned to queue',
+      AutoDispatched: 'AI auto-dispatched',
+      AutoDispatchSkipped: 'AI auto-dispatch skipped',
     },
     systemAction: {
       Created: 'Created',
@@ -209,6 +211,8 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       Report: 'Report',
       TrafficHotspot: 'Traffic hotspot',
       Equipment: 'Equipment',
+      RescueUnitType: 'Vehicle type',
+      IncidentType: 'Incident type',
     },
     settingsKey: {
       dispatch: 'Dispatch parameters',
@@ -222,7 +226,11 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       RescueStaff: 'Rescue staff',
       Citizen: 'Citizen',
       AI_Worker: 'AI',
+      AI_AutoDispatch: 'AI',
       System: 'System',
+    },
+    actorName: {
+      AI_AutoDispatch: 'AI auto-dispatch',
     },
     field: {
       name: 'Name',
@@ -279,6 +287,11 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       notes: 'Notes',
       note: 'Note',
       statusNote: 'Maintenance reason',
+      autoDispatchEnabled: 'AI auto-dispatch enabled',
+      autoDispatchMinConfidence: 'Auto-dispatch confidence threshold',
+      autoDispatchDuplicateRadiusMeters: 'Auto-dispatch duplicate radius (m)',
+      autoDispatchDuplicateWindowMinutes: 'Auto-dispatch duplicate window (min)',
+      boundaryGeoJson: 'Polygon boundary (GeoJSON)',
     },
   },
 };

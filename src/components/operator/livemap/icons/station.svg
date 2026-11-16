@@ -1,0 +1,6 @@
+<!-- Trạm — phương án 2 "Khối đặc" theo bố cục mẫu người dùng (chốt 2026-11-12): tháp giữa có bảng hiệu + đồng hồ + cửa,
+     hai cánh có cửa sổ, nền thềm. Lưới 24×24, một màu; code tô màu qua currentColor (đỏ = trạm của tôi, xám = trạm khác). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <path fill="currentColor" fill-rule="evenodd" d="M8.5 2.3h7v3.2h-7Z M10 3.5h4v.8h-4Z M7 7.8h10v11.7H7Z M10.1 10.8a1.9 1.9 0 1 0 3.8 0a1.9 1.9 0 1 0-3.8 0Z M10.2 15.2h3.6v4.3h-3.6Z M2.5 11.6h4v7.9h-4Z M3.3 13h2.4v1.4H3.3Z M3.3 15.8h2.4v1.4H3.3Z M17.5 11.6h4v7.9h-4Z M18.3 13h2.4v1.4h-2.4Z M18.3 15.8h2.4v1.4h-2.4Z"/>
+  <path fill="currentColor" d="M6 6h12v1.8H6Z M2 10h4.6v1.2H2Z M17.4 10H22v1.2h-4.6Z M1.5 20.2h21v2.2h-21Z M11.6 9.6h.8v1.3h-.8Z M12.4 10.8h1.1v.8h-1.1Z"/>
+</svg>

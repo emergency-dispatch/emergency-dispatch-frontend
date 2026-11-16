@@ -105,7 +105,7 @@ export const VehicleEquipmentModal: React.FC<VehicleEquipmentModalProps> = ({
                 <VehicleStatusBadge label={status.label} color={status.color} />
               </div>
               <p className="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-1.5">
-                <span>{t(`enums.unitType.${vehicle.unitType}`)}</span>
+                <span>{t(`enums.unitType.${vehicle.unitType}`, { defaultValue: vehicle.unitType })}</span>
                 {teamName && (
                   <>
                     <span aria-hidden>·</span>

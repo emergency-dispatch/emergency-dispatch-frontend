@@ -86,7 +86,7 @@ export const EquipmentByVehicle: React.FC<EquipmentByVehicleProps> = ({
                 </div>
                 <p className="text-[11px] text-slate-500">
                   {g.vehicle
-                    ? t(`enums.unitType.${g.vehicle.unitType}`)
+                    ? t(`enums.unitType.${g.vehicle.unitType}`, { defaultValue: g.vehicle.unitType })
                     : isStock
                       ? t('vehicles.equipment.group.stockHint')
                       : null}

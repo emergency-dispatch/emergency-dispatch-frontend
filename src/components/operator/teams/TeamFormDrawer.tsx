@@ -149,7 +149,7 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
                     className="accent-red-600"
                   />
                   <span className="flex-1 min-w-0 text-sm text-slate-900 truncate">
-                    <span className="font-mono-data font-bold">{v.plate}</span> · {t(`enums.unitType.${v.unitType}`)}
+                    <span className="font-mono-data font-bold">{v.plate}</span> · {t(`enums.unitType.${v.unitType}`, { defaultValue: v.unitType })}
                   </span>
                   {(otherTeam || busy) && (
                     <span className="text-[11px] text-slate-500 whitespace-nowrap">

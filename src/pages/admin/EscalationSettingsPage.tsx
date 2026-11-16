@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Pencil, Plus, Power, PowerOff, RefreshCw, ScanSearch, Trash2 } from 'lucide-react';
 import { EscalationRuleFormDrawer } from '../../components/admin/escalation/EscalationRuleFormDrawer';
 import { EscalationSettingsSection } from '../../components/admin/escalation/EscalationSettingsSection';
+import { DispatchSettingsSection } from '../../components/admin/settings/DispatchSettingsSection';
 import { escalationSeverityMeta, severityLabel } from '../../components/admin/escalation/escalationMeta';
 import { ConfirmModal, Notice, type NoticeState } from '../../components/admin/common/ui';
 import { iconButtonClass, thClass } from '../../components/admin/common/styles';
@@ -28,6 +29,9 @@ const EscalationSettingsPage: React.FC = () => {
   const [confirmTrigger, setConfirmTrigger] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [notice, setNotice] = useState<NoticeState>(null);
+  // Hai cấu hình kiểm tra chéo nhau (nấc bán kính cuối ≤ bán kính tối đa) → lưu khung này thì khung kia tải lại.
+  const [dispatchVersion, setDispatchVersion] = useState(0);
+  const [escalationVersion, setEscalationVersion] = useState(0);
 
   const run = async (key: string, action: () => Promise<string>) => {
     setPending(key);
@@ -46,10 +50,18 @@ const EscalationSettingsPage: React.FC = () => {
   const activeCount = ruleItems.filter((r) => r.isActive).length;
 
   return (
+    // Trang "Điều phối & leo thang": gợi ý xe → leo thang khi chưa có đội nhận → quy tắc → nhật ký.
     <div>
-      <EscalationSettingsSection />
+      <div className="p-4 sm:p-6 space-y-6">
+        <DispatchSettingsSection
+          reloadKey={escalationVersion}
+          onSaved={() => setDispatchVersion((v) => v + 1)}
+        />
+        <EscalationSettingsSection
+          reloadKey={dispatchVersion}
+          onSaved={() => setEscalationVersion((v) => v + 1)}
+        />
 
-      <div className="px-4 sm:px-6 pb-6 space-y-6">
         <Notice notice={notice} onClose={() => setNotice(null)} />
 
         <section className="space-y-3">

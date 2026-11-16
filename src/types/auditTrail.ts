@@ -34,7 +34,10 @@ export type AuditAction =
   | 'ReportUnlinked'
   | 'DuplicateConfirmed'
   | 'SupplementAdded'
-  | 'LinkedReportsRestored';
+  | 'LinkedReportsRestored'
+  // 31–32: AI tự điều phối (FE_MOBILE_HANDOFF §31.E).
+  | 'AutoDispatched'
+  | 'AutoDispatchSkipped';
 
 // Thứ tự trong ô lọc: gom theo vòng đời sự cố.
 export const AUDIT_ACTIONS: AuditAction[] = [
@@ -49,6 +52,8 @@ export const AUDIT_ACTIONS: AuditAction[] = [
   'ReportUnlinked',
   'DuplicateConfirmed',
   'LinkedReportsRestored',
+  'AutoDispatched',
+  'AutoDispatchSkipped',
   'Dispatched',
   'ReDispatched',
   'AssignmentAccepted',
@@ -78,7 +83,7 @@ export interface AuditTrailEntryDto {
   actorId: string | null;
   /** Tên người thao tác; tác vụ nền thì là tên vai trò (VD "AI Worker"). */
   actorName: string | null;
-  /** Chuỗi tự do: "Operator", "Admin", "RescueStaff", "Citizen", "AI_Worker", "System"… */
+  /** Chuỗi tự do: "Operator", "Admin", "RescueStaff", "Citizen", "AI_Worker", "AI_AutoDispatch", "System"… */
   actorRole: string | null;
   action: AuditAction;
   description: string | null;
@@ -136,7 +141,10 @@ export type SystemAuditEntityType =
   | 'BlockedNumber'
   | 'Report'
   | 'TrafficHotspot'
-  | 'Equipment';
+  | 'Equipment'
+  // Danh mục loại xe / loại sự cố do Admin quản lý (§31.B).
+  | 'RescueUnitType'
+  | 'IncidentType';
 
 export const SYSTEM_AUDIT_ENTITY_TYPES: SystemAuditEntityType[] = [
   'Station',
@@ -149,6 +157,8 @@ export const SYSTEM_AUDIT_ENTITY_TYPES: SystemAuditEntityType[] = [
   'Report',
   'TrafficHotspot',
   'Equipment',
+  'RescueUnitType',
+  'IncidentType',
 ];
 
 /** Mirror SystemAuditLogDto (GET /api/audit-trail/system). */

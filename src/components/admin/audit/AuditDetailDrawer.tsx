@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { ArrowRight, Lock, X } from 'lucide-react';
 import { labelClass } from '../common/styles';
-import { actorRoleLabel, auditActionMeta, formatAuditTime, stateChanges } from './auditMeta';
+import { actorNameLabel, actorRoleLabel, auditActionMeta, formatAuditTime, stateChanges } from './auditMeta';
 import type { AuditTrailEntryDto } from '../../../types/auditTrail';
 import { useTranslation } from '../../../i18n';
 
@@ -59,7 +59,7 @@ export const AuditDetailDrawer: React.FC<AuditDetailDrawerProps> = ({ entry, onC
               <span className="font-mono-data">{formatAuditTime(entry.timestamp)}</span>
             </Row>
             <Row label={t('admin.monitoring.audit.actor')}>
-              {entry.actorName || '—'} <span className="text-slate-500">· {actorRoleLabel(entry.actorRole)}</span>
+              {actorNameLabel(entry.actorName, entry.actorRole)} <span className="text-slate-500">· {actorRoleLabel(entry.actorRole)}</span>
             </Row>
             <Row label={t('admin.monitoring.audit.incident')}>
               <div>{entry.incidentTitle || t('admin.monitoring.incident.missing')}</div>

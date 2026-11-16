@@ -21,10 +21,10 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     notifyRolesRequired: 'Choose at least 1 role to notify.',
     descriptionTooLong: 'The description can be at most {{max}} characters.',
     autoExpireRange: 'Must be between {{min}} and {{max}} hours.',
+    confidenceRange: 'Must be between {{min}}% and {{max}}%.',
   },
   dispatch: {
-    scopeNote:
-      'Vehicle dispatch suggestion parameters, applied to the next suggestion in the Command Center. Used for the Nearest-Available vs Load-Aware algorithm experiment (RQ2).',
+    sectionTitle: 'Dispatch parameters',
     saved: 'Dispatch parameters saved.',
     weightsTitle: 'Load-Aware weights',
     weightsFormula: 'Cost = w₁ × distance + w₂ × station load + w₃ × active missions',
@@ -44,10 +44,25 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     autoExpire: 'Auto-cancel unverified incidents',
     hoursUnit: 'hours',
     autoExpireHint: 'Incidents not verified by an Operator within this time are cancelled automatically ({{min}}–{{max}} hours).',
+    auto: {
+      title: 'AI auto-dispatch',
+      noteLabel: 'Note:',
+      description:
+        "The system verifies the incident and dispatches vehicles according to the incident type's dispatch plan without waiting for an Operator. Applies only to fire / traffic accident SOS at Level 1–3 inside the service area, when the reporter did not choose \"Other\", no Operator has the case open, and the confidence is a measured probability from the TriageVL model.",
+      enable: 'Enable AI auto-dispatch',
+      enableHint:
+        'When off, every incident waits for Operator review. Skipped cases (suspected duplicate, no vehicles…) still enter the queue with the reason.',
+      confidence: 'Minimum confidence',
+      confidenceHint: 'From {{min}}% to {{max}}%. Below the threshold, the case waits for an Operator.',
+      duplicateRadius: 'Suspected-duplicate radius',
+      duplicateRadiusHint:
+        'From {{min}} to {{max}} m. If another incident within this radius already has vehicles dispatched (any type), it is not auto-dispatched and goes to an Operator.',
+      duplicateWindow: 'Suspected-duplicate window',
+      duplicateWindowHint: 'From {{min}} to {{max}} minutes: only incidents with activity within this most recent period are checked.',
+    },
   },
   escalation: {
-    scopeNote:
-      'The Escalation Daemon scans periodically: incidents covered by an active rule that have no accepting team beyond the <b>wait threshold</b> below are escalated, raising an alert in the Command Center and widening the vehicle search radius.',
+    sectionTitle: 'Escalation settings',
     saved: 'Escalation settings saved.',
     thresholdTitle: 'Team acceptance wait threshold',
     day: 'Daytime',
@@ -155,14 +170,31 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     name: 'Area name',
     namePlaceholder: 'E.g. Saigon Hi-Tech Park',
     nameHint: 'Shown in warnings to citizens and notifications to Operators.',
+    shapeTitle: 'Area boundary',
+    shape: {
+      circle: 'Circle',
+      circleHint: 'Center + radius.',
+      polygon: 'Polygon',
+      polygonHint: 'Draw the real boundary on the map.',
+    },
+    polygonTitle: 'Polygon',
+    redraw: 'Redraw from scratch',
+    polygonSummary: '{{vertices}} vertices · {{parts}} area(s)',
+    drawHint:
+      'Click each point on the map, then click the first point again (or double-click) to close the polygon. Click the polygon and drag its vertices to adjust, drag a midpoint to add a vertex; the trash button on the map deletes the selected polygon. The polygon button on the map adds another area.',
+    derivedCircle:
+      'Center {{lat}}, {{lng}} · radius {{km}} km: computed to enclose the polygon, used only to display maps (e.g. the area circle on the Operator Live Map).',
+    boundaryRequired: 'Draw at least one polygon (3+ vertices) on the map.',
     radius: 'Radius',
     radiusAria: 'Area radius (km)',
     radiusRange: 'From {{min}} to {{max}} km.',
     center: 'Area center',
     viewWholeArea: 'View whole area',
-    centerHint: 'Click the map or drag the red dot to set the center ·',
+    centerHint: 'Click the map or drag the red dot to set the center.',
     outsideStations:
       'Stations outside the area: <b>{{stations}}</b>. You can still save, but consider widening the radius or moving the center so all stations are inside the service area.',
+    outsideStationsPolygon:
+      'Stations outside the polygon: <b>{{stations}}</b>. You can still save, but consider redrawing the boundary so all stations are inside the service area.',
   },
   duplicateDetection: {
     scopeNote:

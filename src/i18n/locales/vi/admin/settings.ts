@@ -19,10 +19,10 @@ export const adminSettingsVi = {
     notifyRolesRequired: 'Chọn ít nhất 1 vai trò nhận cảnh báo.',
     descriptionTooLong: 'Mô tả tối đa {{max}} ký tự.',
     autoExpireRange: 'Phải từ {{min}} đến {{max}} giờ.',
+    confidenceRange: 'Phải từ {{min}}% đến {{max}}%.',
   },
   dispatch: {
-    scopeNote:
-      'Tham số gợi ý điều phối xe, áp dụng ngay cho lần gợi ý tiếp theo ở Command Center. Dùng cho thí nghiệm so sánh thuật toán Nearest-Available và Load-Aware (RQ2).',
+    sectionTitle: 'Tham số điều phối',
     saved: 'Đã lưu tham số điều phối.',
     weightsTitle: 'Trọng số Load-Aware',
     weightsFormula: 'Cost = w₁ × khoảng cách + w₂ × tải trạm + w₃ × nhiệm vụ đang chạy',
@@ -42,10 +42,26 @@ export const adminSettingsVi = {
     autoExpire: 'Tự hủy sự cố chưa xác minh',
     hoursUnit: 'giờ',
     autoExpireHint: 'Sự cố chưa được Operator duyệt quá thời gian này thì tự hủy ({{min}}–{{max}} giờ).',
+    // AI tự điều phối (FE_MOBILE_HANDOFF §31.E)
+    auto: {
+      title: 'AI tự điều phối',
+      noteLabel: 'Lưu ý:',
+      description:
+        'Hệ thống tự xác minh và điều xe theo kế hoạch điều xe của loại sự cố, không chờ Operator duyệt. Chỉ áp dụng cho SOS cháy nổ / tai nạn Cấp 1–3 trong khu vực phục vụ, người báo không chọn "Khác", không Operator nào đang mở ca, và độ tin cậy là xác suất đo thật từ model TriageVL.',
+      enable: 'Bật AI tự điều phối',
+      enableHint:
+        'Khi tắt, mọi sự cố đều chờ Operator duyệt. Ca bị bỏ qua (nghi trùng, hết xe…) vẫn vào hàng đợi kèm lý do.',
+      confidence: 'Ngưỡng độ tin cậy tối thiểu',
+      confidenceHint: 'Từ {{min}}% đến {{max}}%. Thấp hơn ngưỡng thì chờ Operator.',
+      duplicateRadius: 'Bán kính nghi trùng',
+      duplicateRadiusHint:
+        'Từ {{min}} đến {{max}} m. Đã có sự cố khác được điều xe trong bán kính này (không xét loại) thì không tự điều, chuyển Operator.',
+      duplicateWindow: 'Khung thời gian nghi trùng',
+      duplicateWindowHint: 'Từ {{min}} đến {{max}} phút: chỉ xét các sự cố có hoạt động trong khoảng thời gian này gần nhất.',
+    },
   },
   escalation: {
-    scopeNote:
-      'Escalation Daemon quét định kỳ: sự cố thuộc phạm vi của quy tắc đang bật mà chưa có đội nhận quá <b>ngưỡng chờ</b> dưới đây sẽ chuyển sang Leo thang, báo động tới Command Center và mở rộng bán kính tìm xe.',
+    sectionTitle: 'Cấu hình leo thang',
     saved: 'Đã lưu cấu hình leo thang.',
     thresholdTitle: 'Ngưỡng chờ đội nhận',
     day: 'Ban ngày',
@@ -153,14 +169,31 @@ export const adminSettingsVi = {
     name: 'Tên khu vực',
     namePlaceholder: 'VD: Khu Công nghệ cao TP.HCM',
     nameHint: 'Hiện trong cảnh báo cho người dân và thông báo cho Operator.',
+    shapeTitle: 'Ranh giới khu vực',
+    shape: {
+      circle: 'Hình tròn',
+      circleHint: 'Tâm + bán kính.',
+      polygon: 'Đa giác',
+      polygonHint: 'Vẽ đúng ranh giới thật trên bản đồ.',
+    },
+    polygonTitle: 'Đa giác',
+    redraw: 'Vẽ lại từ đầu',
+    polygonSummary: '{{vertices}} đỉnh · {{parts}} vùng',
+    drawHint:
+      'Bấm từng điểm trên bản đồ, bấm lại điểm đầu (hoặc nhấp đúp) để khép đa giác. Bấm vào đa giác rồi kéo đỉnh để chỉnh, kéo chấm giữa cạnh để thêm đỉnh; nút thùng rác trên bản đồ xóa đa giác đang chọn. Nút đa giác trên bản đồ thêm vùng mới.',
+    derivedCircle:
+      'Tâm {{lat}}, {{lng}} · bán kính {{km}} km: tự tính bao quanh đa giác, chỉ để hiển thị bản đồ (VD vòng khu vực trên Live Map của Operator).',
+    boundaryRequired: 'Vẽ ít nhất một đa giác (từ 3 đỉnh) trên bản đồ.',
     radius: 'Bán kính',
     radiusAria: 'Bán kính khu vực (km)',
     radiusRange: 'Từ {{min}} đến {{max}} km.',
     center: 'Tâm khu vực',
     viewWholeArea: 'Xem cả khu vực',
-    centerHint: 'Bấm lên bản đồ hoặc kéo chấm đỏ để đặt tâm ·',
+    centerHint: 'Bấm lên bản đồ hoặc kéo chấm đỏ để đặt tâm.',
     outsideStations:
       'Trạm nằm ngoài khu vực: <b>{{stations}}</b>. Vẫn lưu được, nhưng nên mở rộng bán kính hoặc dời tâm để các trạm nằm trong vùng phục vụ.',
+    outsideStationsPolygon:
+      'Trạm nằm ngoài đa giác: <b>{{stations}}</b>. Vẫn lưu được, nhưng nên vẽ lại ranh giới để các trạm nằm trong vùng phục vụ.',
   },
   // BR-07: tự gộp SOS trùng của người dân vào sự cố đang mở.
   duplicateDetection: {

@@ -1,0 +1,7 @@
+<!-- Ghim chọn vị trí khi Operator tạo sự cố — phương án 2 "Ghim Quầng sáng" (chốt 2026-11-12):
+     ghim lõi tối viền đỏ nhạt, dấu cộng đỏ sáng. viewBox 30×40, mũi ghim ở (15, 39).
+     Quầng đỏ (drop-shadow) và vòng nhấp nháy dưới chân do code marker thêm. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 40" width="30" height="40">
+  <path d="M15 1C7.3 1 1 7.2 1 14.9 1 25.3 15 39 15 39s14-13.7 14-24.1C29 7.2 22.7 1 15 1z" fill="#0F172A" stroke="#F87171" stroke-width="2.5"/>
+  <path d="M15 9.8v10.4 M9.8 15h10.4" stroke="#FCA5A5" stroke-width="2.8" stroke-linecap="round"/>
+</svg>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { thClass } from '../common/styles';
-import { actorRoleLabel, auditActionMeta, formatAuditTime } from './auditMeta';
+import { actorNameLabel, actorRoleLabel, auditActionMeta, formatAuditTime } from './auditMeta';
 import type { AuditTrailEntryDto } from '../../../types/auditTrail';
 import { useTranslation } from '../../../i18n';
 
@@ -57,7 +57,7 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ entries, loadi
             >
               <td className="px-4 py-3 font-mono-data text-xs text-slate-600 whitespace-nowrap">{formatAuditTime(e.timestamp)}</td>
               <td className="px-4 py-3 whitespace-nowrap">
-                <div className="font-semibold text-slate-900">{e.actorName || '—'}</div>
+                <div className="font-semibold text-slate-900">{actorNameLabel(e.actorName, e.actorRole)}</div>
                 <div className="text-[11px] text-slate-500">{actorRoleLabel(e.actorRole)}</div>
               </td>
               <td className="px-4 py-3">

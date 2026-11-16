@@ -1,7 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import type MapboxDraw from '@mapbox/mapbox-gl-draw';
+import type { FeatureCollection } from 'geojson';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE } from '../../../services/mapboxService';
+import { boundaryBounds, type PolygonCoords } from '../settings/serviceAreaBoundary';
 
 const COVERAGE_SOURCE_ID = 'station-coverage';
 const DEFAULT_COVERAGE_COLOR = '#DC2626';
@@ -112,6 +115,17 @@ interface StationMapPickerProps {
   referenceArea?: MapReferenceArea | null;
   /** Các trạm khác để tham chiếu (vòng phủ sóng + tên). Truyền mảng đã memo. */
   referenceStations?: MapReferenceStation[];
+  /**
+   * Chế độ vẽ đa giác (khu vực phục vụ, §33): không có chấm tâm / bấm đặt tâm, thay bằng công cụ vẽ.
+   * Chỉ đọc lúc khởi tạo → đổi chế độ hoặc vẽ lại từ đầu thì đổi `key` để dựng lại bản đồ.
+   * `createDraw` do trang truyền vào để thư viện vẽ không bị nạp kèm drawer Trạm.
+   */
+  boundary?: {
+    polygons: PolygonCoords[];
+    onChange: (polygons: PolygonCoords[]) => void;
+    createDraw: () => MapboxDraw;
+    readPolygons: (collection: FeatureCollection) => PolygonCoords[];
+  };
 }
 
 /**
@@ -129,6 +143,7 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
   fitToRadius = false,
   referenceArea = null,
   referenceStations,
+  boundary,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -136,8 +151,13 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   // Latest values for the style 'load' callback, which fires after the initial render.
-  const latestRef = useRef({ lat, lng, radiusKm, color, fitToRadius });
-  latestRef.current = { lat, lng, radiusKm, color, fitToRadius };
+  const latestRef = useRef({ lat, lng, radiusKm, color, fitToRadius, referenceArea, polygons: boundary?.polygons });
+  latestRef.current = { lat, lng, radiusKm, color, fitToRadius, referenceArea, polygons: boundary?.polygons };
+  const boundaryRef = useRef(boundary);
+  boundaryRef.current = boundary;
+  // Người dùng đã tự kéo/zoom bản đồ → thôi tự căn lại theo vòng khi khung đổi kích thước.
+  const userMovedRef = useRef(false);
+  const fitViewRef = useRef<((duration: number) => boolean) | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -158,23 +178,76 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
 
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
 
-    const marker = new mapboxgl.Marker({ element: createPickerElement(), draggable: true })
-      .setLngLat([lng, lat])
-      .addTo(map);
+    // Căn khung nhìn: đa giác (nếu có) → vòng tròn (fitToRadius) → vòng tham chiếu. false = không có gì để căn.
+    const fitView = (duration: number) => {
+      const { lat: cLat, lng: cLng, radiusKm: cRadius, fitToRadius: cFit, referenceArea: cArea, polygons } = latestRef.current;
+      const b = polygons ? boundaryBounds(polygons) : null;
+      if (b) {
+        map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: 48, duration });
+        return true;
+      }
+      if (!cFit) return false;
+      if (cRadius !== undefined) {
+        map.fitBounds(boundsOfCircle(cLat, cLng, cRadius), { padding: 24, duration });
+        return true;
+      }
+      if (cArea && cArea.radiusKm > 0) {
+        map.fitBounds(boundsOfCircle(cArea.lat, cArea.lng, cArea.radiusKm), { padding: 24, duration });
+        return true;
+      }
+      return false;
+    };
+    fitViewRef.current = fitView;
 
-    marker.on('dragend', () => {
-      const pos = marker.getLngLat();
-      onChangeRef.current(pos.lat, pos.lng);
-    });
+    const initialBoundary = boundaryRef.current;
+    let marker: mapboxgl.Marker | null = null;
+    if (initialBoundary) {
+      // Thêm công cụ vẽ trước 'load' để Draw tự gắn nguồn / lớp khi style sẵn sàng.
+      const draw = initialBoundary.createDraw();
+      map.addControl(draw, 'top-right');
+      const emit = () => {
+        const current = boundaryRef.current;
+        current?.onChange(current.readPolygons(draw.getAll()));
+      };
+      map.on('draw.create', emit);
+      map.on('draw.update', emit);
+      map.on('draw.delete', emit);
+      map.once('load', () => {
+        const polygons = initialBoundary.polygons;
+        if (polygons.length > 0) {
+          draw.add({
+            type: 'FeatureCollection',
+            features: polygons.map((coordinates) => ({
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'Polygon', coordinates },
+            })),
+          });
+        } else {
+          // Chưa có đa giác → vào thẳng chế độ vẽ.
+          draw.changeMode('draw_polygon');
+        }
+      });
+    } else {
+      marker = new mapboxgl.Marker({ element: createPickerElement(), draggable: true })
+        .setLngLat([lng, lat])
+        .addTo(map);
 
-    map.on('click', (e) => {
-      onChangeRef.current(e.lngLat.lat, e.lngLat.lng);
-    });
+      marker.on('dragend', () => {
+        const pos = marker!.getLngLat();
+        onChangeRef.current(pos.lat, pos.lng);
+      });
+
+      map.on('click', (e) => {
+        onChangeRef.current(e.lngLat.lat, e.lngLat.lng);
+      });
+    }
 
     map.on('load', () => {
-      const { lat: cLat, lng: cLng, radiusKm: cRadius, color: cColor, fitToRadius: cFit } = latestRef.current;
+      const { lat: cLat, lng: cLng, radiusKm: cRadius, color: cColor } = latestRef.current;
       if (cRadius === undefined) {
         map.resize();
+        fitView(0);
         return;
       }
       map.addSource(COVERAGE_SOURCE_ID, {
@@ -194,13 +267,23 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
         paint: { 'line-color': cColor, 'line-width': 1.5 },
       });
       map.resize();
-      if (cFit) map.fitBounds(boundsOfCircle(cLat, cLng, cRadius), { padding: 24, duration: 0 });
+      fitView(0);
+    });
+
+    // Chỉ thao tác của người dùng mới có originalEvent (fitBounds / flyTo trong code thì không).
+    map.on('movestart', (e) => {
+      if (e.originalEvent) userMovedRef.current = true;
     });
 
     // The picker lives inside a drawer that animates in, so the canvas must track container size.
+    // fitToRadius: lúc 'load' khung có thể chưa đạt kích thước cuối (bố cục co giãn theo màn hình) → căn lại
+    // vòng sau mỗi lần đổi kích thước, cho tới khi người dùng tự kéo/zoom.
     let resizeObserver: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => map.resize());
+      resizeObserver = new ResizeObserver(() => {
+        map.resize();
+        if (!userMovedRef.current && map.isStyleLoaded()) fitView(0);
+      });
       resizeObserver.observe(containerRef.current);
     }
 
@@ -212,6 +295,7 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
       map.remove();
       mapRef.current = null;
       markerRef.current = null;
+      fitViewRef.current = null;
     };
   }, []);
 
@@ -288,11 +372,9 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
 
   useEffect(() => {
     if (!recenterKey) return;
-    const { lat: cLat, lng: cLng, radiusKm: cRadius, fitToRadius: cFit } = latestRef.current;
-    if (cFit && cRadius !== undefined) {
-      mapRef.current?.fitBounds(boundsOfCircle(cLat, cLng, cRadius), { padding: 24, duration: 800 });
-      return;
-    }
+    userMovedRef.current = false;
+    if (fitViewRef.current?.(800)) return;
+    const { lat: cLat, lng: cLng } = latestRef.current;
     mapRef.current?.flyTo({ center: [cLng, cLat], zoom: Math.max(mapRef.current.getZoom(), 15), duration: 800 });
   }, [recenterKey]);
 

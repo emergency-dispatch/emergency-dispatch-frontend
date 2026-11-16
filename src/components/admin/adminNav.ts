@@ -6,10 +6,11 @@ import {
   FileBarChart,
   Building2,
   LayoutDashboard,
+  ListTree,
   Package,
   ScrollText,
-  SlidersHorizontal,
   Siren,
+  Tags,
   Truck,
   UserCog,
   Users,
@@ -42,6 +43,14 @@ export const adminNavGroups: AdminNavGroup[] = [
     ],
   },
   {
+    // Danh mục loại xe / loại sự cố (§31–32).
+    key: 'catalogs',
+    items: [
+      { key: 'unitTypes', path: '/admin/unit-types', icon: Tags },
+      { key: 'incidentTypes', path: '/admin/incident-types', icon: ListTree },
+    ],
+  },
+  {
     key: 'users',
     items: [
       { key: 'accounts', path: '/admin/accounts', icon: UserCog },
@@ -52,8 +61,8 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     key: 'settings',
     items: [
+      // Gồm cả tham số điều phối (đường dẫn cũ /admin/settings/dispatch chuyển về đây).
       { key: 'escalation', path: '/admin/settings/escalation', icon: Siren },
-      { key: 'dispatch', path: '/admin/settings/dispatch', icon: SlidersHorizontal },
       { key: 'serviceArea', path: '/admin/settings/service-area', icon: CircleDashed },
       { key: 'duplicateDetection', path: '/admin/settings/duplicate-detection', icon: Combine },
     ],

@@ -5,6 +5,7 @@ import { adminCommonEn } from './common';
 import { adminStationsEn } from './stations';
 import { adminVehiclesEn } from './vehicles';
 import { adminEquipmentEn } from './equipment';
+import { adminCatalogEn } from './catalog';
 import { adminUsersEn } from './users';
 import { adminSettingsEn } from './settings';
 import { adminMonitoringEn } from './monitoring';
@@ -15,6 +16,7 @@ export const adminEn: Messages<typeof adminVi> = {
   stations: adminStationsEn,
   vehicles: adminVehiclesEn,
   equipment: adminEquipmentEn,
+  catalog: adminCatalogEn,
   users: adminUsersEn,
   settings: adminSettingsEn,
   monitoring: adminMonitoringEn,

@@ -413,7 +413,10 @@ export type IncidentAuditAction =
   | 'ReportLinked'
   | 'ReportUnlinked'
   | 'DuplicateConfirmed'
-  | 'LinkedReportsRestored';
+  | 'LinkedReportsRestored'
+  // §31.E AI tự điều phối:
+  | 'AutoDispatched'
+  | 'AutoDispatchSkipped';
 
 /** Mirror AuditTrailEntryDto (GET /api/incidents/{id}/audit-trail). */
 export interface IncidentAuditEntryDto {

@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import { Ambulance, ShieldCheck, Truck } from 'lucide-react';
 import { FireTruckIcon, type FireTruckIconProps } from '../components/common/FireTruckIcon';
 import type { DispatchVehicleType, VehicleStatus, VehicleType } from '../types/vehicle';
+import type { IncidentCategory, SeverityLevel } from '../types/incident';
 
 export const VEHICLE_STATUS_META: Record<VehicleStatus, { label: string; color: string }> = {
   available: { label: 'Sẵn sàng', color: '#10B981' },
@@ -34,6 +35,33 @@ export const TRAFFIC_JAM_STATUS_COLOR = {
   assigned: '#2563EB',
   escalated: '#DC2626',
 } as const;
+
+/**
+ * Màu marker kiểu "Quầng sáng" của Live Map Operator (lõi tối + vòng màu + quầng sáng), dùng trong glowMarkers.ts.
+ * Màu chính của loại sự cố / trạng thái xe vẫn lấy từ INCIDENT_CATEGORY_META / VEHICLE_STATUS_META;
+ * ở đây là các tông sáng để hình bên trong và vòng cấp độ nổi trên lõi tối.
+ */
+export const GLOW_MARKER_COLORS: {
+  core: string;
+  arcIdle: string;
+  categoryGlyph: Record<IncidentCategory, string>;
+  severityArc: Record<SeverityLevel, string>;
+  station: { mine: string; mineHalo: string; other: string };
+  trafficJam: Record<'active' | 'assigned' | 'escalated', { ring: string; glyph: string }>;
+  pulse: string;
+} = {
+  core: '#0F172A',
+  arcIdle: 'rgba(203,213,225,0.75)',
+  categoryGlyph: { fire: '#FF7A6E', accident: '#FDBA74', unknown: '#FF7A6E' },
+  severityArc: { 1: '#34D399', 2: '#FBBF24', 3: '#F87171' },
+  station: { mine: '#F87171', mineHalo: '#DC2626', other: '#CBD5E1' },
+  trafficJam: {
+    active: { ring: '#FB923C', glyph: '#FDBA74' },
+    assigned: { ring: '#60A5FA', glyph: '#93C5FD' },
+    escalated: { ring: '#F87171', glyph: '#FCA5A5' },
+  },
+  pulse: '#DC2626',
+};
 
 // Khu Công nghệ cao TP. HCM (TP. Thủ Đức) — bối cảnh triển khai của đề tài.
 export const MAP_CENTER: [number, number] = [10.8405, 106.8035];
