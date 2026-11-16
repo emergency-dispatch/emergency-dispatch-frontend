@@ -382,4 +382,20 @@ export const incidentsVi = {
     label: 'Loại chi tiết',
     hint: 'Quyết định kế hoạch điều xe (loại xe, số xe chuẩn).',
   },
+  // §31.E: AI tự điều phối.
+  autoDispatch: {
+    badgeDispatched: 'AI tự điều phối · {{confidence}}%',
+    badgeSkipped: 'AI bỏ qua',
+    badgeDuplicate: 'nghi trùng',
+    dispatchedTitle: 'AI đã tự xác minh và điều xe (độ tin cậy {{confidence}}%)',
+    skippedTitle: 'AI đủ tin cậy nhưng không tự điều phối',
+    dispatchedHint: 'Operator vẫn hủy / đổi / điều thêm xe như bình thường.',
+    skippedHint: 'Ca này chờ Operator thẩm định và điều xe như bình thường.',
+    suspectedDuplicate: 'Nghi trùng với sự cố "{{title}}"',
+    duplicateHint: 'Đúng là trùng: hủy ca này với lý do "Trùng sự cố khác". Khác sự cố: duyệt và điều xe như bình thường.',
+  },
+  confidence: {
+    estimated: 'ước lượng',
+    estimatedTitle: 'Độ tin cậy do mô hình tự ước lượng, chỉ để tham khảo (không dùng cho AI tự điều phối).',
+  },
 } as const;

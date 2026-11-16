@@ -30,6 +30,7 @@ import type { DispatchAlgorithm } from '../../../types/vehicle';
 import type { FieldRequestDto } from '../../../types/fieldRequest';
 import { getBusyTeamIds } from '../../../utils/teamAvailability';
 import { useTranslation } from '../../../i18n';
+import { AutoDispatchNotice } from '../incidents/AutoDispatchInfo';
 
 interface DispatchRecommendPanelProps {
   selectedIncidentId: string | null;
@@ -360,6 +361,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
             </div>
             <p className="text-sm font-bold text-slate-900 truncate leading-snug">{selectedIncident.title}</p>
             <p className="text-[10px] text-slate-500 truncate mt-0.5">{selectedIncident.area}</p>
+            <AutoDispatchNotice incident={selectedIncident} className="mt-2" />
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               <button
                 onClick={() => setHistoryOpen(true)}

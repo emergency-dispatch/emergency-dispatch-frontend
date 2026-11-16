@@ -16,6 +16,7 @@ import { formatCountdown, formatDateTime, formatWaitDuration } from '../../../ut
 import { isAiFallbackTag, type Incident } from '../../../types/incident';
 import { useTranslation } from '../../../i18n';
 import { useDispatchStore } from '../../../context/DispatchContext';
+import { AutoDispatchBadge } from './AutoDispatchInfo';
 
 interface IncidentRowProps {
   incident: Incident;
@@ -104,6 +105,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
               {t('incidents.row.linkedReports', { count: incident.linkedReportCount })}
             </span>
           )}
+          <AutoDispatchBadge incident={incident} />
           {jamChip && jamStatus && (
             <span
               title={jamChip.title}

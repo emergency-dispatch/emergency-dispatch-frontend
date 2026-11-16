@@ -37,6 +37,7 @@ import {
   type SeverityLevel,
   type TrafficJamDecision,
   type TrafficJamReport,
+  type AutoDispatchEventDto,
 } from '../types/incident';
 import type { BackendDispatchStatus, DispatchAssignmentResponseDto } from '../types/dispatch';
 import type { RescueUnitResponseDto, RescueUnitType } from '../types/rescueUnit';
@@ -218,7 +219,11 @@ export interface OperatorAlert {
     /** §26.2: một tổ vừa nộp báo cáo nghiệm thu (chữ ký đại diện). */
     | 'team_completed'
     /** BR-21: đội từ chối / không phản hồi lệnh — trả về Operator để giao lại (báo ở mọi trang). */
-    | 'crew_rejected';
+    | 'crew_rejected'
+    /** §31.E: AI đã tự xác minh + điều xe. */
+    | 'auto_dispatched'
+    /** §31.E: AI đủ tin cậy nhưng bỏ qua (nghi trùng, hết xe…) → Operator xử lý. */
+    | 'auto_dispatch_skipped';
   /** Sự cố liên quan; `traffic_escalation` dùng `trafficJamId` (incidentId = id điểm ùn tắc). */
   incidentId: string;
   trafficJamId?: string;
@@ -883,6 +888,36 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }),
         });
       }),
+      // §31.E: AI tự điều phối xong (Dispatched) hoặc bỏ qua (Skipped). Lệnh giao xe vẫn đi qua sự kiện cũ, nhưng tải
+      // lại bảng để có ngay sự cố đã xác minh + lượt phân công; GET sự cố để lấy tiêu đề cho thông báo.
+      incidentHubService.on<AutoDispatchEventDto>(HubEvents.ReceiveAutoDispatched, (evt) => {
+        refreshBoard();
+        const notify = (title: string) => {
+          const dispatched = evt.state === 'Dispatched';
+          pushOperatorAlert(
+            {
+              kind: dispatched ? 'auto_dispatched' : 'auto_dispatch_skipped',
+              incidentId: evt.incidentId,
+              title: i18n.t(
+                dispatched ? 'layout.operatorAlerts.autoDispatchedTitle' : 'layout.operatorAlerts.autoDispatchSkippedTitle'
+              ),
+              message: dispatched
+                ? i18n.t('layout.operatorAlerts.autoDispatchedMessage', {
+                    incident: title,
+                    plates: evt.plates ?? '',
+                    confidence: Math.round((evt.confidence ?? 0) * 100),
+                  })
+                : i18n.t('layout.operatorAlerts.autoDispatchSkippedMessage', { incident: title, note: evt.note ?? '' }),
+            },
+            // Đã điều xe: chỉ để biết → tự đóng; bỏ qua: Operator phải xử lý → giữ tới khi đóng.
+            dispatched ? INFO_ALERT_MS : undefined
+          );
+        };
+        incidentService
+          .getById(evt.incidentId)
+          .then((res) => notify(res.success ? res.data.title : ''))
+          .catch(() => notify(''));
+      }),
       incidentHubService.on<DispatchAssignmentResponseDto>(HubEvents.ReceiveSupportDispatched, (a) => {
         setAssignments((prev) => upsert(prev, [a]));
         pushOperatorAlert(
@@ -1066,6 +1101,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     announceIncoming,
     refreshUnits,
     refreshAll,
+    refreshBoard,
     setIncidentLock,
     removeIncident,
     pushOperatorAlert,

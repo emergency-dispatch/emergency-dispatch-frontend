@@ -38,6 +38,8 @@ export const HubEvents = {
   ReceiveOutOfAreaAlert: 'ReceiveOutOfAreaAlert',
   ReceiveSupportDispatched: 'ReceiveSupportDispatched',
   ReceiveIncidentTransferred: 'ReceiveIncidentTransferred',
+  /** §31.E: kết quả AI tự điều phối (Dispatched / Skipped) → Operator trạm phụ trách + Admin. */
+  ReceiveAutoDispatched: 'ReceiveAutoDispatched',
   ForceLogout: 'ForceLogout',
   ReceiveEscalationAlert: 'ReceiveEscalationAlert',
   ReceiveNotification: 'ReceiveNotification',

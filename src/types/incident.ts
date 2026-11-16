@@ -30,6 +30,23 @@ export type HazardTag = 'fire' | 'accident' | 'traffic_jam';
 /** IncidentEventType của backend. */
 export type BackendEventType = 'None' | 'FireExplosion' | 'TrafficAccident' | 'Other';
 
+/** §31.E: kết quả AI tự điều phối của một sự cố. */
+export type AutoDispatchState = 'None' | 'Dispatched' | 'Skipped';
+
+/** SignalR ReceiveAutoDispatched (Operator trạm phụ trách + Admin). */
+export interface AutoDispatchEventDto {
+  incidentId: string;
+  responsibleStationId: string | null;
+  state: Exclude<AutoDispatchState, 'None'>;
+  note: string | null;
+  /** 0–1. */
+  confidence: number | null;
+  /** Biển số các xe đã điều (khi Dispatched), chuỗi nối sẵn. */
+  plates: string | null;
+  suspectedDuplicateOfIncidentId: string | null;
+  at: string;
+}
+
 /**
  * Kênh tiếp nhận sự cố. CitizenApp = người dân gửi SOS qua app; còn lại = Operator tự tạo khi biết tin
  * từ bên ngoài (POST /api/incidents/operator).
@@ -108,6 +125,14 @@ export interface Incident {
    * điều xe theo mức (§32). null = backend cũ chưa trả.
    */
   incidentTypeCode: string | null;
+  /** §31.E: AI tự điều phối — null = không áp dụng (state None). */
+  autoDispatch: {
+    state: Exclude<AutoDispatchState, 'None'>;
+    note: string | null;
+    suspectedDuplicateOfId: string | null;
+  } | null;
+  /** Độ tin cậy AI là xác suất đo thật (logprob); false = chỉ tham khảo; null = không rõ nguồn (AI / backend cũ). */
+  confidenceMeasured: boolean | null;
   hazardTags: string[];
   severity: SeverityLevel;
   /** % tin cậy của AI (0–100). Vô nghĩa khi aiPending. */
@@ -272,6 +297,11 @@ export interface AiClassificationResultDto {
   /** Mô hình chưa sinh tiếng Anh → summaryEn chỉ là câu thay thế, không phải bản dịch. */
   summaryEnIsFallback?: boolean;
   confidenceScore?: number;
+  /**
+   * §31.D: nguồn độ tin cậy — "logprob" / "logprob-consensus" = xác suất đo thật từ TriageVL (dùng cho AI tự điều
+   * phối); "heuristic" / "self-reported" = chỉ để tham khảo; null = backend / AI cũ.
+   */
+  confidenceSource?: string | null;
   isSuccess: boolean;
   modelName?: string;
   rawResponse?: string;
@@ -325,6 +355,12 @@ export interface IncidentResponseDto {
   reportedIncidentTypeCode?: string | null;
   /** §31: loại chi tiết hiện tại (mã danh mục); eventType là nhóm của loại này. */
   incidentTypeCode?: string | null;
+  /** §31.E: kết quả AI tự điều phối (None = không áp dụng). */
+  autoDispatchState?: AutoDispatchState;
+  /** Lý do / mô tả kết quả tự điều phối (song ngữ theo Accept-Language). */
+  autoDispatchNote?: string | null;
+  /** AI phát hiện nghi trùng với sự cố đã được điều xe → Operator kiểm tra, gộp hoặc điều thêm. */
+  suspectedDuplicateOfIncidentId?: string | null;
   /** (Sự cố gốc) Số báo cáo đang được gom vào sự cố này — hiện "+N người cùng báo". */
   linkedReportCount?: number;
   /** (Báo cáo đã gom / đã xác nhận trùng) Sự cố gốc. */
@@ -699,6 +735,15 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
     needsEventType: !CATEGORY_FROM_EVENT_TYPE[dto.eventType ?? 'None'],
     // Backend cũ chưa có trường này → dùng mã của nhóm (mã loại hệ thống trùng tên nhóm).
     incidentTypeCode: dto.incidentTypeCode || (dto.eventType && dto.eventType !== 'None' ? dto.eventType : null),
+    autoDispatch:
+      dto.autoDispatchState && dto.autoDispatchState !== 'None'
+        ? {
+            state: dto.autoDispatchState,
+            note: dto.autoDispatchNote ?? null,
+            suspectedDuplicateOfId: dto.suspectedDuplicateOfIncidentId ?? null,
+          }
+        : null,
+    confidenceMeasured: ai?.confidenceSource ? ai.confidenceSource.startsWith('logprob') : null,
     hazardTags,
     severity: SEVERITY_FROM_BACKEND[dto.severity] ?? 1,
     confidenceScore: Math.round((ai?.confidenceScore ?? 0) * 100),

@@ -78,6 +78,11 @@ export const layoutVi = {
     defaultArea: 'khu vực phục vụ',
     supportTitle: 'Xe trạm bạn được điều hỗ trợ',
     supportMessage: 'Xe {{plate}} được điều hỗ trợ sự cố {{incident}}.',
+    // §31.E: AI tự điều phối.
+    autoDispatchedTitle: 'AI đã tự điều phối',
+    autoDispatchedMessage: '{{incident}}: đã điều {{plates}} (độ tin cậy {{confidence}}%).',
+    autoDispatchSkippedTitle: 'AI không tự điều phối — cần Operator xử lý',
+    autoDispatchSkippedMessage: '{{incident}}: {{note}}',
     transferredTitle: 'Sự cố đã chuyển trạm',
     transferredMessage: '{{incident}} → {{station}}{{by}}: {{reason}}',
     transferredBy: ' (bởi {{name}})',

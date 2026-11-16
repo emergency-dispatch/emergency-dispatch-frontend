@@ -54,6 +54,7 @@ import type { Station } from '../../../types/vehicle';
 import { dateLocale, useTranslation } from '../../../i18n';
 import { IncidentTypePicker } from './IncidentTypePicker';
 import { useDispatchStore } from '../../../context/DispatchContext';
+import { AutoDispatchNotice } from './AutoDispatchInfo';
 
 const CONFIRMABLE_LEVELS: SeverityLevel[] = [1, 2, 3];
 // Lý do chuyển trạm: backend yêu cầu tối thiểu 5 ký tự.
@@ -424,6 +425,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
           </div>
         )}
 
+        {tab === 'review' && <AutoDispatchNotice incident={incident} className="shrink-0 mx-5 mt-3" />}
+
         <div className="flex-1 overflow-y-auto min-h-0">
           {tab === 'history' ? (
             <div className="p-5 max-w-2xl">
@@ -595,7 +598,18 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                       {aiFailed ? (
                         <span className="text-slate-400">—</span>
                       ) : (
-                        <ConfidenceBadge score={incident.confidenceScore} />
+                        <>
+                          <ConfidenceBadge score={incident.confidenceScore} />
+                          {/* §31.D: không phải xác suất đo thật (logprob) → chỉ để tham khảo. */}
+                          {incident.confidenceMeasured === false && (
+                            <span
+                              title={t('incidents.confidence.estimatedTitle')}
+                              className="ml-1 text-[10px] font-semibold text-slate-400 underline decoration-dotted cursor-help"
+                            >
+                              {t('incidents.confidence.estimated')}
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
                     <div>
