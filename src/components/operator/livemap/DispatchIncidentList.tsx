@@ -40,6 +40,7 @@ const CaseCard: React.FC<CaseCardProps> = ({
   onAction,
 }) => {
   const { t } = useTranslation();
+  const { incidentKindLabel } = useDispatchStore();
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
   const waitMinutes = Math.max(0, Math.round((now - new Date(incident.createdAt).getTime()) / 60000));
@@ -96,7 +97,7 @@ const CaseCard: React.FC<CaseCardProps> = ({
         <div className="flex items-center gap-1.5">
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold shrink-0" style={{ color: category.color }}>
             <CategoryIcon className="w-3.5 h-3.5" />
-            {t(`enums.category.${incident.category}`)}
+            {incidentKindLabel(incident)}
           </span>
           <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
           {isEscalated && (

@@ -41,6 +41,7 @@ interface ModalProps {
 
 const IncidentModal: React.FC<ModalProps> = ({ incident, transfer, onDismiss, onGoToQueue }) => {
   const { t } = useTranslation();
+  const { incidentKindLabel } = useDispatchStore();
   // Thời gian chờ kể từ lúc backend nhận SOS, đếm từng giây.
   const now = useNow(1000);
   const waitSeconds = Math.max(0, Math.floor((now - new Date(incident.createdAt).getTime()) / 1000));
@@ -90,7 +91,7 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, transfer, onDismiss, on
             )}
             <span className="inline-flex items-center gap-1 text-xs font-bold" style={{ color: category.color }}>
               <CategoryIcon className="w-3.5 h-3.5" />
-              {t(`enums.category.${incident.category}`)}
+              {incidentKindLabel(incident)}
             </span>
             {incident.aiPending && (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500">

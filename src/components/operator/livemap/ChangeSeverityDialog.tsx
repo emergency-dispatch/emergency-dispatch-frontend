@@ -11,6 +11,7 @@ import { useNow } from '../../../hooks/useNow';
 import { useDispatchStore, type ActionResult } from '../../../context/DispatchContext';
 import { EVENT_TYPE_FROM_CATEGORY, type Incident, type IncidentCategory, type SeverityLevel } from '../../../types/incident';
 import { useTranslation } from '../../../i18n';
+import { IncidentTypePicker } from '../incidents/IncidentTypePicker';
 
 const LEVELS: SeverityLevel[] = [1, 2, 3];
 
@@ -22,8 +23,13 @@ interface ChangeSeverityDialogProps {
   /** Số xe đang làm nhiệm vụ (chưa nộp báo cáo) — để nhắc rút bớt khi hạ mức. */
   activeVehicleCount: number;
   onClose: () => void;
-  /** `category` chỉ gửi khi đổi loại; undefined = giữ loại hiện tại. */
-  onSubmit: (severity: SeverityLevel, category: ConfirmedCategory | undefined, reason: string) => Promise<ActionResult>;
+  /** `category` / `incidentTypeCode` chỉ gửi khi đổi; undefined = giữ hiện tại. */
+  onSubmit: (
+    severity: SeverityLevel,
+    category: ConfirmedCategory | undefined,
+    reason: string,
+    incidentTypeCode: string | undefined
+  ) => Promise<ActionResult>;
   /** Lưu thành công — `message` là câu backend trả. */
   onDone: (message: string | undefined) => void;
 }
@@ -39,10 +45,15 @@ export const ChangeSeverityDialog: React.FC<ChangeSeverityDialogProps> = ({
 }) => {
   const { t } = useTranslation();
   const now = useNow();
-  const { vehicleLimitFor } = useDispatchStore();
+  const { vehicleLimitFor, incidentKindLabel } = useDispatchStore();
   const currentCategory: ConfirmedCategory | null = incident.category === 'unknown' ? null : incident.category;
   const [severity, setSeverity] = useState<SeverityLevel>(incident.severity);
   const [category, setCategory] = useState<ConfirmedCategory | null>(currentCategory);
+  // §31: loại chi tiết; mốc so sánh là giá trị lúc mở (backend cũ chưa trả mã loại → lấy loại chung của nhóm).
+  const [initialTypeCode] = useState<string | null>(
+    () => incident.incidentTypeCode ?? (currentCategory ? EVENT_TYPE_FROM_CATEGORY[currentCategory] : null)
+  );
+  const [typeCode, setTypeCode] = useState<string | null>(initialTypeCode);
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +63,8 @@ export const ChangeSeverityDialog: React.FC<ChangeSeverityDialogProps> = ({
   const lockedByOther = !!lock && lock.operatorId !== currentOperatorId;
 
   const categoryChanged = category !== null && category !== currentCategory;
-  const changed = severity !== incident.severity || categoryChanged;
+  const typeChanged = typeCode !== null && typeCode !== initialTypeCode;
+  const changed = severity !== incident.severity || categoryChanged || typeChanged;
   const reasonLength = reason.trim().length;
   const reasonValid = reasonLength >= OVERRIDE_REASON_MIN_LENGTH;
   const canSubmit = changed && reasonValid && !submitting && !lockedByOther;
@@ -61,7 +73,7 @@ export const ChangeSeverityDialog: React.FC<ChangeSeverityDialogProps> = ({
   // Số xe chuẩn của mức / loại mới theo kế hoạch điều xe (§32). Đổi nhóm → backend đặt mã loại = mã của nhóm mới.
   const newMax = vehicleLimitFor({
     severity,
-    incidentTypeCode: categoryChanged && category ? EVENT_TYPE_FROM_CATEGORY[category] : incident.incidentTypeCode,
+    incidentTypeCode: typeCode ?? (categoryChanged && category ? EVENT_TYPE_FROM_CATEGORY[category] : incident.incidentTypeCode),
     category: category ?? incident.category,
     needsEventType: !category && incident.needsEventType,
   }).max;
@@ -72,7 +84,12 @@ export const ChangeSeverityDialog: React.FC<ChangeSeverityDialogProps> = ({
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
-    const result = await onSubmit(severity, categoryChanged ? category : undefined, reason.trim());
+    const result = await onSubmit(
+      severity,
+      categoryChanged ? category : undefined,
+      reason.trim(),
+      typeChanged ? (typeCode ?? undefined) : undefined
+    );
     setSubmitting(false);
     if (result.ok) onDone(result.message);
     else setError(result.message ?? t('liveMap.severityChange.failed'));
@@ -118,7 +135,7 @@ export const ChangeSeverityDialog: React.FC<ChangeSeverityDialogProps> = ({
             <SeverityBadge severity={incident.severity} />
             {currentCategory && (
               <span className="font-bold" style={{ color: INCIDENT_CATEGORY_META[currentCategory].color }}>
-                {t(`enums.category.${currentCategory}`)}
+                {incidentKindLabel(incident)}
               </span>
             )}
           </div>
@@ -162,7 +179,11 @@ export const ChangeSeverityDialog: React.FC<ChangeSeverityDialogProps> = ({
                     key={cat}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => setCategory(cat)}
+                    onClick={() => {
+                      setCategory(cat);
+                      // Đổi nhóm → về loại chung của nhóm mới.
+                      if (cat !== category) setTypeCode(EVENT_TYPE_FROM_CATEGORY[cat]);
+                    }}
                     disabled={lockedByOther}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-bold transition-colors disabled:cursor-not-allowed ${
                       active ? 'text-white' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
@@ -177,6 +198,14 @@ export const ChangeSeverityDialog: React.FC<ChangeSeverityDialogProps> = ({
             </div>
             <p className="text-[11px] text-slate-500 mt-1.5">{t('liveMap.severityChange.eventTypeHelp')}</p>
           </div>
+
+          <IncidentTypePicker
+            category={category}
+            value={typeCode}
+            onChange={setTypeCode}
+            disabled={lockedByOther}
+            labelClassName="text-xs font-mono-data uppercase tracking-widest text-slate-400 font-bold mb-2"
+          />
 
           {changed && raised && (
             <p className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">

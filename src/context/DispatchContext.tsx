@@ -334,7 +334,9 @@ interface DispatchContextValue {
     operatorNotes?: string,
     category?: IncidentCategory,
     /** Thẩm định ùn tắc gửi kèm (confirmedTrafficJamStatus); bỏ trống = giữ nhận định hiện tại. */
-    trafficJam?: TrafficJamDecision
+    trafficJam?: TrafficJamDecision,
+    /** §31: loại chi tiết (confirmedIncidentTypeCode); bỏ trống = giữ loại hiện tại / theo nhóm. */
+    incidentTypeCode?: string
   ) => Promise<ActionResult>;
   /** Chốt cảnh báo ùn tắc của một sự cố đã xác minh (PUT /api/incidents/{id}/traffic-jam-status). */
   reviewTrafficJam: (id: string, decision: TrafficJamDecision, notes?: string) => Promise<ActionResult>;
@@ -359,7 +361,9 @@ interface DispatchContextValue {
     id: string,
     severity: SeverityLevel,
     category: Exclude<IncidentCategory, 'unknown'> | undefined,
-    reason: string
+    reason: string,
+    /** §31: loại chi tiết mới (newIncidentTypeCode); bỏ trống = giữ loại / theo nhóm mới. */
+    incidentTypeCode?: string
   ) => Promise<ActionResult>;
   lockIncident: (id: string) => Promise<ActionResult>;
   releaseIncident: (id: string) => void;
@@ -391,6 +395,13 @@ interface DispatchContextValue {
   rescueUnitTypes: RescueUnitTypeDto[] | null;
   /** Tên loại xe theo ngôn ngữ đang chọn: danh mục → nhãn dịch của 6 loại hệ thống → mã. */
   unitTypeLabel: (code: string) => string;
+  /** §31: các loại sự cố (đang dùng) thuộc một nhóm, theo thứ tự hiển thị; danh mục chưa tải được → []. */
+  incidentTypesOf: (category: Exclude<IncidentCategory, 'unknown'>) => IncidentTypeDto[];
+  /**
+   * Nhãn loại sự cố để hiển thị: tên nhóm, kèm tên loại chi tiết nếu không phải loại chung của nhóm
+   * (VD "Khác · Tràn dầu"). Không có trong danh mục (đã ẩn) → chỉ tên nhóm.
+   */
+  incidentKindLabel: (incident: Pick<Incident, 'category' | 'incidentTypeCode'>) => string;
   /**
    * BR-14 theo kế hoạch điều xe (§32): số xe tối đa không cần lý do + thành phần kế hoạch của mức đang áp dụng.
    * Chưa có kế hoạch / chưa tải được danh mục → giới hạn cũ (Cấp 1–2: 1 xe, Cấp 3: 5 xe).
@@ -675,6 +686,26 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [refreshBoard, refreshUnits, reloadTrafficJams, reloadFieldRequests, reloadCatalogs]);
 
   const unitTypeLabel = useCallback((code: string) => catalogUnitTypeLabel(code, rescueUnitTypes), [rescueUnitTypes]);
+
+  // Danh mục loại sự cố đã xếp theo displayOrder (typeCatalogService) → lọc theo nhóm giữ nguyên thứ tự.
+  const incidentTypesOf = useCallback<DispatchContextValue['incidentTypesOf']>(
+    (category) => (incidentTypes ?? []).filter((t) => t.category === EVENT_TYPE_FROM_CATEGORY[category]),
+    [incidentTypes]
+  );
+
+  const incidentKindLabel = useCallback<DispatchContextValue['incidentKindLabel']>(
+    (incident) => {
+      const categoryLabel = i18n.t(`enums.category.${incident.category}`);
+      const code = incident.incidentTypeCode;
+      // Mã loại chung trùng tên nhóm (FireExplosion / TrafficAccident / Other) → không lặp lại tên.
+      if (!code || (Object.values(EVENT_TYPE_FROM_CATEGORY) as string[]).includes(code)) return categoryLabel;
+      const type = incidentTypes?.find((t) => t.code === code);
+      if (!type) return categoryLabel;
+      const name = (getLanguage() === 'en' ? type.nameEn : type.nameVi) || type.name || type.code;
+      return `${categoryLabel} · ${name}`;
+    },
+    [incidentTypes]
+  );
 
   const vehicleLimitFor = useCallback<DispatchContextValue['vehicleLimitFor']>(
     (incident) => dispatchVehicleLimit(incident, incidentTypes),
@@ -1181,12 +1212,14 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     confirmedSeverity: SeverityLevel,
     operatorNotes?: string,
     category?: IncidentCategory,
-    trafficJam?: TrafficJamDecision
+    trafficJam?: TrafficJamDecision,
+    incidentTypeCode?: string
   ) => {
     try {
       const res = await incidentService.verify(id, {
         confirmedSeverity: severityToBackend(confirmedSeverity),
         confirmedEventType: category && category !== 'unknown' ? EVENT_TYPE_FROM_CATEGORY[category] : undefined,
+        confirmedIncidentTypeCode: incidentTypeCode,
         operatorNotes,
         confirmedTrafficJamStatus: trafficJam,
       });
@@ -1273,12 +1306,14 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     id: string,
     severity: SeverityLevel,
     category: Exclude<IncidentCategory, 'unknown'> | undefined,
-    reason: string
+    reason: string,
+    incidentTypeCode?: string
   ): Promise<ActionResult> => {
     try {
       const { incident, message } = await incidentService.changeSeverity(id, {
         newSeverity: severityToBackend(severity),
         newEventType: category ? EVENT_TYPE_FROM_CATEGORY[category] : undefined,
+        newIncidentTypeCode: incidentTypeCode,
         reason,
       });
       upsertIncidents([incident]);
@@ -1586,6 +1621,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         vehicleLimitFor,
         rescueUnitTypes,
         unitTypeLabel,
+        incidentTypesOf,
+        incidentKindLabel,
         operatorAlerts,
         dismissOperatorAlert,
         supplementVersions,

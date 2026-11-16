@@ -378,4 +378,8 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
       imageFailed: 'Could not load the image.',
     },
   },
+  typePicker: {
+    label: 'Detailed type',
+    hint: 'Determines the dispatch plan (vehicle types, standard count).',
+  },
 };

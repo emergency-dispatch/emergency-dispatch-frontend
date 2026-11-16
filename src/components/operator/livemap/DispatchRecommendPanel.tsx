@@ -95,6 +95,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   );
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
+  const { incidentKindLabel } = useDispatchStore();
   const { unitTypeLabel } = useDispatchStore();
 
   useEffect(() => {
@@ -323,8 +324,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
           currentOperatorId={currentOperatorId}
           activeVehicleCount={activeCount}
           onClose={() => setSeverityOpen(false)}
-          onSubmit={(severity, category, reason) =>
-            changeIncidentSeverity(selectedIncident.id, severity, category, reason)
+          onSubmit={(severity, category, reason, incidentTypeCode) =>
+            changeIncidentSeverity(selectedIncident.id, severity, category, reason, incidentTypeCode)
           }
           onDone={(message) => {
             setSeverityOpen(false);
@@ -348,7 +349,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
           <>
             <div className="flex items-center gap-1.5 mb-1">
               <category.icon className="w-3.5 h-3.5 shrink-0" style={{ color: category.color }} />
-              <span className="text-[10px] font-bold" style={{ color: category.color }}>{t(`enums.category.${selectedIncident.category}`)}</span>
+              <span className="text-[10px] font-bold" style={{ color: category.color }}>{incidentKindLabel(selectedIncident)}</span>
               <SeverityBadge severity={selectedIncident.severity} unclassified={selectedIncident.aiUnclassified} />
               <SourceChip source={selectedIncident.source} />
               {isEscalated && (

@@ -466,6 +466,8 @@ export interface CreateOperatorIncidentDto {
   locationAddress: string;
   source: OperatorIncidentSource;
   eventType: Exclude<BackendEventType, 'None'>;
+  /** §31: loại chi tiết (mã danh mục, tùy chọn) — quyết định kế hoạch điều xe; nhóm lấy theo danh mục. */
+  incidentTypeCode?: string;
   severity: Exclude<BackendSeverityLevel, 'Unclassified'>;
   /** Nội dung tin báo / căn cứ đánh giá, ≥ 5 ký tự. */
   operatorNotes: string;
@@ -529,6 +531,8 @@ export interface VerifyIncidentRequestDto {
   confirmedSeverity: BackendSeverityLevel;
   /** Bắt buộc khi sự cố đang có eventType = None. */
   confirmedEventType?: Exclude<BackendEventType, 'None'>;
+  /** §31: loại chi tiết (mã danh mục); có giá trị thì backend lấy nhóm theo danh mục, bỏ qua confirmedEventType. */
+  confirmedIncidentTypeCode?: string;
   adjustedTitle?: string;
   operatorNotes?: string;
   /** Thẩm định ùn tắc cùng lúc với xác minh; bỏ trống = giữ nguyên nhận định hiện tại. */
@@ -542,6 +546,8 @@ export interface VerifyIncidentRequestDto {
 export interface ChangeSeverityRequestDto {
   newSeverity: Exclude<BackendSeverityLevel, 'Unclassified'>;
   newEventType?: Exclude<BackendEventType, 'None'>;
+  /** §31: loại chi tiết mới (mã danh mục); có giá trị thì backend bỏ qua newEventType. */
+  newIncidentTypeCode?: string;
   reason: string;
 }
 

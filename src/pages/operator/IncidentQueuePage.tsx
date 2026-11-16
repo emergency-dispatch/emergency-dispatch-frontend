@@ -125,11 +125,12 @@ export const IncidentQueuePage: React.FC = () => {
     confirmedSeverity: SeverityLevel,
     overrideReason: string | undefined,
     category: IncidentCategory | undefined,
-    trafficJam: TrafficJamDecision | undefined
+    trafficJam: TrafficJamDecision | undefined,
+    incidentTypeCode: string | undefined
   ) => {
     setSubmittingId(id);
     setActionError(null);
-    const result = await approveIncident(id, confirmedSeverity, overrideReason, category, trafficJam);
+    const result = await approveIncident(id, confirmedSeverity, overrideReason, category, trafficJam, incidentTypeCode);
     setSubmittingId(null);
     if (result.ok) {
       // FR-OP-04: duyệt xong chuyển thẳng sang bước điều xe, vẫn giữ khóa (không nhả ở đây).

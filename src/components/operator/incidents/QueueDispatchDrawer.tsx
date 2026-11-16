@@ -48,6 +48,7 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
   const { incidents, vehicles, stations, escalatedIncidentIds, assignVehicle, vehicleLimitFor } = useDispatchStore();
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
+  const { incidentKindLabel } = useDispatchStore();
   const { unitTypeLabel } = useDispatchStore();
   const [algorithm, setAlgorithm] = useState<DispatchAlgorithm>('nearest');
   const [assigningVehicleId, setAssigningVehicleId] = useState<string | null>(null);
@@ -128,7 +129,7 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
               <span className="inline-flex items-center gap-1 font-semibold" style={{ color: category.color }}>
                 <category.icon className="w-3.5 h-3.5 shrink-0" />
-                {t(`enums.category.${incident.category}`)}
+                {incidentKindLabel(incident)}
               </span>
               <SeverityBadge severity={incident.severity} />
               <SourceChip source={incident.source} />

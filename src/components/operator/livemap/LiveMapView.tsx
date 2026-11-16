@@ -337,6 +337,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { t } = useTranslation();
+  const { incidentKindLabel } = useDispatchStore();
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
   const [tileMode, setTileMode] = useState<MapTileMode>('satellite');
   const appliedTileModeRef = useRef(tileMode);
@@ -555,7 +556,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
                 <div className="min-w-[200px] space-y-1.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: category.color }}>
-                      {t(`enums.category.${incident.category}`)}
+                      {incidentKindLabel(incident)}
                     </span>
                     <SourceChip source={incident.source} />
                   </div>

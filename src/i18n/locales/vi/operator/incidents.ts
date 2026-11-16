@@ -377,4 +377,9 @@ export const incidentsVi = {
       imageFailed: 'Không tải được ảnh.',
     },
   },
+  // §31: chọn loại sự cố chi tiết trong nhóm (danh mục do Admin quản lý).
+  typePicker: {
+    label: 'Loại chi tiết',
+    hint: 'Quyết định kế hoạch điều xe (loại xe, số xe chuẩn).',
+  },
 } as const;
