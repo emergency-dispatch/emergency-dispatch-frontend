@@ -5,7 +5,6 @@ import { SourceChip } from '../incidents/SourceChip';
 import { FieldRequestSection } from './FieldRequestSection';
 import { getAttentionReason, getCaseGroup, type AttentionReason, type CaseGroup } from './caseGroups';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
-import { MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useNow } from '../../../hooks/useNow';
@@ -44,7 +43,9 @@ const CaseCard: React.FC<CaseCardProps> = ({
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
   const waitMinutes = Math.max(0, Math.round((now - new Date(incident.createdAt).getTime()) / 60000));
-  const maxVehicles = MAX_VEHICLES_BY_LEVEL[incident.severity];
+  const { vehicleLimitFor } = useDispatchStore();
+  // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
+  const maxVehicles = vehicleLimitFor(incident).max;
   const active = incident.assignedVehicleIds
     .filter((id) => !incident.reportedVehicleIds.includes(id))
     .map((id) => vehiclesById.get(id))

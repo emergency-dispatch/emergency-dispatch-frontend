@@ -14,7 +14,7 @@ import {
   validateCatalogDraft,
   type CatalogFormDraft,
 } from './catalogMeta';
-import { typeCatalogService } from '../../../services/admin/typeCatalogService';
+import { typeCatalogService } from '../../../services/typeCatalogService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import type { IncidentTypeDto, RescueUnitTypeDto } from '../../../types/typeCatalog';
 import { getLanguage, useTranslation } from '../../../i18n';

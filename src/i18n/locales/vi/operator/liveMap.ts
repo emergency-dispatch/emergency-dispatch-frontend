@@ -309,4 +309,8 @@ export const liveMapVi = {
     level3Remaining: 'Cấp 3 tối đa {{max}} xe — chỉ còn giao được {{count}} xe.',
     served: 'Đã giao xe và đáp ứng yêu cầu chi viện.',
   },
+  // §32: kế hoạch điều xe theo mức của loại sự cố.
+  plan: {
+    label: 'Kế hoạch Cấp {{level}}:',
+  },
 } as const;

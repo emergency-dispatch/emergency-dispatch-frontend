@@ -307,4 +307,7 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     level3Remaining: 'Level 3 allows at most {{max}} vehicles — only {{count}} more can be assigned.',
     served: 'Vehicles assigned and the backup request fulfilled.',
   },
+  plan: {
+    label: 'Level {{level}} plan:',
+  },
 };

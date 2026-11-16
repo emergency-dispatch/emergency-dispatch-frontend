@@ -8,7 +8,7 @@ import { ConfirmModal, Notice, type NoticeState } from '../../components/admin/c
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { normalizeText } from '../../services/admin/listUtils';
-import { typeCatalogService } from '../../services/admin/typeCatalogService';
+import { typeCatalogService } from '../../services/typeCatalogService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { IncidentTypeCategory, IncidentTypeDto } from '../../types/typeCatalog';
 import { Trans, useTranslation } from '../../i18n';

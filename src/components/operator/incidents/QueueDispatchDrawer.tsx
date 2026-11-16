@@ -19,7 +19,8 @@ import { IncidentThumbnail } from './IncidentThumbnail';
 import { SeverityBadge } from './SeverityBadge';
 import { SourceChip } from './SourceChip';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
-import { DISPATCH_ALGORITHM_META, MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
+import { DISPATCH_ALGORITHM_META } from '../../../data/dispatchConfig';
+import { DispatchPlanHint } from '../livemap/DispatchPlanHint';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useDispatchRecommendations } from '../../../hooks/useDispatchRecommendations';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
@@ -44,7 +45,7 @@ interface QueueDispatchDrawerProps {
  * Giao thêm xe vượt giới hạn Cấp 1–2, giao lại khi đội từ chối, chi viện... vẫn làm trên Live Map.
  */
 export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incidentId, onClose, onOpenLiveMap }) => {
-  const { incidents, vehicles, stations, escalatedIncidentIds, assignVehicle } = useDispatchStore();
+  const { incidents, vehicles, stations, escalatedIncidentIds, assignVehicle, vehicleLimitFor } = useDispatchStore();
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
   const [algorithm, setAlgorithm] = useState<DispatchAlgorithm>('nearest');
@@ -58,7 +59,9 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
 
   // Sự cố bị hủy / chuyển trạm / hoàn tất trong lúc đang mở → không điều xe được nữa.
   const available = !!incident && incident.status === 'approved';
-  const maxVehicles = incident ? MAX_VEHICLES_BY_LEVEL[incident.severity] : 1;
+  // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
+  const vehicleLimit = incident ? vehicleLimitFor(incident) : null;
+  const maxVehicles = vehicleLimit?.max ?? 1;
   const activeVehicleIds = incident
     ? incident.assignedVehicleIds.filter((id) => !incident.reportedVehicleIds.includes(id))
     : [];
@@ -200,6 +203,7 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                   <h3 className="text-[13px] font-semibold text-slate-700 mb-2">
                     {t('incidents.dispatchStep.assignedHeading', { count: activeCount, max: maxVehicles })}
                   </h3>
+                  {vehicleLimit && <DispatchPlanHint limit={vehicleLimit} className="-mt-1 mb-2" />}
                   {activeCount === 0 ? (
                     <p className="text-sm text-slate-400">{t('incidents.dispatchStep.noneAssigned')}</p>
                   ) : (

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { isAxiosError } from 'axios';
-import { MAX_VEHICLES_BY_LEVEL } from '../data/dispatchConfig';
+import { dispatchVehicleLimit, type DispatchVehicleLimit } from '../data/dispatchConfig';
 import { incidentService } from '../services/incidentService';
 import { dispatchService } from '../services/dispatchService';
 import {
@@ -40,6 +40,8 @@ import {
 } from '../types/incident';
 import type { BackendDispatchStatus, DispatchAssignmentResponseDto } from '../types/dispatch';
 import type { RescueUnitResponseDto, RescueUnitType } from '../types/rescueUnit';
+import type { IncidentTypeDto } from '../types/typeCatalog';
+import { typeCatalogService } from '../services/typeCatalogService';
 import type { DispatchAlgorithm, DispatchVehicleType, Station, Vehicle, VehicleStatus } from '../types/vehicle';
 
 // Poll dự phòng: sự cố, lượt phân công, trạng thái xe, khóa mềm đều có sự kiện SignalR — poll chỉ để bù khi mất kết nối.
@@ -375,6 +377,13 @@ interface DispatchContextValue {
   escalationTiers: Map<string, number>;
   /** Khu vực phục vụ (vẽ vòng trên Live Map khi enabled). */
   serviceArea: ServiceAreaDto | null;
+  /** §31–32: danh mục loại sự cố đang dùng (kèm kế hoạch điều xe theo mức); null = chưa tải được. */
+  incidentTypes: IncidentTypeDto[] | null;
+  /**
+   * BR-14 theo kế hoạch điều xe (§32): số xe tối đa không cần lý do + thành phần kế hoạch của mức đang áp dụng.
+   * Chưa có kế hoạch / chưa tải được danh mục → giới hạn cũ (Cấp 1–2: 1 xe, Cấp 3: 5 xe).
+   */
+  vehicleLimitFor: (incident: Pick<Incident, 'severity' | 'incidentTypeCode' | 'category' | 'needsEventType'>) => DispatchVehicleLimit;
   operatorAlerts: OperatorAlert[];
   dismissOperatorAlert: (id: string) => void;
   /**
@@ -424,6 +433,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [incomingIds, setIncomingIds] = useState<string[]>([]);
   const [escalationTiers, setEscalationTiers] = useState<Map<string, number>>(new Map());
   const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(null);
+  const [incidentTypes, setIncidentTypes] = useState<IncidentTypeDto[] | null>(null);
   const [operatorAlerts, setOperatorAlerts] = useState<OperatorAlert[]>([]);
   const [supplementVersions, setSupplementVersions] = useState<Map<string, number>>(new Map());
   const [fieldRequests, setFieldRequests] = useState<FieldRequestDto[]>([]);
@@ -627,12 +637,27 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [highlight, announceIncoming]);
 
   // Poll dự phòng + sau khi nối lại SignalR: tải lại cả điểm ùn tắc và yêu cầu hiện trường (có thể lỡ sự kiện).
+  // Danh mục loại sự cố + kế hoạch điều xe: Admin sửa không phát sự kiện realtime → tải lại theo nhịp poll.
+  // Lỗi thì giữ bản cũ (null = dùng giới hạn cũ).
+  const reloadIncidentTypes = useCallback(() => {
+    typeCatalogService
+      .listIncidentTypes(false)
+      .then(setIncidentTypes)
+      .catch((err) => console.warn('Không tải được danh mục loại sự cố:', err));
+  }, []);
+
   const refreshAll = useCallback(() => {
     refreshBoard();
     refreshUnits();
     reloadTrafficJams();
     reloadFieldRequests();
-  }, [refreshBoard, refreshUnits, reloadTrafficJams, reloadFieldRequests]);
+    reloadIncidentTypes();
+  }, [refreshBoard, refreshUnits, reloadTrafficJams, reloadFieldRequests, reloadIncidentTypes]);
+
+  const vehicleLimitFor = useCallback<DispatchContextValue['vehicleLimitFor']>(
+    (incident) => dispatchVehicleLimit(incident, incidentTypes),
+    [incidentTypes]
+  );
 
   // Dữ liệu ít thay đổi: trạm, tổ của các trạm, điểm ùn tắc, ngưỡng leo thang.
   useEffect(() => {
@@ -1309,7 +1334,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!incident || !vehicle) return { ok: false, message: i18n.t('context.incidentOrVehicleNotFound') };
     if (vehicle.status !== 'available') return { ok: false, message: i18n.t('context.vehicleNotAvailable', { plate: vehicle.plate }) };
 
-    const maxVehicles = MAX_VEHICLES_BY_LEVEL[incident.severity];
+    // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
+    const maxVehicles = vehicleLimitFor(incident).max;
     const activeCount = incident.assignedVehicleIds.length - incident.reportedVehicleIds.length;
     // Cấp 1–2 được giao thêm khi có lý do; Cấp 3 tối đa 5 xe, không vượt được.
     const extraAllowed = !!options.allowExtraUnits && incident.severity !== 3;
@@ -1317,7 +1343,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return {
         ok: false,
         message:
-          maxVehicles === 1 ? i18n.t('context.singleVehicleOnly') : i18n.t('context.maxVehicles', { max: maxVehicles }),
+          incident.severity === 3
+            ? i18n.t('context.maxVehicles', { max: maxVehicles })
+            : i18n.t('context.levelVehicleLimit', { level: incident.severity, max: maxVehicles }),
       };
     }
 
@@ -1532,6 +1560,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incomingTransferNotes,
         escalationTiers,
         serviceArea,
+        incidentTypes,
+        vehicleLimitFor,
         operatorAlerts,
         dismissOperatorAlert,
         supplementVersions,

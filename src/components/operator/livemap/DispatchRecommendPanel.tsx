@@ -21,7 +21,7 @@ import { LinkedReportsPanel } from '../incidents/LinkedReportsPanel';
 import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
 import { INCIDENT_CATEGORY_META, OVERRIDE_REASON_MIN_LENGTH } from '../../../data/incidentMock';
-import { DISPATCH_ALGORITHM_META, MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
+import { DISPATCH_ALGORITHM_META } from '../../../data/dispatchConfig';
 import { useDispatchStore, type AssignOptions } from '../../../context/DispatchContext';
 import { useDispatchRecommendations } from '../../../hooks/useDispatchRecommendations';
 import { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
@@ -69,6 +69,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     currentOperatorId,
     supplementVersions,
     assignForFieldRequest,
+    vehicleLimitFor,
   } = useDispatchStore();
   // Xe đã chọn / lỗi gắn với id yêu cầu → đổi yêu cầu là tự bỏ, không cần effect reset.
   const [requestSelection, setRequestSelection] = useState<{ requestId: string; ids: string[] }>({ requestId: '', ids: [] });
@@ -112,7 +113,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   );
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
 
-  const maxVehicles = selectedIncident ? MAX_VEHICLES_BY_LEVEL[selectedIncident.severity] : 1;
+  // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
+  const maxVehicles = selectedIncident ? vehicleLimitFor(selectedIncident).max : 1;
   const activeCount = selectedIncident
     ? selectedIncident.assignedVehicleIds.length - selectedIncident.reportedVehicleIds.length
     : 0;

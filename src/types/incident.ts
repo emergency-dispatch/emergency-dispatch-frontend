@@ -103,6 +103,11 @@ export interface Incident {
    * `category` lúc này chỉ là gợi ý suy từ tiêu đề SOS (hoặc 'unknown').
    */
   needsEventType: boolean;
+  /**
+   * Mã loại sự cố chi tiết trong danh mục (§31, VD "FloodDrowning"); backend tự suy khi chưa có. Dùng để lấy kế hoạch
+   * điều xe theo mức (§32). null = backend cũ chưa trả.
+   */
+  incidentTypeCode: string | null;
   hazardTags: string[];
   severity: SeverityLevel;
   /** % tin cậy của AI (0–100). Vô nghĩa khi aiPending. */
@@ -316,6 +321,10 @@ export interface IncidentResponseDto {
   emergencySmsDispatchLog?: string | null;
   /** Loại sự cố người báo tự chọn khi gửi SOS (nếu có). */
   reportedEventType?: BackendEventType | null;
+  /** §31: loại chi tiết người báo chọn (mã danh mục). */
+  reportedIncidentTypeCode?: string | null;
+  /** §31: loại chi tiết hiện tại (mã danh mục); eventType là nhóm của loại này. */
+  incidentTypeCode?: string | null;
   /** (Sự cố gốc) Số báo cáo đang được gom vào sự cố này — hiện "+N người cùng báo". */
   linkedReportCount?: number;
   /** (Báo cáo đã gom / đã xác nhận trùng) Sự cố gốc. */
@@ -682,6 +691,8 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
     category,
     source: dto.source ?? 'CitizenApp',
     needsEventType: !CATEGORY_FROM_EVENT_TYPE[dto.eventType ?? 'None'],
+    // Backend cũ chưa có trường này → dùng mã của nhóm (mã loại hệ thống trùng tên nhóm).
+    incidentTypeCode: dto.incidentTypeCode || (dto.eventType && dto.eventType !== 'None' ? dto.eventType : null),
     hazardTags,
     severity: SEVERITY_FROM_BACKEND[dto.severity] ?? 1,
     confidenceScore: Math.round((ai?.confidenceScore ?? 0) * 100),

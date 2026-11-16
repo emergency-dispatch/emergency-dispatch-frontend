@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { AlertTriangle, Ban, CheckCircle2, ChevronRight, ClipboardCheck, FileCheck2, Loader2, X } from 'lucide-react';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
 import { CANCELLATION_REASON_OPTIONS } from '../../../data/incidentMock';
-import { MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
+import { useDispatchStore } from '../../../context/DispatchContext';
+import { DispatchPlanHint } from './DispatchPlanHint';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import type { Incident, OperatorCancellationCode } from '../../../types/incident';
 import type { StationTeam } from '../../../types/stationTeam';
@@ -44,7 +45,10 @@ export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelCode, setCancelCode] = useState<OperatorCancellationCode>('FalseReport');
 
-  const maxVehicles = MAX_VEHICLES_BY_LEVEL[incident.severity];
+  const { vehicleLimitFor } = useDispatchStore();
+  // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
+  const vehicleLimit = vehicleLimitFor(incident);
+  const maxVehicles = vehicleLimit.max;
   const assigned = incident.assignedVehicleIds.map((id) => vehiclesById.get(id)).filter((v): v is Vehicle => !!v);
   const activeCount = assigned.filter((v) => !incident.reportedVehicleIds.includes(v.id)).length;
   const isCompleted = incident.status === 'completed';
@@ -127,6 +131,7 @@ export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
               {t('liveMap.detail.cancelCase')}
             </button>
           </div>
+          <DispatchPlanHint limit={vehicleLimit} />
 
           {assigned.length === 0 ? (
             <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">

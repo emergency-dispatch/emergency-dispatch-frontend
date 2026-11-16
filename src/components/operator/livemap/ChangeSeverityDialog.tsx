@@ -7,10 +7,9 @@ import {
   OVERRIDE_REASON_MIN_LENGTH,
   SEVERITY_LEVEL_META,
 } from '../../../data/incidentMock';
-import { MAX_VEHICLES_BY_LEVEL } from '../../../data/dispatchConfig';
 import { useNow } from '../../../hooks/useNow';
-import type { ActionResult } from '../../../context/DispatchContext';
-import type { Incident, IncidentCategory, SeverityLevel } from '../../../types/incident';
+import { useDispatchStore, type ActionResult } from '../../../context/DispatchContext';
+import { EVENT_TYPE_FROM_CATEGORY, type Incident, type IncidentCategory, type SeverityLevel } from '../../../types/incident';
 import { useTranslation } from '../../../i18n';
 
 const LEVELS: SeverityLevel[] = [1, 2, 3];
@@ -40,6 +39,7 @@ export const ChangeSeverityDialog: React.FC<ChangeSeverityDialogProps> = ({
 }) => {
   const { t } = useTranslation();
   const now = useNow();
+  const { vehicleLimitFor } = useDispatchStore();
   const currentCategory: ConfirmedCategory | null = incident.category === 'unknown' ? null : incident.category;
   const [severity, setSeverity] = useState<SeverityLevel>(incident.severity);
   const [category, setCategory] = useState<ConfirmedCategory | null>(currentCategory);
@@ -58,8 +58,15 @@ export const ChangeSeverityDialog: React.FC<ChangeSeverityDialogProps> = ({
   const canSubmit = changed && reasonValid && !submitting && !lockedByOther;
 
   const raised = severity > incident.severity;
-  const newMax = MAX_VEHICLES_BY_LEVEL[severity];
-  const tooManyUnits = severity < incident.severity && activeVehicleCount > newMax;
+  // Số xe chuẩn của mức / loại mới theo kế hoạch điều xe (§32). Đổi nhóm → backend đặt mã loại = mã của nhóm mới.
+  const newMax = vehicleLimitFor({
+    severity,
+    incidentTypeCode: categoryChanged && category ? EVENT_TYPE_FROM_CATEGORY[category] : incident.incidentTypeCode,
+    category: category ?? incident.category,
+    needsEventType: !category && incident.needsEventType,
+  }).max;
+  // Hạ mức hoặc đổi loại có thể làm số xe đang chạy vượt kế hoạch mới → nhắc rút bớt.
+  const tooManyUnits = changed && activeVehicleCount > newMax;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
