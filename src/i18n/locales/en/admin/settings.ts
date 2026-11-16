@@ -179,6 +179,18 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     },
     polygonTitle: 'Polygon',
     redraw: 'Redraw from scratch',
+    import: {
+      open: 'Import GeoJSON',
+      title: 'Import boundary from GeoJSON',
+      hint: 'Paste a GeoJSON string or choose a .geojson / .json file (e.g. exported from OpenStreetMap or geojson.io). Polygon, MultiPolygon, Feature and FeatureCollection are accepted; coordinates are [longitude, latitude]. Polygons with many vertices are simplified to at most {{max}} vertices, then placed on the map for further editing.',
+      chooseFile: 'Choose a .geojson / .json file',
+      placeholder: '{"type":"Polygon","coordinates":[[[106.79,10.83],[106.82,10.83],[106.82,10.86],[106.79,10.83]]]}',
+      confirm: 'Import',
+      readFailed: 'Could not read the file.',
+      invalidJson: 'The content is not valid JSON.',
+      noPolygon: 'No valid Polygon / MultiPolygon found (outer ring needs at least 3 vertices).',
+      done: 'Imported {{parts}} area(s) ({{before}} → {{after}} vertices after simplification). Check the map, then click "Save settings".',
+    },
     polygonSummary: '{{vertices}} vertices · {{parts}} area(s)',
     drawHint:
       'Click each point on the map, then click the first point again (or double-click) to close the polygon. Click the polygon and drag its vertices to adjust, drag a midpoint to add a vertex; the trash button on the map deletes the selected polygon. The polygon button on the map adds another area.',

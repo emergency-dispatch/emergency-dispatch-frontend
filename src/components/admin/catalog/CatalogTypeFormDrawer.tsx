@@ -242,54 +242,24 @@ export const CatalogTypeFormDrawer: React.FC<Props> = (props) => {
         </div>
       </FormField>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <FormField label={t('admin.catalog.form.color')} error={showError('color')}>
-          <div className="flex items-stretch gap-2">
-            <input
-              type="color"
-              value={/^#[0-9a-fA-F]{6}$/.test(draft.color.trim()) ? draft.color.trim() : '#64748b'}
-              onChange={(e) => set('color', e.target.value)}
-              aria-label={t('admin.catalog.form.color')}
-              className="w-11 shrink-0 rounded-lg border border-slate-300 bg-white p-1 cursor-pointer"
-            />
-            <input
-              value={draft.color}
-              onChange={(e) => set('color', e.target.value)}
-              onBlur={blur('color')}
-              maxLength={20}
-              placeholder={t('admin.catalog.form.colorPlaceholder')}
-              className={`${validatedInputClass(!!showError('color'))} font-mono-data`}
-            />
-            {draft.color && (
-              <button
-                type="button"
-                onClick={() => set('color', '')}
-                title={t('admin.catalog.form.noColor')}
-                aria-label={t('admin.catalog.form.noColor')}
-                className="px-2.5 rounded-lg border border-slate-300 text-slate-400 hover:text-red-600"
-              >
-                <Ban className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </FormField>
-        <FormField
-          label={t('admin.catalog.form.displayOrder')}
-          hint={t('admin.catalog.form.displayOrderHint')}
-          error={showError('displayOrder')}
-        >
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            step={1}
-            value={draft.displayOrder}
-            onChange={(e) => set('displayOrder', e.target.value)}
-            onBlur={blur('displayOrder')}
-            className={`${validatedInputClass(!!showError('displayOrder'))} font-mono-data`}
-          />
-        </FormField>
-      </div>
+      {/* Không cho chọn màu: backend chỉ lưu, chưa dùng. Màu đang có (VD màu seed của loại hệ thống) vẫn được giữ
+          trong bản nháp và gửi lại khi lưu, vì PUT ghi đè cả bản ghi. */}
+      <FormField
+        label={t('admin.catalog.form.displayOrder')}
+        hint={t('admin.catalog.form.displayOrderHint')}
+        error={showError('displayOrder')}
+      >
+        <input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          step={1}
+          value={draft.displayOrder}
+          onChange={(e) => set('displayOrder', e.target.value)}
+          onBlur={blur('displayOrder')}
+          className={`${validatedInputClass(!!showError('displayOrder'))} font-mono-data sm:max-w-[12rem]`}
+        />
+      </FormField>
 
       <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer select-none">
         <input

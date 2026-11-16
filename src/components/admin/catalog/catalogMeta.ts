@@ -90,13 +90,14 @@ export interface CatalogFormDraft {
   nameEn: string;
   description: string;
   icon: string;
+  /** Không có ô nhập — chỉ giữ màu đang có để gửi lại khi sửa (PUT ghi đè cả bản ghi). Loại mới: rỗng → null. */
   color: string;
   displayOrder: string;
   isActive: boolean;
   category: IncidentTypeCategory;
 }
 
-export type CatalogFormErrors = Partial<Record<'code' | 'nameVi' | 'nameEn' | 'description' | 'color' | 'displayOrder', string>>;
+export type CatalogFormErrors = Partial<Record<'code' | 'nameVi' | 'nameEn' | 'description' | 'displayOrder', string>>;
 
 export const catalogToDraft = (entry: RescueUnitTypeDto | IncidentTypeDto | null, nextOrder: number): CatalogFormDraft => ({
   code: entry?.code ?? '',
@@ -144,7 +145,6 @@ export function validateCatalogDraft(d: CatalogFormDraft, isNew: boolean): Catal
   if (!d.nameEn.trim()) errors.nameEn = i18n.t('admin.catalog.validation.nameRequired');
   else if (d.nameEn.trim().length > CATALOG_LIMITS.name) errors.nameEn = tooLong(CATALOG_LIMITS.name);
   if (d.description.trim().length > CATALOG_LIMITS.description) errors.description = tooLong(CATALOG_LIMITS.description);
-  if (d.color.trim() && !HEX_COLOR_PATTERN.test(d.color.trim())) errors.color = i18n.t('admin.catalog.validation.color');
   const order = Number(d.displayOrder);
   if (d.displayOrder.trim() === '' || !Number.isInteger(order) || order < 0) {
     errors.displayOrder = i18n.t('admin.catalog.validation.displayOrder');

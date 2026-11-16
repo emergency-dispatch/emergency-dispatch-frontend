@@ -46,9 +46,6 @@ export const adminCatalogEn: Messages<typeof adminCatalogVi> = {
     categoryLocked: 'The category of a system type cannot be changed.',
     icon: 'Icon',
     noIcon: 'None',
-    color: 'Color',
-    noColor: 'Clear color',
-    colorPlaceholder: '#1E88E5',
     displayOrder: 'Display order',
     displayOrderHint: 'Lower numbers appear first in pick lists.',
     isActive: 'In use',
@@ -60,7 +57,6 @@ export const adminCatalogEn: Messages<typeof adminCatalogVi> = {
     code: 'The code may only contain unaccented letters, digits and _, starting with a letter (max 50 characters).',
     nameRequired: 'Please enter a name.',
     tooLong: 'At most {{max}} characters.',
-    color: 'The color must be #RGB or #RRGGBB.',
     displayOrder: 'Must be a whole number ≥ 0.',
   },
   unitTypes: {

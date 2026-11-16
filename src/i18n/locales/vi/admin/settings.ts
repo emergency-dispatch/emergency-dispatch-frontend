@@ -178,6 +178,18 @@ export const adminSettingsVi = {
     },
     polygonTitle: 'Đa giác',
     redraw: 'Vẽ lại từ đầu',
+    import: {
+      open: 'Nhập GeoJSON',
+      title: 'Nhập ranh giới từ GeoJSON',
+      hint: 'Dán chuỗi GeoJSON hoặc chọn file .geojson / .json (VD xuất từ OpenStreetMap, geojson.io). Nhận Polygon, MultiPolygon, Feature, FeatureCollection; tọa độ [kinh độ, vĩ độ]. Đa giác nhiều đỉnh được rút gọn còn tối đa {{max}} đỉnh rồi đưa lên bản đồ để chỉnh tiếp.',
+      chooseFile: 'Chọn file .geojson / .json',
+      placeholder: '{"type":"Polygon","coordinates":[[[106.79,10.83],[106.82,10.83],[106.82,10.86],[106.79,10.83]]]}',
+      confirm: 'Nhập',
+      readFailed: 'Không đọc được file.',
+      invalidJson: 'Nội dung không phải JSON hợp lệ.',
+      noPolygon: 'Không tìm thấy Polygon / MultiPolygon hợp lệ (vòng ngoài từ 3 đỉnh).',
+      done: 'Đã nhập {{parts}} vùng ({{before}} → {{after}} đỉnh sau khi rút gọn). Kiểm tra trên bản đồ rồi bấm "Lưu cấu hình".',
+    },
     polygonSummary: '{{vertices}} đỉnh · {{parts}} vùng',
     drawHint:
       'Bấm từng điểm trên bản đồ, bấm lại điểm đầu (hoặc nhấp đúp) để khép đa giác. Bấm vào đa giác rồi kéo đỉnh để chỉnh, kéo chấm giữa cạnh để thêm đỉnh; nút thùng rác trên bản đồ xóa đa giác đang chọn. Nút đa giác trên bản đồ thêm vùng mới.',

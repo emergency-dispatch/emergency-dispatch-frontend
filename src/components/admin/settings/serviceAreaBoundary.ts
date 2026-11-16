@@ -108,3 +108,89 @@ export function boundaryCircle(polygons: PolygonCoords[]): { centerLat: number; 
   );
   return { centerLat, centerLng, radiusKm };
 }
+
+// ---------------------------------------------------------------------------
+// Nhập GeoJSON (Admin dán / tải file) + rút gọn đỉnh
+// ---------------------------------------------------------------------------
+
+/**
+ * Đọc GeoJSON Admin nhập: Polygon, MultiPolygon, Feature, FeatureCollection, GeometryCollection — lấy mọi đa giác hợp lệ
+ * (VD file xuất từ OpenStreetMap / geojson.io). JSON hỏng → ném lỗi (SyntaxError) để form báo.
+ */
+export function parseGeoJsonInput(text: string): PolygonCoords[] {
+  const collect = (node: unknown): PolygonCoords[] => {
+    if (!node || typeof node !== 'object') return [];
+    const { type, coordinates, geometry, features, geometries } = node as {
+      type?: string;
+      coordinates?: unknown;
+      geometry?: unknown;
+      features?: unknown;
+      geometries?: unknown;
+    };
+    if (type === 'Polygon') return isPolygon(coordinates) ? [coordinates] : [];
+    if (type === 'MultiPolygon' && Array.isArray(coordinates)) return coordinates.filter(isPolygon);
+    if (type === 'Feature') return collect(geometry);
+    if (type === 'FeatureCollection' && Array.isArray(features)) return features.flatMap(collect);
+    if (type === 'GeometryCollection' && Array.isArray(geometries)) return geometries.flatMap(collect);
+    return [];
+  };
+  // Bỏ chiều cao (z) nếu có; chỉ giữ đa giác có vòng ngoài ≥ 3 đỉnh.
+  const polygons = collect(JSON.parse(text)).map((p) => p.map((ring) => ring.map(([lng, lat]) => [lng, lat] as LngLat)));
+  return polygons.filter((p) => isValidBoundary([p]));
+}
+
+/** Douglas–Peucker trên mặt phẳng chiếu (mét) quanh vĩ độ của vòng. */
+function simplifyRing(ring: Ring, toleranceM: number): Ring {
+  if (ring.length <= 4) return ring;
+  const lat0 = ring.reduce((s, [, lat]) => s + lat, 0) / ring.length;
+  const kx = 111_320 * Math.cos((lat0 * Math.PI) / 180);
+  const ky = 110_574;
+  const pts = ring.map(([lng, lat]) => [lng * kx, lat * ky]);
+  const keep = new Array<boolean>(ring.length).fill(false);
+  keep[0] = keep[ring.length - 1] = true;
+  const distToSegment = (p: number[], a: number[], b: number[]) => {
+    const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+    const lenSq = dx * dx + dy * dy;
+    const t = lenSq > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lenSq)) : 0;
+    return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+  };
+  // Vòng khép (đầu = cuối) → chia đôi tại điểm xa điểm đầu nhất để DP không suy biến.
+  let far = 1;
+  for (let i = 1; i < ring.length - 1; i++) if (distToSegment(pts[i], pts[0], pts[0]) > distToSegment(pts[far], pts[0], pts[0])) far = i;
+  keep[far] = true;
+  const stack: Array<[number, number]> = [[0, far], [far, ring.length - 1]];
+  while (stack.length) {
+    const [start, end] = stack.pop()!;
+    let maxDist = 0;
+    let index = -1;
+    for (let i = start + 1; i < end; i++) {
+      const d = distToSegment(pts[i], pts[start], pts[end]);
+      if (d > maxDist) [maxDist, index] = [d, i];
+    }
+    if (index !== -1 && maxDist > toleranceM) {
+      keep[index] = true;
+      stack.push([start, index], [index, end]);
+    }
+  }
+  const result = ring.filter((_, i) => keep[i]);
+  return result.length >= 4 ? result : ring;
+}
+
+/**
+ * Rút gọn đa giác nhập vào (VD 374 đỉnh từ OpenStreetMap) còn ≤ `maxVertices` đỉnh để vẽ / kéo đỉnh không nặng:
+ * tăng dần sai số cho phép (từ 2 m) tới khi đủ ít đỉnh. Lỗ bị co còn < 3 đỉnh thì bỏ.
+ */
+export function simplifyBoundary(polygons: PolygonCoords[], maxVertices = 80): PolygonCoords[] {
+  let tolerance = 2;
+  let result = polygons;
+  while (boundaryVertexCount(result) > maxVertices && tolerance < 2000) {
+    result = polygons
+      .map(([outer, ...holes]) => [
+        simplifyRing(outer, tolerance),
+        ...holes.map((h) => simplifyRing(h, tolerance)).filter((h) => h.length >= 4),
+      ])
+      .filter((p) => isValidBoundary([p]));
+    tolerance *= 1.5;
+  }
+  return result;
+}

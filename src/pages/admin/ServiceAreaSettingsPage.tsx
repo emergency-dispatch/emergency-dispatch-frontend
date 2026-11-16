@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Circle, Hexagon, LocateFixed, RotateCcw } from 'lucide-react';
+import { AlertTriangle, Circle, FileUp, Hexagon, LocateFixed, RotateCcw } from 'lucide-react';
 import { SettingsForm } from '../../components/admin/settings/SettingsForm';
 import { sameSettings, toNumber } from '../../components/admin/settings/settingsDraft';
 import { StationMapPicker, type MapReferenceArea, type MapReferenceStation } from '../../components/admin/stations/StationMapPicker';
@@ -14,6 +14,7 @@ import {
   type PolygonCoords,
 } from '../../components/admin/settings/serviceAreaBoundary';
 import { createBoundaryDraw, polygonsFromDraw } from '../../components/admin/settings/serviceAreaDraw';
+import { ImportBoundaryDialog } from '../../components/admin/settings/ImportBoundaryDialog';
 import { MAP_CENTER } from '../../components/admin/fleetMeta';
 import { Notice, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass, labelClass } from '../../components/admin/common/styles';
@@ -140,6 +141,7 @@ const ServiceAreaForm: React.FC<{
   const [mapKey, setMapKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<NoticeState>(initialNotice);
+  const [importOpen, setImportOpen] = useState(false);
 
   const values = toSettings(draft);
   const errors = validateServiceArea(values);
@@ -379,18 +381,47 @@ const ServiceAreaForm: React.FC<{
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className={labelClass}>{t('admin.settings.serviceArea.polygonTitle')}</span>
-            <button
-              type="button"
-              onClick={() => {
-                setDraft((d) => ({ ...d, polygons: [] }));
-                setMapKey((k) => k + 1);
-              }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-300 text-[11px] font-bold text-slate-600 hover:border-red-400 hover:text-red-600"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              {t('admin.settings.serviceArea.redraw')}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-300 text-[11px] font-bold text-slate-600 hover:border-red-400 hover:text-red-600"
+              >
+                <FileUp className="w-3.5 h-3.5" />
+                {t('admin.settings.serviceArea.import.open')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft((d) => ({ ...d, polygons: [] }));
+                  setMapKey((k) => k + 1);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-300 text-[11px] font-bold text-slate-600 hover:border-red-400 hover:text-red-600"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                {t('admin.settings.serviceArea.redraw')}
+              </button>
+            </div>
           </div>
+          {importOpen && (
+            <ImportBoundaryDialog
+              onCancel={() => setImportOpen(false)}
+              onImport={(polygons, originalVertices) => {
+                setDraft((d) => ({ ...d, polygons }));
+                // Công cụ vẽ chỉ nạp đa giác lúc khởi tạo → dựng lại bản đồ; bản đồ tự căn khung vừa đa giác mới.
+                setMapKey((k) => k + 1);
+                setImportOpen(false);
+                setNotice({
+                  kind: 'success',
+                  message: t('admin.settings.serviceArea.import.done', {
+                    parts: polygons.length,
+                    before: originalVertices,
+                    after: boundaryVertexCount(polygons),
+                  }),
+                });
+              }}
+            />
+          )}
           {polygonValid ? (
             <p className="font-mono-data text-sm text-slate-800">
               {t('admin.settings.serviceArea.polygonSummary', {

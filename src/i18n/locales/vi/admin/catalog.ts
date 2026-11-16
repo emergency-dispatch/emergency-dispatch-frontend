@@ -44,9 +44,6 @@ export const adminCatalogVi = {
     categoryLocked: 'Loại hệ thống không đổi được nhóm.',
     icon: 'Biểu tượng',
     noIcon: 'Không chọn',
-    color: 'Màu',
-    noColor: 'Bỏ màu',
-    colorPlaceholder: '#1E88E5',
     displayOrder: 'Thứ tự hiển thị',
     displayOrderHint: 'Số nhỏ hiện trước trong các danh sách chọn.',
     isActive: 'Đang dùng',
@@ -58,7 +55,6 @@ export const adminCatalogVi = {
     code: 'Mã chỉ gồm chữ cái không dấu, số và dấu _, bắt đầu bằng chữ cái (tối đa 50 ký tự).',
     nameRequired: 'Vui lòng nhập tên.',
     tooLong: 'Tối đa {{max}} ký tự.',
-    color: 'Màu phải có dạng #RGB hoặc #RRGGBB.',
     displayOrder: 'Phải là số nguyên ≥ 0.',
   },
   unitTypes: {
