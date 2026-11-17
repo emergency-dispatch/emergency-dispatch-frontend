@@ -197,6 +197,10 @@ const PARKED_PER_ROW = 3;
 const PARKED_SPACING_PX = 62;
 const PARKED_ROW_SPACING_PX = 36;
 const PARKED_TOP_PX = 58;
+// Xe tại hiện trường nấp một phần sau ghim sự cố (ghim 48px, z-index cao hơn xe): nóc xe lấn ~11px vào nửa dưới ghim
+// → nhìn như xe đỗ ngay tại hiện trường ở mọi mức zoom (dời pixel cố định, zoom xa mà cách xa thì trông như chỗ khác).
+// Chấm trạng thái ở góc xe vẫn lộ ra ngoài vòng ghim.
+const SCENE_TOP_PX = 44;
 
 interface VehicleMarkersProps {
   map: mapboxgl.Map;
@@ -212,6 +216,34 @@ interface VehicleMarkersProps {
 /** Xe đứng tại trạm, trừ xe đang làm nhiệm vụ đã có GPS thật. Dùng chung cho marker, camera và chỉ đường. */
 const isParkedAtStation = (v: Vehicle) => !(v.incidentId && v.hasLiveGps);
 
+/**
+ * Xe tại hiện trường: xếp hàng ngay dưới ghim sự cố (không theo GPS — GPS lúc này trùng ghim sự cố, xe sẽ đè lên ghim;
+ * xe chưa gửi GPS cũng không bị vẽ ở trạm như thể chưa đi).
+ */
+const isAtScene = (v: Vehicle, incidentsById: Map<string, Incident>) =>
+  v.status === 'on_scene' && !!v.incidentId && incidentsById.has(v.incidentId);
+
+/** Hàng xe dưới một ghim (trạm / sự cố): dời theo pixel, tối đa PARKED_PER_ROW xe mỗi hàng, sắp theo biển số. */
+function stackUnderPin(
+  result: Map<string, VehiclePlacement>,
+  group: Vehicle[],
+  pin: { lat: number; lng: number },
+  topPx: number
+) {
+  [...group]
+    .sort((a, b) => a.plate.localeCompare(b.plate))
+    .forEach((v, index) => {
+      const row = Math.floor(index / PARKED_PER_ROW);
+      const inRow = Math.min(PARKED_PER_ROW, group.length - row * PARKED_PER_ROW);
+      const col = index % PARKED_PER_ROW;
+      result.set(v.id, {
+        lat: pin.lat,
+        lng: pin.lng,
+        offset: [(col - (inRow - 1) / 2) * PARKED_SPACING_PX, topPx + row * PARKED_ROW_SPACING_PX],
+      });
+    });
+}
+
 /** Vị trí vẽ của một xe: tọa độ + (xe đậu) độ dời pixel để xếp hàng dưới ghim trạm. */
 export interface VehiclePlacement {
   lat: number;
@@ -219,32 +251,33 @@ export interface VehiclePlacement {
   offset?: [number, number];
 }
 
-/** Xe đậu xếp hàng dưới ghim trạm (sắp theo biển số); xe đang chạy có GPS thật đứng tại tọa độ GPS. */
-function computeVehiclePlacements(vehicles: Vehicle[], stations: Station[]): Map<string, VehiclePlacement> {
+/**
+ * Xe tại hiện trường xếp hàng dưới ghim sự cố; xe đậu xếp hàng dưới ghim trạm; xe đang chạy có GPS thật đứng tại
+ * tọa độ GPS.
+ */
+function computeVehiclePlacements(
+  vehicles: Vehicle[],
+  stations: Station[],
+  incidentsById: Map<string, Incident>
+): Map<string, VehiclePlacement> {
   const stationsById = new Map(stations.map((s) => [s.id, s]));
   const parkedByStation = new Map<string, Vehicle[]>();
+  const atSceneByIncident = new Map<string, Vehicle[]>();
   vehicles.forEach((v) => {
+    if (isAtScene(v, incidentsById)) {
+      atSceneByIncident.set(v.incidentId!, [...(atSceneByIncident.get(v.incidentId!) ?? []), v]);
+      return;
+    }
     // Đang làm nhiệm vụ mà đã có GPS thật → hiện theo GPS; còn lại (kể cả xe vừa được giao, chưa gửi GPS) đứng tại trạm.
     if (!isParkedAtStation(v) || !stationsById.has(v.stationId)) return;
     parkedByStation.set(v.stationId, [...(parkedByStation.get(v.stationId) ?? []), v]);
   });
 
   const result = new Map<string, VehiclePlacement>();
-  parkedByStation.forEach((parked, stationId) => {
-    const station = stationsById.get(stationId)!;
-    [...parked]
-      .sort((a, b) => a.plate.localeCompare(b.plate))
-      .forEach((v, index) => {
-        const row = Math.floor(index / PARKED_PER_ROW);
-        const inRow = Math.min(PARKED_PER_ROW, parked.length - row * PARKED_PER_ROW);
-        const col = index % PARKED_PER_ROW;
-        result.set(v.id, {
-          lat: station.lat,
-          lng: station.lng,
-          offset: [(col - (inRow - 1) / 2) * PARKED_SPACING_PX, PARKED_TOP_PX + row * PARKED_ROW_SPACING_PX],
-        });
-      });
-  });
+  parkedByStation.forEach((parked, stationId) => stackUnderPin(result, parked, stationsById.get(stationId)!, PARKED_TOP_PX));
+  atSceneByIncident.forEach((group, incidentId) =>
+    stackUnderPin(result, group, incidentsById.get(incidentId)!, SCENE_TOP_PX)
+  );
   vehicles.forEach((v) => {
     if (!result.has(v.id)) result.set(v.id, { lat: v.lat, lng: v.lng });
   });
@@ -374,21 +407,30 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
 
   // Tọa độ xe đúng như đang hiển thị: xe đậu lấy tọa độ trạm (tọa độ trong DB có thể là vị trí cũ / trạm cũ).
   // Camera, nút định vị và chỉ đường Google Maps đều dùng tọa độ này.
+  // Ghim sự cố đang vẽ — xe tại hiện trường xếp dưới ghim của sự cố mình (sự cố không có ghim → xe theo luật cũ).
+  const pinnedIncidentsById = useMemo(() => new Map(dispatchIncidents.map((i) => [i.id, i])), [dispatchIncidents]);
   const mapVehicles = useMemo(() => {
     const stationsById = new Map(stations.map((s) => [s.id, s]));
     return vehicles.map((v) => {
+      if (isAtScene(v, pinnedIncidentsById)) {
+        const incident = pinnedIncidentsById.get(v.incidentId!)!;
+        return { ...v, lat: incident.lat, lng: incident.lng };
+      }
       const station = stationsById.get(v.stationId);
       return station && isParkedAtStation(v) ? { ...v, lat: station.lat, lng: station.lng } : v;
     });
-  }, [vehicles, stations]);
-  // Chỉ vẽ xe đang trên đường tới hiện trường; hình xe theo loại (stickerVehicleMarkerHtml).
+  }, [vehicles, stations, pinnedIncidentsById]);
+  // Vẽ xe đang làm nhiệm vụ (đã nhận / đang đi / tại hiện trường); hình xe theo loại (stickerVehicleMarkerHtml).
   const movingVehicles = useMemo(
     () => mapVehicles.filter((v) => MAP_VISIBLE_VEHICLE_STATUSES.includes(v.status)),
     [mapVehicles]
   );
   const selectedVehicle = movingVehicles.find((v) => v.id === selectedVehicleId) ?? null;
   // Xe không vẽ thì không có vị trí marker → đường đi (VD xe chờ đội xác nhận) bắt đầu từ điểm đầu của tuyến (trạm).
-  const placements = useMemo(() => computeVehiclePlacements(movingVehicles, stations), [movingVehicles, stations]);
+  const placements = useMemo(
+    () => computeVehiclePlacements(movingVehicles, stations, pinnedIncidentsById),
+    [movingVehicles, stations, pinnedIncidentsById]
+  );
   const selectedIncident = dispatchIncidents.find((i) => i.id === selectedIncidentId) ?? null;
   const nearbyIds = useMemo(() => new Set(nearbyIncidents.map((i) => i.id)), [nearbyIncidents]);
   const trafficJamByUnit = useMemo(

@@ -335,6 +335,8 @@ export const incidentsVi = {
   },
   // §26.2: màn Nghiệm thu theo tổ.
   completion: {
+    unseen: 'Mới',
+    unseenTitle: '{{count}} ca vừa hoàn tất chưa xem',
     title: 'Nghiệm thu',
     tabs: { pending: 'Chờ nghiệm thu', done: 'Đã hoàn tất' },
     searchPlaceholder: 'Tìm theo tên sự cố, địa chỉ...',

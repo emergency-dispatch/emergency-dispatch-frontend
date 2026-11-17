@@ -33,6 +33,7 @@ import {
   type Incident,
   type IncidentCategory,
   type IncidentResponseDto,
+  type IncidentStatus,
   type IncidentSupplementDto,
   type OperatorCancellationCode,
   type SeverityLevel,
@@ -53,6 +54,27 @@ const POLL_MS = 60000;
 const TIER2_SIREN_MS = 4000;
 // Thông báo "xe trạm bạn đi hỗ trợ" / "sự cố đã chuyển trạm" tự đóng sau khoảng này; cảnh báo ngoài khu vực giữ tới khi đóng.
 const INFO_ALERT_MS = 15000;
+/** Giữ tối đa bấy nhiêu nghiệm thu "chưa xem" (ca cũ nhất bị bỏ). */
+const MAX_UNSEEN_COMPLETIONS = 100;
+
+/** Đọc / ghi danh sách id trong localStorage; storage bị chặn (ẩn danh, chính sách) → bỏ qua. */
+function readStoredIds(key: string): string[] {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+function writeStoredIds(key: string, ids: string[]) {
+  try {
+    if (ids.length === 0) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(ids));
+  } catch {
+    // Không lưu được → chỉ giữ trong phiên.
+  }
+}
 // Độ dài ghi chú bổ sung hiện trong thông báo; xem đủ trong chi tiết sự cố.
 const SUPPLEMENT_PREVIEW_CHARS = 120;
 const HIGHLIGHT_DURATION_MS = 2200;
@@ -400,6 +422,12 @@ interface DispatchContextValue {
   dismissResponseNotice: (incidentId: string, noticeId: string) => void;
   /** Sự cố mới báo tới, còn chờ duyệt và Operator chưa đóng thông báo (mới nhất trước). */
   incomingIncidents: Incident[];
+  /**
+   * Nghiệm thu: sự cố vừa chuyển sang Hoàn tất trong lúc Operator đang trực mà chưa mở xem (badge tab "Đã hoàn tất",
+   * chấm "mới" trên dòng). Mở đúng ca → `markCompletionSeen`.
+   */
+  unseenCompletionIds: string[];
+  markCompletionSeen: (incidentId: string) => void;
   dismissIncomingIncident: (id: string) => void;
   /** Thông tin chuyển trạm của tin báo mới (theo incidentId) — chỉ có khi sự cố được trạm khác chuyển tới. */
   incomingTransferNotes: Map<string, IncomingTransferNote>;
@@ -1238,6 +1266,28 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return sortByPriority(list);
   }, [incidentDtos, assignmentsByIncident, dismissedNoticeIds, t]);
 
+  // ---------- Nghiệm thu mới hoàn tất, chưa xem ----------
+  // Lưu theo Operator trong localStorage (tiện ích riêng từng máy) để tải lại trang không mất; lỗi storage → chỉ giữ trong phiên.
+  const unseenStorageKey = `resq.operator.unseenCompletions:${operator.id}`;
+  const [unseenCompletionIds, setUnseenCompletionIds] = useState<string[]>(() => readStoredIds(unseenStorageKey));
+  useEffect(() => writeStoredIds(unseenStorageKey, unseenCompletionIds), [unseenStorageKey, unseenCompletionIds]);
+  // Trạng thái lần trước của từng sự cố — phát hiện chuyển sang Hoàn tất. Lần tải đầu chỉ lấy mốc (không tính ca cũ).
+  const prevStatusRef = useRef<Map<string, IncidentStatus> | null>(null);
+  useEffect(() => {
+    if (incidentsLoading) return;
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = new Map(incidents.map((i) => [i.id, i.status]));
+    if (!prev) return;
+    const fresh = incidents
+      .filter((i) => i.status === 'completed' && prev.has(i.id) && prev.get(i.id) !== 'completed')
+      .map((i) => i.id);
+    if (fresh.length === 0) return;
+    setUnseenCompletionIds((ids) => [...new Set([...fresh, ...ids])].slice(0, MAX_UNSEEN_COMPLETIONS));
+  }, [incidents, incidentsLoading]);
+  const markCompletionSeen = useCallback((incidentId: string) => {
+    setUnseenCompletionIds((ids) => (ids.includes(incidentId) ? ids.filter((id) => id !== incidentId) : ids));
+  }, []);
+
   // Thông báo tự biến mất khi sự cố không còn chờ duyệt (đã duyệt / bị hủy, kể cả bởi Operator khác).
   const incomingIncidents = useMemo(() => {
     const byId = new Map(incidents.map((i) => [i.id, i]));
@@ -1669,6 +1719,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         cancelAssignment,
         dismissResponseNotice,
         incomingIncidents,
+        unseenCompletionIds,
+        markCompletionSeen,
         dismissIncomingIncident,
         incomingTransferNotes,
         escalationTiers,

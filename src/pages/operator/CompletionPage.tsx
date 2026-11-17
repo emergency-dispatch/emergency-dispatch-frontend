@@ -61,7 +61,8 @@ const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLo
  * Màn < xl: chỉ hiện một trong hai. Chọn sự cố ghi vào `?incident=` để tải lại / gửi link vẫn mở đúng ca.
  */
 export const CompletionPage: React.FC = () => {
-  const { incidents, assignmentsByIncident, stationNotAssigned, incidentsLoading } = useDispatchStore();
+  const { incidents, assignmentsByIncident, stationNotAssigned, incidentsLoading, unseenCompletionIds, markCompletionSeen } =
+    useDispatchStore();
   const teamByVehicle = useTeamByVehicle();
   const now = useNow(30000);
   const { t } = useTranslation();
@@ -243,6 +244,11 @@ export const CompletionPage: React.FC = () => {
 
   // ---------- Điều hướng ----------
   const select = (id: string) => updateParams({ incident: id });
+  // Mở đúng ca vừa hoàn tất (bấm dòng, link từ thông báo, tải lại có ?incident=) → hết "chưa xem".
+  useEffect(() => {
+    if (selectedId) markCompletionSeen(selectedId);
+  }, [selectedId, markCompletionSeen]);
+  const unseenIds = useMemo(() => new Set(unseenCompletionIds), [unseenCompletionIds]);
   const closeDetail = useCallback(() => updateParams({ incident: null }), [updateParams]);
   const changeTab = (next: CompletionTab) => updateParams({ tab: next === 'done' ? 'done' : null });
 
@@ -271,6 +277,7 @@ export const CompletionPage: React.FC = () => {
           tab={tab}
           onTabChange={changeTab}
           pendingCount={pendingIncidents.length}
+          unseenIds={unseenIds}
           rows={tab === 'pending' ? pendingRows : doneRows}
           selectedId={selectedId}
           onSelect={select}

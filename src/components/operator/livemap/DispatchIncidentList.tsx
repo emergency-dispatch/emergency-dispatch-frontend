@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { AlertTriangle, CheckCircle2, Radio, Route, Siren, Truck, UserX, Users, X } from 'lucide-react';
+import { IncidentThumbnail } from '../incidents/IncidentThumbnail';
 import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
 import { FieldRequestSection } from './FieldRequestSection';
@@ -90,84 +91,96 @@ const CaseCard: React.FC<CaseCardProps> = ({
 
   return (
     <div
-      className={`border-l-[3px] border-b border-b-slate-100 transition-colors ${
+      className={`flex border-l-[3px] border-b border-b-slate-100 transition-colors ${
         isSelected ? 'border-l-red-600 bg-red-50/60' : 'border-l-transparent hover:bg-slate-50'
       }`}
     >
-      <button onClick={onOpen} className="w-full text-left px-4 pt-3 pb-1.5 focus-visible:outline-none focus-visible:bg-slate-50">
-        <div className="flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold shrink-0" style={{ color: category.color }}>
-            <CategoryIcon className="w-3.5 h-3.5" />
-            {incidentKindLabel(incident)}
-          </span>
-          <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
-          {isEscalated && (
-            <span className="inline-flex items-center px-1.5 py-px rounded bg-red-600 text-[10px] font-bold text-white">
-              {t('liveMap.recommend.escalated')}
+      {/* Ảnh người dân gửi: cao bằng cả thẻ để nhận ra ca bằng mắt; bấm cũng mở ca (nút chính bên phải đã nhận focus). */}
+      <button
+        type="button"
+        onClick={onOpen}
+        tabIndex={-1}
+        aria-hidden
+        className="shrink-0 self-stretch w-[72px] my-3 ml-3"
+      >
+        <IncidentThumbnail incident={incident} className="w-full h-full min-h-[72px]" />
+      </button>
+      <div className="flex-1 min-w-0">
+        <button onClick={onOpen} className="w-full text-left pl-3 pr-4 pt-3 pb-1.5 focus-visible:outline-none focus-visible:bg-slate-50">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold shrink-0" style={{ color: category.color }}>
+              <CategoryIcon className="w-3.5 h-3.5" />
+              {incidentKindLabel(incident)}
+            </span>
+            <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+            {isEscalated && (
+              <span className="inline-flex items-center px-1.5 py-px rounded bg-red-600 text-[10px] font-bold text-white">
+                {t('liveMap.recommend.escalated')}
+              </span>
+            )}
+            <span className="ml-auto text-[11px] font-mono-data text-slate-400 whitespace-nowrap">
+              {t('liveMap.incidentList.minutesShort', { count: waitMinutes })}
+            </span>
+          </div>
+          <p className="mt-1 text-sm font-semibold text-slate-900 truncate leading-snug">{incident.title}</p>
+          <p className="text-[11px] text-slate-500 truncate">{incident.area}</p>
+          {(incident.source !== 'CitizenApp' ||
+            incident.isOutOfServiceArea ||
+            incident.linkedReportCount > 0 ||
+            !!incident.autoDispatch) && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {incident.source !== 'CitizenApp' && <SourceChip source={incident.source} />}
+              {incident.isOutOfServiceArea && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-[10px] font-bold text-red-700">
+                  {t('liveMap.incidentList.outOfArea')}
+                </span>
+              )}
+              {incident.linkedReportCount > 0 && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-700">
+                  <Users className="w-2.5 h-2.5" />
+                  {t('liveMap.incidentList.linkedReports', { count: incident.linkedReportCount })}
+                </span>
+              )}
+              <AutoDispatchBadge incident={incident} />
+            </div>
+          )}
+        </button>
+
+        <div className="pl-3 pr-4 pb-3 flex items-center gap-2 min-h-[28px]">
+          {incident.status === 'completed' ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {t('liveMap.incidentList.closed', { count: incident.reportedVehicleIds.length })}
+            </span>
+          ) : reasonView ? (
+            <>
+              <span className={`inline-flex items-center gap-1 min-w-0 text-[11px] font-semibold ${reasonView.className}`}>
+                <reasonView.icon className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{reasonView.text}</span>
+              </span>
+              <button
+                onClick={onAction}
+                className="ml-auto shrink-0 px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-red-500"
+              >
+                {reasonView.cta}
+              </button>
+            </>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 min-w-0 text-[11px] text-slate-600">
+              {lead && (
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: VEHICLE_STATUS_META[lead.status].color }} />
+              )}
+              <span className="truncate">
+                {lead ? t(`enums.vehicleStatus.${lead.status}`) : t('liveMap.cases.allReported')}
+                {lead && lead.etaMinutes !== null && lead.status !== 'awaiting_ack' &&
+                  t('liveMap.incidentList.eta', { count: lead.etaMinutes })}
+              </span>
+              <span className="text-slate-400 shrink-0">
+                · {t('liveMap.cases.vehicleCount', { active: active.length, max: maxVehicles })}
+              </span>
             </span>
           )}
-          <span className="ml-auto text-[11px] font-mono-data text-slate-400 whitespace-nowrap">
-            {t('liveMap.incidentList.minutesShort', { count: waitMinutes })}
-          </span>
         </div>
-        <p className="mt-1 text-sm font-semibold text-slate-900 truncate leading-snug">{incident.title}</p>
-        <p className="text-[11px] text-slate-500 truncate">{incident.area}</p>
-        {(incident.source !== 'CitizenApp' ||
-          incident.isOutOfServiceArea ||
-          incident.linkedReportCount > 0 ||
-          !!incident.autoDispatch) && (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {incident.source !== 'CitizenApp' && <SourceChip source={incident.source} />}
-            {incident.isOutOfServiceArea && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-[10px] font-bold text-red-700">
-                {t('liveMap.incidentList.outOfArea')}
-              </span>
-            )}
-            {incident.linkedReportCount > 0 && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-700">
-                <Users className="w-2.5 h-2.5" />
-                {t('liveMap.incidentList.linkedReports', { count: incident.linkedReportCount })}
-              </span>
-            )}
-            <AutoDispatchBadge incident={incident} />
-          </div>
-        )}
-      </button>
-
-      <div className="px-4 pb-3 flex items-center gap-2 min-h-[28px]">
-        {incident.status === 'completed' ? (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            {t('liveMap.incidentList.closed', { count: incident.reportedVehicleIds.length })}
-          </span>
-        ) : reasonView ? (
-          <>
-            <span className={`inline-flex items-center gap-1 min-w-0 text-[11px] font-semibold ${reasonView.className}`}>
-              <reasonView.icon className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{reasonView.text}</span>
-            </span>
-            <button
-              onClick={onAction}
-              className="ml-auto shrink-0 px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-red-500"
-            >
-              {reasonView.cta}
-            </button>
-          </>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 min-w-0 text-[11px] text-slate-600">
-            {lead && (
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: VEHICLE_STATUS_META[lead.status].color }} />
-            )}
-            <span className="truncate">
-              {lead ? t(`enums.vehicleStatus.${lead.status}`) : t('liveMap.cases.allReported')}
-              {lead && lead.etaMinutes !== null && lead.status !== 'awaiting_ack' &&
-                t('liveMap.incidentList.eta', { count: lead.etaMinutes })}
-            </span>
-            <span className="text-slate-400 shrink-0">
-              · {t('liveMap.cases.vehicleCount', { active: active.length, max: maxVehicles })}
-            </span>
-          </span>
-        )}
       </div>
     </div>
   );

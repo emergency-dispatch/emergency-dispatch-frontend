@@ -109,7 +109,7 @@ export const MapLegend: React.FC = () => {
             <Item key={type} icon={<MarkerIcon html={legendVehicleIconHtml(type, 26)} />} label={t(`enums.vehicleType.${type}`)} />
           ))}
         </div>
-        <div className="flex items-center gap-3 mt-1.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
           {MAP_VISIBLE_VEHICLE_STATUSES.map((status) => (
             <Item
               key={status}

@@ -7,10 +7,11 @@ import type { VehicleStatus, VehicleType } from '../../../types/vehicle';
 import type { IncidentCategory, SeverityLevel } from '../../../types/incident';
 
 /**
- * Live Map chỉ vẽ xe đang trên đường tới hiện trường (đội đã nhận / đang di chuyển); xe đậu ở trạm, chờ đội xác nhận,
- * tại hiện trường, hồi sức, bảo trì không vẽ — ghim trạm đã đại diện (popup trạm vẫn ghi số xe sẵn sàng).
+ * Live Map vẽ xe đang làm nhiệm vụ: đội đã nhận / đang di chuyển / tại hiện trường (xe tại hiện trường xếp hàng dưới
+ * ghim sự cố để thấy ca đã có tổ tới). Xe đậu ở trạm, chờ đội xác nhận, hồi sức, bảo trì không vẽ — ghim trạm đã đại
+ * diện (popup trạm vẫn ghi số xe sẵn sàng).
  */
-export const MAP_VISIBLE_VEHICLE_STATUSES: VehicleStatus[] = ['accepted', 'en_route'];
+export const MAP_VISIBLE_VEHICLE_STATUSES: VehicleStatus[] = ['accepted', 'en_route', 'on_scene'];
 
 // Các hàm dưới đây trả về HTML cho phần tử marker của mapbox-gl (Marker neo ở tâm phần tử).
 

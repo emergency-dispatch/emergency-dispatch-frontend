@@ -336,6 +336,8 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     actionFailed: 'The action failed. The list has been reloaded.',
   },
   completion: {
+    unseen: 'New',
+    unseenTitle: '{{count}} newly completed case(s) not viewed yet',
     title: 'Completion',
     tabs: { pending: 'Awaiting sign-off', done: 'Completed' },
     searchPlaceholder: 'Search by incident name, address...',
