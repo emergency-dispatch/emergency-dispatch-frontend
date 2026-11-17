@@ -432,7 +432,11 @@ export const useStaffMission = ({
                 });
                 const ids = new Set(mappedCompleted.map((m) => m.id));
                 const remainingLocal = prev.filter((p) => !ids.has(p.id) && p.status === 'completed');
-                const nextList = [...mappedCompleted, ...remainingLocal];
+                const nextList = [...mappedCompleted, ...remainingLocal].sort((a, b) => {
+                  const timeA = new Date(a.closureReport?.completedAt || a.completedAt || a.assignedAt || 0).getTime();
+                  const timeB = new Date(b.closureReport?.completedAt || b.completedAt || b.assignedAt || 0).getTime();
+                  return timeB - timeA;
+                });
                 if (
                   prev.length === nextList.length &&
                   prev.every((item, idx) => item.id === nextList[idx]?.id && item.status === nextList[idx]?.status && item.closureReport === nextList[idx]?.closureReport)
