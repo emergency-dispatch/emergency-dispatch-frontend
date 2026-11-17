@@ -16,7 +16,7 @@ export const adminCatalogVi = {
     vehicles: 'Số xe',
     plan: 'Kế hoạch điều xe',
     planHeader: 'C1 · C2 · C3',
-    planLevelTitle: 'Cấp {{n}}: {{count}} xe',
+    planLevelTitle: 'Cấp {{n}}: {{count}} tổ',
     planEmptyTitle: 'Cấp {{n}}: chưa cấu hình',
     order: 'Thứ tự',
     edit: 'Sửa',
@@ -94,13 +94,14 @@ export const adminCatalogVi = {
   plan: {
     title: 'Kế hoạch điều xe · {{name}}',
     intro:
-      'Mỗi cấp điều loại xe nào, bao nhiêu chiếc (tổng tối đa {{max}} xe). Gợi ý xe chỉ lấy các loại trong kế hoạch; số xe chuẩn Cấp 1–2 bằng tổng kế hoạch, điều thêm phải nhập lý do. AI tự điều phối điều đúng theo kế hoạch.',
-    priorityHint: 'Thứ tự dòng là thứ tự ưu tiên khi thiếu xe.',
+      'Mỗi cấp cần bao nhiêu tổ cho từng chức năng (loại xe); mỗi tổ mang 1 xe, tổng tối đa {{max}} tổ. Gợi ý chỉ lấy tổ có chức năng trong kế hoạch; số tổ chuẩn Cấp 1–2 bằng tổng kế hoạch, giao thêm phải nhập lý do. AI tự điều phối chọn các tổ khác nhau đúng theo kế hoạch.',
+    priorityHint: 'Thứ tự dòng là thứ tự ưu tiên khi thiếu tổ.',
     level: 'Cấp {{n}}',
-    total: '{{total}} / {{max}} xe',
+    total: '{{total}} / {{max}} tổ',
     selectType: 'Chọn loại xe',
     hiddenType: '(đã ẩn)',
-    quantity: 'Số lượng',
+    quantity: 'Số tổ',
+    quantityUnit: 'tổ',
     addUnit: 'Thêm loại xe',
     moveUp: 'Ưu tiên cao hơn',
     moveDown: 'Ưu tiên thấp hơn',
@@ -108,7 +109,7 @@ export const adminCatalogVi = {
     emptyFallback: 'Chưa cấu hình — dùng kế hoạch Cấp {{n}}.',
     emptyNoPlan: 'Chưa cấu hình.',
     noPlanAtAll:
-      'Loại này chưa có kế hoạch: hệ thống dùng giới hạn cũ (Cấp 1–2: 1 xe, Cấp 3: tối đa 5 xe) và luật chọn loại xe theo nhóm sự cố.',
+      'Loại này chưa có kế hoạch: hệ thống dùng giới hạn cũ (Cấp 1–2: 1 tổ, Cấp 3: tối đa 5 tổ) và luật chọn loại xe theo nhóm sự cố.',
     otherFallback:
       'Loại thuộc nhóm Khác chưa có kế hoạch riêng sẽ dùng kế hoạch của loại "Sự cố khác" (nếu đã cấu hình).',
     save: 'Lưu kế hoạch',
@@ -117,8 +118,8 @@ export const adminCatalogVi = {
     errors: {
       missingType: 'Chọn loại xe cho mọi dòng.',
       duplicate: 'Một loại xe chỉ khai báo một lần trong mỗi cấp.',
-      quantity: 'Số lượng mỗi loại từ 1 đến {{max}}.',
-      total: 'Tổng số xe của cấp này vượt quá {{max}}.',
+      quantity: 'Số tổ mỗi loại từ 1 đến {{max}}.',
+      total: 'Tổng số tổ của cấp này vượt quá {{max}}.',
     },
   },
 } as const;

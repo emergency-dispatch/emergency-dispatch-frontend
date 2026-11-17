@@ -46,7 +46,7 @@ export const adminStationsEn: Messages<typeof adminStationsVi> = {
     hotlineInvalid: 'The hotline must have 3–11 digits.',
     hotlinePlaceholder: 'E.g. 02837301111',
     radius: 'Coverage radius (km)',
-    radiusHint: 'Area the station covers, drawn as a circle on the map. From {{min}} to {{max}} km.',
+    radiusHint: 'Only used to draw the station area on the map ({{min}}–{{max}} km). Incidents go to the nearest station by road distance, not by this radius.',
     radiusInvalid: 'Enter a value from {{min}} to {{max}} km.',
     isActive: 'Station is active',
     location: 'Location on map',

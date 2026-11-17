@@ -200,6 +200,8 @@ export const DispatchPlanDrawer: React.FC<DispatchPlanDrawerProps> = ({
                       className={`${inputClass} py-2 text-center font-mono-data`}
                     />
                   </div>
+                  {/* §34: số lượng = số tổ (mỗi tổ mang 1 xe). */}
+                  <span className="text-xs text-slate-500 shrink-0">{t('admin.catalog.plan.quantityUnit')}</span>
                   <div className="flex shrink-0">
                     <button
                       type="button"

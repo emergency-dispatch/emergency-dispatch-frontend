@@ -7,8 +7,8 @@ import { useTranslation } from '../../../i18n';
 const LEVEL_NUMBER = { Level1: 1, Level2: 2, Level3: 3 } as const;
 
 /**
- * Thành phần kế hoạch điều xe đang áp dụng cho sự cố (§32), VD "Kế hoạch Cấp 2: 2× Xe chữa cháy · 1× Xe cấp cứu".
- * Loại sự cố chưa có kế hoạch → không hiện gì (dùng giới hạn cũ).
+ * Thành phần kế hoạch điều xe đang áp dụng cho sự cố (§32), VD "Kế hoạch Cấp 2: 2 tổ Xe chữa cháy · 1 tổ Xe cấp cứu".
+ * §34: `quantity` = số tổ của chức năng đó (mỗi tổ mang 1 xe). Loại sự cố chưa có kế hoạch → không hiện gì.
  */
 export const DispatchPlanHint: React.FC<{ limit: DispatchVehicleLimit; className?: string }> = ({ limit, className = '' }) => {
   const { t } = useTranslation();
@@ -19,7 +19,9 @@ export const DispatchPlanHint: React.FC<{ limit: DispatchVehicleLimit; className
     const name = unitTypeLabel(code);
     return name === code && fallback ? fallback : name;
   };
-  const units = limit.planUnits.map((u) => `${u.quantity}× ${label(u.unitTypeCode, u.unitTypeName)}`).join(' · ');
+  const units = limit.planUnits
+    .map((u) => t('liveMap.plan.teams', { count: u.quantity, type: label(u.unitTypeCode, u.unitTypeName) }))
+    .join(' · ');
   return (
     <p className={`flex items-start gap-1.5 text-[11px] text-slate-500 ${className}`}>
       <ListChecks className="w-3.5 h-3.5 mt-px shrink-0 text-slate-400" />

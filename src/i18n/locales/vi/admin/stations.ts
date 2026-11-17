@@ -43,7 +43,7 @@ export const adminStationsVi = {
     hotlineInvalid: 'Hotline phải gồm 3–11 chữ số.',
     hotlinePlaceholder: 'VD: 02837301111',
     radius: 'Bán kính phủ sóng (km)',
-    radiusHint: 'Vùng trạm phụ trách, vẽ thành vòng tròn trên bản đồ. Từ {{min}} đến {{max}} km.',
+    radiusHint: 'Chỉ để vẽ vùng trạm trên bản đồ (từ {{min}} đến {{max}} km). Sự cố được giao cho trạm gần nhất theo quãng đường bộ, không theo bán kính này.',
     radiusInvalid: 'Nhập từ {{min}} đến {{max}} km.',
     isActive: 'Trạm đang hoạt động',
     location: 'Vị trí trên bản đồ',

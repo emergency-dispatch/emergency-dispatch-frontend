@@ -45,7 +45,7 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     },
     cta: { reassign: 'Reassign', serve: 'Respond', dispatch: 'Dispatch', open: 'Open case' },
     allReported: 'All crews have reported',
-    vehicleCount: '{{active}}/{{max}} vehicles',
+    vehicleCount: '{{active}}/{{max}} teams',
   },
   detail: {
     back: 'Case list',
@@ -263,7 +263,7 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     minChars: 'At least {{min}} characters ({{length}}/{{min}}).',
     unchanged: 'Choose a severity or type different from the current one.',
     raiseNote: 'Teams on this incident will get a high-priority notification about the new severity.',
-    lowerExtraUnits: '{{count}} vehicles are on this incident, more than the standard for {{level}} ({{max}}). You can withdraw some after the change.',
+    lowerExtraUnits: '{{count}} teams are on this incident, more than the standard for {{level}} ({{max}}). You can withdraw some after the change.',
     lockedByOther: '{{name}} is holding this incident. Wait for the lock to expire and try again.',
     cancel: 'Cancel',
     submit: 'Save changes',
@@ -304,11 +304,12 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     select: 'Select',
     assignSelected: 'Assign {{count}} team(s)',
     cancelServe: 'Never mind, not for this request',
-    level3Full: 'This Level 3 incident already has {{max}} vehicles — no more can be assigned. Decline the request with a reason or withdraw a vehicle.',
-    level3Remaining: 'Level 3 allows at most {{max}} vehicles — only {{count}} more can be assigned.',
+    level3Full: 'This Level 3 incident already has {{max}} teams — no more can be assigned. Decline the request with a reason or withdraw a team.',
+    level3Remaining: 'Level 3 allows at most {{max}} teams — only {{count}} more can be assigned.',
     served: 'Vehicles assigned and the backup request fulfilled.',
   },
   plan: {
     label: 'Level {{level}} plan:',
+    teams: '{{count}} × {{type}} team(s)',
   },
 };

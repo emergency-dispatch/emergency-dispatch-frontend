@@ -43,7 +43,7 @@ export const liveMapVi = {
     },
     cta: { reassign: 'Giao lại', serve: 'Đáp ứng', dispatch: 'Giao xe', open: 'Mở ca' },
     allReported: 'Các tổ đã nộp báo cáo',
-    vehicleCount: '{{active}}/{{max}} xe',
+    vehicleCount: '{{active}}/{{max}} tổ',
   },
   detail: {
     back: 'Danh sách',
@@ -263,7 +263,7 @@ export const liveMapVi = {
     minChars: 'Tối thiểu {{min}} ký tự ({{length}}/{{min}}).',
     unchanged: 'Chọn mức độ hoặc loại khác với hiện tại.',
     raiseNote: 'Các đội đang xử lý sẽ nhận thông báo ưu tiên cao về mức độ mới.',
-    lowerExtraUnits: 'Đang có {{count}} xe xử lý, nhiều hơn số xe chuẩn của {{level}} ({{max}} xe). Có thể rút bớt sau khi đổi.',
+    lowerExtraUnits: 'Đang có {{count}} tổ xử lý, nhiều hơn số tổ chuẩn của {{level}} ({{max}} tổ). Có thể rút bớt sau khi đổi.',
     lockedByOther: '{{name}} đang giữ sự cố này. Chờ khóa hết hạn rồi thử lại.',
     cancel: 'Hủy',
     submit: 'Lưu thay đổi',
@@ -306,12 +306,13 @@ export const liveMapVi = {
     select: 'Chọn',
     assignSelected: 'Giao {{count}} tổ',
     cancelServe: 'Thôi, không giao theo yêu cầu',
-    level3Full: 'Sự cố Cấp 3 đã đủ {{max}} xe — không giao thêm được. Từ chối yêu cầu kèm lý do hoặc rút bớt xe.',
-    level3Remaining: 'Cấp 3 tối đa {{max}} xe — chỉ còn giao được {{count}} xe.',
+    level3Full: 'Sự cố Cấp 3 đã đủ {{max}} tổ — không giao thêm được. Từ chối yêu cầu kèm lý do hoặc rút bớt tổ.',
+    level3Remaining: 'Cấp 3 tối đa {{max}} tổ — chỉ còn giao được {{count}} tổ.',
     served: 'Đã giao xe và đáp ứng yêu cầu chi viện.',
   },
   // §32: kế hoạch điều xe theo mức của loại sự cố.
   plan: {
     label: 'Kế hoạch Cấp {{level}}:',
+    teams: '{{count}} tổ {{type}}',
   },
 } as const;

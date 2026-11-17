@@ -18,7 +18,7 @@ export const adminCatalogEn: Messages<typeof adminCatalogVi> = {
     vehicles: 'Vehicles',
     plan: 'Dispatch plan',
     planHeader: 'L1 · L2 · L3',
-    planLevelTitle: 'Level {{n}}: {{count}} vehicle(s)',
+    planLevelTitle: 'Level {{n}}: {{count}} team(s)',
     planEmptyTitle: 'Level {{n}}: not configured',
     order: 'Order',
     edit: 'Edit',
@@ -96,13 +96,14 @@ export const adminCatalogEn: Messages<typeof adminCatalogVi> = {
   plan: {
     title: 'Dispatch plan · {{name}}',
     intro:
-      'Which vehicle types, and how many, each level dispatches (at most {{max}} vehicles in total). Recommendations only include types in the plan; the standard count for Levels 1–2 equals the plan total, and extra vehicles need a reason. AI auto-dispatch follows the plan exactly.',
-    priorityHint: 'Row order is the priority when vehicles are short.',
+      'How many teams each level needs for every function (vehicle type); each team brings 1 vehicle, at most {{max}} teams in total. Recommendations only include teams whose function is in the plan; the standard count for Levels 1–2 equals the plan total, and extra teams need a reason. AI auto-dispatch picks distinct teams exactly as planned.',
+    priorityHint: 'Row order is the priority when teams are short.',
     level: 'Level {{n}}',
-    total: '{{total}} / {{max}} vehicles',
+    total: '{{total}} / {{max}} teams',
     selectType: 'Choose a vehicle type',
     hiddenType: '(hidden)',
-    quantity: 'Quantity',
+    quantity: 'Teams',
+    quantityUnit: 'team(s)',
     addUnit: 'Add vehicle type',
     moveUp: 'Higher priority',
     moveDown: 'Lower priority',
@@ -110,7 +111,7 @@ export const adminCatalogEn: Messages<typeof adminCatalogVi> = {
     emptyFallback: 'Not configured — uses the Level {{n}} plan.',
     emptyNoPlan: 'Not configured.',
     noPlanAtAll:
-      'This type has no plan: the system uses the old limits (Levels 1–2: 1 vehicle, Level 3: up to 5) and picks vehicle types by incident category.',
+      'This type has no plan: the system uses the old limits (Levels 1–2: 1 team, Level 3: up to 5) and picks vehicle types by incident category.',
     otherFallback:
       'An "Other" category type without its own plan uses the plan of the generic "Other emergency" type (if configured).',
     save: 'Save plan',
@@ -119,8 +120,8 @@ export const adminCatalogEn: Messages<typeof adminCatalogVi> = {
     errors: {
       missingType: 'Choose a vehicle type for every row.',
       duplicate: 'Each vehicle type may appear only once per level.',
-      quantity: 'Each quantity must be from 1 to {{max}}.',
-      total: 'The total for this level exceeds {{max}} vehicles.',
+      quantity: 'Each team count must be from 1 to {{max}}.',
+      total: 'The total for this level exceeds {{max}} teams.',
     },
   },
 };
