@@ -25,6 +25,28 @@ export type AutoDispatchVerdict =
 export const AUTO_DISPATCH_DECIDING_TIMEOUT_MS = 20_000;
 
 /**
+ * Hàng đợi / thanh bên không theo dõi lúc ca bắt đầu "đang điều phối" → tính từ lúc tiếp nhận: AI đủ điều kiện mà quá
+ * hạn này vẫn chưa có kết quả thì coi như chuyển cho người. Backend chờ AI tối đa ~2 phút rồi điều phối trong vài giây.
+ */
+export const AUTO_DISPATCH_GRACE_FROM_CREATED_MS = 3 * 60_000;
+
+/** Phán quyết theo thời điểm tiếp nhận (dùng cho danh sách — không có mốc "bắt đầu điều phối"). */
+export function autoDispatchVerdictAt(
+  incident: Incident,
+  settings: AutoDispatchSettings | null,
+  now: number
+): AutoDispatchVerdict {
+  return autoDispatchVerdict(incident, settings, {
+    transferred: false,
+    decidingExpired: now - new Date(incident.createdAt).getTime() > AUTO_DISPATCH_GRACE_FROM_CREATED_MS,
+  });
+}
+
+/** Ca chờ duyệt cần Operator (không còn chờ AI). */
+export const needsOperator = (verdict: AutoDispatchVerdict) =>
+  verdict.phase === 'manual' || verdict.phase === 'handover';
+
+/**
  * §31.E: giai đoạn AI tự điều phối của một tin báo mới — popup quyết định chặn màn hình (cần người) hay chỉ báo nhẹ
  * (AI đang làm). Backend chỉ chấm một lần ngay sau khi AI phân tích, nên giữ ca trong lúc AI chạy = AI bỏ qua ca đó.
  */

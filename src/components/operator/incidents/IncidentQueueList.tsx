@@ -3,7 +3,7 @@ import { AlertTriangle, Bot, Inbox, ListChecks, Loader2, Map as MapIcon, MapPin,
 import { IncidentRow } from './IncidentRow';
 import { IncidentThumbnail } from './IncidentThumbnail';
 import { AutoDispatchBadge } from './AutoDispatchInfo';
-import { autoDispatchVerdict, type HandoverReason } from './autoDispatchVerdict';
+import { autoDispatchVerdictAt, needsOperator, type HandoverReason } from './autoDispatchVerdict';
 import { QUEUE_COLUMNS } from './queueColumns';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { useDispatchStore } from '../../../context/DispatchContext';
@@ -12,12 +12,6 @@ import type { AutoDispatchSettings } from '../../../services/liveMapService';
 import type { Incident } from '../../../types/incident';
 import { formatWaitDuration } from '../../../utils/incidentFormat';
 import { Trans, useTranslation } from '../../../i18n';
-
-/**
- * Ca AI đã phân tích xong, đủ điều kiện mà quá lâu (tính từ lúc tiếp nhận) vẫn chưa có kết quả tự điều phối →
- * đưa về "Cần bạn xử lý". Backend chờ AI tối đa ~2 phút rồi điều phối trong vài giây.
- */
-const DECIDING_GRACE_MS = 3 * 60_000;
 
 type QueueTab = 'human' | 'ai' | 'dispatched';
 
@@ -88,11 +82,8 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
     const ai: Incident[] = [];
     const why = new Map<string, HandoverReason>();
     for (const incident of incidents) {
-      const verdict = autoDispatchVerdict(incident, autoDispatchSettings, {
-        transferred: false,
-        decidingExpired: now - new Date(incident.createdAt).getTime() > DECIDING_GRACE_MS,
-      });
-      if (verdict.phase === 'analyzing' || verdict.phase === 'deciding') ai.push(incident);
+      const verdict = autoDispatchVerdictAt(incident, autoDispatchSettings, now);
+      if (!needsOperator(verdict)) ai.push(incident);
       else {
         human.push(incident);
         if (verdict.phase === 'handover') why.set(incident.id, verdict.reason);

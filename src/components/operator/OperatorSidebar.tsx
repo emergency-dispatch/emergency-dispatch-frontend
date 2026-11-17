@@ -4,6 +4,8 @@ import { ShieldAlert } from 'lucide-react';
 import { COMPLETION_PATH, dashboardNavGroups } from '../../data/dashboardMock';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { hasPendingCompletion } from './completion/completionGroups';
+import { autoDispatchVerdictAt, needsOperator } from './incidents/autoDispatchVerdict';
+import { useNow } from '../../hooks/useNow';
 import { useTranslation } from '../../i18n';
 
 const QUEUE_PATH = '/dashboard/command-center/incidents';
@@ -21,9 +23,14 @@ const NAV_LABEL_KEY = {
  * Label hiện qua tooltip khi hover.
  */
 export const OperatorSidebar: React.FC = () => {
-  const { incidents, assignmentsByIncident } = useDispatchStore();
+  const { incidents, assignmentsByIncident, autoDispatchSettings } = useDispatchStore();
+  // Chỉ để ca "AI chưa quyết" quá hạn rơi về đếm của người — không cần chính xác từng giây.
+  const now = useNow(30_000);
   const { t } = useTranslation();
-  const pendingCount = incidents.filter((i) => i.status === 'pending').length;
+  // §31.E: chỉ đếm ca cần Operator (AI đang phân tích / điều phối thì chưa tới lượt người) — khớp tab "Cần bạn xử lý".
+  const pendingCount = incidents.filter(
+    (i) => i.status === 'pending' && needsOperator(autoDispatchVerdictAt(i, autoDispatchSettings, now))
+  ).length;
   // §26.2: sự cố đang xử lý còn tổ chưa ký nghiệm thu (badge vàng — không phải việc khẩn như hàng đợi).
   const awaitingCompletionCount = incidents.filter(
     (i) => i.status === 'approved' && hasPendingCompletion(assignmentsByIncident.get(i.id))
