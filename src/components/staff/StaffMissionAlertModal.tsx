@@ -554,7 +554,7 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
               className="w-full sm:w-1/3 py-3 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
             >
               <XCircle className="w-4 h-4 text-slate-500" />
-              Từ Chối Lệnh
+              Từ Chối Lệnh (BR-22)
             </button>
 
             <button

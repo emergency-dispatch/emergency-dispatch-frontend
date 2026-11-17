@@ -25,9 +25,8 @@ import type { ServiceAreaDto } from '../../services/liveMapService';
 import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
 import {
   MAPBOX_ACCESS_TOKEN,
-  MAPBOX_REALISTIC_STYLE,
-  MAPBOX_DARK_STYLE,
-  MAPBOX_STREETS_STYLE,
+  createStaffBaseMapStyle,
+  applyStaffMapLayerMode,
 } from '../../services/mapboxService';
 
 interface StaffStandbyViewProps {
@@ -67,7 +66,16 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
   // BR-27: 5 phút hồi sức xe sau khi hoàn tất nghiệm thu nhiệm vụ
   useEffect(() => {
     const calculateCooldown = () => {
-      const latestMission = completedMissions?.[0];
+      if (!completedMissions || completedMissions.length === 0) {
+        setCooldownSeconds(0);
+        return;
+      }
+      const sorted = [...completedMissions].sort((a, b) => {
+        const tA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+        const tB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+        return tB - tA;
+      });
+      const latestMission = sorted[0];
       if (!latestMission?.completedAt) {
         setCooldownSeconds(0);
         return;
@@ -96,18 +104,6 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
   // Vị trí mặc định: Tọa độ trạm PCCC Khu Công nghệ cao TP.HCM hoặc vị trí kíp xe
   const standbyLat = 10.8452;
   const standbyLng = 106.7955;
-
-  const getStyleForMode = (mode: MapLayerMode) => {
-    switch (mode) {
-      case 'dark':
-        return MAPBOX_DARK_STYLE;
-      case 'streets':
-        return MAPBOX_STREETS_STYLE;
-      case 'satellite':
-      default:
-        return MAPBOX_REALISTIC_STYLE;
-    }
-  };
 
   // Helper để thêm/cập nhật GeoJSON Ranh giới phục vụ của Trạm
   const setupServiceAreaLayer = React.useCallback((map: mapboxgl.Map, area: ServiceAreaDto | null | undefined) => {
@@ -140,30 +136,60 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
             data: featureCollection,
           });
 
-          map.addLayer({
-            id: FILL_ID,
-            type: 'fill',
-            source: SOURCE_ID,
-            paint: {
-              'fill-color': '#2563EB',
-              'fill-opacity': 0.08,
-            },
-          });
+          if (!map.getLayer(FILL_ID)) {
+            map.addLayer({
+              id: FILL_ID,
+              type: 'fill',
+              source: SOURCE_ID,
+              paint: {
+                'fill-color': '#2563EB',
+                'fill-opacity': 0.08,
+              },
+            });
+          }
 
-          map.addLayer({
-            id: LINE_ID,
-            type: 'line',
-            source: SOURCE_ID,
-            paint: {
-              'line-color': '#3B82F6',
-              'line-width': 2.2,
-              'line-opacity': 0.85,
-              'line-dasharray': [3, 2],
-            },
-          });
+          if (!map.getLayer(LINE_ID)) {
+            map.addLayer({
+              id: LINE_ID,
+              type: 'line',
+              source: SOURCE_ID,
+              paint: {
+                'line-color': '#3B82F6',
+                'line-width': 2.2,
+                'line-opacity': 0.85,
+                'line-dasharray': [3, 2],
+              },
+            });
+          }
         } else {
           const src = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource;
           src.setData(featureCollection);
+
+          if (!map.getLayer(FILL_ID)) {
+            map.addLayer({
+              id: FILL_ID,
+              type: 'fill',
+              source: SOURCE_ID,
+              paint: {
+                'fill-color': '#2563EB',
+                'fill-opacity': 0.08,
+              },
+            });
+          }
+
+          if (!map.getLayer(LINE_ID)) {
+            map.addLayer({
+              id: LINE_ID,
+              type: 'line',
+              source: SOURCE_ID,
+              paint: {
+                'line-color': '#3B82F6',
+                'line-width': 2.2,
+                'line-opacity': 0.85,
+                'line-dasharray': [3, 2],
+              },
+            });
+          }
         }
       } catch (err) {
         console.warn('Standby Mapbox service area layer warning:', err);
@@ -173,7 +199,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
     if (map.isStyleLoaded()) {
       addOrUpdate();
     } else {
-      map.once('style.load', addOrUpdate);
+      map.once('idle', addOrUpdate);
     }
   }, []);
 
@@ -185,7 +211,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: getStyleForMode(layerMode),
+      style: createStaffBaseMapStyle(layerMode),
       center: [standbyLng, standbyLat],
       zoom: 15.5,
       pitch: is3DMode ? 45 : 0,
@@ -197,13 +223,13 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
       console.warn('Standby Mapbox notice:', e?.error?.message || e);
     });
 
-    map.on('load', () => {
+    const ensureLayer = () => {
       setupServiceAreaLayer(map, serviceArea);
-    });
+    };
 
-    map.on('style.load', () => {
-      setupServiceAreaLayer(map, serviceArea);
-    });
+    map.on('load', ensureLayer);
+    map.on('style.load', ensureLayer);
+    map.on('idle', ensureLayer);
 
     // Marker trạm trực chiến (Xanh lá sẵn sàng)
     const el = document.createElement('div');
@@ -330,7 +356,10 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
   const handleSwitchLayer = (newMode: MapLayerMode) => {
     if (!mapRef.current) return;
     setLayerMode(newMode);
-    mapRef.current.setStyle(getStyleForMode(newMode));
+    applyStaffMapLayerMode(mapRef.current, newMode);
+    if (serviceArea) {
+      setupServiceAreaLayer(mapRef.current, serviceArea);
+    }
   };
 
   const handleToggle3D = () => {

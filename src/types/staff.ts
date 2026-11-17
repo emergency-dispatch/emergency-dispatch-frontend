@@ -107,6 +107,8 @@ export interface StaffProfile {
   vehicleType: VehicleType;
   teamName?: string;
   teamPlates?: string[];
+  vehicleId?: string;
+  teamVehicleIds?: string[];
   crewRole?: string;
   status: 'on_duty' | 'off_duty' | 'break';
   batteryLevel: number;

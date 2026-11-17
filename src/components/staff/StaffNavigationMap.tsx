@@ -19,6 +19,7 @@ import {
   Car,
   Shield,
   AlertTriangle,
+  Route,
 } from 'lucide-react';
 import type { StaffMission, TurnByTurnStep } from '../../types/staff';
 import type { ActiveTrafficTask } from './StaffTrafficTaskCard';
@@ -27,9 +28,8 @@ import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
 import { getDistanceFromLatLonInKm } from '../../pages/staff/utils/staffMissionUtils';
 import {
   MAPBOX_ACCESS_TOKEN,
-  MAPBOX_REALISTIC_STYLE,
-  MAPBOX_DARK_STYLE,
-  MAPBOX_STREETS_STYLE,
+  createStaffBaseMapStyle,
+  applyStaffMapLayerMode,
 } from '../../services/mapboxService';
 
 interface StaffNavigationMapProps {
@@ -78,6 +78,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
   const trafficMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const stepMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const prevStepIndexRef = useRef<number>(currentStepIndex);
+  const mapOuterContainerRef = useRef<HTMLDivElement>(null);
 
   // Chuyển đổi polyline [lat, lng] sang [lng, lat] cho Mapbox GeoJSON
   const routeCoordsLngLat: [number, number][] = React.useMemo(() => {
@@ -93,35 +94,22 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     ];
   }, [mission.routePolyline, mission.routeSteps, mission.vehicleLat, mission.vehicleLng, mission.incidentLat, mission.incidentLng]);
 
-  // Style selector
-  const getStyleForMode = (mode: MapLayerMode) => {
-    switch (mode) {
-      case 'dark':
-        return MAPBOX_DARK_STYLE;
-      case 'streets':
-        return MAPBOX_STREETS_STYLE;
-      case 'satellite':
-      default:
-        return MAPBOX_REALISTIC_STYLE;
-    }
-  };
+  const routeCoordsRef = useRef<[number, number][]>(routeCoordsLngLat);
+  routeCoordsRef.current = routeCoordsLngLat;
+  const serviceAreaRef = useRef<ServiceAreaDto | null | undefined>(serviceArea);
+  serviceAreaRef.current = serviceArea;
 
   // Helper để thêm/cập nhật GeoJSON route lines an toàn
   const setupRouteLayers = useCallback((map: mapboxgl.Map, coords: [number, number][]) => {
+    if (!map || !coords || coords.length === 0) return;
+
     const addOrUpdate = () => {
       try {
-        const geojsonData: {
-          type: 'Feature';
-          properties: Record<string, any>;
-          geometry: {
-            type: 'LineString';
-            coordinates: [number, number][];
-          };
-        } = {
-          type: 'Feature',
+        const geojsonData = {
+          type: 'Feature' as const,
           properties: {},
           geometry: {
-            type: 'LineString',
+            type: 'LineString' as const,
             coordinates: coords,
           },
         };
@@ -133,40 +121,79 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
           });
 
           // 1. Lớp viền phát sáng (Glow aura underlay)
-          map.addLayer({
-            id: 'mission-route-glow',
-            type: 'line',
-            source: 'mission-route-source',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round',
-            },
-            paint: {
-              'line-color': '#EF4444',
-              'line-width': 10,
-              'line-opacity': 0.45,
-              'line-blur': 3.5,
-            },
-          });
+          if (!map.getLayer('mission-route-glow')) {
+            map.addLayer({
+              id: 'mission-route-glow',
+              type: 'line',
+              source: 'mission-route-source',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round',
+              },
+              paint: {
+                'line-color': '#EF4444',
+                'line-width': 10,
+                'line-opacity': 0.45,
+                'line-blur': 3.5,
+              },
+            });
+          }
 
           // 2. Tuyến đường điều hướng chính sắc nét
-          map.addLayer({
-            id: 'mission-route-line',
-            type: 'line',
-            source: 'mission-route-source',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round',
-            },
-            paint: {
-              'line-color': '#DC2626',
-              'line-width': 4.5,
-              'line-opacity': 0.95,
-            },
-          });
+          if (!map.getLayer('mission-route-line')) {
+            map.addLayer({
+              id: 'mission-route-line',
+              type: 'line',
+              source: 'mission-route-source',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round',
+              },
+              paint: {
+                'line-color': '#DC2626',
+                'line-width': 4.5,
+                'line-opacity': 0.95,
+              },
+            });
+          }
         } else {
           const src = map.getSource('mission-route-source') as mapboxgl.GeoJSONSource;
           src.setData(geojsonData);
+
+          if (!map.getLayer('mission-route-glow')) {
+            map.addLayer({
+              id: 'mission-route-glow',
+              type: 'line',
+              source: 'mission-route-source',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round',
+              },
+              paint: {
+                'line-color': '#EF4444',
+                'line-width': 10,
+                'line-opacity': 0.45,
+                'line-blur': 3.5,
+              },
+            });
+          }
+
+          if (!map.getLayer('mission-route-line')) {
+            map.addLayer({
+              id: 'mission-route-line',
+              type: 'line',
+              source: 'mission-route-source',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round',
+              },
+              paint: {
+                'line-color': '#DC2626',
+                'line-width': 4.5,
+                'line-opacity': 0.95,
+              },
+            });
+          }
         }
       } catch (err) {
         console.warn('Mapbox route layers setup warning:', err);
@@ -176,7 +203,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     if (map.isStyleLoaded()) {
       addOrUpdate();
     } else {
-      map.once('style.load', addOrUpdate);
+      map.once('idle', addOrUpdate);
     }
   }, []);
 
@@ -212,37 +239,73 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
           });
 
           // Lớp nền phủ mờ ranh giới trạm (0.08)
-          map.addLayer(
-            {
-              id: FILL_ID,
-              type: 'fill',
-              source: SOURCE_ID,
-              paint: {
-                'fill-color': '#2563EB',
-                'fill-opacity': 0.08,
+          if (!map.getLayer(FILL_ID)) {
+            map.addLayer(
+              {
+                id: FILL_ID,
+                type: 'fill',
+                source: SOURCE_ID,
+                paint: {
+                  'fill-color': '#2563EB',
+                  'fill-opacity': 0.08,
+                },
               },
-            },
-            map.getLayer('mission-route-glow') ? 'mission-route-glow' : undefined
-          );
+              map.getLayer('mission-route-glow') ? 'mission-route-glow' : undefined
+            );
+          }
 
           // Lớp đường viền nét đứt ranh giới trạm
-          map.addLayer(
-            {
-              id: LINE_ID,
-              type: 'line',
-              source: SOURCE_ID,
-              paint: {
-                'line-color': '#3B82F6',
-                'line-width': 2.2,
-                'line-opacity': 0.85,
-                'line-dasharray': [3, 2],
+          if (!map.getLayer(LINE_ID)) {
+            map.addLayer(
+              {
+                id: LINE_ID,
+                type: 'line',
+                source: SOURCE_ID,
+                paint: {
+                  'line-color': '#3B82F6',
+                  'line-width': 2.2,
+                  'line-opacity': 0.85,
+                  'line-dasharray': [3, 2],
+                },
               },
-            },
-            map.getLayer('mission-route-glow') ? 'mission-route-glow' : undefined
-          );
+              map.getLayer('mission-route-glow') ? 'mission-route-glow' : undefined
+            );
+          }
         } else {
           const src = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource;
           src.setData(featureCollection);
+
+          if (!map.getLayer(FILL_ID)) {
+            map.addLayer(
+              {
+                id: FILL_ID,
+                type: 'fill',
+                source: SOURCE_ID,
+                paint: {
+                  'fill-color': '#2563EB',
+                  'fill-opacity': 0.08,
+                },
+              },
+              map.getLayer('mission-route-glow') ? 'mission-route-glow' : undefined
+            );
+          }
+
+          if (!map.getLayer(LINE_ID)) {
+            map.addLayer(
+              {
+                id: LINE_ID,
+                type: 'line',
+                source: SOURCE_ID,
+                paint: {
+                  'line-color': '#3B82F6',
+                  'line-width': 2.2,
+                  'line-opacity': 0.85,
+                  'line-dasharray': [3, 2],
+                },
+              },
+              map.getLayer('mission-route-glow') ? 'mission-route-glow' : undefined
+            );
+          }
         }
       } catch (err) {
         console.warn('Staff Mapbox service area layer warning:', err);
@@ -252,7 +315,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     if (map.isStyleLoaded()) {
       addOrUpdate();
     } else {
-      map.once('style.load', addOrUpdate);
+      map.once('idle', addOrUpdate);
     }
   }, []);
 
@@ -271,7 +334,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: getStyleForMode(layerMode),
+      style: createStaffBaseMapStyle(layerMode),
       center: initialCenter,
       zoom: 14.8,
       pitch: is3DMode ? 45 : 0,
@@ -283,11 +346,20 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
       console.warn('Staff Mapbox Notice:', e?.error?.message || e);
     });
 
+    const ensureAllLayers = () => {
+      const coords = routeCoordsRef.current;
+      if (coords && coords.length >= 2) {
+        setupRouteLayers(map, coords);
+      }
+      if (serviceAreaRef.current) {
+        setupServiceAreaLayer(map, serviceAreaRef.current);
+      }
+    };
+
     map.on('load', () => {
       setMapLoaded(true);
       map.resize();
-      setupRouteLayers(map, routeCoordsLngLat);
-      setupServiceAreaLayer(map, serviceArea);
+      ensureAllLayers();
 
       // Fit bounds bao quát xe và địa điểm sự cố với padding thoáng
       const bounds = new mapboxgl.LngLatBounds();
@@ -302,10 +374,8 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
       });
     });
 
-    map.on('style.load', () => {
-      setupRouteLayers(map, routeCoordsLngLat);
-      setupServiceAreaLayer(map, serviceArea);
-    });
+    map.on('style.load', ensureAllLayers);
+    map.on('idle', ensureAllLayers);
 
     mapRef.current = map;
 
@@ -337,14 +407,104 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     };
   }, []); // Mount 1 lần
 
-  // 2. Chuyển đổi Style lớp bản đồ khi user chọn mode khác
+  // 2. Chuyển đổi Style lớp bản đồ tức thì (CAD Tối, Vệ tinh, Đường phố) không bao giờ mất route line
   const handleSwitchLayer = (newMode: MapLayerMode) => {
-    if (!mapRef.current) return;
+    const map = mapRef.current;
+    if (!map || newMode === layerMode) return;
     setLayerMode(newMode);
-    mapRef.current.setStyle(getStyleForMode(newMode));
+    applyStaffMapLayerMode(map, newMode);
+
+    // Tuyệt đối không gọi map.setStyle() để giữ nguyên 100% đường chỉ dẫn cứu nạn và ranh giới trạm
+    const coords = routeCoordsRef.current;
+    if (coords && coords.length >= 2) {
+      setupRouteLayers(map, coords);
+    }
+    if (serviceAreaRef.current) {
+      setupServiceAreaLayer(map, serviceAreaRef.current);
+    }
   };
 
-  // 3. Đổi góc nghiêng 2D / 3D
+  // 3. Bao quát toàn bộ lộ trình di chuyển (Fit Bounds toàn tuyến)
+  const handleFitRoute = useCallback(() => {
+    const map = mapRef.current;
+    const coords = routeCoordsRef.current;
+    if (!map || !coords || coords.length < 2) return;
+
+    try {
+      const bounds = new mapboxgl.LngLatBounds();
+      bounds.extend([mission.vehicleLng, mission.vehicleLat]);
+      bounds.extend([mission.incidentLng, mission.incidentLat]);
+      coords.forEach((c) => bounds.extend(c));
+
+      map.fitBounds(bounds, {
+        padding: isFullscreen
+          ? { top: 90, bottom: 90, left: 90, right: 90 }
+          : { top: 75, bottom: 85, left: 65, right: 65 },
+        maxZoom: 16.5,
+        duration: 800,
+      });
+    } catch (err) {
+      console.warn('Mapbox fitBounds warning:', err);
+    }
+  }, [mission.vehicleLng, mission.vehicleLat, mission.incidentLng, mission.incidentLat, isFullscreen]);
+
+  // 4. Bật/Tắt Toàn màn hình & Tự động Zoom Out bao quát lộ trình
+  const handleToggleFullscreen = () => {
+    const el = mapOuterContainerRef.current;
+    if (!el) return;
+
+    if (!document.fullscreenElement && !isFullscreen) {
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {
+          setIsFullscreen(true);
+          setTimeout(() => {
+            mapRef.current?.resize();
+            handleFitRoute();
+          }, 150);
+        });
+      } else {
+        setIsFullscreen(true);
+        setTimeout(() => {
+          mapRef.current?.resize();
+          handleFitRoute();
+        }, 150);
+      }
+    } else {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {
+          setIsFullscreen(false);
+          setTimeout(() => {
+            mapRef.current?.resize();
+            handleFitRoute();
+          }, 150);
+        });
+      } else {
+        setIsFullscreen(false);
+        setTimeout(() => {
+          mapRef.current?.resize();
+          handleFitRoute();
+        }, 150);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const onFsChange = () => {
+      const isFs = Boolean(document.fullscreenElement);
+      setIsFullscreen(isFs);
+      setTimeout(() => {
+        const map = mapRef.current;
+        if (!map) return;
+        map.resize();
+        handleFitRoute();
+      }, 150);
+    };
+
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, [handleFitRoute]);
+
+  // 5. Đổi góc nghiêng 2D / 3D
   const handleToggle3D = () => {
     if (!mapRef.current) return;
     const nextState = !is3DMode;
@@ -486,61 +646,11 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     }
   }, [mission.incidentLat, mission.incidentLng, mission.severity, mission.title, mission.address, mission.callerName, mission.callerPhone]);
 
-  // 8. Cập nhật các Waypoint Turn-by-Turn Markers (Chỉ hiển thị các chặng trung gian chưa bị xe/mục tiêu đè)
+  // 8. Không cắm các marker số thứ tự chặng (step markers) dọc đường kẻ để giữ bản đồ thoáng và rõ tuyến đường
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
     stepMarkersRef.current.forEach((m) => m.remove());
     stepMarkersRef.current = [];
-
-    if (!mission.routeSteps || mission.routeSteps.length === 0) return;
-
-    mission.routeSteps.forEach((step, idx) => {
-      // Nếu là vị trí xe hiện tại hoặc đích cuối cùng, xe và mục tiêu đã hiển thị rõ
-      const isVehiclePos = idx === currentStepIndex;
-      const isLastStep = idx === mission.routeSteps.length - 1;
-
-      // Vẫn hiển thị badge nhưng nếu trùng xe thì hạ zIndex xuống dưới xe
-      const el = document.createElement('div');
-      el.className = 'cursor-pointer select-none';
-      el.style.zIndex = isVehiclePos ? '5' : isLastStep ? '4' : '2';
-      el.innerHTML = `
-        <div style="display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
-          <div style="width: ${isVehiclePos ? '28px' : '22px'}; height: ${isVehiclePos ? '28px' : '22px'}; border-radius: 9999px; background: ${isVehiclePos ? '#DC2626' : '#334155'}; border: 2px solid #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: ${isVehiclePos ? '12px' : '10px'}; font-weight: 800; color: #FFFFFF; font-family: monospace; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
-            ${idx + 1}
-          </div>
-        </div>
-      `;
-
-      const popup = new mapboxgl.Popup({ offset: 15 }).setHTML(`
-        <div class="p-1 font-mono text-xs">
-          <div class="font-bold text-slate-900 flex items-center gap-1.5">
-            <span class="px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold text-[10px]">CHẶNG ${idx + 1}</span>
-            <span>${step.roadName}</span>
-          </div>
-          <div class="text-slate-600 mt-1 font-sans text-xs">${step.instruction}</div>
-          <div class="text-slate-500 mt-1 text-[11px] font-mono">${step.distanceMeters}m • ~${step.durationSeconds}s</div>
-        </div>
-      `);
-
-      el.addEventListener('click', () => {
-        onSelectStep?.(idx);
-        map.flyTo({
-          center: [step.lng, step.lat],
-          zoom: 16.5,
-          duration: 600,
-        });
-      });
-
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([step.lng, step.lat])
-        .setPopup(popup)
-        .addTo(map);
-
-      stepMarkersRef.current.push(marker);
-    });
-  }, [mission.routeSteps, currentStepIndex, onSelectStep]);
+  }, [mission.routeSteps]);
 
   // 9. Camera Follow: Khi user đổi step index trong TurnByTurn HUD, bay nhẹ tới waypoint đó
   useEffect(() => {
@@ -710,8 +820,9 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
 
   return (
     <div
-      className={`relative w-full h-full min-h-[420px] rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-950 transition-all isolate ${
-        isFullscreen ? 'fixed inset-0 z-[9999] rounded-none border-none' : ''
+      ref={mapOuterContainerRef}
+      className={`relative w-full h-full min-h-[420px] rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-950 transition-all isolate [&:fullscreen]:w-screen [&:fullscreen]:h-screen [&:fullscreen]:rounded-none [&:fullscreen]:border-none ${
+        isFullscreen ? 'fixed inset-0 z-[99999] w-screen h-screen rounded-none border-none' : ''
       }`}
     >
       {/* Mapbox Canvas */}
@@ -727,6 +838,16 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
           title="Định vị tâm xe (Recenter)"
         >
           <LocateFixed className="w-5 h-5" />
+        </button>
+
+        {/* Fit Bounds to Entire Route (Zoom Out bao quát) */}
+        <button
+          type="button"
+          onClick={handleFitRoute}
+          className="p-2.5 rounded-xl bg-white/95 hover:bg-white border border-slate-200 text-slate-700 shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer flex items-center justify-center"
+          title="Bao quát toàn bộ tuyến đường (Zoom Out)"
+        >
+          <Route className="w-5 h-5" />
         </button>
 
         {/* 2D / 3D Tactical Tilt Switch */}
@@ -832,15 +953,16 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
           </button>
         </div>
 
-        {/* Fullscreen Toggle */}
+        {/* Fullscreen Toggle & Auto Fit Route */}
         <button
           type="button"
-          onClick={() => {
-            setIsFullscreen(!isFullscreen);
-            setTimeout(() => mapRef.current?.resize(), 100);
-          }}
-          className="p-2.5 rounded-xl bg-white/95 hover:bg-white border border-slate-200 text-slate-700 shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer flex items-center justify-center"
-          title={isFullscreen ? 'Thu nhỏ bản đồ' : 'Toàn màn hình'}
+          onClick={handleToggleFullscreen}
+          className={`p-2.5 rounded-xl border shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer flex items-center justify-center ${
+            isFullscreen
+              ? 'bg-red-600 text-white border-red-600 shadow-red-500/30'
+              : 'bg-white/95 hover:bg-white border-slate-200 text-slate-700'
+          }`}
+          title={isFullscreen ? 'Thu nhỏ bản đồ (Thoát toàn màn hình)' : 'Phóng to toàn màn hình & bao quát lộ trình'}
         >
           {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
         </button>
@@ -934,37 +1056,38 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
         )}
       </div>
 
-      {/* Floating Bottom HUD Status Pill (Desktop & Tablet) */}
-      <div className="hidden sm:flex absolute bottom-4 left-4 right-4 sm:right-auto z-10 flex-wrap items-center gap-2 pointer-events-none">
-        {/* GPS Coordinates & Satellite Lock */}
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 backdrop-blur-md text-xs font-mono text-slate-200 shadow-xl pointer-events-auto">
-          <Radio className="w-3.5 h-3.5 text-red-500 animate-pulse shrink-0" />
-          <span className="text-slate-400">GPS:</span>
-          <span className="font-bold text-white">
-            {mission.vehicleLat.toFixed(4)}° N, {mission.vehicleLng.toFixed(4)}° E
-          </span>
-          <span className="hidden sm:inline text-slate-600">|</span>
-          <span className="hidden sm:inline text-emerald-400 font-bold">12 VỆ TINH KHÓA</span>
+      {/* Floating Bottom HUD Status Bar (Responsive, No-Overlap) */}
+      <div className="hidden sm:flex absolute bottom-5 left-4 right-4 z-10 items-end justify-between pointer-events-none gap-2">
+        {/* Left: Telemetry & Station Geofence Status */}
+        <div className="flex flex-wrap items-center gap-2 pointer-events-auto max-w-[calc(100%-250px)]">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 backdrop-blur-md text-xs font-mono text-slate-200 shadow-xl">
+            <Radio className="w-3.5 h-3.5 text-red-500 animate-pulse shrink-0" />
+            <span className="text-slate-400">GPS:</span>
+            <span className="font-bold text-white whitespace-nowrap">
+              {mission.vehicleLat.toFixed(4)}° N, {mission.vehicleLng.toFixed(4)}° E
+            </span>
+            <span className="text-slate-600">|</span>
+            <span className="text-emerald-400 font-bold whitespace-nowrap">12 VỆ TINH</span>
+          </div>
+
+          {geofenceInfo && (
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border backdrop-blur-md text-xs font-mono font-bold shadow-xl whitespace-nowrap ${
+                geofenceInfo.isInside
+                  ? 'bg-blue-950/90 text-blue-200 border-blue-700/80'
+                  : 'bg-amber-950/90 text-amber-200 border-amber-600 animate-pulse'
+              }`}
+              title={`Khoảng cách đến tâm trạm: ${geofenceInfo.distKm} km • Bán kính phục vụ: ${geofenceInfo.radiusKm} km`}
+            >
+              <Shield className={`w-3.5 h-3.5 shrink-0 ${geofenceInfo.isInside ? 'text-blue-400' : 'text-amber-400'}`} />
+              <span>{geofenceInfo.isInside ? 'TRONG RANH GIỚI TRẠM' : 'NGOÀI RANH GIỚI TRẠM'}</span>
+              <span className="text-[10px] text-slate-400 font-normal">({geofenceInfo.radiusKm}km)</span>
+            </div>
+          )}
         </div>
 
-        {/* Geofence Boundary Status Pill (Mục GIS Geofence) */}
-        {geofenceInfo && (
-          <div
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl border backdrop-blur-md text-xs font-mono font-bold shadow-xl pointer-events-auto ${
-              geofenceInfo.isInside
-                ? 'bg-blue-950/90 text-blue-200 border-blue-700/80'
-                : 'bg-amber-950/90 text-amber-200 border-amber-600 animate-pulse'
-            }`}
-            title={`Khoảng cách đến tâm trạm: ${geofenceInfo.distKm} km • Bán kính phục vụ: ${geofenceInfo.radiusKm} km`}
-          >
-            <Shield className={`w-3.5 h-3.5 shrink-0 ${geofenceInfo.isInside ? 'text-blue-400' : 'text-amber-400'}`} />
-            <span>{geofenceInfo.isInside ? 'TRONG RANH GIỚI TRẠM' : 'NGOÀI RANH GIỚI TRẠM'}</span>
-            <span className="text-[10px] text-slate-400 font-normal">({geofenceInfo.radiusKm}km)</span>
-          </div>
-        )}
-
-        {/* Distance & ETA remaining pill */}
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-600/95 border border-red-500 text-white backdrop-blur-md text-xs font-mono font-bold shadow-xl shadow-red-600/25 pointer-events-auto">
+        {/* Right: Distance & ETA remaining pill */}
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-red-600/95 border border-red-500 text-white backdrop-blur-md text-xs font-mono font-bold shadow-xl shadow-red-600/25 pointer-events-auto shrink-0 whitespace-nowrap ml-auto">
           <Clock className="w-3.5 h-3.5 text-red-100 shrink-0" />
           <span>CÒN LẠI:</span>
           <span>{remainingMeters > 1000 ? `${(remainingMeters / 1000).toFixed(1)} km` : `${remainingMeters} m`}</span>

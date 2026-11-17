@@ -36,6 +36,7 @@ export const StaffPage: React.FC = () => {
     isViewingStandby,
     setIsViewingStandby,
     missionHistory,
+    setMissionHistory,
     loadingAssignments,
     fetchError,
     toasts,
@@ -149,6 +150,11 @@ export const StaffPage: React.FC = () => {
           {activeTab === 'reports' && (
             <StaffReportsView
               completedMissions={missionHistory}
+              onUpdateMission={(updated) => {
+                setMissionHistory((prev) =>
+                  prev.map((m) => (m.id === updated.id ? updated : m))
+                );
+              }}
               onOpenNewReport={() => {
                 if (activeMission) setIsReportModalOpen(true);
               }}
