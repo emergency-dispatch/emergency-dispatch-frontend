@@ -20,13 +20,108 @@ export const getSavedClosureReports = (): Record<string, DigitalClosureReport> =
 export const saveClosureReportLocally = (report: DigitalClosureReport) => {
   try {
     const existing = getSavedClosureReports();
-    if (report.missionId) existing[report.missionId] = report;
-    if (report.incidentId) existing[report.incidentId] = report;
+    const sanitizedReport: DigitalClosureReport = {
+      ...report,
+      signatureDataUrl: report.signatureUrl ? '' : report.signatureDataUrl,
+    };
+    if (report.missionId) existing[report.missionId] = sanitizedReport;
+    if (report.incidentId) existing[report.incidentId] = sanitizedReport;
     localStorage.setItem(STAFF_REPORTS_STORAGE_KEY, JSON.stringify(existing));
   } catch (err) {
     console.warn('Failed to save closure report to localStorage:', err);
+    try {
+      const existing = getSavedClosureReports();
+      const pruned: DigitalClosureReport = {
+        ...report,
+        photos: (report.photos || []).filter((p) => !p.url.startsWith('data:image')),
+        signatureDataUrl: '',
+      };
+      if (report.missionId) existing[report.missionId] = pruned;
+      if (report.incidentId) existing[report.incidentId] = pruned;
+      localStorage.setItem(STAFF_REPORTS_STORAGE_KEY, JSON.stringify(existing));
+    } catch (fallbackErr) {
+      console.warn('Fallback save also failed:', fallbackErr);
+    }
   }
 };
+
+/**
+ * Chuyển đổi CompletionReportDto từ Backend sang DigitalClosureReport của Frontend
+ */
+export function mapCompletionReportDtoToClosureReport(
+  cr: any,
+  missionId: string,
+  incidentId: string,
+  fallbackPlate?: string,
+  existingLocal?: DigitalClosureReport
+): DigitalClosureReport {
+  const actionsSummary =
+    cr.actionsSummary ||
+    cr.ActionsSummary ||
+    cr.resolutionSummary ||
+    existingLocal?.actionSummary ||
+    '';
+  const victimsCount =
+    cr.victimsAssistedCount ??
+    cr.VictimsAssistedCount ??
+    existingLocal?.casualtiesTreated ??
+    0;
+  const eqList = cr.equipmentUsed || cr.EquipmentUsed || [];
+  const mediaUrls = cr.evidenceMediaUrls || cr.EvidenceMediaUrls || cr.mediaUrls || [];
+  const handoverEnt = cr.handoverEntity || cr.HandoverEntity || existingLocal?.handoverEntity || '';
+  const handoverContact = cr.handoverContactName || cr.HandoverContactName || existingLocal?.handoverContactName || '';
+  const handoverPhone = cr.handoverContactPhone || cr.HandoverContactPhone || existingLocal?.handoverContactPhone || '';
+  const handoverNote = cr.handoverNotes || cr.HandoverNotes || existingLocal?.handoverNotes;
+  const sigUrl = cr.signatureUrl || cr.SignatureUrl || existingLocal?.signatureUrl || '';
+  const signer = cr.signerName || cr.SignerName || existingLocal?.signerName || 'Chỉ huy kíp xe';
+  const signedDate = cr.signedAt || cr.SignedAt || existingLocal?.signedAt;
+  const submittedDate = cr.submittedAt || cr.SubmittedAt || existingLocal?.completedAt || new Date().toISOString();
+
+  return {
+    missionId,
+    incidentId,
+    vehiclePlate: fallbackPlate || existingLocal?.vehiclePlate || 'Chưa gán xe',
+    teamLeader: signer,
+    completedAt: submittedDate,
+    actionSummary: actionsSummary,
+    casualtiesTreated: victimsCount,
+    casualtiesHospitalized: existingLocal?.casualtiesHospitalized ?? 0,
+    fireExtinguished: existingLocal?.fireExtinguished ?? true,
+    hazardsNeutralized: existingLocal?.hazardsNeutralized ?? true,
+    resourcesUsed: Array.isArray(eqList) && eqList.length > 0
+      ? eqList.map((eq: string) => {
+          const parts = eq.split(':');
+          return {
+            name: parts[0]?.trim() || eq,
+            quantity: 1,
+            unit: parts[1]?.trim() || 'Cái',
+          };
+        })
+      : existingLocal?.resourcesUsed || [],
+    photos: Array.isArray(mediaUrls) && mediaUrls.length > 0
+      ? mediaUrls.map((url: string, idx: number) => ({
+          id: `photo-be-${idx}`,
+          url,
+          category: 'after_action',
+          label: `Ảnh nghiệm thu #${idx + 1}`,
+          timestamp: new Date(submittedDate).toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+        }))
+      : existingLocal?.photos || [],
+    handoverEntity: handoverEnt,
+    handoverContactName: handoverContact,
+    handoverContactPhone: handoverPhone,
+    handoverNotes: handoverNote,
+    handoverQrData: '',
+    signatureDataUrl: existingLocal?.signatureDataUrl || sigUrl,
+    signatureUrl: sigUrl,
+    signerName: signer,
+    signedAt: signedDate,
+    dispatchApprovalStatus: 'verified',
+  };
+}
 
 /**
  * Chuyển đổi chuỗi base64 (DataURL) từ canvas chữ ký sang đối tượng File để upload lên /api/media/upload
@@ -69,55 +164,27 @@ export function mapAssignmentDtoToMission(
     reporterName?: string | null;
     reporterPhone?: string | null;
     verifiedByName?: string | null;
-  }
+  },
+  existingMission?: StaffMission
 ): StaffMission {
   const savedReports = getSavedClosureReports();
-  const localClosureReport = savedReports[dto.id] || savedReports[dto.incidentId];
+  const localClosureReport =
+    existingMission?.closureReport ||
+    savedReports[dto.id] ||
+    savedReports[dto.incidentId];
+
+  const plate = dto.rescueUnit?.plateNumber || fallbackVehiclePlate || 'Chưa gán xe';
 
   // Nếu backend trả về completionReport đã nộp, ưu tiên đồng bộ dữ liệu từ server
   let effectiveClosureReport: DigitalClosureReport | undefined = localClosureReport;
   if (dto.completionReport) {
-    const cr = dto.completionReport;
-    effectiveClosureReport = {
-      missionId: dto.id,
-      incidentId: dto.incidentId,
-      vehiclePlate: dto.rescueUnit?.plateNumber || fallbackVehiclePlate || 'Chưa gán xe',
-      teamLeader: cr.signerName || localClosureReport?.teamLeader || 'Chỉ huy kíp xe',
-      completedAt: cr.submittedAt || dto.completedAt || new Date().toISOString(),
-      actionSummary: cr.actionsSummary || localClosureReport?.actionSummary || '',
-      casualtiesTreated: cr.victimsAssistedCount ?? localClosureReport?.casualtiesTreated ?? 0,
-      casualtiesHospitalized: localClosureReport?.casualtiesHospitalized ?? 0,
-      fireExtinguished: localClosureReport?.fireExtinguished ?? true,
-      hazardsNeutralized: localClosureReport?.hazardsNeutralized ?? true,
-      resourcesUsed: (cr.equipmentUsed || []).map((eq: string) => {
-        const parts = eq.split(':');
-        return {
-          name: parts[0]?.trim() || eq,
-          quantity: 1,
-          unit: parts[1]?.trim() || 'Cái',
-        };
-      }),
-      photos: (cr.evidenceMediaUrls || []).map((url: string, idx: number) => ({
-        id: `photo-be-${idx}`,
-        url,
-        category: 'after_action',
-        label: `Ảnh nghiệm thu #${idx + 1}`,
-        timestamp: new Date(cr.submittedAt || Date.now()).toLocaleTimeString('vi-VN', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      })),
-      handoverEntity: cr.handoverEntity || localClosureReport?.handoverEntity || '',
-      handoverContactName: cr.handoverContactName || localClosureReport?.handoverContactName || '',
-      handoverContactPhone: cr.handoverContactPhone || localClosureReport?.handoverContactPhone || '',
-      handoverNotes: cr.handoverNotes || localClosureReport?.handoverNotes,
-      handoverQrData: '',
-      signatureDataUrl: localClosureReport?.signatureDataUrl || cr.signatureUrl || '',
-      signatureUrl: cr.signatureUrl || localClosureReport?.signatureUrl,
-      signerName: cr.signerName || localClosureReport?.signerName,
-      signedAt: cr.signedAt || localClosureReport?.signedAt,
-      dispatchApprovalStatus: 'verified',
-    };
+    effectiveClosureReport = mapCompletionReportDtoToClosureReport(
+      dto.completionReport,
+      dto.id,
+      dto.incidentId,
+      plate,
+      localClosureReport
+    );
     saveClosureReportLocally(effectiveClosureReport);
   }
 
@@ -136,8 +203,6 @@ export function mapAssignmentDtoToMission(
   const incLng = dto.incidentLng || 106.8089;
   const vehLat = dto.rescueUnit?.currentLat || incLat - 0.006;
   const vehLng = dto.rescueUnit?.currentLng || incLng - 0.006;
-
-  const plate = dto.rescueUnit?.plateNumber || fallbackVehiclePlate || 'Chưa gán xe';
 
   const isAiDispatched = dto.assignedByUserId === null;
   const dispatcherLabel = isAiDispatched

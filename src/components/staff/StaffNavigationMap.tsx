@@ -486,61 +486,11 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     }
   }, [mission.incidentLat, mission.incidentLng, mission.severity, mission.title, mission.address, mission.callerName, mission.callerPhone]);
 
-  // 8. Cập nhật các Waypoint Turn-by-Turn Markers (Chỉ hiển thị các chặng trung gian chưa bị xe/mục tiêu đè)
+  // 8. Không cắm các marker số thứ tự chặng (step markers) dọc đường kẻ để giữ bản đồ thoáng và rõ tuyến đường
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
     stepMarkersRef.current.forEach((m) => m.remove());
     stepMarkersRef.current = [];
-
-    if (!mission.routeSteps || mission.routeSteps.length === 0) return;
-
-    mission.routeSteps.forEach((step, idx) => {
-      // Nếu là vị trí xe hiện tại hoặc đích cuối cùng, xe và mục tiêu đã hiển thị rõ
-      const isVehiclePos = idx === currentStepIndex;
-      const isLastStep = idx === mission.routeSteps.length - 1;
-
-      // Vẫn hiển thị badge nhưng nếu trùng xe thì hạ zIndex xuống dưới xe
-      const el = document.createElement('div');
-      el.className = 'cursor-pointer select-none';
-      el.style.zIndex = isVehiclePos ? '5' : isLastStep ? '4' : '2';
-      el.innerHTML = `
-        <div style="display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
-          <div style="width: ${isVehiclePos ? '28px' : '22px'}; height: ${isVehiclePos ? '28px' : '22px'}; border-radius: 9999px; background: ${isVehiclePos ? '#DC2626' : '#334155'}; border: 2px solid #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: ${isVehiclePos ? '12px' : '10px'}; font-weight: 800; color: #FFFFFF; font-family: monospace; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
-            ${idx + 1}
-          </div>
-        </div>
-      `;
-
-      const popup = new mapboxgl.Popup({ offset: 15 }).setHTML(`
-        <div class="p-1 font-mono text-xs">
-          <div class="font-bold text-slate-900 flex items-center gap-1.5">
-            <span class="px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold text-[10px]">CHẶNG ${idx + 1}</span>
-            <span>${step.roadName}</span>
-          </div>
-          <div class="text-slate-600 mt-1 font-sans text-xs">${step.instruction}</div>
-          <div class="text-slate-500 mt-1 text-[11px] font-mono">${step.distanceMeters}m • ~${step.durationSeconds}s</div>
-        </div>
-      `);
-
-      el.addEventListener('click', () => {
-        onSelectStep?.(idx);
-        map.flyTo({
-          center: [step.lng, step.lat],
-          zoom: 16.5,
-          duration: 600,
-        });
-      });
-
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([step.lng, step.lat])
-        .setPopup(popup)
-        .addTo(map);
-
-      stepMarkersRef.current.push(marker);
-    });
-  }, [mission.routeSteps, currentStepIndex, onSelectStep]);
+  }, [mission.routeSteps]);
 
   // 9. Camera Follow: Khi user đổi step index trong TurnByTurn HUD, bay nhẹ tới waypoint đó
   useEffect(() => {

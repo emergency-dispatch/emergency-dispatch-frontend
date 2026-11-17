@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FileCheck2,
   Camera,
@@ -14,29 +14,100 @@ import {
   PenTool,
   Clock,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 import type { StaffMission, DigitalClosureReport } from '../../../types/staff';
 import { SEVERITY_META } from '../../../data/incidentMock';
+import { dispatchService } from '../../../services/dispatchService';
+import {
+  isGuid,
+  getSavedClosureReports,
+  saveClosureReportLocally,
+  mapCompletionReportDtoToClosureReport,
+} from '../../../pages/staff/utils/staffMissionUtils';
 
 interface StaffReportsViewProps {
   completedMissions: StaffMission[];
   onOpenNewReport: () => void;
+  onUpdateMission?: (updatedMission: StaffMission) => void;
 }
 
 export const StaffReportsView: React.FC<StaffReportsViewProps> = ({
   completedMissions,
   onOpenNewReport,
+  onUpdateMission,
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedReport, setSelectedReport] = useState<StaffMission | null>(
     completedMissions[0] || null
   );
+  const [isLoadingDetail, setIsLoadingDetail] = useState<boolean>(false);
+  const fetchedIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if ((!selectedReport || !completedMissions.some((m) => m.id === selectedReport.id)) && completedMissions.length > 0) {
       setSelectedReport(completedMissions[0]);
     }
   }, [completedMissions, selectedReport?.id]);
+
+  // Tự động đồng bộ báo cáo hoàn chỉnh từ LocalStorage hoặc API /api/dispatch/assignments/{id}
+  useEffect(() => {
+    if (!selectedReport) return;
+
+    const missionId = selectedReport.id;
+    const hasClosureReport = Boolean(
+      (selectedReport.closureReport?.photos && selectedReport.closureReport.photos.length > 0) ||
+      selectedReport.closureReport?.signatureUrl ||
+      (selectedReport.closureReport?.actionSummary && selectedReport.closureReport.actionSummary.length > 0)
+    );
+
+    // 1. Kiểm tra bộ nhớ local trước
+    if (!hasClosureReport) {
+      const savedReports = getSavedClosureReports();
+      const local = savedReports[missionId] || savedReports[selectedReport.incidentId];
+      if (local && (local.photos?.length || local.signatureUrl || local.actionSummary)) {
+        const enriched: StaffMission = {
+          ...selectedReport,
+          closureReport: local,
+        };
+        setSelectedReport(enriched);
+        onUpdateMission?.(enriched);
+        return;
+      }
+    }
+
+    // 2. Tải trực tiếp từ Backend GET /api/dispatch/assignments/{id} (đã include CompletionReport và MediaItems)
+    if (!hasClosureReport && isGuid(missionId) && !fetchedIdsRef.current.has(missionId)) {
+      fetchedIdsRef.current.add(missionId);
+      setIsLoadingDetail(true);
+
+      dispatchService.getAssignmentById(missionId)
+        .then((res) => {
+          if (res.success && res.data?.completionReport) {
+            const mapped = mapCompletionReportDtoToClosureReport(
+              res.data.completionReport,
+              missionId,
+              res.data.incidentId || selectedReport.incidentId,
+              selectedReport.vehiclePlate,
+              selectedReport.closureReport
+            );
+            saveClosureReportLocally(mapped);
+            const enriched: StaffMission = {
+              ...selectedReport,
+              closureReport: mapped,
+            };
+            setSelectedReport(enriched);
+            onUpdateMission?.(enriched);
+          }
+        })
+        .catch((err) => {
+          console.warn('[StaffReportsView] Không thể tải chi tiết phân công từ máy chủ CAD:', err);
+        })
+        .finally(() => {
+          setIsLoadingDetail(false);
+        });
+    }
+  }, [selectedReport?.id, onUpdateMission]);
 
   const filtered = completedMissions.filter((m) => {
     if (!m) return false;
@@ -148,6 +219,12 @@ export const StaffReportsView: React.FC<StaffReportsViewProps> = ({
                     <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       ĐÃ PHÊ DUYỆT BỞI CAD
                     </span>
+                    {isLoadingDetail && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
+                        <Loader2 className="w-3 h-3 animate-spin text-amber-600" />
+                        Đang đồng bộ...
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
                     {selectedReport.title}

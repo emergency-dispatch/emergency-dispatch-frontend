@@ -8,7 +8,7 @@ import { fieldRequestService } from '../../../services/fieldRequestService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { incidentHubService, trackingHubService, HubEvents } from '../../../services/realtime/incidentHubService';
 import { staffAudioService } from '../../../services/staffAudioService';
-import { routingService } from '../../../services/routingService';
+import { routingService, type RouteResult } from '../../../services/routingService';
 import { mediaService } from '../../../services/mediaService';
 import { liveMapService, type TrafficTaskEventDto, type ReportTrafficHotspotDto, type ServiceAreaDto } from '../../../services/liveMapService';
 import type { ActiveTrafficTask } from '../../../components/staff/StaffTrafficTaskCard';
@@ -362,14 +362,16 @@ export const useStaffMission = ({
               }
 
               // Reuse existing route if available to prevent network lag & re-render flicker
-              let routeRes;
+              let routeRes: RouteResult;
               const currentMission = activeMissionRef.current;
               if (currentMission?.id === activeDto.id && currentMission.routePolyline.length > 0) {
+                const totalDist = (currentMission.routeSteps || []).reduce((acc, s) => acc + (s.distanceMeters || 0), 0) || 5000;
+                const totalDur = (currentMission.routeSteps || []).reduce((acc, s) => acc + (s.durationSeconds || 0), 0) || 600;
                 routeRes = {
                   polyline: currentMission.routePolyline,
-                  steps: currentMission.routeSteps,
-                  durationMinutes: currentMission.estimatedDurationMinutes || 10,
-                  distanceKm: currentMission.distanceKm || 5,
+                  steps: currentMission.routeSteps || [],
+                  totalDistanceMeters: totalDist,
+                  totalDurationSeconds: totalDur,
                 };
               } else {
                 routeRes = await routingService.calculateDrivingRoute([vehLat, vehLng], [incLat, incLng]);
@@ -422,16 +424,18 @@ export const useStaffMission = ({
 
             if (completedDtos.length > 0) {
               const currentPlate = vehiclePlateRef.current || '51A-114.99';
-              const mappedCompleted = completedDtos.map((c) =>
-                mapAssignmentDtoToMission(c, currentPlate)
-              );
               setMissionHistory((prev) => {
+                const prevMap = new Map(prev.map((m) => [m.id, m]));
+                const mappedCompleted = completedDtos.map((c) => {
+                  const existing = prevMap.get(c.id);
+                  return mapAssignmentDtoToMission(c, currentPlate, undefined, undefined, existing);
+                });
                 const ids = new Set(mappedCompleted.map((m) => m.id));
                 const remainingLocal = prev.filter((p) => !ids.has(p.id) && p.status === 'completed');
                 const nextList = [...mappedCompleted, ...remainingLocal];
                 if (
                   prev.length === nextList.length &&
-                  prev.every((item, idx) => item.id === nextList[idx]?.id && item.status === nextList[idx]?.status)
+                  prev.every((item, idx) => item.id === nextList[idx]?.id && item.status === nextList[idx]?.status && item.closureReport === nextList[idx]?.closureReport)
                 ) {
                   return prev;
                 }
@@ -1080,6 +1084,15 @@ export const useStaffMission = ({
         }
 
         report.signatureUrl = uploadedSignatureUrl;
+        if (finalEvidenceUrls.length > 0) {
+          report.photos = finalEvidenceUrls.map((url, idx) => ({
+            id: `photo-${Date.now()}-${idx}`,
+            url,
+            category: 'after_action',
+            label: report.photos?.[idx]?.label || `Ảnh nghiệm thu #${idx + 1}`,
+            timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+          }));
+        }
         saveClosureReportLocally(report);
 
         const updatedMission: StaffMission = {

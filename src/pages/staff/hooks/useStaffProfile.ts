@@ -27,7 +27,9 @@ export const useStaffProfile = () => {
   useEffect(() => {
     refreshProfile().then(async (userData) => {
       let teamPlates: string[] = [];
+      let teamVehicleIds: string[] = [];
       let vehiclePlate = '51A-114.99';
+      let vehicleId: string | undefined;
       let teamName: string | undefined;
       let crewRole: string | undefined;
 
@@ -36,6 +38,8 @@ export const useStaffProfile = () => {
         if (teamRes.success && teamRes.data) {
           teamPlates = teamRes.data.myTeamRescueUnitPlates || [];
           vehiclePlate = teamRes.data.myTeamRescueUnitPlate || teamPlates[0] || vehiclePlate;
+          vehicleId = teamRes.data.myTeamRescueUnitId || undefined;
+          teamVehicleIds = teamRes.data.myTeamRescueUnitIds || [];
           teamName = teamRes.data.myTeamName || undefined;
           crewRole = teamRes.data.myCrewRole || undefined;
         }
@@ -57,7 +61,9 @@ export const useStaffProfile = () => {
             : (userData.id ? `ED-${userData.id.slice(-4).toUpperCase()}` : prev.badgeNumber),
         } : {}),
         vehiclePlate: vehiclePlate || prev.vehiclePlate,
+        vehicleId: vehicleId || prev.vehicleId,
         teamPlates: teamPlates.length > 0 ? teamPlates : prev.teamPlates,
+        teamVehicleIds: teamVehicleIds.length > 0 ? teamVehicleIds : prev.teamVehicleIds,
         teamName: teamName || prev.teamName,
         crewRole: crewRole || prev.crewRole,
       }));
