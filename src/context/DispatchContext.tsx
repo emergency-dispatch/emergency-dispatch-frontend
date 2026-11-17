@@ -7,6 +7,7 @@ import {
   DEFAULT_ESCALATION_SETTINGS,
   liveMapService,
   mapTrafficHotspot,
+  type AutoDispatchSettings,
   type EscalationSettingsDto,
   type ServiceAreaDto,
   type TrafficHotspotResponseDto,
@@ -327,6 +328,8 @@ interface DispatchContextValue {
    */
   saveVehicle: (input: VehicleSaveInput, id?: string) => Promise<ActionResult>;
   escalationSettings: EscalationSettingsDto;
+  /** §31.E: AI tự điều phối (bật/tắt + ngưỡng); null = chưa tải được → popup tin báo mới chạy như luồng cũ. */
+  autoDispatchSettings: AutoDispatchSettings | null;
   incidents: Incident[];
   highlightIncidentIds: Set<string>;
   incidentsLoading: boolean;
@@ -463,6 +466,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [stations, setStations] = useState<Station[]>([]);
   const [trafficJams, setTrafficJams] = useState<TrafficJamReport[]>([]);
   const [escalationSettings, setEscalationSettings] = useState<EscalationSettingsDto>(DEFAULT_ESCALATION_SETTINGS);
+  const [autoDispatchSettings, setAutoDispatchSettings] = useState<AutoDispatchSettings | null>(null);
   const [dismissedNoticeIds, setDismissedNoticeIds] = useState<Set<string>>(new Set());
   const [highlightIncidentIds, setHighlightIncidentIds] = useState<Set<string>>(new Set());
   const [incidentsLoading, setIncidentsLoading] = useState(true);
@@ -741,6 +745,10 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       .then(setEscalationSettings)
       .catch(() => undefined);
     liveMapService
+      .getAutoDispatchSettings()
+      .then(setAutoDispatchSettings)
+      .catch(() => undefined);
+    liveMapService
       .getServiceArea()
       .then(setServiceArea)
       .catch(() => undefined);
@@ -880,6 +888,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       incidentHubService.on<SettingsChangedEvent>(HubEvents.ReceiveSettingsChanged, (evt) => {
         if (evt.key === 'escalation') liveMapService.getEscalationSettings().then(setEscalationSettings).catch(() => undefined);
         if (evt.key === 'serviceArea') liveMapService.getServiceArea().then(setServiceArea).catch(() => undefined);
+        if (evt.key === 'dispatch')
+          liveMapService.getAutoDispatchSettings().then(setAutoDispatchSettings).catch(() => undefined);
       }),
       incidentHubService.on<OutOfAreaAlertEvent>(HubEvents.ReceiveOutOfAreaAlert, (evt) => {
         staffAudioService.playEmergencySiren();
@@ -919,8 +929,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                   })
                 : i18n.t('layout.operatorAlerts.autoDispatchSkippedMessage', { incident: title, note: evt.note ?? '' }),
             },
-            // Đã điều xe: chỉ để biết → tự đóng; bỏ qua: Operator phải xử lý → giữ tới khi đóng.
-            dispatched ? INFO_ALERT_MS : undefined
+            // Cả hai tự đóng: ca bị bỏ qua đã bật modal "AI chuyển cho bạn" (IncomingIncidentToasts) kèm lý do.
+            INFO_ALERT_MS
           );
         };
         incidentService
@@ -1637,6 +1647,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setVehicleStatus,
         saveVehicle,
         escalationSettings,
+        autoDispatchSettings,
         incidents,
         highlightIncidentIds,
         incidentsLoading,

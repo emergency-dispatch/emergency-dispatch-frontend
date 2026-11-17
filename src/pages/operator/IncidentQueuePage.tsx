@@ -47,6 +47,7 @@ export const IncidentQueuePage: React.FC = () => {
     setIncidentDrawerOpen,
     unlinkLinkedReport,
     supplementVersions,
+    autoDispatchSettings,
   } = useDispatchStore();
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -65,6 +66,11 @@ export const IncidentQueuePage: React.FC = () => {
   }, []);
 
   const pendingIncidents = useMemo(() => incidents.filter((inc) => inc.status === 'pending'), [incidents]);
+  // §31.E: ca AI đã tự điều phối, còn đang xử lý — tab giám sát "AI đã điều phối".
+  const autoDispatchedIncidents = useMemo(
+    () => incidents.filter((inc) => inc.status === 'approved' && inc.autoDispatch?.state === 'Dispatched'),
+    [incidents]
+  );
   const selectedIncident = pendingIncidents.find((inc) => inc.id === selectedId) ?? null;
   const isDrawerOpen = !!selectedIncident || !!dispatchingId;
 
@@ -212,6 +218,9 @@ export const IncidentQueuePage: React.FC = () => {
         loadError={incidentsError}
         activeIncidentCount={activeIncidentCount}
         onOpenLiveMap={() => navigate(LIVE_MAP_PATH)}
+        autoDispatchSettings={autoDispatchSettings}
+        autoDispatchedIncidents={autoDispatchedIncidents}
+        onOpenIncidentOnMap={openOnLiveMap}
       />
 
       {dispatchNotice && (

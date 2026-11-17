@@ -60,6 +60,12 @@ export interface ReportTrafficHotspotDto {
 
 const CONGESTION_LEVELS: readonly TrafficCongestionLevel[] = ['Low', 'Moderate', 'Severe', 'Blocked'];
 
+/** §31.E: AI tự điều phối — `minConfidence` 0–1 (backend so `confidenceScore >= minConfidence`). */
+export interface AutoDispatchSettings {
+  enabled: boolean;
+  minConfidence: number;
+}
+
 /** Mirror EscalationSettingsDto (GET /api/settings/escalation). */
 export interface EscalationSettingsDto {
   dayThresholdMinutes: number;
@@ -214,6 +220,22 @@ export const liveMapService = {
       apiClient.get<ApiResponse<ServiceAreaDto | { values: ServiceAreaDto }>>('/settings/service-area')
     );
     return 'values' in data ? data.values : data;
+  },
+
+  /**
+   * §31.E: phần AI tự điều phối trong cấu hình điều phối (GET /settings/dispatch — Operator được đọc) để popup tin
+   * báo mới biết có chờ AI hay không và so ngưỡng độ tin cậy.
+   */
+  async getAutoDispatchSettings(): Promise<AutoDispatchSettings> {
+    const record = await unwrapApi(
+      apiClient.get<ApiResponse<{ values: { autoDispatchEnabled?: boolean; autoDispatchMinConfidence?: number } }>>(
+        '/settings/dispatch'
+      )
+    );
+    return {
+      enabled: !!record.values.autoDispatchEnabled,
+      minConfidence: record.values.autoDispatchMinConfidence ?? 0.9,
+    };
   },
 
   /** Backend bọc cấu hình trong SettingsRecordDto { values, updatedAt, updatedByName }. */

@@ -33,6 +33,20 @@ export type BackendEventType = 'None' | 'FireExplosion' | 'TrafficAccident' | 'O
 /** §31.E: kết quả AI tự điều phối của một sự cố. */
 export type AutoDispatchState = 'None' | 'Dispatched' | 'Skipped';
 
+/**
+ * §31.E: lý do sự cố không đủ điều kiện AI tự điều phối — mirror `AutoDispatchService.IneligibleReason` của backend
+ * (cùng thứ tự). Backend KHÔNG lưu / phát lý do này (chỉ ghi log) nên FE tự suy từ dữ liệu sự cố. Khóa mềm và ngưỡng
+ * độ tin cậy xét riêng (cần cài đặt / thời điểm) → xem `autoDispatchVerdict`.
+ */
+export type AutoDispatchIneligibleReason =
+  | 'outOfServiceArea'
+  | 'unclassified'
+  | 'typeNotAiRecognizable'
+  | 'reporterChoseOther'
+  | 'aiFailed'
+  | 'confidenceNotMeasured'
+  | 'aiTypeMismatch';
+
 /** SignalR ReceiveAutoDispatched (Operator trạm phụ trách + Admin). */
 export interface AutoDispatchEventDto {
   incidentId: string;
@@ -133,6 +147,8 @@ export interface Incident {
   } | null;
   /** Độ tin cậy AI là xác suất đo thật (logprob); false = chỉ tham khảo; null = không rõ nguồn (AI / backend cũ). */
   confidenceMeasured: boolean | null;
+  /** §31.E: lý do không đủ điều kiện AI tự điều phối (null = đủ, còn xét khóa mềm + ngưỡng). Vô nghĩa khi aiPending. */
+  autoDispatchIneligible: AutoDispatchIneligibleReason | null;
   hazardTags: string[];
   severity: SeverityLevel;
   /** % tin cậy của AI (0–100). Vô nghĩa khi aiPending. */
@@ -700,6 +716,21 @@ export function toOperatorStatus(dto: Pick<IncidentResponseDto, 'status' | 'veri
   return 'pending';
 }
 
+const AI_RECOGNIZABLE_EVENT_TYPES: BackendEventType[] = ['FireExplosion', 'TrafficAccident'];
+
+/** Mirror `AutoDispatchService.IneligibleReason` (trừ trạng thái chờ xác minh, báo cáo gộp, khóa mềm và ngưỡng). */
+function autoDispatchIneligibleOf(dto: IncidentResponseDto): AutoDispatchIneligibleReason | null {
+  const ai = dto.aiClassification;
+  if (dto.isOutOfServiceArea) return 'outOfServiceArea';
+  if (dto.severity === 'Unclassified') return 'unclassified';
+  if (!AI_RECOGNIZABLE_EVENT_TYPES.includes(dto.eventType ?? 'None')) return 'typeNotAiRecognizable';
+  if (dto.reportedEventType === 'Other') return 'reporterChoseOther';
+  if (!ai || ai.isSuccess === false) return 'aiFailed';
+  if (!ai.confidenceSource?.startsWith('logprob')) return 'confidenceNotMeasured';
+  if (ai.eventType !== dto.eventType) return 'aiTypeMismatch';
+  return null;
+}
+
 /**
  * Maps an incident from GET /api/Incidents/queue, GET /api/Incidents or a SignalR push
  * to the UI's Incident shape. Xe đã giao / báo cáo / phản hồi đội được DispatchContext
@@ -744,6 +775,7 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
           }
         : null,
     confidenceMeasured: ai?.confidenceSource ? ai.confidenceSource.startsWith('logprob') : null,
+    autoDispatchIneligible: autoDispatchIneligibleOf(dto),
     hazardTags,
     severity: SEVERITY_FROM_BACKEND[dto.severity] ?? 1,
     confidenceScore: Math.round((ai?.confidenceScore ?? 0) * 100),

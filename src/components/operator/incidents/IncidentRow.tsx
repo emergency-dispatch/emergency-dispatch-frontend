@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, Lock, MapPin, Siren, TrafficCone, Users } from 'lucide-react';
+import { BotOff, Loader2, Lock, MapPin, Siren, TrafficCone, Users } from 'lucide-react';
 import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { IncidentThumbnail } from './IncidentThumbnail';
 import { ConfidenceBadge } from './ConfidenceBadge';
@@ -17,6 +17,10 @@ import { isAiFallbackTag, type Incident } from '../../../types/incident';
 import { useTranslation } from '../../../i18n';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { AutoDispatchBadge } from './AutoDispatchInfo';
+import type { HandoverReason } from './autoDispatchVerdict';
+
+// Lý do đã có chip / badge riêng trên dòng (Ngoài khu vực, Chưa phân loại, AI bỏ qua) → không lặp lại.
+const REASONS_WITH_OWN_CHIP: ReadonlySet<HandoverReason> = new Set(['outOfServiceArea', 'unclassified', 'skipped']);
 
 interface IncidentRowProps {
   incident: Incident;
@@ -26,6 +30,10 @@ interface IncidentRowProps {
   now: number;
   currentOperatorId: string;
   onClick: () => void;
+  /** §31.E: vì sao AI chuyển ca này cho người (tab "Cần bạn xử lý"); null = không áp dụng. */
+  handoverReason?: HandoverReason | null;
+  /** Ngưỡng tự điều phối (%), cho chip "Dưới ngưỡng". */
+  threshold?: number | null;
 }
 
 
@@ -37,6 +45,8 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
   now,
   currentOperatorId,
   onClick,
+  handoverReason = null,
+  threshold = null,
 }) => {
   const { t } = useTranslation();
   const { incidentKindLabel } = useDispatchStore();
@@ -106,6 +116,22 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
             </span>
           )}
           <AutoDispatchBadge incident={incident} />
+          {handoverReason && !REASONS_WITH_OWN_CHIP.has(handoverReason) && (
+            <span
+              title={t(`layout.incomingIncident.reasons.${handoverReason}`, {
+                confidence: incident.confidenceScore,
+                threshold: threshold ?? 0,
+                name: activeLock?.operatorName ?? t('layout.incomingIncident.anotherOperator'),
+              })}
+              className="inline-flex items-center gap-1 px-1.5 py-px rounded border border-amber-300 bg-amber-50 text-[10px] font-bold text-amber-800 shrink-0"
+            >
+              <BotOff className="w-3 h-3" />
+              {t(`incidents.row.handover.${handoverReason}`, {
+                confidence: incident.confidenceScore,
+                threshold: threshold ?? 0,
+              })}
+            </span>
+          )}
           {jamChip && jamStatus && (
             <span
               title={jamChip.title}

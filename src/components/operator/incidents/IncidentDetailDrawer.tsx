@@ -54,7 +54,7 @@ import type { Station } from '../../../types/vehicle';
 import { dateLocale, useTranslation } from '../../../i18n';
 import { IncidentTypePicker } from './IncidentTypePicker';
 import { useDispatchStore } from '../../../context/DispatchContext';
-import { AutoDispatchNotice } from './AutoDispatchInfo';
+import { AutoDispatchBanner } from './AutoDispatchInfo';
 
 const CONFIRMABLE_LEVELS: SeverityLevel[] = [1, 2, 3];
 // Lý do chuyển trạm: backend yêu cầu tối thiểu 5 ký tự.
@@ -425,7 +425,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
           </div>
         )}
 
-        {tab === 'review' && <AutoDispatchNotice incident={incident} className="shrink-0 mx-5 mt-3" />}
+        {/* §31.E: vì sao ca này tới tay Operator (AI chuyển ca / AI chưa xong / AI đã điều). */}
+        {tab === 'review' && <AutoDispatchBanner incident={incident} className="shrink-0 mx-5 mt-3" />}
 
         <div className="flex-1 overflow-y-auto min-h-0">
           {tab === 'history' ? (
