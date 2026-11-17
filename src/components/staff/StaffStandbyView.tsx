@@ -67,7 +67,16 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
   // BR-27: 5 phút hồi sức xe sau khi hoàn tất nghiệm thu nhiệm vụ
   useEffect(() => {
     const calculateCooldown = () => {
-      const latestMission = completedMissions?.[0];
+      if (!completedMissions || completedMissions.length === 0) {
+        setCooldownSeconds(0);
+        return;
+      }
+      const sorted = [...completedMissions].sort((a, b) => {
+        const tA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+        const tB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+        return tB - tA;
+      });
+      const latestMission = sorted[0];
       if (!latestMission?.completedAt) {
         setCooldownSeconds(0);
         return;

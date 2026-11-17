@@ -36,7 +36,7 @@ export const StaffReportsView: React.FC<StaffReportsViewProps> = ({
     if ((!selectedReport || !completedMissions.some((m) => m.id === selectedReport.id)) && completedMissions.length > 0) {
       setSelectedReport(completedMissions[0]);
     }
-  }, [completedMissions, selectedReport]);
+  }, [completedMissions, selectedReport?.id]);
 
   const filtered = completedMissions.filter((m) => {
     if (!m) return false;

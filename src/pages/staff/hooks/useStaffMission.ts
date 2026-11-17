@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { StaffMission, MissionStatus, DigitalClosureReport } from '../../../types/staff';
 import type { DispatchAssignmentResponseDto, RejectionReason, ResolveDispatchDto } from '../../../types/dispatch';
 import type { StaffNavTab } from '../../../components/staff/StaffSidebar';
@@ -52,6 +52,34 @@ export const useStaffMission = ({
   const [loadingAssignments, setLoadingAssignments] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  // Stable refs for props & callbacks to prevent infinite re-render loops in effects
+  const vehiclePlateRef = useRef(vehiclePlate);
+  vehiclePlateRef.current = vehiclePlate;
+
+  const vehicleIdRef = useRef(vehicleId);
+  vehicleIdRef.current = vehicleId;
+
+  const teamPlatesRef = useRef(teamPlates);
+  teamPlatesRef.current = teamPlates;
+
+  const teamVehicleIdsRef = useRef(teamVehicleIds);
+  teamVehicleIdsRef.current = teamVehicleIds;
+
+  const onNavigateTabRef = useRef(onNavigateTab);
+  onNavigateTabRef.current = onNavigateTab;
+
+  const activeMissionRef = useRef(activeMission);
+  activeMissionRef.current = activeMission;
+
+  // Prevent concurrent duplicate fetching
+  const isFetchingRef = useRef<boolean>(false);
+
+  // Track resolved assignment IDs so we never resurrect them to activeMission
+  const resolvedAssignmentIdsRef = useRef<Set<string>>(new Set());
+
+  // Track assignments for which alert modal has already been opened
+  const alertedAssignmentIdsRef = useRef<Set<string>>(new Set());
+
   // Toast notification state
   const [toasts, setToasts] = useState<StaffToastMessage[]>([]);
 
@@ -75,6 +103,9 @@ export const useStaffMission = ({
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 5000);
   }, []);
+
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
 
   // Modals state
   const [isAlertOpen, setIsAlertOpen] = useState<boolean>(false);
@@ -192,41 +223,55 @@ export const useStaffMission = ({
   const fetchActiveTrafficTask = useCallback(async () => {
     try {
       const activeJams = await liveMapService.getActiveTrafficJams();
+      const currentPlate = vehiclePlateRef.current;
+      const currentVehicleId = vehicleIdRef.current;
+      const currentTeamPlates = teamPlatesRef.current || [];
+      const currentTeamVehicleIds = teamVehicleIdsRef.current || [];
+
       const myTask = activeJams.find(
         (j) =>
           j.status === 'assigned' &&
-          (j.assignedUnitPlate === vehiclePlate ||
-            (teamPlates && teamPlates.includes(j.assignedUnitPlate || '')) ||
-            (vehicleId && j.assignedUnitId === vehicleId) ||
-            (teamVehicleIds && teamVehicleIds.includes(j.assignedUnitId || '')))
+          ((currentPlate && j.assignedUnitPlate === currentPlate) ||
+            currentTeamPlates.includes(j.assignedUnitPlate || '') ||
+            (currentVehicleId && j.assignedUnitId === currentVehicleId) ||
+            currentTeamVehicleIds.includes(j.assignedUnitId || ''))
       );
       if (myTask) {
-        setActiveTrafficTask({
-          id: myTask.id,
-          title: myTask.area,
-          description: myTask.note,
-          latitude: myTask.lat,
-          longitude: myTask.lng,
-          locationAddress: myTask.area,
-          congestionLevel: myTask.congestionLevel || undefined,
-          congestionLevelName: myTask.congestionLevel || 'Moderate',
-          mediaUrl: myTask.mediaUrl || null,
-          createdAt: myTask.reportedAt,
-          expiresAt: myTask.expiresAt,
-          isActive: true,
-          status: 'Assigned',
-          assignedUnitPlate: myTask.assignedUnitPlate,
-          assignedRescueUnitId: myTask.assignedUnitId,
-          assignedAt: myTask.assignedAt,
-          taskNotes: myTask.note,
+        setActiveTrafficTask((prev) => {
+          if (
+            prev?.id === myTask.id &&
+            prev?.status === 'Assigned' &&
+            prev?.taskNotes === myTask.note
+          ) {
+            return prev;
+          }
+          return {
+            id: myTask.id,
+            title: myTask.area,
+            description: myTask.note,
+            latitude: myTask.lat,
+            longitude: myTask.lng,
+            locationAddress: myTask.area,
+            congestionLevel: myTask.congestionLevel || undefined,
+            congestionLevelName: myTask.congestionLevel || 'Moderate',
+            mediaUrl: myTask.mediaUrl || null,
+            createdAt: myTask.reportedAt,
+            expiresAt: myTask.expiresAt,
+            isActive: true,
+            status: 'Assigned',
+            assignedUnitPlate: myTask.assignedUnitPlate,
+            assignedRescueUnitId: myTask.assignedUnitId,
+            assignedAt: myTask.assignedAt,
+            taskNotes: myTask.note,
+          };
         });
       } else {
-        setActiveTrafficTask(null);
+        setActiveTrafficTask((prev) => (prev ? null : null));
       }
     } catch (err) {
       console.warn('[useStaffMission] fetchActiveTrafficTask error:', err);
     }
-  }, [vehiclePlate, vehicleId, teamPlates, teamVehicleIds]);
+  }, []);
 
   const handleResolveTrafficTask = useCallback(
     async (hotspotId: string, note?: string): Promise<boolean> => {
@@ -271,7 +316,10 @@ export const useStaffMission = ({
 
   // Fetch assignments from backend (GET /api/dispatch/my-assignments)
   const fetchMyAssignments = useCallback(
-    async (isSilent = false) => {
+    async (isSilent = true) => {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+
       if (!isSilent) setLoadingAssignments(true);
       setFetchError(null);
       try {
@@ -279,11 +327,17 @@ export const useStaffMission = ({
         if (res.success && Array.isArray(res.data)) {
           setBackendAssignments(res.data);
           if (res.data.length > 0) {
-            // Find the active assignment (not completed, cancelled or rejected)
+            // Find active assignment (excluding resolved / completed / cancelled / rejected)
             const activeDto = res.data.find(
-              (a) => a.status !== 'Completed' && a.status !== 'Cancelled' && a.status !== 'Rejected'
+              (a) =>
+                !resolvedAssignmentIdsRef.current.has(a.id) &&
+                !['completed', 'cancelled', 'rejected'].includes(a.status?.toLowerCase() || '')
             );
-            const completedDtos = res.data.filter((a) => a.status === 'Completed');
+            const completedDtos = res.data.filter(
+              (a) =>
+                resolvedAssignmentIdsRef.current.has(a.id) ||
+                ['completed', 'cancelled', 'rejected'].includes(a.status?.toLowerCase() || '')
+            );
 
             if (activeDto) {
               const incLat = activeDto.incidentLat || 10.8441;
@@ -307,8 +361,22 @@ export const useStaffMission = ({
                 }
               }
 
-              const routeRes = await routingService.calculateDrivingRoute([vehLat, vehLng], [incLat, incLng]);
-              const mapped = mapAssignmentDtoToMission(activeDto, vehiclePlate, routeRes, incDetails);
+              // Reuse existing route if available to prevent network lag & re-render flicker
+              let routeRes;
+              const currentMission = activeMissionRef.current;
+              if (currentMission?.id === activeDto.id && currentMission.routePolyline.length > 0) {
+                routeRes = {
+                  polyline: currentMission.routePolyline,
+                  steps: currentMission.routeSteps,
+                  durationMinutes: currentMission.estimatedDurationMinutes || 10,
+                  distanceKm: currentMission.distanceKm || 5,
+                };
+              } else {
+                routeRes = await routingService.calculateDrivingRoute([vehLat, vehLng], [incLat, incLng]);
+              }
+
+              const currentPlate = vehiclePlateRef.current || '51A-114.99';
+              const mapped = mapAssignmentDtoToMission(activeDto, currentPlate, routeRes, incDetails);
               setActiveMission((prev) => {
                 if (!prev) return mapped;
                 if (prev.id === mapped.id) {
@@ -320,18 +388,29 @@ export const useStaffMission = ({
                       ...mapped,
                       status: prev.status,
                       timeline: prev.timeline.length > mapped.timeline.length ? prev.timeline : mapped.timeline,
+                      routePolyline: prev.routePolyline.length > 0 ? prev.routePolyline : mapped.routePolyline,
+                      routeSteps: prev.routeSteps.length > 0 ? prev.routeSteps : mapped.routeSteps,
                     };
+                  }
+                  if (
+                    prev.status === mapped.status &&
+                    prev.severity === mapped.severity &&
+                    prev.incidentId === mapped.incidentId &&
+                    prev.timeline.length === mapped.timeline.length
+                  ) {
+                    return prev;
                   }
                 }
                 return mapped;
               });
 
-              // If newly dispatched and never accepted yet, open alert modal + siren
-              if (activeDto.status === 'Dispatched') {
+              // If newly dispatched and never accepted yet, open alert modal + siren (once per assignment)
+              if (activeDto.status === 'Dispatched' && !alertedAssignmentIdsRef.current.has(activeDto.id)) {
+                alertedAssignmentIdsRef.current.add(activeDto.id);
                 setPendingMission(mapped);
                 setIsAlertOpen(true);
                 staffAudioService.playEmergencySiren();
-                showToast(
+                showToastRef.current(
                   'warning',
                   'LỆNH ĐIỀU ĐỘNG TỔNG ĐÀI CAD',
                   `Điều phối: ${incDetails?.verifiedByName || 'Điều phối viên CAD'} - Sự cố: ${activeDto.incidentTitle || 'Nhiệm vụ tác chiến'}`
@@ -342,13 +421,21 @@ export const useStaffMission = ({
             }
 
             if (completedDtos.length > 0) {
+              const currentPlate = vehiclePlateRef.current || '51A-114.99';
               const mappedCompleted = completedDtos.map((c) =>
-                mapAssignmentDtoToMission(c, vehiclePlate)
+                mapAssignmentDtoToMission(c, currentPlate)
               );
               setMissionHistory((prev) => {
                 const ids = new Set(mappedCompleted.map((m) => m.id));
                 const remainingLocal = prev.filter((p) => !ids.has(p.id) && p.status === 'completed');
-                return [...mappedCompleted, ...remainingLocal];
+                const nextList = [...mappedCompleted, ...remainingLocal];
+                if (
+                  prev.length === nextList.length &&
+                  prev.every((item, idx) => item.id === nextList[idx]?.id && item.status === nextList[idx]?.status)
+                ) {
+                  return prev;
+                }
+                return nextList;
               });
             } else {
               // Khôi phục hồ sơ đã nộp từ bộ nhớ nếu backend chưa trả về
@@ -356,6 +443,7 @@ export const useStaffMission = ({
               const savedList = Object.values(savedReports);
               if (savedList.length > 0) {
                 const uniqueReports = Array.from(new Map(savedList.map((r) => [r.missionId, r])).values());
+                const currentPlate = vehiclePlateRef.current || '51A-114.99';
                 const fallbackMissions: StaffMission[] = uniqueReports.map((r) => ({
                   id: r.missionId,
                   incidentId: r.incidentId,
@@ -372,7 +460,7 @@ export const useStaffMission = ({
                   assignedAt: r.completedAt,
                   completedAt: r.completedAt,
                   vehicleId: '',
-                  vehiclePlate: r.vehiclePlate || vehiclePlate,
+                  vehiclePlate: r.vehiclePlate || currentPlate,
                   vehicleType: 'fire_truck',
                   vehicleLat: 10.8441,
                   vehicleLng: 106.8089,
@@ -386,15 +474,24 @@ export const useStaffMission = ({
                 setMissionHistory((prev) => {
                   const ids = new Set(prev.map((m) => m.id));
                   const newOnes = fallbackMissions.filter((m) => !ids.has(m.id));
+                  if (newOnes.length === 0) return prev;
                   return [...prev, ...newOnes];
                 });
               } else {
-                setMissionHistory((prev) => prev.filter((p) => p.status === 'completed'));
+                setMissionHistory((prev) => {
+                  const nextList = prev.filter((p) => p.status === 'completed');
+                  if (prev.length === nextList.length) return prev;
+                  return nextList;
+                });
               }
             }
           } else {
             setActiveMission(null);
-            setMissionHistory((prev) => prev.filter((p) => p.status === 'completed'));
+            setMissionHistory((prev) => {
+              const nextList = prev.filter((p) => p.status === 'completed');
+              if (prev.length === nextList.length) return prev;
+              return nextList;
+            });
           }
         } else {
           setFetchError(res.message || 'Không thể đồng bộ danh sách nhiệm vụ từ máy chủ CAD.');
@@ -403,15 +500,16 @@ export const useStaffMission = ({
         console.warn('[useStaffMission] Error fetching assignments from GET /api/dispatch/my-assignments:', err);
         setFetchError('Lỗi kết nối máy chủ CAD.');
       } finally {
+        isFetchingRef.current = false;
         if (!isSilent) setLoadingAssignments(false);
       }
     },
-    [vehiclePlate, showToast]
+    []
   );
 
   // Connect SignalR hub and poll fallback
   useEffect(() => {
-    fetchMyAssignments();
+    fetchMyAssignments(false);
 
     // Start SignalR connection to /hubs/incidents
     incidentHubService.start();
@@ -441,19 +539,21 @@ export const useStaffMission = ({
       }
 
       const routeRes = await routingService.calculateDrivingRoute([vehLat, vehLng], [incLat, incLng]);
-      const mapped = mapAssignmentDtoToMission(assignmentDto, vehiclePlate, routeRes, incDetails);
+      const currentPlate = vehiclePlateRef.current || '51A-114.99';
+      const mapped = mapAssignmentDtoToMission(assignmentDto, currentPlate, routeRes, incDetails);
+      alertedAssignmentIdsRef.current.add(mapped.id);
       setPendingMission(mapped);
       setIsAlertOpen(true);
-      onNavigateTab?.('mission');
+      onNavigateTabRef.current?.('mission');
 
       if (mapped.isAiDispatched) {
-        showToast(
+        showToastRef.current(
           'warning',
           'LỆNH TỰ ĐIỀU ĐỘNG TỪ AI',
           `Hệ thống AI tự động điều phối theo quy tắc khẩn cấp — Sự cố: ${assignmentDto.incidentTitle || 'Nhiệm vụ tác chiến'}`
         );
       } else {
-        showToast(
+        showToastRef.current(
           'warning',
           'LỆNH ĐIỀU ĐỘNG TỔNG ĐÀI CAD',
           `Điều phối: ${incDetails?.verifiedByName || 'Điều phối viên CAD'} — Sự cố: ${assignmentDto.incidentTitle || 'Nhiệm vụ tác chiến'}`
@@ -467,9 +567,10 @@ export const useStaffMission = ({
       if (updatedAssignment) {
         const nextStatus = updatedAssignment.status;
         if (nextStatus === 'Completed') {
+          resolvedAssignmentIdsRef.current.add(updatedAssignment.id);
           setIsReportModalOpen(false);
           setActiveMission(null);
-          showToast(
+          showToastRef.current(
             'success',
             'TỔ ĐÃ HOÀN TẤT NGHIỆM THU',
             `Đồng đội trong tổ đã hoàn tất báo cáo và đóng ca nhiệm vụ (Xe ${updatedAssignment.rescueUnit?.plateNumber || ''}).`
@@ -486,7 +587,7 @@ export const useStaffMission = ({
             EnRoute: 'Xe đang trên đường di chuyển',
             OnScene: 'Đã tiếp cận hiện trường tác chiến',
           };
-          showToast(
+          showToastRef.current(
             'info',
             'ĐỒNG BỘ TIẾN ĐỘ TỔ TRỰC',
             `Đồng đội đã cập nhật: ${statusTextMap[nextStatus] || nextStatus} (Xe ${updatedAssignment.rescueUnit?.plateNumber || ''}).`
@@ -512,20 +613,20 @@ export const useStaffMission = ({
 
         if (evt.action === 'Acknowledged') {
           staffAudioService.playPriorityBeep();
-          showToast(
+          showToastRef.current(
             'info',
             'TỔNG ĐÀI ĐÃ TIẾP NHẬN YÊU CẦU',
             `Điều phối viên đã tiếp nhận yêu cầu ${req.type === 'Backup' ? 'chi viện' : 'hỗ trợ'} của tổ. Đang xử lý.`
           );
         } else if (evt.action === 'Fulfilled') {
           staffAudioService.playSuccessChime();
-          showToast(
+          showToastRef.current(
             'success',
             'YÊU CẦU ĐÃ ĐƯỢC ĐÁP ỨNG',
             req.responseNote ? `Phản hồi: ${req.responseNote}` : 'Tổng đài CAD đã điều động thêm lực lượng chi viện!'
           );
         } else if (evt.action === 'Declined') {
-          showToast(
+          showToastRef.current(
             'warning',
             'YÊU CẦU BỊ TỪ CHỐI',
             req.responseNote ? `Lý do: ${req.responseNote}` : 'Tổng đài CAD không thể đáp ứng yêu cầu hiện trường.'
@@ -538,13 +639,18 @@ export const useStaffMission = ({
     const unsubTrafficTask = incidentHubService.on<TrafficTaskEventDto>(
       HubEvents.ReceiveTrafficTaskAssigned,
       (evt) => {
+        const currentPlate = vehiclePlateRef.current;
+        const currentTeamPlates = teamPlatesRef.current || [];
+        const currentVehicleId = vehicleIdRef.current;
+        const currentTeamIds = teamVehicleIdsRef.current || [];
+
         const matchesPlate =
           evt.plateNumber &&
-          (evt.plateNumber === vehiclePlate || (teamPlates && teamPlates.includes(evt.plateNumber)));
+          (evt.plateNumber === currentPlate || currentTeamPlates.includes(evt.plateNumber));
         const matchesUnit =
           evt.rescueUnitId &&
-          ((vehicleId && evt.rescueUnitId === vehicleId) ||
-            (teamVehicleIds && teamVehicleIds.includes(evt.rescueUnitId)));
+          ((currentVehicleId && evt.rescueUnitId === currentVehicleId) ||
+            currentTeamIds.includes(evt.rescueUnitId));
 
         if (evt.action === 'Assigned') {
           if (matchesPlate || matchesUnit) {
@@ -553,16 +659,16 @@ export const useStaffMission = ({
               taskNotes: evt.notes || undefined,
             });
             staffAudioService.playPriorityBeep();
-            showToast(
+            showToastRef.current(
               'warning',
               'NHIỆM VỤ GIẢI TỎA ĐIỂM NGHẼN (MỤC 20)',
-              `Xe ${evt.plateNumber || vehiclePlate} được phân công giải tỏa tại: ${evt.hotspot.locationAddress}. Chỉ đạo: ${evt.notes || 'Điều tiết luồng xe'}`
+              `Xe ${evt.plateNumber || currentPlate} được phân công giải tỏa tại: ${evt.hotspot.locationAddress}. Chỉ đạo: ${evt.notes || 'Điều tiết luồng xe'}`
             );
           }
         } else if (evt.action === 'Unassigned') {
           setActiveTrafficTask((prev) => {
             if (prev?.id === evt.hotspot.id || matchesPlate || matchesUnit) {
-              showToast(
+              showToastRef.current(
                 'info',
                 'RÚT LỆNH ĐIỀU ĐỘNG',
                 'Trung tâm CAD đã thu hồi nhiệm vụ giải tỏa điểm nghẽn.'
@@ -574,7 +680,7 @@ export const useStaffMission = ({
         } else if (evt.action === 'Resolved') {
           setActiveTrafficTask((prev) => {
             if (prev?.id === evt.hotspot.id) {
-              showToast(
+              showToastRef.current(
                 'success',
                 'ĐIỂM NGHẼN ĐÃ GIẢI TỎA',
                 'Điểm nghẽn giao thông đã được giải tỏa hoàn tất.'
@@ -598,7 +704,7 @@ export const useStaffMission = ({
           return [supp, ...prev];
         });
         staffAudioService.playPriorityBeep();
-        showToast(
+        showToastRef.current(
           'warning',
           'BỔ SUNG THÔNG TIN HIỆN TRƯỜNG (MỤC 21.4)',
           `${supp.reporterName || 'Người dân'} báo: "${supp.note || 'Có cập nhật ảnh hiện trường mới'}"`
@@ -613,9 +719,9 @@ export const useStaffMission = ({
         if (!prev || prev.incidentId !== incidentId) return prev;
         if (prev.severity !== newSeverity) {
           staffAudioService.playEmergencySiren();
-          showToast(
+          showToastRef.current(
             'warning',
-            'CẢNH BÁO: ĐỔI MỨC ĐỘ SỰ CỐ',
+            'CẢNH BÁO: ĐỔI MỨC ĐỔ SỰ CỐ',
             `Tổng đài CAD đã điều chỉnh mức độ sự cố: Cấp độ ${prev.severity} ➔ Cấp độ ${newSeverity}`
           );
           return { ...prev, severity: newSeverity };
@@ -646,7 +752,7 @@ export const useStaffMission = ({
     // Check active traffic task
     fetchActiveTrafficTask();
 
-    // Polling fallback every 15 seconds
+    // Polling fallback every 15 seconds (silent background sync)
     const intervalId = setInterval(() => {
       fetchMyAssignments(true);
       fetchActiveTrafficTask();
@@ -662,16 +768,7 @@ export const useStaffMission = ({
       unsubIncidentStatus();
       clearInterval(intervalId);
     };
-  }, [
-    fetchMyAssignments,
-    fetchActiveTrafficTask,
-    onNavigateTab,
-    vehiclePlate,
-    vehicleId,
-    teamPlates,
-    teamVehicleIds,
-    showToast,
-  ]);
+  }, [fetchMyAssignments, fetchActiveTrafficTask]);
 
   // Tự động tải danh sách yêu cầu hiện trường và thông tin bổ sung của sự cố hiện tại
   useEffect(() => {
@@ -1012,9 +1109,9 @@ export const useStaffMission = ({
 
         staffAudioService.playSuccessChime();
         setIsReportModalOpen(false);
+        resolvedAssignmentIdsRef.current.add(activeMission.id);
         setActiveMission(null);
         setMissionHistory((prev) => [updatedMission, ...prev.filter((m) => m.id !== updatedMission.id)]);
-        onNavigateTab?.('reports'); // Tự động chuyển qua Tab Hồ Sơ Báo Cáo
         showToast(
           'success',
           'NGHIỆM THU HOÀN TẤT',
@@ -1025,6 +1122,7 @@ export const useStaffMission = ({
         console.error('[useStaffMission] Resolve assignment error:', err);
         if (err?.response?.status === 409) {
           setIsReportModalOpen(false);
+          resolvedAssignmentIdsRef.current.add(activeMission.id);
           setActiveMission(null);
           showToast(
             'info',
@@ -1048,9 +1146,9 @@ export const useStaffMission = ({
       };
       staffAudioService.playSuccessChime();
       setIsReportModalOpen(false);
+      resolvedAssignmentIdsRef.current.add(activeMission.id);
       setActiveMission(null);
       setMissionHistory((prev) => [updatedMission, ...prev.filter((m) => m.id !== updatedMission.id)]);
-      onNavigateTab?.('reports');
       showToast(
         'success',
         'NGHIỆM THU HOÀN TẤT',
@@ -1062,6 +1160,7 @@ export const useStaffMission = ({
   const handleAcceptMission = async () => {
     if (!pendingMission || isSubmittingAccept) return;
     setIsSubmittingAccept(true);
+    alertedAssignmentIdsRef.current.add(pendingMission.id);
 
     if (isGuid(pendingMission.id)) {
       try {
@@ -1118,6 +1217,7 @@ export const useStaffMission = ({
 
   const handleDeclineMission = async (reason: RejectionReason, notes?: string) => {
     if (pendingMission && isGuid(pendingMission.id)) {
+      alertedAssignmentIdsRef.current.add(pendingMission.id);
       try {
         await dispatchService.rejectAssignment(pendingMission.id, {
           reason,
@@ -1137,6 +1237,7 @@ export const useStaffMission = ({
         fetchMyAssignments(true);
       }
     } else {
+      if (pendingMission?.id) alertedAssignmentIdsRef.current.add(pendingMission.id);
       showToast(
         'info',
         'ĐÃ TỪ CHỐI LỆNH ĐIỀU PHỐI',
