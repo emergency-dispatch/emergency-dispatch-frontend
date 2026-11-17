@@ -135,6 +135,108 @@ export const MAPBOX_STREETS_STYLE: Style = {
 export const MAPBOX_LIGHT_STYLE: Style = MAPBOX_STREETS_STYLE;
 export const MAPBOX_STYLE: Style = MAPBOX_REALISTIC_STYLE;
 
+/**
+ * Style hợp nhất cho giao diện bản đồ tác chiến của Staff:
+ * Bao gồm cả 3 lớp bản đồ raster (Vệ tinh Google Hybrid, Nền CAD tối ArcGIS, Đường phố Google)
+ * Giúp chuyển đổi lớp bản đồ mượt mà tức thì bằng cách bật/tắt visibility (`setLayoutProperty`),
+ * tuyệt đối không gọi `setStyle()` làm mất các lớp GeoJSON chỉ đường cứu nạn hay ranh giới trạm.
+ */
+export const createStaffBaseMapStyle = (initialMode: 'satellite' | 'dark' | 'streets' = 'satellite'): Style => ({
+  version: 8,
+  sources: {
+    'satellite-hybrid': {
+      type: 'raster',
+      tiles: [
+        'https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+        'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+        'https://mt2.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+        'https://mt3.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+      ],
+      tileSize: 256,
+      attribution: '&copy; Google Satellite Imagery &copy; OpenStreetMap contributors',
+    },
+    'arcgis-dark-base': {
+      type: 'raster',
+      tiles: [
+        'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      ],
+      tileSize: 256,
+      attribution: '&copy; Esri World Dark Gray &copy; OpenStreetMap contributors',
+    },
+    'arcgis-dark-reference': {
+      type: 'raster',
+      tiles: [
+        'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+      ],
+      tileSize: 256,
+    },
+    'google-streets': {
+      type: 'raster',
+      tiles: [
+        'https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+        'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+        'https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+        'https://mt3.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+      ],
+      tileSize: 256,
+      attribution: '&copy; Google Maps &copy; OpenStreetMap contributors',
+    },
+  },
+  layers: [
+    {
+      id: 'satellite-hybrid-layer',
+      type: 'raster',
+      source: 'satellite-hybrid',
+      minzoom: 0,
+      maxzoom: 22,
+      layout: { visibility: initialMode === 'satellite' ? 'visible' : 'none' },
+    },
+    {
+      id: 'arcgis-dark-base-layer',
+      type: 'raster',
+      source: 'arcgis-dark-base',
+      minzoom: 0,
+      maxzoom: 20,
+      layout: { visibility: initialMode === 'dark' ? 'visible' : 'none' },
+    },
+    {
+      id: 'arcgis-dark-reference-layer',
+      type: 'raster',
+      source: 'arcgis-dark-reference',
+      minzoom: 0,
+      maxzoom: 20,
+      layout: { visibility: initialMode === 'dark' ? 'visible' : 'none' },
+    },
+    {
+      id: 'google-streets-layer',
+      type: 'raster',
+      source: 'google-streets',
+      minzoom: 0,
+      maxzoom: 22,
+      layout: { visibility: initialMode === 'streets' ? 'visible' : 'none' },
+    },
+  ],
+});
+
+export const applyStaffMapLayerMode = (map: mapboxgl.Map, mode: 'satellite' | 'dark' | 'streets') => {
+  try {
+    if (map.getLayer('satellite-hybrid-layer')) {
+      map.setLayoutProperty('satellite-hybrid-layer', 'visibility', mode === 'satellite' ? 'visible' : 'none');
+    }
+    if (map.getLayer('arcgis-dark-base-layer')) {
+      map.setLayoutProperty('arcgis-dark-base-layer', 'visibility', mode === 'dark' ? 'visible' : 'none');
+    }
+    if (map.getLayer('arcgis-dark-reference-layer')) {
+      map.setLayoutProperty('arcgis-dark-reference-layer', 'visibility', mode === 'dark' ? 'visible' : 'none');
+    }
+    if (map.getLayer('google-streets-layer')) {
+      map.setLayoutProperty('google-streets-layer', 'visibility', mode === 'streets' ? 'visible' : 'none');
+    }
+  } catch (err) {
+    console.warn('Mapbox applyStaffMapLayerMode warning:', err);
+  }
+};
+
 let isMapboxGeocodeDisabled = false;
 const geocodeCache = new Map<string, string>();
 
