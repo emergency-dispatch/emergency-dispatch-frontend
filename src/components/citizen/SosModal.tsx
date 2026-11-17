@@ -38,6 +38,7 @@ import { liveMapService, ServiceAreaDto } from '../../services/liveMapService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import { MapboxLocationPicker } from '../common/MapboxLocationPicker';
 import { mapboxService } from '../../services/mapboxService';
+import { searchAddress, type AddressSuggestion } from '../../services/admin/geocodeService';
 import { UserRole } from '../../types/auth';
 import type { CreateIncidentDto, IncidentResponseDto } from '../../types/incident';
 import { CitizenPhoneModal } from './CitizenPhoneModal';
@@ -79,6 +80,10 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
   const [locationAddress, setLocationAddress] = useState<string>(DEFAULT_COORDS.address);
   const [gpsStatus, setGpsStatus] = useState<'locating' | 'locked' | 'default'>('locating');
   const [isSearchingLocation, setIsSearchingLocation] = useState<boolean>(false);
+  const isAddressManuallyEditedRef = useRef<boolean>(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+  const [isSearchingSuggestions, setIsSearchingSuggestions] = useState<boolean>(false);
 
   // Phone modal & auto-save
   const [showPhoneModal, setShowPhoneModal] = useState<boolean>(false);
@@ -370,11 +375,52 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     }
   }, [isOpen, user]);
 
+  // Gợi ý địa chỉ tự động khi người dùng tự tay gõ vào ô tìm kiếm
+  useEffect(() => {
+    if (!isAddressManuallyEditedRef.current || !locationAddress.trim() || locationAddress.trim().length < 3) {
+      setAddressSuggestions([]);
+      setIsSearchingSuggestions(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      setIsSearchingSuggestions(true);
+      searchAddress(locationAddress.trim(), controller.signal)
+        .then((items) => {
+          setAddressSuggestions(items);
+          setShowSuggestions(items.length > 0);
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setAddressSuggestions([]);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setIsSearchingSuggestions(false);
+        });
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [locationAddress]);
+
   if (!isOpen) return null;
+
+  const handlePickSuggestion = (s: AddressSuggestion) => {
+    isAddressManuallyEditedRef.current = false;
+    setLocationAddress(s.label);
+    setLatitude(s.lat);
+    setLongitude(s.lng);
+    setGpsStatus('locked');
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+  };
 
   const handleSearchLocation = async () => {
     if (!locationAddress.trim()) return;
     setIsSearchingLocation(true);
+    setShowSuggestions(false);
     try {
       const res = await mapboxService.forwardGeocode(locationAddress);
       if (res) {
@@ -382,6 +428,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
         setLongitude(res.lng);
         setLocationAddress(res.address);
         setGpsStatus('locked');
+        isAddressManuallyEditedRef.current = false;
       }
     } catch (err) {
       console.warn('Lỗi tìm kiếm địa chỉ:', err);
@@ -459,10 +506,10 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
       }
     }
 
-    // Always geocode typed address to ensure coordinates match what the user entered
+    // Gửi đúng tọa độ đã ghim. Chỉ tra tọa độ từ địa chỉ khi người dùng tự gõ địa chỉ mới mà chưa ghim
     let finalLat = latitude;
     let finalLng = longitude;
-    if (locationAddress.trim() && !locationAddress.startsWith('Không lấy được vị trí')) {
+    if (isAddressManuallyEditedRef.current && locationAddress.trim() && !locationAddress.startsWith('Không lấy được vị trí')) {
       try {
         const geo = await mapboxService.forwardGeocode(locationAddress.trim());
         if (geo) {
@@ -470,6 +517,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
           finalLng = geo.lng;
           setLatitude(geo.lat);
           setLongitude(geo.lng);
+          isAddressManuallyEditedRef.current = false;
         }
       } catch {
         // Ignore geocode failure
@@ -758,22 +806,59 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                     </div>
 
                     {/* Address Text Input + Search Button */}
-                    <div className="flex items-center gap-2">
+                    {/* Address Text Input + Search Button + Live Suggestions */}
+                    <div className="flex items-center gap-2 relative">
                       <div className="relative flex-1">
                         <input
                           type="text"
                           value={locationAddress}
-                          onChange={(e) => setLocationAddress(e.target.value)}
-                          onBlur={() => handleSearchLocation()}
+                          onChange={(e) => {
+                            setLocationAddress(e.target.value);
+                            isAddressManuallyEditedRef.current = true;
+                            setShowSuggestions(true);
+                          }}
+                          onFocus={() => {
+                            if (addressSuggestions.length > 0 && isAddressManuallyEditedRef.current) {
+                              setShowSuggestions(true);
+                            }
+                          }}
+                          onBlur={() => {
+                            setTimeout(() => setShowSuggestions(false), 200);
+                          }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
+                              setShowSuggestions(false);
                               handleSearchLocation();
+                            } else if (e.key === 'Escape') {
+                              setShowSuggestions(false);
                             }
                           }}
                           placeholder={t('citizen.sos.searchAddressPlaceholder')}
-                          className="w-full pl-3.5 pr-3 py-2 sm:py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:border-red-500 font-mono shadow-xs"
+                          className="w-full pl-3.5 pr-8 py-2 sm:py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:border-red-500 font-mono shadow-xs"
                         />
+                        {isSearchingSuggestions && (
+                          <Loader2 className="w-3.5 h-3.5 text-slate-400 animate-spin absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        )}
+
+                        {/* Floating Address Suggestions Dropdown */}
+                        {showSuggestions && addressSuggestions.length > 0 && (
+                          <ul className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl divide-y divide-slate-100 text-xs">
+                            {addressSuggestions.map((s, idx) => (
+                              <li
+                                key={`${s.lat}-${s.lng}-${idx}`}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  handlePickSuggestion(s);
+                                }}
+                                className="px-3.5 py-2.5 hover:bg-red-50/70 cursor-pointer flex items-start gap-2.5 transition-colors text-slate-700"
+                              >
+                                <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
+                                <span className="line-clamp-2 leading-relaxed font-sans">{s.label}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                       <button
                         type="button"
@@ -798,6 +883,8 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                         setLatitude(lat);
                         setLongitude(lng);
                         setGpsStatus('locked');
+                        isAddressManuallyEditedRef.current = false;
+                        setShowSuggestions(false);
                         if (addr) setLocationAddress(addr);
                       }}
                       height="100%"

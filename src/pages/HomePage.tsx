@@ -147,17 +147,7 @@ export const HomePage: React.FC = () => {
       {/* Footer */}
       <Footer onOpenSos={handleOpenSos} />
 
-      {/* Mobile Floating Sticky SOS Action Bar for Citizen Web */}
-      <div className="fixed bottom-3 left-3 right-3 z-40 sm:hidden animate-fadeIn">
-        <button
-          type="button"
-          onClick={handleOpenSos}
-          className="w-full py-3 px-4 rounded-2xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs uppercase tracking-wider shadow-xl shadow-red-600/40 border border-red-500 flex items-center justify-center gap-2 transition-all cursor-pointer"
-        >
-          <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
-          <span>{t('citizen.landing.mobileSosBtn')}</span>
-        </button>
-      </div>
+      {/* Mobile Floating Sticky SOS Action Bar removed: Navbar already has SOS button on mobile */}
 
       {/* Emergency SOS Modal with Mapbox */}
       <SosModal

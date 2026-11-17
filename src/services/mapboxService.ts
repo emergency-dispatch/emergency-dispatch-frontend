@@ -237,7 +237,10 @@ export const applyStaffMapLayerMode = (map: mapboxgl.Map, mode: 'satellite' | 'd
   }
 };
 
-let isMapboxGeocodeDisabled = false;
+let isMapboxGeocodeDisabled =
+  typeof window !== 'undefined' &&
+  import.meta.env.MODE !== 'test' &&
+  sessionStorage.getItem('resq_mapbox_geocode_disabled') === 'true';
 const geocodeCache = new Map<string, string>();
 
 export const mapboxService = {
@@ -247,7 +250,7 @@ export const mapboxService = {
    */
   async reverseGeocode(lng: number, lat: number): Promise<string> {
     const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-    if (geocodeCache.has(cacheKey)) {
+    if (import.meta.env.MODE !== 'test' && geocodeCache.has(cacheKey)) {
       return geocodeCache.get(cacheKey)!;
     }
 
@@ -257,6 +260,11 @@ export const mapboxService = {
         const res = await fetch(url);
         if (res.status === 401 || res.status === 403) {
           isMapboxGeocodeDisabled = true;
+          try {
+            sessionStorage.setItem('resq_mapbox_geocode_disabled', 'true');
+          } catch {
+            // Ignore
+          }
         } else if (res.ok) {
           const data = await res.json();
           if (data.features && data.features.length > 0) {
@@ -327,6 +335,11 @@ export const mapboxService = {
         const res = await fetch(url);
         if (res.status === 401 || res.status === 403) {
           isMapboxGeocodeDisabled = true;
+          try {
+            sessionStorage.setItem('resq_mapbox_geocode_disabled', 'true');
+          } catch {
+            // Ignore
+          }
         } else if (res.ok) {
           const data = await res.json();
           if (data.features && data.features.length > 0) {

@@ -143,7 +143,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
           <button
             onClick={onOpenSos}
             disabled={isCooldown}
-            className={`group relative px-8 py-3.5 sm:py-4 rounded-xl text-white font-black text-sm sm:text-base tracking-wide transition-all duration-300 border flex items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap shrink-0 w-full sm:w-auto min-w-[220px] ${isCooldown
+            className={`group relative px-8 py-3.5 sm:py-4 rounded-xl text-white font-black text-sm sm:text-base tracking-wide transition-all duration-300 border hidden sm:flex items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap shrink-0 w-full sm:w-auto min-w-[220px] ${isCooldown
                 ? 'bg-slate-400 border-slate-400 opacity-60 cursor-not-allowed shadow-none'
                 : 'bg-red-600 hover:bg-red-700 border-red-600 shadow-lg shadow-red-500/30 hover:scale-[1.03] active:scale-[0.98] cursor-pointer'
               }`}

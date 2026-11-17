@@ -795,10 +795,24 @@ export const useStaffMission = ({
     const computeRoute = async () => {
       if (!activeMission || !activeMission.vehicleLat || !activeMission.incidentLat) return;
       try {
-        const routeRes = await routingService.calculateDrivingRoute(
+        let routeRes = await routingService.calculateDrivingRoute(
           [activeMission.vehicleLat, activeMission.vehicleLng],
           [activeMission.incidentLat, activeMission.incidentLng]
         );
+        // Nếu OSRM public trả về fallback 5 điểm và có incidentId, lấy tracking route thực tế từ backend OSRM
+        if (routeRes.polyline.length <= 5 && activeMission.incidentId && isGuid(activeMission.incidentId)) {
+          try {
+            const trackRes = await incidentService.getTracking(activeMission.incidentId);
+            if (trackRes.success && trackRes.data?.routeTrajectory && trackRes.data.routeTrajectory.length > 5) {
+              routeRes = {
+                ...routeRes,
+                polyline: trackRes.data.routeTrajectory.map((p) => [p.latitude, p.longitude]),
+              };
+            }
+          } catch {
+            // Ignore
+          }
+        }
         if (!isCancelled && routeRes.polyline.length > 2) {
           setActiveMission((prev) => {
             if (!prev || prev.routePolyline.length === routeRes.polyline.length) return prev;
@@ -818,7 +832,7 @@ export const useStaffMission = ({
     return () => {
       isCancelled = true;
     };
-  }, [activeMission?.incidentLat, activeMission?.incidentLng, activeMission?.vehicleLat, activeMission?.vehicleLng]);
+  }, [activeMission?.incidentLat, activeMission?.incidentLng, activeMission?.vehicleLat, activeMission?.vehicleLng, activeMission?.incidentId]);
 
   // Truyền tọa độ GPS xe định kỳ 3–5 giây qua SignalR UpdateLocation / REST (Mục 4)
   // Backend tự động gắn IncidentId từ lượt phân công đang hoạt động của xe.

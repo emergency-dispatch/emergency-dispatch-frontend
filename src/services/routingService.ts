@@ -85,9 +85,8 @@ export const routingService = {
       // OSRM nhận kinh độ trước, vĩ độ sau: {lng},{lat};{lng},{lat}
       const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson&steps=true`;
 
-      const response = await fetch(url, {
-        headers: { 'User-Agent': 'ResQ-EmergencyDispatchWeb/1.0' },
-      });
+      // Không truyền custom User-Agent vì trình duyệt cấm và OSRM CORS preflight từ chối
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error(`OSRM HTTP status: ${response.status}`);

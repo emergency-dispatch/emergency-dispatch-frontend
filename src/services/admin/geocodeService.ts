@@ -32,12 +32,18 @@ async function searchNominatim(query: string, signal: AbortSignal): Promise<Addr
 
 /** Tìm tọa độ theo địa chỉ (forward geocoding): thử Mapbox, lỗi / không có kết quả thì dùng OpenStreetMap. */
 export async function searchAddress(query: string, signal: AbortSignal): Promise<AddressSuggestion[]> {
-  if (MAPBOX_ACCESS_TOKEN && !MAPBOX_ACCESS_TOKEN.includes('dummy')) {
+  const isMapboxDisabled =
+    typeof window !== 'undefined' && sessionStorage.getItem('resq_mapbox_geocode_disabled') === 'true';
+
+  if (MAPBOX_ACCESS_TOKEN && !MAPBOX_ACCESS_TOKEN.includes('dummy') && !isMapboxDisabled) {
     try {
       const results = await searchMapbox(query, signal);
       if (results.length > 0) return results;
-    } catch (err) {
+    } catch (err: any) {
       if (signal.aborted) throw err;
+      if (err?.message?.includes('401') || err?.message?.includes('403')) {
+        try { sessionStorage.setItem('resq_mapbox_geocode_disabled', 'true'); } catch {}
+      }
     }
   }
   return searchNominatim(query, signal);
