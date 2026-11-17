@@ -422,7 +422,14 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   }, [vehicles, stations, pinnedIncidentsById]);
   // Vẽ xe đang làm nhiệm vụ (đã nhận / đang đi / tại hiện trường); hình xe theo loại (stickerVehicleMarkerHtml).
   const movingVehicles = useMemo(
-    () => mapVehicles.filter((v) => MAP_VISIBLE_VEHICLE_STATUSES.includes(v.status)),
+    () =>
+      mapVehicles.filter(
+        (v) =>
+          MAP_VISIBLE_VEHICLE_STATUSES.includes(v.status) &&
+          // "Tại hiện trường" mà không còn lượt điều xe = trạng thái xe kẹt ở backend (VD lượt cập nhật GPS ghi đè
+          // CoolDown sau nghiệm thu) → không vẽ, tránh hiện xe "ở hiện trường" đứng tại trạm.
+          (v.status !== 'on_scene' || !!v.incidentId)
+      ),
     [mapVehicles]
   );
   const selectedVehicle = movingVehicles.find((v) => v.id === selectedVehicleId) ?? null;

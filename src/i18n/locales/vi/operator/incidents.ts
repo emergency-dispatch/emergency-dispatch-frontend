@@ -35,6 +35,17 @@ export const incidentsVi = {
     dispatchedEmpty: 'Chưa có ca nào do AI điều phối đang xử lý.',
     dispatchedTeams: '{{count}} tổ đang xử lý',
     openOnMap: 'Mở trên Live Map',
+    preview: 'Xem nhanh',
+    noActiveTeam: 'Không còn tổ nào',
+  },
+  autoDispatched: {
+    drawerLabel: 'Xem nhanh ca AI đã điều phối',
+    noActiveTeam:
+      'Ca vẫn mở nhưng không còn tổ nào đang xử lý (VD tổ cuối bị thu hồi). Mở trên Live Map để giao thêm tổ hoặc hủy ca.',
+    aiSummary: 'Tóm tắt AI',
+    teams: 'Tổ đã giao ({{count}} đang xử lý)',
+    recalled: 'Đã thu hồi',
+    rejected: 'Từ chối',
   },
   row: {
     handover: {

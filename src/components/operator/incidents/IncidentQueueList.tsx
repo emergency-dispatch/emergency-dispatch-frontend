@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Bot, Inbox, ListChecks, Loader2, Map as MapIcon, MapPin, Siren } from 'lucide-react';
+import { AlertTriangle, Bot, Eye, Inbox, ListChecks, Loader2, Map as MapIcon, MapPin, Siren } from 'lucide-react';
 import { IncidentRow } from './IncidentRow';
 import { IncidentThumbnail } from './IncidentThumbnail';
 import { AutoDispatchBadge } from './AutoDispatchInfo';
@@ -31,8 +31,10 @@ interface IncidentQueueListProps {
   autoDispatchSettings?: AutoDispatchSettings | null;
   /** Ca AI đã tự điều phối, còn đang xử lý (tab "AI đã điều phối"). */
   autoDispatchedIncidents?: Incident[];
-  /** Mở một ca đã duyệt trên Live Map. */
-  onOpenIncidentOnMap?: (id: string) => void;
+  /** Mở xem nhanh một ca AI đã điều phối (drawer chỉ xem). */
+  onOpenAutoDispatched?: (id: string) => void;
+  /** Ca đang mở xem nhanh (tô nền dòng). */
+  previewId?: string | null;
 }
 
 interface GroupHeaderProps {
@@ -66,7 +68,8 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
   onOpenLiveMap,
   autoDispatchSettings = null,
   autoDispatchedIncidents = [],
-  onOpenIncidentOnMap,
+  onOpenAutoDispatched,
+  previewId = null,
 }) => {
   const now = useNow();
   const { t } = useTranslation();
@@ -244,7 +247,8 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
                 key={incident.id}
                 incident={incident}
                 now={now}
-                onOpen={() => onOpenIncidentOnMap?.(incident.id)}
+                isSelected={incident.id === previewId}
+                onOpen={() => onOpenAutoDispatched?.(incident.id)}
               />
             ))
           )
@@ -295,10 +299,15 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
 };
 
 /**
- * Dòng ca AI đã tự điều phối (đang xử lý): để Operator giám sát — bấm mở trên Live Map để đổi mức độ / thu hồi /
- * giao thêm tổ nếu thấy AI sai.
+ * Dòng ca AI đã tự điều phối (đang xử lý): để Operator giám sát — bấm mở xem nhanh (drawer chỉ xem); đổi mức độ /
+ * thu hồi / giao thêm tổ làm trên Live Map.
  */
-const AutoDispatchedRow: React.FC<{ incident: Incident; now: number; onOpen: () => void }> = ({ incident, now, onOpen }) => {
+const AutoDispatchedRow: React.FC<{ incident: Incident; now: number; isSelected: boolean; onOpen: () => void }> = ({
+  incident,
+  now,
+  isSelected,
+  onOpen,
+}) => {
   const { t } = useTranslation();
   const { incidentKindLabel } = useDispatchStore();
   const category = INCIDENT_CATEGORY_META[incident.category];
@@ -307,7 +316,10 @@ const AutoDispatchedRow: React.FC<{ incident: Incident; now: number; onOpen: () 
   return (
     <button
       onClick={onOpen}
-      className="w-full flex items-center gap-4 pl-6 pr-6 py-3 text-left border-b border-slate-100 bg-white hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600"
+      aria-current={isSelected ? 'true' : undefined}
+      className={`w-full flex items-center gap-4 pl-6 pr-6 py-3 text-left border-b border-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
+        isSelected ? 'bg-slate-100' : 'bg-white hover:bg-slate-50'
+      }`}
     >
       <IncidentThumbnail incident={incident} className={`${QUEUE_COLUMNS.thumbnail} h-12 shrink-0`} />
       <div className="flex-1 min-w-0">
@@ -324,16 +336,24 @@ const AutoDispatchedRow: React.FC<{ incident: Incident; now: number; onOpen: () 
           <AutoDispatchBadge incident={incident} />
         </div>
       </div>
-      <div className={`hidden md:block ${QUEUE_COLUMNS.ai} shrink-0 text-xs text-slate-600`}>
-        {t('incidents.queue.dispatchedTeams', { count: Math.max(0, teamCount) })}
+      <div className={`hidden md:block ${QUEUE_COLUMNS.ai} shrink-0 text-xs`}>
+        {teamCount > 0 ? (
+          <span className="text-slate-600">{t('incidents.queue.dispatchedTeams', { count: teamCount })}</span>
+        ) : (
+          // Ca còn mở mà không còn tổ nào (VD tổ cuối bị thu hồi) → Operator phải giao thêm hoặc đóng ca.
+          <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            {t('incidents.queue.noActiveTeam')}
+          </span>
+        )}
       </div>
       <div className={`${QUEUE_COLUMNS.wait} shrink-0 text-right`}>
         <div className="text-sm font-semibold tabular-nums text-slate-800 whitespace-nowrap">
           {formatWaitDuration(now - new Date(incident.createdAt).getTime())}
         </div>
         <div className="inline-flex items-center gap-1 mt-0.5 text-[11px] font-semibold text-blue-700">
-          <MapIcon className="w-3 h-3" />
-          {t('incidents.queue.openOnMap')}
+          <Eye className="w-3 h-3" />
+          {t('incidents.queue.preview')}
         </div>
       </div>
     </button>

@@ -250,7 +250,12 @@ export const CompletionPage: React.FC = () => {
   }, [selectedId, markCompletionSeen]);
   const unseenIds = useMemo(() => new Set(unseenCompletionIds), [unseenCompletionIds]);
   const closeDetail = useCallback(() => updateParams({ incident: null }), [updateParams]);
-  const changeTab = (next: CompletionTab) => updateParams({ tab: next === 'done' ? 'done' : null });
+  // Đổi tab → bỏ ca đang mở nếu ca đó không thuộc tab mới (VD đang xem ca đã hoàn tất mà chuyển sang Chờ nghiệm thu).
+  const changeTab = (next: CompletionTab) => {
+    const isPending = !!selectedId && pendingIncidents.some((i) => i.id === selectedId);
+    const keepSelection = next === 'pending' ? isPending : !isPending;
+    updateParams({ tab: next === 'done' ? 'done' : null, ...(keepSelection ? {} : { incident: null }) });
+  };
 
   // Esc: đóng chi tiết (lightbox tự chặn Esc của nó; đang gõ trong ô tìm kiếm thì bỏ qua).
   useEffect(() => {

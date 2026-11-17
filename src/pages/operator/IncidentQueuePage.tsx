@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Map as MapIcon, X } from 'lucide-react';
 import { IncidentDetailDrawer } from '../../components/operator/incidents/IncidentDetailDrawer';
 import { IncidentQueueList } from '../../components/operator/incidents/IncidentQueueList';
 import { QueueDispatchDrawer } from '../../components/operator/incidents/QueueDispatchDrawer';
+import { AutoDispatchedDrawer } from '../../components/operator/incidents/AutoDispatchedDrawer';
 import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
 import { useDispatchStore } from '../../context/DispatchContext';
 import type {
@@ -66,11 +67,15 @@ export const IncidentQueuePage: React.FC = () => {
   }, []);
 
   const pendingIncidents = useMemo(() => incidents.filter((inc) => inc.status === 'pending'), [incidents]);
+  // §31.E: xem nhanh ca AI đã điều phối (drawer chỉ xem, không giữ ca). Ca rời danh sách (hoàn tất / hủy) → tự đóng.
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const closePreview = useCallback(() => setPreviewId(null), []);
   // §31.E: ca AI đã tự điều phối, còn đang xử lý — tab giám sát "AI đã điều phối".
   const autoDispatchedIncidents = useMemo(
     () => incidents.filter((inc) => inc.status === 'approved' && inc.autoDispatch?.state === 'Dispatched'),
     [incidents]
   );
+  const previewIncident = previewId ? autoDispatchedIncidents.find((i) => i.id === previewId) ?? null : null;
   const selectedIncident = pendingIncidents.find((inc) => inc.id === selectedId) ?? null;
   const isDrawerOpen = !!selectedIncident || !!dispatchingId;
 
@@ -220,8 +225,21 @@ export const IncidentQueuePage: React.FC = () => {
         onOpenLiveMap={() => navigate(LIVE_MAP_PATH)}
         autoDispatchSettings={autoDispatchSettings}
         autoDispatchedIncidents={autoDispatchedIncidents}
-        onOpenIncidentOnMap={openOnLiveMap}
+        onOpenAutoDispatched={setPreviewId}
+        previewId={previewId}
       />
+
+      {previewIncident && (
+        <AutoDispatchedDrawer
+          key={previewIncident.id}
+          incident={previewIncident}
+          onClose={closePreview}
+          onOpenLiveMap={(id) => {
+            setPreviewId(null);
+            openOnLiveMap(id);
+          }}
+        />
+      )}
 
       {dispatchNotice && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[1300] w-[min(560px,calc(100%-2rem))]">

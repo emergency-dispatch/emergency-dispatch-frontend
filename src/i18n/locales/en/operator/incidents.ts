@@ -38,6 +38,17 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     dispatchedEmpty: 'No AI-dispatched cases are in progress.',
     dispatchedTeams: '{{count}} team(s) on scene',
     openOnMap: 'Open on Live Map',
+    preview: 'Quick view',
+    noActiveTeam: 'No team left',
+  },
+  autoDispatched: {
+    drawerLabel: 'Quick view of an AI-dispatched case',
+    noActiveTeam:
+      'The case is still open but no team is working on it (e.g. the last team was withdrawn). Open it on the Live Map to add a team or cancel the case.',
+    aiSummary: 'AI summary',
+    teams: 'Assigned teams ({{count}} active)',
+    recalled: 'Withdrawn',
+    rejected: 'Declined',
   },
   row: {
     handover: {
