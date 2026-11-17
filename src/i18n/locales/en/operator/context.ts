@@ -14,7 +14,6 @@ export const contextEn: Messages<typeof contextVi> = {
   lockedByOther: 'Another dispatcher is handling this incident.',
   lockFailed: 'Could not take this incident.',
   incidentOrVehicleNotFound: 'Incident or vehicle not found.',
-  vehicleNotAvailable: 'Vehicle {{plate}} is no longer available.',
   levelVehicleLimit: 'Level {{level}} incidents get {{max}} vehicle(s) under the dispatch plan; extra vehicles need a reason.',
   maxVehicles: 'Level 3 incidents can be assigned up to {{max}} vehicles.',
   assignFailed: 'Failed to assign the vehicle.',

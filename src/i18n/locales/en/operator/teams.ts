@@ -2,13 +2,6 @@ import type { Messages } from '../../types';
 import type { teamsVi } from '../../vi/operator/teams';
 
 export const teamsEn: Messages<typeof teamsVi> = {
-  crewRole: {
-    commander: 'Crew commander',
-    driver: 'Driver',
-    firefighter: 'Firefighter',
-    rescuer: 'Rescuer',
-    medic: 'Paramedic',
-  },
   page: {
     loadFailed: 'Could not load station information.',
     unassignedLoadFailed: 'Could not load staff without a station.',
@@ -68,11 +61,10 @@ export const teamsEn: Messages<typeof teamsVi> = {
     atStationWarning: 'Base-only teams are not shown in the Dispatch Panel. Assign a vehicle so the team can be dispatched.',
     members: 'Members ({{count}}/{{max}})',
     understaffedHint: 'Teams under {{min}} members can be saved but show an "understaffed" warning when assigned.',
-    leaderHint: 'Choose "Crew commander" to make someone the team leader (max 1).',
+    leaderHint: 'Click the crown to set the team leader (max 1). Other members need no assigned role.',
     noStaff: 'No free staff left — add staff to the station or remove them from another team.',
     locked: 'Account locked',
-    roleOf: 'Role of {{name}}',
-    leaderOption: 'Team leader (crew commander)',
+    setLeader: 'Make {{name}} the team leader',
     otherTeams: '{{count}} other station staff member(s) belong to other teams.',
   },
   staff: {

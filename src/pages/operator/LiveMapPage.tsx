@@ -16,7 +16,7 @@ import { CreateIncidentPanel, type IncidentCreatedInfo } from '../../components/
 import type { PickedPoint } from '../../components/operator/livemap/MapPickLocation';
 import { findNearbyIncidents } from '../../utils/nearbyIncidents';
 import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
-import type { AssignOptions } from '../../context/DispatchContext';
+import type { AssignOptions, TeamAssignTarget } from '../../context/DispatchContext';
 import type { FieldRequestDto } from '../../types/fieldRequest';
 import type { OperatorCancellationCode } from '../../types/incident';
 import type { DispatchAlgorithm } from '../../types/vehicle';
@@ -58,7 +58,7 @@ export const LiveMapPage: React.FC = () => {
     assignTrafficJam,
     unassignTrafficJam,
     trafficAssignableUnits,
-    assignVehicle,
+    assignTeam,
     cancelAssignment,
     rejectIncident,
     dismissResponseNotice,
@@ -74,7 +74,7 @@ export const LiveMapPage: React.FC = () => {
 
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
-  const [assigningVehicleId, setAssigningVehicleId] = useState<string | null>(null);
+  const [assigningTeamId, setAssigningTeamId] = useState<string | null>(null);
   const [cancellingVehicleId, setCancellingVehicleId] = useState<string | null>(null);
   const [cancellingIncidentId, setCancellingIncidentId] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
@@ -211,12 +211,12 @@ export const LiveMapPage: React.FC = () => {
     setSelectedVehicleId((cur) => (cur === id ? null : id));
   };
 
-  const handleAssign = async (vehicleId: string, algorithm: DispatchAlgorithm, options?: AssignOptions) => {
+  const handleAssign = async (target: TeamAssignTarget, algorithm: DispatchAlgorithm, options?: AssignOptions) => {
     if (!selectedIncidentId) return;
-    setAssigningVehicleId(vehicleId);
+    setAssigningTeamId(target.teamId);
     setPanelError(null);
-    const result = await assignVehicle(vehicleId, selectedIncidentId, algorithm, options);
-    setAssigningVehicleId(null);
+    const result = await assignTeam(target, selectedIncidentId, algorithm, options);
+    setAssigningTeamId(null);
     if (!result.ok) setPanelError(result.message ?? t('context.assignFailed'));
   };
 
@@ -252,7 +252,7 @@ export const LiveMapPage: React.FC = () => {
     showDetail && selectedCase ? (
       <DispatchRecommendPanel
         selectedIncidentId={selectedCase.id}
-        assigningVehicleId={assigningVehicleId}
+        assigningTeamId={assigningTeamId}
         onAssign={handleAssign}
         fieldRequest={servingRequest}
         onExitFieldRequest={() => setServingRequestId(null)}

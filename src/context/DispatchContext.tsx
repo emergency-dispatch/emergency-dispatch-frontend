@@ -234,6 +234,13 @@ export interface OperatorAlert {
   at: string;
 }
 
+/** §34: tổ được giao + chức năng (mã loại xe) tổ đảm nhận; `teamName` chỉ để ghép vào câu báo lỗi. */
+export interface TeamAssignTarget {
+  teamId: string;
+  teamName: string;
+  unitType: string;
+}
+
 /** Giao thêm tổ cho sự cố Cấp 1–2 (backend cho phép khi có lý do ≥ 5 ký tự). */
 export interface AssignOptions {
   allowExtraUnits?: boolean;
@@ -309,7 +316,7 @@ interface DispatchContextValue {
   assignForFieldRequest: (
     requestId: string,
     incidentId: string,
-    vehicleIds: string[],
+    teams: TeamAssignTarget[],
     algorithm: DispatchAlgorithm
   ) => Promise<ActionResult>;
   /** Màn Đội xe: đặt xe Bảo trì / đưa trở lại Sẵn sàng (xe đang làm nhiệm vụ bị backend chặn). */
@@ -376,9 +383,12 @@ interface DispatchContextValue {
   createOperatorIncident: (dto: CreateOperatorIncidentDto) => Promise<CreateIncidentResult>;
   /** Số điện thoại đầy đủ (backend ghi vết), null nếu thất bại. */
   revealReporterPhone: (id: string) => Promise<string | null>;
-  /** Giao 1 xe cho sự cố (1-click hoặc kéo-thả). Cấp 3 gọi nhiều lần, tối đa 5 xe. */
-  assignVehicle: (
-    vehicleId: string,
+  /**
+   * §34: giao một tổ cho sự cố — backend chọn xe sẵn sàng gần nhất đúng chức năng của tổ. Số tổ tối đa theo
+   * kế hoạch điều xe (BR-14); Cấp 3 gọi nhiều lần, tối đa 5 tổ.
+   */
+  assignTeam: (
+    target: TeamAssignTarget,
     incidentId: string,
     algorithm?: DispatchAlgorithm,
     options?: AssignOptions
@@ -1416,16 +1426,15 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const assignVehicle = async (
-    vehicleId: string,
+  const assignTeam = async (
+    target: TeamAssignTarget,
     incidentId: string,
     algorithm: DispatchAlgorithm = 'nearest',
     options: AssignOptions = {}
   ): Promise<ActionResult> => {
     const incident = incidents.find((i) => i.id === incidentId);
-    const vehicle = vehicles.find((v) => v.id === vehicleId);
-    if (!incident || !vehicle) return { ok: false, message: i18n.t('context.incidentOrVehicleNotFound') };
-    if (vehicle.status !== 'available') return { ok: false, message: i18n.t('context.vehicleNotAvailable', { plate: vehicle.plate }) };
+    if (!incident) return { ok: false, message: i18n.t('context.incidentOrVehicleNotFound') };
+    // Tổ không có nhân viên / đang bận / không còn xe đúng loại: backend kiểm tra và trả câu lỗi (400 / 409).
 
     // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
     const maxVehicles = vehicleLimitFor(incident).max;
@@ -1445,32 +1454,32 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const res = await dispatchService.assignUnit({
         incidentId,
-        rescueUnitId: vehicleId,
+        teams: [{ teamId: target.teamId, unitType: target.unitType }],
         algorithm: BACKEND_ALGORITHM[algorithm],
         ...(extraAllowed ? { allowExtraUnits: true, notes: options.notes?.trim() } : {}),
       });
-      if (!res.success) return { ok: false, message: `${res.message || i18n.t('context.assignFailed')} (${vehicle.plate})` };
+      if (!res.success) return { ok: false, message: `${res.message || i18n.t('context.assignFailed')} (${target.teamName})` };
       setAssignments((prev) => upsert(prev, res.data));
       return { ok: true };
     } catch (err) {
-      // HTTP 409: xe vừa bị Operator khác giao trước, hoặc sự cố vừa bị người khác sửa → tải lại xe và sự cố.
+      // HTTP 409: tổ vừa được Operator khác giao / đang bận, hoặc sự cố vừa bị người khác sửa → tải lại xe và sự cố.
       refreshUnits();
       if (isConflict(err)) refreshBoard();
-      return { ok: false, message: `${getApiErrorMessage(err, i18n.t('context.assignFailed'))} (${vehicle.plate})` };
+      return { ok: false, message: `${getApiErrorMessage(err, i18n.t('context.assignFailed'))} (${target.teamName})` };
     }
   };
 
   const assignForFieldRequest = async (
     requestId: string,
     incidentId: string,
-    vehicleIds: string[],
+    teams: TeamAssignTarget[],
     algorithm: DispatchAlgorithm
   ): Promise<ActionResult> => {
-    if (vehicleIds.length === 0) return { ok: false, message: i18n.t('context.incidentOrVehicleNotFound') };
+    if (teams.length === 0) return { ok: false, message: i18n.t('context.incidentOrVehicleNotFound') };
     try {
       const res = await dispatchService.assignUnit({
         incidentId,
-        rescueUnitIds: vehicleIds,
+        teams: teams.map((team) => ({ teamId: team.teamId, unitType: team.unitType })),
         algorithm: BACKEND_ALGORITHM[algorithm],
         fieldRequestId: requestId,
       });
@@ -1645,7 +1654,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         releaseIncident,
         createOperatorIncident,
         revealReporterPhone,
-        assignVehicle,
+        assignTeam,
         cancelAssignment,
         dismissResponseNotice,
         incomingIncidents,

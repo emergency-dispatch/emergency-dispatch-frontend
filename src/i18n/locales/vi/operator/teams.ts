@@ -1,11 +1,4 @@
 export const teamsVi = {
-  crewRole: {
-    commander: 'Chỉ huy kíp',
-    driver: 'Lái xe',
-    firefighter: 'Chiến sĩ cứu hỏa',
-    rescuer: 'Chiến sĩ cứu hộ',
-    medic: 'Y sĩ cấp cứu',
-  },
   page: {
     loadFailed: 'Không tải được thông tin trạm.',
     unassignedLoadFailed: 'Không tải được danh sách nhân sự chưa có trạm.',
@@ -65,11 +58,10 @@ export const teamsVi = {
     atStationWarning: 'Tổ trực tại trạm không hiện ở Dispatch Panel. Gắn xe để tổ được điều động tới sự cố.',
     members: 'Thành viên ({{count}}/{{max}})',
     understaffedHint: 'Tổ dưới {{min}} người vẫn lưu được nhưng sẽ bị cảnh báo "thiếu người" khi giao xe.',
-    leaderHint: 'Chọn "Chỉ huy kíp" để đặt làm tổ trưởng (tối đa 1 người).',
+    leaderHint: 'Bấm biểu tượng vương miện để đặt tổ trưởng (tối đa 1 người). Các thành viên khác không cần chia vai trò.',
     noStaff: 'Không còn nhân sự trống — thêm nhân sự vào trạm hoặc gỡ họ khỏi tổ khác.',
     locked: 'Tài khoản đã khóa',
-    roleOf: 'Vai trò của {{name}}',
-    leaderOption: 'Tổ trưởng (Chỉ huy kíp)',
+    setLeader: 'Đặt {{name}} làm tổ trưởng',
     otherTeams: '{{count}} nhân sự khác của trạm đang thuộc tổ khác.',
   },
   staff: {

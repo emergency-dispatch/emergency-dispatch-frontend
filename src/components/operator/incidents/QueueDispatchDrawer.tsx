@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
+import { RecommendedTeamLabel } from '../teams/RecommendedTeamLabel';
 import { CaseSteps } from './CaseSteps';
 import { DispatchMiniMap } from './DispatchMiniMap';
 import { IncidentThumbnail } from './IncidentThumbnail';
@@ -24,8 +25,7 @@ import { DispatchPlanHint } from '../livemap/DispatchPlanHint';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useDispatchRecommendations } from '../../../hooks/useDispatchRecommendations';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
-import type { DispatchAlgorithm } from '../../../types/vehicle';
-import { getBusyTeamIds } from '../../../utils/teamAvailability';
+import type { DispatchAlgorithm, DispatchCandidate, DispatchTeamCandidate } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
 
 const SECONDARY_BUTTON =
@@ -45,13 +45,15 @@ interface QueueDispatchDrawerProps {
  * Giao thêm xe vượt giới hạn Cấp 1–2, giao lại khi đội từ chối, chi viện... vẫn làm trên Live Map.
  */
 export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incidentId, onClose, onOpenLiveMap }) => {
-  const { incidents, vehicles, stations, escalatedIncidentIds, assignVehicle, vehicleLimitFor } = useDispatchStore();
+  const { incidents, vehicles, stations, escalatedIncidentIds, assignTeam, vehicleLimitFor } = useDispatchStore();
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
   const { incidentKindLabel } = useDispatchStore();
   const { unitTypeLabel } = useDispatchStore();
   const [algorithm, setAlgorithm] = useState<DispatchAlgorithm>('nearest');
-  const [assigningVehicleId, setAssigningVehicleId] = useState<string | null>(null);
+  const [assigningTeamId, setAssigningTeamId] = useState<string | null>(null);
+  // §34: chức năng Operator chọn cho từng tổ có nhiều chức năng (teamId → mã loại xe).
+  const [optionByTeam, setOptionByTeam] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   // Tổ đang được rê chuột ở danh sách / bấm trên bản đồ nhỏ — đồng bộ hai bên.
   const [highlightedVehicleId, setHighlightedVehicleId] = useState<string | null>(null);
@@ -79,29 +81,25 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
     refreshKey
   );
 
-  // Giống Live Map: chỉ xe sẵn sàng; xe trạm mình phải có tổ, xe hỗ trợ trạm khác thì hiện theo xe.
-  const readyCandidates = (suggestion?.candidates ?? []).filter(
-    (c) => vehiclesById.get(c.vehicleId)?.status === 'available'
-  );
-  const teamedCandidates = readyCandidates.filter((c) => teamByVehicle.has(c.vehicleId) || c.isSupportUnit);
-  // Tổ nhiều xe: một xe của tổ vừa được giao / đang làm nhiệm vụ → không gợi ý lại tổ đó qua xe khác.
-  const busyTeamIds = getBusyTeamIds(vehicles, teamByVehicle);
-  const candidates = teamedCandidates.filter((c) => {
-    const team = teamByVehicle.get(c.vehicleId);
-    return !team || !busyTeamIds.has(team.id);
-  });
-  const vehiclesWithoutTeam = readyCandidates.length - teamedCandidates.length;
+  // §34: backend chỉ gợi ý tổ có nhân viên đang hoạt động, không bận và có xe đúng chức năng đang Sẵn sàng.
+  const teams = suggestion?.teams ?? [];
+  const optionOf = (team: DispatchTeamCandidate): DispatchCandidate =>
+    team.options.find((o) => o.unitType === optionByTeam[team.teamId]) ?? team.options[0];
 
-  const handleAssign = async (vehicleId: string) => {
-    setAssigningVehicleId(vehicleId);
+  const handleAssign = async (team: DispatchTeamCandidate) => {
+    setAssigningTeamId(team.teamId);
     setError(null);
-    const result = await assignVehicle(vehicleId, incidentId, algorithm);
-    setAssigningVehicleId(null);
+    const result = await assignTeam(
+      { teamId: team.teamId, teamName: team.teamName, unitType: optionOf(team).unitType },
+      incidentId,
+      algorithm
+    );
+    setAssigningTeamId(null);
     if (!result.ok) setError(result.message ?? t('context.assignFailed'));
   };
 
   const category = incident ? INCIDENT_CATEGORY_META[incident.category] : null;
-  const busy = !!assigningVehicleId;
+  const busy = !!assigningTeamId;
 
   return (
     <>
@@ -183,9 +181,9 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                 </p>
                 <DispatchMiniMap
                   incident={incident}
-                  candidates={candidates.flatMap((c, index) => {
-                    const v = vehiclesById.get(c.vehicleId);
-                    return v ? [{ vehicleId: v.id, lat: v.lat, lng: v.lng, stationId: v.stationId, rank: index + 1 }] : [];
+                  candidates={teams.map((team, index) => {
+                    const option = optionOf(team);
+                    return { vehicleId: option.vehicleId, lat: option.lat, lng: option.lng, stationId: option.stationId, rank: index + 1 };
                   })}
                   assigned={activeVehicleIds.flatMap((id) => {
                     const v = vehiclesById.get(id);
@@ -195,9 +193,11 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                   highlightedVehicleId={highlightedVehicleId}
                   onSelectCandidate={(vehicleId) => {
                     setHighlightedVehicleId(vehicleId);
-                    document
-                      .getElementById(`queue-candidate-${vehicleId}`)
-                      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    const team = teams.find((tm) => optionOf(tm).vehicleId === vehicleId);
+                    if (team)
+                      document
+                        .getElementById(`queue-candidate-${team.teamId}`)
+                        ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                   }}
                 />
 
@@ -302,7 +302,7 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
 
                     {suggestionError && <p className="text-sm text-red-600">{suggestionError}</p>}
 
-                    {suggestion && candidates.length === 0 && (
+                    {suggestion && teams.length === 0 && (
                       <p className="text-sm text-red-600 py-1">
                         {t('liveMap.recommend.noneLeft')}
                         {suggestion.radiusKm > 0 && t('liveMap.recommend.noneLeftWithin', { km: suggestion.radiusKm })}.
@@ -311,30 +311,32 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
 
                     {/* Danh sách xếp hạng: số thứ tự là thứ hạng gợi ý thật, không phải trang trí */}
                     <ol className="divide-y divide-slate-100 border-y border-slate-100">
-                      {candidates.map((candidate, index) => {
-                        const vehicle = vehiclesById.get(candidate.vehicleId)!;
-                        const team = teamByVehicle.get(vehicle.id);
+                      {teams.map((team, index) => {
+                        const option = optionOf(team);
+                        const leader = teamByVehicle
+                          .get(option.vehicleId)
+                          ?.members.find((m) => m.crewRole === 'commander');
                         const distanceLabel = (
                           <>
-                            {t('liveMap.recommend.distance', { km: candidate.km.toFixed(1) })}
-                            {candidate.isApproximate && t('liveMap.recommend.approximate')}
-                            {t('liveMap.recommend.etaShort', { count: candidate.etaMinutes })}
-                            {algorithm === 'load_aware' && ` · ${candidate.cost.toFixed(2)}`}
+                            {t('liveMap.recommend.distance', { km: option.km.toFixed(1) })}
+                            {option.isApproximate && t('liveMap.recommend.approximate')}
+                            {t('liveMap.recommend.etaShort', { count: option.etaMinutes })}
+                            {algorithm === 'load_aware' && ` · ${option.cost.toFixed(2)}`}
                           </>
                         );
                         return (
                           <li
-                            key={vehicle.id}
-                            id={`queue-candidate-${vehicle.id}`}
-                            // Rê chuột lên tổ → ghim tương ứng trên bản đồ nhỏ phóng to (và ngược lại khi bấm ghim).
-                            onMouseEnter={() => setHighlightedVehicleId(vehicle.id)}
+                            key={team.teamId}
+                            id={`queue-candidate-${team.teamId}`}
+                            // Rê chuột lên tổ → ghim xe tổ mang theo trên bản đồ nhỏ phóng to (và ngược lại khi bấm ghim).
+                            onMouseEnter={() => setHighlightedVehicleId(option.vehicleId)}
                             onMouseLeave={() => setHighlightedVehicleId(null)}
                             className={`flex items-center gap-3 py-2.5 -mx-2 px-2 rounded-lg transition-colors ${
-                              highlightedVehicleId === vehicle.id ? 'bg-slate-100' : ''
+                              highlightedVehicleId === option.vehicleId ? 'bg-slate-100' : ''
                             }`}
                             title={
                               algorithm === 'load_aware'
-                                ? t('liveMap.recommend.costTitle', { load: Math.round(candidate.stationLoad * 100) })
+                                ? t('liveMap.recommend.costTitle', { load: Math.round(option.stationLoad * 100) })
                                 : undefined
                             }
                           >
@@ -344,29 +346,25 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                               {index + 1}
                             </span>
                             <div className="min-w-0 flex-1">
-                              {candidate.isSupportUnit && (
+                              {team.isSupportUnit && (
                                 <span className="inline-flex items-center gap-0.5 mb-0.5 px-1.5 py-px rounded bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-700">
                                   <HandHelping className="w-3 h-3" />
-                                  {t('liveMap.recommend.supportUnit', { station: candidate.stationName })}
+                                  {t('liveMap.recommend.supportUnit', { station: team.stationName })}
                                 </span>
                               )}
-                              {team ? (
-                                <DispatchTeamLabel team={team} vehicle={vehicle} detail={distanceLabel} />
-                              ) : (
-                                // Xe hỗ trợ trạm khác: không xem được tổ → hiện theo xe.
-                                <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-slate-900 truncate">
-                                    {unitTypeLabel(vehicle.unitType)}
-                                  </p>
-                                  <p className="text-xs text-slate-400 truncate">
-                                    <span className="font-mono-data">{vehicle.plate}</span>
-                                    {distanceLabel}
-                                  </p>
-                                </div>
-                              )}
+                              <RecommendedTeamLabel
+                                team={team}
+                                selected={option}
+                                onSelectOption={(unitType) =>
+                                  setOptionByTeam((prev) => ({ ...prev, [team.teamId]: unitType }))
+                                }
+                                leaderName={leader?.fullName}
+                                disabled={busy}
+                                detail={distanceLabel}
+                              />
                             </div>
                             <button
-                              onClick={() => handleAssign(vehicle.id)}
+                              onClick={() => handleAssign(team)}
                               disabled={busy}
                               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold shrink-0 transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-red-500 ${
                                 index === 0
@@ -374,7 +372,7 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                                   : 'border border-red-200 text-red-700 hover:bg-red-50'
                               }`}
                             >
-                              {assigningVehicleId === vehicle.id ? (
+                              {assigningTeamId === team.teamId ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
                                 <Truck className="w-4 h-4" />
@@ -386,9 +384,6 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                       })}
                     </ol>
 
-                    {vehiclesWithoutTeam > 0 && (
-                      <p className="text-xs text-amber-600">{t('liveMap.recommend.withoutTeam', { count: vehiclesWithoutTeam })}</p>
-                    )}
                   </>
                 )}
               </div>

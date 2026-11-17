@@ -6,23 +6,14 @@ import { inputClass } from '../../admin/common/styles';
 import { MAX_TEAM_SIZE, MIN_TEAM_SIZE } from '../../../data/dispatchConfig';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { stationTeamService } from '../../../services/stationTeamService';
-import {
-  CREW_ROLES,
-  type CrewRole,
-  type StationStaff,
-  type StationTeam,
-  type TeamMember,
-} from '../../../types/stationTeam';
-import type { DispatchVehicleType, Vehicle } from '../../../types/vehicle';
+import { type StationStaff, type StationTeam, type TeamMember } from '../../../types/stationTeam';
+import type { Vehicle } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
 import { useDispatchStore } from '../../../context/DispatchContext';
 
-// Vai trò gợi ý khi tick chọn thành viên, theo loại xe tổ phụ trách.
-const DEFAULT_ROLE_BY_VEHICLE: Record<DispatchVehicleType, CrewRole> = {
-  fire_truck: 'firefighter',
-  ambulance: 'medic',
-  rescue: 'rescuer',
-};
+// Tổ là một kíp đã được huấn luyện chung, không phân vai trò cố định: chỉ đánh dấu tổ trưởng.
+// Backend vẫn lưu CrewRole (tùy chọn, mặc định Rescuer, tối đa 1 Commander) → thành viên thường gửi 'rescuer'.
+const MEMBER_ROLE = 'rescuer' as const;
 
 interface TeamFormDrawerProps {
   stationId: string;
@@ -67,7 +58,6 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
   // Giữ thứ tự xe của trạm để vai trò gợi ý / chức năng hiện ổn định.
   const selectedVehicles = stationVehicles.filter((v) => vehicleIds.includes(v.id));
   const selectedTypes = [...new Set(selectedVehicles.map((v) => v.type))];
-  const defaultRole: CrewRole = selectedVehicles[0] ? DEFAULT_ROLE_BY_VEHICLE[selectedVehicles[0].type] : 'rescuer';
   const commanderCount = members.filter((m) => m.crewRole === 'commander').length;
 
   const toggleVehicle = (id: string) =>
@@ -77,10 +67,17 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
     setMembers((prev) =>
       prev.some((m) => m.staffId === staffId)
         ? prev.filter((m) => m.staffId !== staffId)
-        : [...prev, { staffId, crewRole: defaultRole }]
+        : [...prev, { staffId, crewRole: MEMBER_ROLE }]
     );
-  const setRole = (staffId: string, crewRole: CrewRole) =>
-    setMembers((prev) => prev.map((m) => (m.staffId === staffId ? { ...m, crewRole } : m)));
+  // Bấm vương miện: đặt người này làm tổ trưởng (người cũ về thành viên); bấm lại để bỏ.
+  const toggleLeader = (staffId: string) =>
+    setMembers((prev) =>
+      prev.map((m) =>
+        m.staffId === staffId
+          ? { ...m, crewRole: m.crewRole === 'commander' ? MEMBER_ROLE : 'commander' }
+          : { ...m, crewRole: m.crewRole === 'commander' ? MEMBER_ROLE : m.crewRole }
+      )
+    );
 
   const validationError =
     name.trim().length === 0
@@ -97,7 +94,16 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
     setSubmitting(true);
     setError(null);
     try {
-      const saved = await stationTeamService.saveTeam(stationId, { name, vehicleIds, members }, team?.id ?? null);
+      // Vai trò cũ (Lái xe, Y sĩ…) của tổ đã có → chuẩn hóa về thành viên thường khi lưu.
+      const normalizedMembers = members.map((m) => ({
+        ...m,
+        crewRole: m.crewRole === 'commander' ? ('commander' as const) : MEMBER_ROLE,
+      }));
+      const saved = await stationTeamService.saveTeam(
+        stationId,
+        { name, vehicleIds, members: normalizedMembers },
+        team?.id ?? null
+      );
       onSaved(saved);
     } catch (err) {
       setError(getApiErrorMessage(err));
@@ -212,18 +218,20 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
                     </span>
                   </label>
                   {member && (
-                    <select
-                      value={member.crewRole}
-                      onChange={(e) => setRole(s.id, e.target.value as CrewRole)}
-                      aria-label={t('teams.form.roleOf', { name: s.fullName })}
-                      className="text-xs bg-white border border-slate-300 rounded-md px-2 py-1.5 text-slate-700 focus:outline-none focus:border-red-500"
+                    <button
+                      type="button"
+                      onClick={() => toggleLeader(s.id)}
+                      aria-pressed={member.crewRole === 'commander'}
+                      title={t('teams.form.setLeader', { name: s.fullName })}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-semibold transition-colors ${
+                        member.crewRole === 'commander'
+                          ? 'border-amber-300 bg-amber-50 text-amber-700'
+                          : 'border-slate-200 text-slate-400 hover:text-amber-600 hover:border-amber-300'
+                      }`}
                     >
-                      {CREW_ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {r === 'commander' ? t('teams.form.leaderOption') : t(`teams.crewRole.${r}`)}
-                        </option>
-                      ))}
-                    </select>
+                      <Crown className="w-3.5 h-3.5" />
+                      {t('teams.card.leader')}
+                    </button>
                   )}
                 </div>
               );

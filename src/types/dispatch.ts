@@ -114,9 +114,25 @@ export interface AssignDispatchDto {
    * và yêu cầu tự chuyển Fulfilled. Cấp 3 vẫn tối đa 5 xe.
    */
   fieldRequestId?: string;
+  /**
+   * §34: giao theo tổ — mỗi phần tử là một tổ + chức năng (mã loại xe) tổ đảm nhận; backend tự chọn xe sẵn sàng
+   * gần nhất đúng loại của tổ. Mỗi tổ chỉ một chức năng trong một sự cố (chọn trùng tổ → 400, tổ bận → 409).
+   */
+  teams?: TeamAssignmentDto[];
+}
+
+export interface TeamAssignmentDto {
+  teamId: string;
+  /** Bỏ trống → backend lấy loại xe đầu tiên của tổ khớp kế hoạch điều xe. */
+  unitType?: string;
 }
 
 export interface RecommendedUnitResponseDto {
+  /** §34: mỗi dòng = một tổ với xe gần nhất của tổ cho một chức năng; tổ nhiều chức năng có nhiều dòng. */
+  stationTeamId: string;
+  stationTeamName: string;
+  /** Số nhân viên cứu hộ đang hoạt động của tổ (≥ 1). */
+  teamStaffCount: number;
   rescueUnitId: string;
   plateNumber: string;
   unitType: string;

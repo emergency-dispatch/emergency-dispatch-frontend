@@ -135,9 +135,8 @@ export const TeamCard: React.FC<TeamCardProps> = ({ team, staffById, vehiclesByI
                     {person?.fullName ?? m.staffId}
                   </span>
                 </span>
-                <span className="text-[11px] text-slate-500 whitespace-nowrap">
-                  {isLeader ? t('teams.card.leader') : t(`teams.crewRole.${m.crewRole}`)}
-                </span>
+                {/* Không phân vai trò cố định trong tổ — chỉ ghi tổ trưởng. */}
+                {isLeader && <span className="text-[11px] text-amber-700 whitespace-nowrap">{t('teams.card.leader')}</span>}
               </li>
             );
           })}

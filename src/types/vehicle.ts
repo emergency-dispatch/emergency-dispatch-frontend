@@ -57,9 +57,16 @@ export interface Station {
 
 export type DispatchAlgorithm = 'nearest' | 'load_aware';
 
-/** Một xe trong gợi ý điều phối của backend (GET /api/dispatch/recommend). */
+/** Một dòng gợi ý của backend (GET /api/dispatch/recommend): một tổ + một chức năng (loại xe) + xe tổ mang theo. */
 export interface DispatchCandidate {
+  teamId: string;
+  /** Mã loại xe = chức năng tổ đảm nhận trong sự cố này. */
+  unitType: string;
   vehicleId: string;
+  plate: string;
+  lat: number;
+  lng: number;
+  stationId: string;
   km: number;
   etaMinutes: number;
   /** Chỉ có ý nghĩa với Load-Aware (càng thấp càng ưu tiên). */
@@ -73,8 +80,24 @@ export interface DispatchCandidate {
   stationName: string;
 }
 
+/**
+ * §34: một tổ trong gợi ý — gom các dòng (tổ, chức năng) của backend theo tổ. Mỗi tổ chỉ nhận một chức năng
+ * (một xe) trong một sự cố, nên Operator chọn một trong `options` rồi giao.
+ */
+export interface DispatchTeamCandidate {
+  teamId: string;
+  teamName: string;
+  staffCount: number;
+  stationName: string;
+  /** Tổ của trạm khác (điều hỗ trợ). */
+  isSupportUnit: boolean;
+  /** Các chức năng tổ đáp ứng được, theo thứ tự gợi ý (phần tử đầu là dòng xếp hạng cao nhất). */
+  options: DispatchCandidate[];
+}
+
 export interface DispatchSuggestion {
   radiusKm: number;
   expanded: boolean;
-  candidates: DispatchCandidate[];
+  /** Tổ theo thứ tự gợi ý của backend. */
+  teams: DispatchTeamCandidate[];
 }

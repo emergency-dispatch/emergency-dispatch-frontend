@@ -14,7 +14,7 @@ import {
   Users,
 } from 'lucide-react';
 import { ChangeSeverityDialog } from './ChangeSeverityDialog';
-import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
+import { RecommendedTeamLabel } from '../teams/RecommendedTeamLabel';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
 import { IncidentSupplementList } from '../incidents/IncidentSupplementList';
 import { LinkedReportsPanel } from '../incidents/LinkedReportsPanel';
@@ -22,23 +22,23 @@ import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
 import { INCIDENT_CATEGORY_META, OVERRIDE_REASON_MIN_LENGTH } from '../../../data/incidentMock';
 import { DISPATCH_ALGORITHM_META } from '../../../data/dispatchConfig';
-import { useDispatchStore, type AssignOptions } from '../../../context/DispatchContext';
+import { useDispatchStore, type AssignOptions, type TeamAssignTarget } from '../../../context/DispatchContext';
 import { useDispatchRecommendations } from '../../../hooks/useDispatchRecommendations';
 import { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
-import type { DispatchAlgorithm } from '../../../types/vehicle';
+import type { DispatchAlgorithm, DispatchCandidate, DispatchTeamCandidate } from '../../../types/vehicle';
 import type { FieldRequestDto } from '../../../types/fieldRequest';
-import { getBusyTeamIds } from '../../../utils/teamAvailability';
 import { useTranslation } from '../../../i18n';
 import { AutoDispatchNotice } from '../incidents/AutoDispatchInfo';
 
 interface DispatchRecommendPanelProps {
   selectedIncidentId: string | null;
-  assigningVehicleId: string | null;
-  /** vehicleId + algorithm đang chọn — để LiveMapPage gọi đúng thuật toán; options khi giao thêm tổ cho Cấp 1–2. */
-  onAssign: (vehicleId: string, algorithm: DispatchAlgorithm, options?: AssignOptions) => void;
+  /** Tổ đang được giao (hiện vòng xoay, khóa các nút giao khác). */
+  assigningTeamId: string | null;
+  /** Tổ + chức năng + thuật toán đang chọn — để LiveMapPage gọi đúng thuật toán; options khi giao thêm tổ cho Cấp 1–2. */
+  onAssign: (target: TeamAssignTarget, algorithm: DispatchAlgorithm, options?: AssignOptions) => void;
   /**
-   * §21.2: yêu cầu chi viện (Backup) đang được đáp ứng cho sự cố đang chọn → chọn nhiều xe, giao một lần kèm
+   * §21.2: yêu cầu chi viện (Backup) đang được đáp ứng cho sự cố đang chọn → chọn nhiều tổ, giao một lần kèm
    * fieldRequestId (vượt giới hạn Cấp 1–2 không cần lý do; Cấp 3 vẫn tối đa 5 xe).
    */
   fieldRequest?: FieldRequestDto | null;
@@ -53,7 +53,7 @@ interface DispatchRecommendPanelProps {
 
 export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   selectedIncidentId,
-  assigningVehicleId,
+  assigningTeamId,
   onAssign,
   fieldRequest = null,
   onExitFieldRequest,
@@ -62,7 +62,6 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   caseBody,
 }) => {
   const {
-    vehicles,
     incidents,
     escalatedIncidentIds,
     unlinkLinkedReport,
@@ -72,11 +71,13 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     assignForFieldRequest,
     vehicleLimitFor,
   } = useDispatchStore();
-  // Xe đã chọn / lỗi gắn với id yêu cầu → đổi yêu cầu là tự bỏ, không cần effect reset.
+  // Tổ đã chọn / lỗi gắn với id yêu cầu → đổi yêu cầu là tự bỏ, không cần effect reset.
   const [requestSelection, setRequestSelection] = useState<{ requestId: string; ids: string[] }>({ requestId: '', ids: [] });
   const [requestError, setRequestError] = useState<{ requestId: string; message: string } | null>(null);
   const [requestBusy, setRequestBusy] = useState(false);
   const [algorithm, setAlgorithm] = useState<DispatchAlgorithm>('nearest');
+  // §34: chức năng Operator chọn cho từng tổ có nhiều chức năng (teamId → mã loại xe).
+  const [optionByTeam, setOptionByTeam] = useState<Record<string, string>>({});
   // Cấp 1–2 đã đủ 1 tổ: backend cho giao thêm khi có lý do ≥ 5 ký tự.
   const [extraMode, setExtraMode] = useState(false);
   const [extraReason, setExtraReason] = useState('');
@@ -108,13 +109,13 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     setSeverityOpen(false);
     setSeverityNotice(null);
     setSupplementsOpen(false);
+    setOptionByTeam({});
   }, [selectedIncidentId]);
 
   const selectedIncident = useMemo(
     () => incidents.find((i) => i.id === selectedIncidentId) ?? null,
     [incidents, selectedIncidentId]
   );
-  const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
 
   // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
   const maxVehicles = selectedIncident ? vehicleLimitFor(selectedIncident).max : 1;
@@ -150,50 +151,45 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     refreshKey
   );
 
-  const readyCandidates = (suggestion?.candidates ?? []).filter(
-    (c) => vehiclesById.get(c.vehicleId)?.status === 'available'
-  );
-  // Điều phối theo tổ: xe trạm mình phải có tổ. Xe hỗ trợ của trạm khác thì Operator không xem được tổ (403) →
-  // vẫn cho giao, hiện theo xe.
-  const teamedCandidates = readyCandidates.filter((c) => teamByVehicle.has(c.vehicleId) || c.isSupportUnit);
-  // Tổ nhiều xe: một xe của tổ đang làm nhiệm vụ → bỏ các xe còn lại của tổ (kíp người đang bận).
-  const busyTeamIds = getBusyTeamIds(vehicles, teamByVehicle);
-  const freeCandidates = teamedCandidates.filter((c) => {
-    const team = teamByVehicle.get(c.vehicleId);
-    return !team || !busyTeamIds.has(team.id);
-  });
-  // Đáp ứng yêu cầu chi viện có chỉ định loại xe → đưa xe đúng loại lên đầu (sort ổn định, giữ thứ tự gợi ý).
+  // §34: backend chỉ gợi ý tổ có nhân viên đang hoạt động, không bận và có xe đúng chức năng đang Sẵn sàng.
+  // Đáp ứng yêu cầu chi viện có chỉ định loại xe → tổ có chức năng đó lên đầu (sort ổn định, giữ thứ tự gợi ý).
   const preferredType = serving ? fieldRequest?.requestedUnitType ?? null : null;
-  const candidates = preferredType
-    ? [...freeCandidates].sort(
-        (a, b) =>
-          Number(vehiclesById.get(b.vehicleId)?.unitType === preferredType) -
-          Number(vehiclesById.get(a.vehicleId)?.unitType === preferredType)
-      )
-    : freeCandidates;
-  const vehiclesWithoutTeam = readyCandidates.length - teamedCandidates.length;
+  const hasPreferred = (team: DispatchTeamCandidate) => team.options.some((o) => o.unitType === preferredType);
+  const teams = preferredType
+    ? [...(suggestion?.teams ?? [])].sort((a, b) => Number(hasPreferred(b)) - Number(hasPreferred(a)))
+    : suggestion?.teams ?? [];
+  const optionOf = (team: DispatchTeamCandidate): DispatchCandidate =>
+    team.options.find((o) => o.unitType === optionByTeam[team.teamId]) ??
+    team.options.find((o) => o.unitType === preferredType) ??
+    team.options[0];
+  const targetOf = (team: DispatchTeamCandidate): TeamAssignTarget => ({
+    teamId: team.teamId,
+    teamName: team.teamName,
+    unitType: optionOf(team).unitType,
+  });
   const selectedForRequest =
     fieldRequest && requestSelection.requestId === fieldRequest.id
-      ? requestSelection.ids.filter((id) => candidates.some((c) => c.vehicleId === id))
+      ? requestSelection.ids.filter((id) => teams.some((team) => team.teamId === id))
       : [];
   const requestErrorMessage =
     fieldRequest && requestError?.requestId === fieldRequest.id ? requestError.message : null;
 
-  const toggleRequestVehicle = (vehicleId: string) => {
+  const toggleRequestTeam = (teamId: string) => {
     if (!fieldRequest) return;
-    const ids = selectedForRequest.includes(vehicleId)
-      ? selectedForRequest.filter((id) => id !== vehicleId)
+    const ids = selectedForRequest.includes(teamId)
+      ? selectedForRequest.filter((id) => id !== teamId)
       : selectedForRequest.length < pickMax
-        ? [...selectedForRequest, vehicleId]
+        ? [...selectedForRequest, teamId]
         : selectedForRequest;
     setRequestSelection({ requestId: fieldRequest.id, ids });
   };
 
   const handleServeRequest = async () => {
     if (!fieldRequest || !selectedIncident || selectedForRequest.length === 0) return;
+    const targets = teams.filter((team) => selectedForRequest.includes(team.teamId)).map(targetOf);
     setRequestBusy(true);
     setRequestError(null);
-    const res = await assignForFieldRequest(fieldRequest.id, selectedIncident.id, selectedForRequest, algorithm);
+    const res = await assignForFieldRequest(fieldRequest.id, selectedIncident.id, targets, algorithm);
     setRequestBusy(false);
     if (!res.ok) {
       setRequestError({ requestId: fieldRequest.id, message: res.message ?? t('context.assignFailed') });
@@ -580,29 +576,29 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
 
             {suggestionError && <p className="text-[11px] text-red-600">{suggestionError}</p>}
 
-            {suggestion && candidates.length === 0 && (
+            {suggestion && teams.length === 0 && (
               <p className="text-[11px] text-red-600 py-1">
                 {t('liveMap.recommend.noneLeft')}
                 {suggestion.radiusKm > 0 && t('liveMap.recommend.noneLeftWithin', { km: suggestion.radiusKm })}.
               </p>
             )}
 
-            {candidates.map((candidate, index) => {
-              const vehicle = vehiclesById.get(candidate.vehicleId)!;
-              const team = teamByVehicle.get(vehicle.id);
-              const isAssigning = assigningVehicleId === vehicle.id;
-              const isPicked = selectedForRequest.includes(vehicle.id);
+            {teams.map((team, index) => {
+              const option = optionOf(team);
+              const isAssigning = assigningTeamId === team.teamId;
+              const isPicked = selectedForRequest.includes(team.teamId);
+              const leader = teamByVehicle.get(option.vehicleId)?.members.find((m) => m.crewRole === 'commander');
               const distanceLabel = (
                 <>
-                  {t('liveMap.recommend.distance', { km: candidate.km.toFixed(1) })}
-                  {candidate.isApproximate && t('liveMap.recommend.approximate')}
-                  {t('liveMap.recommend.etaShort', { count: candidate.etaMinutes })}
-                  {algorithm === 'load_aware' && ` · ${candidate.cost.toFixed(2)}`}
+                  {t('liveMap.recommend.distance', { km: option.km.toFixed(1) })}
+                  {option.isApproximate && t('liveMap.recommend.approximate')}
+                  {t('liveMap.recommend.etaShort', { count: option.etaMinutes })}
+                  {algorithm === 'load_aware' && ` · ${option.cost.toFixed(2)}`}
                 </>
               );
               return (
                 <div
-                  key={vehicle.id}
+                  key={team.teamId}
                   className={`flex items-center gap-2 border rounded-lg px-2.5 py-2 transition-colors ${
                     isPicked
                       ? 'border-orange-300 bg-orange-50'
@@ -610,7 +606,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                   }`}
                   title={
                     algorithm === 'load_aware'
-                      ? t('liveMap.recommend.costTitle', { load: Math.round(candidate.stationLoad * 100) })
+                      ? t('liveMap.recommend.costTitle', { load: Math.round(option.stationLoad * 100) })
                       : undefined
                   }
                 >
@@ -618,38 +614,32 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                     {index + 1}
                   </span>
                   <div className="min-w-0 flex-1">
-                    {preferredType && vehicle.unitType === preferredType && (
+                    {preferredType && hasPreferred(team) && (
                       <span className="inline-flex items-center mb-0.5 mr-1 px-1.5 py-px rounded bg-orange-50 border border-orange-200 text-[9px] font-bold text-orange-700">
                         {t('liveMap.fieldRequests.preferredType')}
                       </span>
                     )}
-                    {candidate.isSupportUnit && (
+                    {team.isSupportUnit && (
                       <span className="inline-flex items-center gap-0.5 mb-0.5 px-1.5 py-px rounded bg-blue-50 border border-blue-200 text-[9px] font-bold text-blue-700">
                         <HandHelping className="w-2.5 h-2.5" />
-                        {t('liveMap.recommend.supportUnit', { station: candidate.stationName })}
+                        {t('liveMap.recommend.supportUnit', { station: team.stationName })}
                       </span>
                     )}
-                    {team ? (
-                      <DispatchTeamLabel team={team} vehicle={vehicle} detail={distanceLabel} />
-                    ) : (
-                      // Xe hỗ trợ trạm khác: không xem được tổ → hiện theo xe.
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-900 truncate">
-                          {unitTypeLabel(vehicle.unitType)}
-                        </p>
-                        <p className="text-[10px] text-slate-400 truncate">
-                          <span className="font-mono-data">{vehicle.plate}</span>
-                          {distanceLabel}
-                        </p>
-                      </div>
-                    )}
+                    <RecommendedTeamLabel
+                      team={team}
+                      selected={option}
+                      onSelectOption={(unitType) => setOptionByTeam((prev) => ({ ...prev, [team.teamId]: unitType }))}
+                      leaderName={leader?.fullName}
+                      disabled={!!assigningTeamId || requestBusy}
+                      detail={distanceLabel}
+                    />
                   </div>
                   {serving ? (
                     <label className="flex items-center gap-1 px-2 py-1.5 rounded-md border border-orange-200 bg-white text-[10px] font-bold text-orange-700 shrink-0 cursor-pointer has-[:disabled]:opacity-50 has-[:disabled]:cursor-not-allowed">
                       <input
                         type="checkbox"
                         checked={isPicked}
-                        onChange={() => toggleRequestVehicle(vehicle.id)}
+                        onChange={() => toggleRequestTeam(team.teamId)}
                         disabled={requestBusy || (!isPicked && selectedForRequest.length >= pickMax)}
                         className="accent-orange-600"
                       />
@@ -657,8 +647,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                     </label>
                   ) : (
                     <button
-                      onClick={() => onAssign(vehicle.id, algorithm, assignOptions)}
-                      disabled={!!assigningVehicleId || assignBlocked}
+                      onClick={() => onAssign(targetOf(team), algorithm, assignOptions)}
+                      disabled={!!assigningTeamId || assignBlocked}
                       className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold shrink-0 transition-colors disabled:opacity-60"
                     >
                       {isAssigning && <Loader2 className="w-3 h-3 animate-spin" />}
@@ -669,7 +659,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
               );
             })}
 
-            {serving && candidates.length > 0 && (
+            {serving && teams.length > 0 && (
               <div className="sticky bottom-0 -mx-3 -mb-3 px-3 py-2 bg-white/95 border-t border-orange-200 flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold text-slate-600">
                   {t('liveMap.fieldRequests.selected', { count: selectedForRequest.length, max: pickMax })}
@@ -683,12 +673,6 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                   {t('liveMap.fieldRequests.assignSelected', { count: selectedForRequest.length })}
                 </button>
               </div>
-            )}
-
-            {vehiclesWithoutTeam > 0 && (
-              <p className="text-[10px] text-amber-600 px-0.5">
-                {t('liveMap.recommend.withoutTeam', { count: vehiclesWithoutTeam })}
-              </p>
             )}
           </>
         )}
