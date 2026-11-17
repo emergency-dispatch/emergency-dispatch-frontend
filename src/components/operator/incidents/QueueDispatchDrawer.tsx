@@ -24,7 +24,8 @@ import { DISPATCH_ALGORITHM_META } from '../../../data/dispatchConfig';
 import { DispatchPlanHint } from '../livemap/DispatchPlanHint';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useDispatchRecommendations } from '../../../hooks/useDispatchRecommendations';
-import { useTeamByVehicle } from '../../../hooks/useStationTeams';
+import { useAssignmentTeam, useTeamByVehicle } from '../../../hooks/useStationTeams';
+import { findVehicleAssignment } from '../completion/completionGroups';
 import type { DispatchAlgorithm, DispatchCandidate, DispatchTeamCandidate } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
 
@@ -45,7 +46,9 @@ interface QueueDispatchDrawerProps {
  * Giao thêm xe vượt giới hạn Cấp 1–2, giao lại khi đội từ chối, chi viện... vẫn làm trên Live Map.
  */
 export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incidentId, onClose, onOpenLiveMap }) => {
-  const { incidents, vehicles, stations, escalatedIncidentIds, assignTeam, vehicleLimitFor } = useDispatchStore();
+  const { incidents, vehicles, stations, escalatedIncidentIds, assignTeam, vehicleLimitFor, assignmentsByIncident } =
+    useDispatchStore();
+  const assignmentTeam = useAssignmentTeam();
   const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
   const { incidentKindLabel } = useDispatchStore();
@@ -212,16 +215,21 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                     <ul className="divide-y divide-slate-100">
                       {activeVehicleIds.map((vehicleId) => {
                         const vehicle = vehiclesById.get(vehicleId);
-                        const team = teamByVehicle.get(vehicleId);
                         if (!vehicle) return null;
+                        const team = assignmentTeam(
+                          vehicleId,
+                          findVehicleAssignment(assignmentsByIncident.get(incidentId), vehicleId, vehicle.assignmentId)
+                        );
                         return (
                           <li key={vehicleId} className="flex items-center gap-2.5 py-2">
                             <CircleCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                             <div className="min-w-0 flex-1">
-                              {team ? (
-                                <DispatchTeamLabel team={team} vehicle={vehicle} />
+                              {team?.team ? (
+                                <DispatchTeamLabel team={team.team} name={team.name} vehicle={vehicle} />
                               ) : (
+                                // Tổ trạm khác đi hỗ trợ → tên tổ + loại xe; lượt cũ xe chưa có tổ → loại xe.
                                 <p className="text-sm font-semibold text-slate-900 truncate">
+                                  {team ? `${team.name} · ` : ''}
                                   {unitTypeLabel(vehicle.unitType)}{' '}
                                   <span className="font-mono-data font-normal text-slate-500">{vehicle.plate}</span>
                                 </p>

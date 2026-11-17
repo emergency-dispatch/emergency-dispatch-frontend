@@ -6,15 +6,17 @@ import { useDispatchStore } from '../../../context/DispatchContext';
 import { DispatchPlanHint } from './DispatchPlanHint';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import type { Incident, OperatorCancellationCode } from '../../../types/incident';
-import type { StationTeam } from '../../../types/stationTeam';
+import type { DispatchAssignmentResponseDto } from '../../../types/dispatch';
 import type { Vehicle } from '../../../types/vehicle';
-import type { CompletionProgress } from '../completion/completionGroups';
+import { findVehicleAssignment, type CompletionProgress } from '../completion/completionGroups';
+import { useAssignmentTeam } from '../../../hooks/useStationTeams';
 import { useTranslation } from '../../../i18n';
 
 interface CaseAssignmentsProps {
   incident: Incident;
   vehiclesById: Map<string, Vehicle>;
-  teamByVehicle: Map<string, StationTeam>;
+  /** Lượt điều phối của sự cố — lấy tổ được giao (§34: tổ chốt lúc phát lệnh). */
+  assignments: DispatchAssignmentResponseDto[];
   /** §26.2: số tổ đã ký nghiệm thu / tổng số tổ đang giao (null = chưa giao xe). */
   completion: CompletionProgress | null;
   onOpenCompletion: () => void;
@@ -32,7 +34,7 @@ interface CaseAssignmentsProps {
 export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
   incident,
   vehiclesById,
-  teamByVehicle,
+  assignments,
   completion,
   onOpenCompletion,
   isCancelling,
@@ -46,6 +48,7 @@ export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
   const [cancelCode, setCancelCode] = useState<OperatorCancellationCode>('FalseReport');
 
   const { vehicleLimitFor } = useDispatchStore();
+  const assignmentTeam = useAssignmentTeam();
   // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
   const vehicleLimit = vehicleLimitFor(incident);
   const maxVehicles = vehicleLimit.max;
@@ -146,7 +149,10 @@ export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
               const statusMeta = VEHICLE_STATUS_META[vehicle.status];
               const hasReported = incident.reportedVehicleIds.includes(vehicle.id);
               const canRecall = !hasReported && !!vehicle.assignmentId && vehicle.status !== 'on_scene';
-              const team = teamByVehicle.get(vehicle.id);
+              const team = assignmentTeam(
+                vehicle.id,
+                findVehicleAssignment(assignments, vehicle.id, vehicle.assignmentId)
+              );
               const progressEl = (
                 <>
                   {' · '}
@@ -171,8 +177,17 @@ export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
                   key={vehicle.id}
                   className="flex items-center justify-between gap-1.5 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-2"
                 >
-                  {team ? (
-                    <DispatchTeamLabel team={team} vehicle={vehicle} detail={progressEl} />
+                  {team?.team ? (
+                    <DispatchTeamLabel team={team.team} name={team.name} vehicle={vehicle} detail={progressEl} />
+                  ) : team ? (
+                    // Tổ trạm khác đi hỗ trợ (không xem được chi tiết tổ) → tên tổ + biển số.
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-900 truncate">{team.name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        <span className="font-mono-data">{vehicle.plate}</span>
+                        {progressEl}
+                      </p>
+                    </div>
                   ) : (
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold text-amber-700 truncate">{t('liveMap.incidentList.vehicleNoTeam')}</p>

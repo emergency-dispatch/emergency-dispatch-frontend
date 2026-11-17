@@ -8,6 +8,24 @@ import type { VehicleStatus } from '../../../types/vehicle';
  * `completionReport.id` cho các xe đó. Sự cố chỉ Completed khi tổ cuối cùng nộp. Xe chưa gán tổ nghiệm thu riêng.
  */
 
+/**
+ * Lượt điều phối của một xe trong sự cố: ưu tiên lượt đang chạy (`vehicle.assignmentId`), không có thì lượt mới nhất
+ * (VD xe đã nộp nghiệm thu).
+ */
+export function findVehicleAssignment(
+  assignments: DispatchAssignmentResponseDto[] | undefined,
+  vehicleId: string,
+  assignmentId?: string | null
+): DispatchAssignmentResponseDto | null {
+  if (!assignments) return null;
+  const own = assignments.filter((a) => a.rescueUnitId === vehicleId);
+  return (
+    (assignmentId ? own.find((a) => a.id === assignmentId) : undefined) ??
+    [...own].sort((x, y) => time(y.dispatchedAt) - time(x.dispatchedAt))[0] ??
+    null
+  );
+}
+
 /** Lượt còn đang làm (chưa nộp nghiệm thu). */
 export const ACTIVE_STATUSES: BackendDispatchStatus[] = ['Dispatched', 'Accepted', 'EnRoute', 'OnScene'];
 
@@ -61,16 +79,21 @@ export function groupCompletion(
         {
           state: 'submitted',
           // Tên tổ lúc nộp (backend) ưu tiên hơn tổ hiện tại — tổ có thể đã đổi tên / đổi xe sau đó.
-          teamId: report?.stationTeamId ?? team?.id ?? null,
-          teamName: report?.stationTeamName ?? (report?.stationTeamId ? team?.name ?? null : null),
+          teamId: report?.stationTeamId ?? a.stationTeamId ?? team?.id ?? null,
+          teamName:
+            report?.stationTeamName ??
+            a.stationTeamName ??
+            (report?.stationTeamId || a.stationTeamId ? team?.name ?? null : null),
           report,
         },
         a
       );
     } else if (isActive(a)) {
+      // §34: tổ chốt lúc phát lệnh (lượt mới) ưu tiên hơn tổ hiện tại của xe.
+      const teamId = a.stationTeamId ?? team?.id ?? null;
       add(
-        team ? `team:${team.id}` : `unit:${a.rescueUnitId}`,
-        { state: 'pending', teamId: team?.id ?? null, teamName: team?.name ?? null, report: null },
+        teamId ? `team:${teamId}` : `unit:${a.rescueUnitId}`,
+        { state: 'pending', teamId, teamName: a.stationTeamName ?? team?.name ?? null, report: null },
         a
       );
     }

@@ -35,6 +35,10 @@ interface StationTeamDto {
   rescueUnitPlate: string | null;
   members: Array<{ staffId: string; fullName: string; phoneNumber: string | null; crewRole: BackendCrewRole }>;
   isUnderstaffed: boolean;
+  /** §34: loại xe tổ phụ trách; backend cũ chưa có. */
+  functions?: string[];
+  /** §34: có xe + có nhân viên cứu hộ đang hoạt động; backend cũ chưa có. */
+  canBeAssigned?: boolean;
 }
 
 const USERS_PAGE_SIZE = 100;
@@ -43,14 +47,20 @@ const toCrewRole = (role: BackendCrewRole): CrewRole => role.toLowerCase() as Cr
 const toBackendCrewRole = (role: CrewRole): BackendCrewRole =>
   (role.charAt(0).toUpperCase() + role.slice(1)) as BackendCrewRole;
 
-const mapTeam = (dto: StationTeamDto): StationTeam => ({
-  id: dto.id,
-  stationId: dto.stationId,
-  name: dto.name,
-  vehicleIds: dto.rescueUnitIds ?? (dto.rescueUnitId ? [dto.rescueUnitId] : []),
-  vehiclePlates: dto.rescueUnitPlates ?? (dto.rescueUnitPlate ? [dto.rescueUnitPlate] : []),
-  members: dto.members.map((m) => ({ staffId: m.staffId, crewRole: toCrewRole(m.crewRole), fullName: m.fullName })),
-});
+const mapTeam = (dto: StationTeamDto): StationTeam => {
+  const vehicleIds = dto.rescueUnitIds ?? (dto.rescueUnitId ? [dto.rescueUnitId] : []);
+  return {
+    id: dto.id,
+    stationId: dto.stationId,
+    name: dto.name,
+    vehicleIds,
+    vehiclePlates: dto.rescueUnitPlates ?? (dto.rescueUnitPlate ? [dto.rescueUnitPlate] : []),
+    members: dto.members.map((m) => ({ staffId: m.staffId, crewRole: toCrewRole(m.crewRole), fullName: m.fullName })),
+    functions: dto.functions ?? [],
+    // Backend cũ chưa có cờ → suy gần đúng: có xe và có thành viên.
+    canBeAssigned: dto.canBeAssigned ?? (vehicleIds.length > 0 && dto.members.length > 0),
+  };
+};
 
 let teams: StationTeam[] = [];
 let rescueStaff: UserResponseDto[] = [];

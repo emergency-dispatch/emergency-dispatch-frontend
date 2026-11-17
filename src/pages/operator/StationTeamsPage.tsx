@@ -164,7 +164,7 @@ export const StationTeamsPage: React.FC = () => {
             )}
           </p>
         </div>
-        <dl className="grid grid-cols-3 gap-3 text-center">
+        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
           {[
             { label: t('teams.page.statStaff'), value: stationStaff.length },
             { label: t('teams.page.statTeams'), value: stationTeams.length },
@@ -172,6 +172,12 @@ export const StationTeamsPage: React.FC = () => {
               label: t('teams.page.statVehiclesWithoutTeam'),
               value: vehiclesWithoutTeam.length,
               warn: vehiclesWithoutTeam.length > 0,
+            },
+            {
+              // §34: tổ thiếu xe / chưa có nhân viên đang hoạt động → backend không gợi ý, không cho giao.
+              label: t('teams.page.statTeamsBlocked'),
+              value: stationTeams.filter((team) => !team.canBeAssigned).length,
+              warn: stationTeams.some((team) => !team.canBeAssigned),
             },
           ].map((stat) => (
             <div key={stat.label} className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 min-w-[88px]">

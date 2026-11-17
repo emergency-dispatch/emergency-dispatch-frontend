@@ -32,6 +32,13 @@ export interface StationTeam {
   /** Biển số tương ứng từng phần tử của `vehicleIds` (rescueUnitPlates). */
   vehiclePlates: string[];
   members: TeamMember[];
+  /** §34: chức năng của tổ = các mã loại xe tổ phụ trách (khớp kế hoạch điều xe). */
+  functions: string[];
+  /**
+   * §34: tổ đủ điều kiện nhận nhiệm vụ — có xe và có ít nhất 1 nhân viên cứu hộ đang hoạt động (chưa xét tổ bận).
+   * false → backend không gợi ý / không cho giao tổ này.
+   */
+  canBeAssigned: boolean;
 }
 
 export type StationTeamInput = Pick<StationTeam, 'name' | 'vehicleIds' | 'members'>;

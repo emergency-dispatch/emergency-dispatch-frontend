@@ -4,7 +4,8 @@ import { Building2, Clock, Compass, Crown, ExternalLink, LocateFixed, MapPin, Ra
 import { MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import { MAPBOX_ACCESS_TOKEN } from '../../../services/mapboxService';
-import { useTeamByVehicle } from '../../../hooks/useStationTeams';
+import { useAssignmentTeam } from '../../../hooks/useStationTeams';
+import { findVehicleAssignment } from '../completion/completionGroups';
 import { useAuth } from '../../../hooks/useAuth';
 import type { Station, Vehicle } from '../../../types/vehicle';
 import type { Incident, TrafficJamReport } from '../../../types/incident';
@@ -106,8 +107,13 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam
   trafficJam,
 }) => {
   const { t } = useTranslation();
-  const { unitTypeLabel } = useDispatchStore();
-  const team = useTeamByVehicle().get(vehicle.id);
+  const { unitTypeLabel, assignmentsByIncident } = useDispatchStore();
+  // §34: đang làm nhiệm vụ → tổ chốt trên lượt điều xe (có thể là tổ trạm khác đi hỗ trợ); còn lại → tổ hiện tại của xe.
+  const assignedTeam = useAssignmentTeam()(
+    vehicle.id,
+    incident ? findVehicleAssignment(assignmentsByIncident.get(incident.id), vehicle.id, vehicle.assignmentId) : null
+  );
+  const team = assignedTeam?.team ?? null;
   const statusMeta =
     vehicle.unitStatus === 'OutOfService'
       ? { label: t('enums.vehicleStatus.outOfService'), color: '#64748B' }
@@ -138,12 +144,16 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam
       <div className="space-y-1 pt-1.5 border-t border-slate-100">
         <PopupRow icon={Building2}>{vehicle.stationName}</PopupRow>
         <PopupRow icon={team && leader ? Crown : Users}>
-          {team ? (
+          {assignedTeam ? (
             <>
-              <span className="font-semibold text-slate-800">{team.name}</span>
-              {' · '}
-              {leader?.fullName ? `${leader.fullName} · ` : ''}
-              {t('liveMap.map.teamMembers', { count: team.members.length })}
+              <span className="font-semibold text-slate-800">{assignedTeam.name}</span>
+              {team && (
+                <>
+                  {' · '}
+                  {leader?.fullName ? `${leader.fullName} · ` : ''}
+                  {t('liveMap.map.teamMembers', { count: team.members.length })}
+                </>
+              )}
             </>
           ) : (
             <span className="text-amber-700">{t('liveMap.map.noTeam')}</span>

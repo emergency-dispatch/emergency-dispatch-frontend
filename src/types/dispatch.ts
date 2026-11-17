@@ -38,6 +38,9 @@ export interface DispatchAssignmentResponseDto {
   incidentSeverity: string;
   rescueUnitId: string;
   rescueUnit?: RescueUnitInAssignment;
+  /** §34: tổ được giao (chốt lúc phát lệnh); null = lượt cũ của xe chưa gán tổ. */
+  stationTeamId?: string | null;
+  stationTeamName?: string | null;
   dispatchedAt: string;
   acceptedAt?: string | null;
   arrivedAt?: string | null;

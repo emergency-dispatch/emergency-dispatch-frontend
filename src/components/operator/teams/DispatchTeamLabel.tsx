@@ -9,12 +9,14 @@ import { useTranslation } from '../../../i18n';
 interface DispatchTeamLabelProps {
   team: StationTeam;
   vehicle: Vehicle;
+  /** §34: tên tổ chốt trên lượt điều xe (có thể khác tên hiện tại nếu tổ vừa đổi tên). */
+  name?: string;
   /** Dòng phụ dưới cùng (khoảng cách, trạng thái, ETA…), đứng sau biển số xe. */
   detail?: React.ReactNode;
 }
 
 /** Tổ trong Dispatch Panel: tên tổ + chức năng (theo loại xe), tổ trưởng / số người, biển số xe ghi nhỏ. */
-export const DispatchTeamLabel: React.FC<DispatchTeamLabelProps> = ({ team, vehicle, detail }) => {
+export const DispatchTeamLabel: React.FC<DispatchTeamLabelProps> = ({ team, vehicle, name, detail }) => {
   const { t } = useTranslation();
   const fn = TEAM_FUNCTION_META[vehicle.type];
   const FnIcon = fn.icon;
@@ -27,7 +29,7 @@ export const DispatchTeamLabel: React.FC<DispatchTeamLabelProps> = ({ team, vehi
   return (
     <div className="min-w-0 space-y-0.5">
       <div className="flex items-center gap-1.5 min-w-0">
-        <span className="text-xs font-bold text-slate-900 truncate">{team.name}</span>
+        <span className="text-xs font-bold text-slate-900 truncate">{name ?? team.name}</span>
         <span
           className={`inline-flex items-center gap-0.5 px-1.5 py-px rounded border text-[9px] font-bold whitespace-nowrap shrink-0 ${fn.badgeClass}`}
         >

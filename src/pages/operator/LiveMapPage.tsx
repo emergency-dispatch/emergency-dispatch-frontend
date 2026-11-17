@@ -273,7 +273,7 @@ export const LiveMapPage: React.FC = () => {
               key={selectedCase.id}
               incident={selectedCase}
               vehiclesById={vehiclesById}
-              teamByVehicle={teamByVehicle}
+              assignments={ownAssignments ?? []}
               completion={completion}
               onOpenCompletion={() => navigate(`${COMPLETION_PATH}?incident=${encodeURIComponent(selectedCase.id)}`)}
               isCancelling={cancellingIncidentId === selectedCase.id}

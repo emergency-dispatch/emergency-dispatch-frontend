@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Building2, Crown, Pencil, Trash2 } from 'lucide-react';
+import { AlertTriangle, Ban, Building2, Crown, Pencil, Trash2 } from 'lucide-react';
 import { LockableButton, VehicleStatusBadge } from '../../admin/common/ui';
 import { iconButtonClass } from '../../admin/common/styles';
 import { TEAM_FUNCTION_META } from './teamFunction';
@@ -30,21 +30,36 @@ export const TeamCard: React.FC<TeamCardProps> = ({ team, staffById, vehiclesByI
   const understaffed = team.members.length < MIN_TEAM_SIZE;
   // Biển số từ backend dùng khi xe không còn trong danh sách xe của trạm (đã xóa / chuyển trạm).
   const vehicles = team.vehicleIds.map((id, i) => ({ id, vehicle: vehiclesById.get(id), plate: team.vehiclePlates[i] }));
-  const functionTypes = [...new Set(vehicles.flatMap(({ vehicle }) => (vehicle ? [vehicle.type] : [])))];
+  // §34: chức năng = mã loại xe tổ phụ trách (backend); màu theo nhóm xe của chiếc mang loại đó.
+  const functions = team.functions.map((code) => {
+    const type = vehicles.find(({ vehicle }) => vehicle?.unitType === code)?.vehicle?.type ?? 'rescue';
+    return { code, meta: TEAM_FUNCTION_META[type] };
+  });
+  // Không giao được: thiếu xe hoặc chưa có nhân viên cứu hộ đang hoạt động (tài khoản bị khóa cũng tính là không).
+  const blockReason = team.canBeAssigned
+    ? null
+    : vehicles.length === 0
+      ? t('teams.card.cannotAssignNoVehicle')
+      : t('teams.card.cannotAssignNoStaff');
 
   return (
-    <div className={`rounded-xl border bg-white p-4 space-y-3 ${understaffed ? 'border-amber-300' : 'border-slate-200'}`}>
+    <div
+      className={`rounded-xl border bg-white p-4 space-y-3 ${
+        blockReason ? 'border-red-300' : understaffed ? 'border-amber-300' : 'border-slate-200'
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <h3 className="text-sm font-bold text-slate-900 truncate">{team.name}</h3>
-            {functionTypes.length > 0 ? (
-              functionTypes.map((type) => (
+            {functions.length > 0 ? (
+              functions.map(({ code, meta }) => (
                 <span
-                  key={type}
-                  className={`px-1.5 py-0.5 rounded border text-[10px] font-bold whitespace-nowrap shrink-0 ${TEAM_FUNCTION_META[type].badgeClass}`}
+                  key={code}
+                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-bold whitespace-nowrap shrink-0 ${meta.badgeClass}`}
                 >
-                  {t(`enums.teamFunction.${type}`)}
+                  <meta.icon className="w-3 h-3" />
+                  {unitTypeLabel(code)}
                 </span>
               ))
             ) : (
@@ -113,7 +128,15 @@ export const TeamCard: React.FC<TeamCardProps> = ({ team, staffById, vehiclesByI
         </div>
       </div>
 
-      {understaffed && (
+      {blockReason ? (
+        <div
+          role="status"
+          className="flex items-start gap-1.5 rounded-md bg-red-50 border border-red-200 px-2.5 py-1.5 text-[11px] font-semibold text-red-700"
+        >
+          <Ban className="w-3.5 h-3.5 shrink-0 mt-px" />
+          {blockReason}
+        </div>
+      ) : understaffed && (
         <div className="flex items-center gap-1.5 rounded-md bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
           {t('teams.card.understaffed', { size: team.members.length, min: MIN_TEAM_SIZE })}
