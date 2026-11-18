@@ -30,13 +30,36 @@ export type HazardTag = 'fire' | 'accident' | 'traffic_jam';
 /** IncidentEventType của backend. */
 export type BackendEventType = 'None' | 'FireExplosion' | 'TrafficAccident' | 'Other';
 
-/** §31.E: kết quả AI tự điều phối của một sự cố. */
-export type AutoDispatchState = 'None' | 'Dispatched' | 'Skipped';
+/**
+ * §31.E: kết quả AI tự điều phối của một sự cố. `NotEligible` (§35): AI đã xét nhưng ca không đủ điều kiện — chỉ là
+ * nhãn lý do, không phải "AI đã làm gì" (không toast / còi).
+ */
+export type AutoDispatchState = 'None' | 'Dispatched' | 'Skipped' | 'NotEligible';
+
+/** §35: mã lý do backend lưu kèm kết quả tự điều phối (`autoDispatchReasonCode` / `reasonCode`). */
+export type AutoDispatchReasonCode =
+  // NotEligible
+  | 'below-threshold'
+  | 'confidence-not-measured'
+  | 'operator-handling'
+  | 'ai-failed'
+  | 'ai-type-mismatch'
+  | 'type-not-ai-recognizable'
+  | 'reporter-chose-other'
+  | 'unclassified'
+  | 'out-of-service-area'
+  | 'linked-report'
+  // Skipped
+  | 'suspected-duplicate'
+  | 'no-teams'
+  | 'assign-failed'
+  // Dispatched: chưa đủ số tổ theo kế hoạch
+  | 'partial';
 
 /**
  * §31.E: lý do sự cố không đủ điều kiện AI tự điều phối — mirror `AutoDispatchService.IneligibleReason` của backend
- * (cùng thứ tự). Backend KHÔNG lưu / phát lý do này (chỉ ghi log) nên FE tự suy từ dữ liệu sự cố. Khóa mềm và ngưỡng
- * độ tin cậy xét riêng (cần cài đặt / thời điểm) → xem `autoDispatchVerdict`.
+ * (cùng thứ tự). Từ §35 backend lưu lý do (`autoDispatchReasonCode`, xem `autoDispatchNotEligible`); FE vẫn tự suy
+ * cho ca cũ / ca backend chưa chấm. Khóa mềm và ngưỡng độ tin cậy xét riêng → xem `autoDispatchVerdict`.
  */
 export type AutoDispatchIneligibleReason =
   | 'outOfServiceArea'
@@ -47,12 +70,30 @@ export type AutoDispatchIneligibleReason =
   | 'confidenceNotMeasured'
   | 'aiTypeMismatch';
 
+/** §35: lý do "không đủ điều kiện" backend đã lưu, theo tên FE (gồm cả ngưỡng và khóa mềm). */
+export type AutoDispatchNotEligibleReason = AutoDispatchIneligibleReason | 'belowThreshold' | 'operatorHandling';
+
+const NOT_ELIGIBLE_REASON_FROM_CODE: Partial<Record<AutoDispatchReasonCode, AutoDispatchNotEligibleReason>> = {
+  'out-of-service-area': 'outOfServiceArea',
+  unclassified: 'unclassified',
+  'type-not-ai-recognizable': 'typeNotAiRecognizable',
+  'reporter-chose-other': 'reporterChoseOther',
+  'ai-failed': 'aiFailed',
+  'confidence-not-measured': 'confidenceNotMeasured',
+  'ai-type-mismatch': 'aiTypeMismatch',
+  'below-threshold': 'belowThreshold',
+  'operator-handling': 'operatorHandling',
+  // 'linked-report': ca đã gộp bị ẩn khỏi hàng đợi → không cần nhãn.
+};
+
 /** SignalR ReceiveAutoDispatched (Operator trạm phụ trách + Admin). */
 export interface AutoDispatchEventDto {
   incidentId: string;
   responsibleStationId: string | null;
   state: Exclude<AutoDispatchState, 'None'>;
   note: string | null;
+  /** §35: mã lý do (xem `AutoDispatchReasonCode`); backend cũ không có. */
+  reasonCode?: AutoDispatchReasonCode | null;
   /** 0–1. */
   confidence: number | null;
   /** Biển số các xe đã điều (khi Dispatched), chuỗi nối sẵn. */
@@ -139,12 +180,16 @@ export interface Incident {
    * điều xe theo mức (§32). null = backend cũ chưa trả.
    */
   incidentTypeCode: string | null;
-  /** §31.E: AI tự điều phối — null = không áp dụng (state None). */
+  /** §31.E: AI đã hành động (Dispatched / Skipped) — null = chưa / không áp dụng (None, NotEligible). */
   autoDispatch: {
-    state: Exclude<AutoDispatchState, 'None'>;
+    state: 'Dispatched' | 'Skipped';
     note: string | null;
     suspectedDuplicateOfId: string | null;
+    /** §35: Dispatched nhưng chưa đủ số tổ theo kế hoạch (`reasonCode = partial`). */
+    partial: boolean;
   } | null;
+  /** §35: backend đã xét và lưu lý do không đủ điều kiện (state NotEligible). null = chưa lưu → FE tự suy. */
+  autoDispatchNotEligible: AutoDispatchNotEligibleReason | null;
   /** Độ tin cậy AI là xác suất đo thật (logprob); false = chỉ tham khảo; null = không rõ nguồn (AI / backend cũ). */
   confidenceMeasured: boolean | null;
   /** §31.E: lý do không đủ điều kiện AI tự điều phối (null = đủ, còn xét khóa mềm + ngưỡng). Vô nghĩa khi aiPending. */
@@ -375,6 +420,8 @@ export interface IncidentResponseDto {
   autoDispatchState?: AutoDispatchState;
   /** Lý do / mô tả kết quả tự điều phối (song ngữ theo Accept-Language). */
   autoDispatchNote?: string | null;
+  /** §35: mã lý do kèm kết quả tự điều phối (null = không có / backend cũ). */
+  autoDispatchReasonCode?: AutoDispatchReasonCode | null;
   /** AI phát hiện nghi trùng với sự cố đã được điều xe → Operator kiểm tra, gộp hoặc điều thêm. */
   suspectedDuplicateOfIncidentId?: string | null;
   /** (Sự cố gốc) Số báo cáo đang được gom vào sự cố này — hiện "+N người cùng báo". */
@@ -767,12 +814,17 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
     // Backend cũ chưa có trường này → dùng mã của nhóm (mã loại hệ thống trùng tên nhóm).
     incidentTypeCode: dto.incidentTypeCode || (dto.eventType && dto.eventType !== 'None' ? dto.eventType : null),
     autoDispatch:
-      dto.autoDispatchState && dto.autoDispatchState !== 'None'
+      dto.autoDispatchState === 'Dispatched' || dto.autoDispatchState === 'Skipped'
         ? {
             state: dto.autoDispatchState,
             note: dto.autoDispatchNote ?? null,
             suspectedDuplicateOfId: dto.suspectedDuplicateOfIncidentId ?? null,
+            partial: dto.autoDispatchState === 'Dispatched' && dto.autoDispatchReasonCode === 'partial',
           }
+        : null,
+    autoDispatchNotEligible:
+      dto.autoDispatchState === 'NotEligible' && dto.autoDispatchReasonCode
+        ? NOT_ELIGIBLE_REASON_FROM_CODE[dto.autoDispatchReasonCode] ?? null
         : null,
     confidenceMeasured: ai?.confidenceSource ? ai.confidenceSource.startsWith('logprob') : null,
     autoDispatchIneligible: autoDispatchIneligibleOf(dto),

@@ -80,6 +80,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
       aiTypeMismatch: 'The type AI recognized differs from the recorded incident type.',
       belowThreshold: 'Confidence {{confidence}}% is below the auto-dispatch threshold of {{threshold}}%.',
       operatorHandling: '{{name}} opened the case before AI finished, so AI did not dispatch it.',
+      operatorHandlingNoName: 'A dispatcher was holding the case when AI finished, so AI did not dispatch it.',
       skipped: 'AI tried to dispatch but skipped this case.',
       undecided: 'AI finished analysing but has not dispatched — please handle it manually.',
     },
@@ -142,6 +143,8 @@ export const layoutEn: Messages<typeof layoutVi> = {
     crewRejectedTitle: 'Crew declined the mission',
     crewTimeoutTitle: 'Crew did not respond',
     crewRejectedMessage: '{{unit}} · {{incident}} · {{reason}}',
+    crewRejectedIncidentClosed: 'The incident closed automatically because other teams have signed off.',
+    crewRejectedNoTeamLeft: 'No team is handling it any more — assign a replacement team.',
   },
   stationNotAssigned: {
     title: 'No assigned station',

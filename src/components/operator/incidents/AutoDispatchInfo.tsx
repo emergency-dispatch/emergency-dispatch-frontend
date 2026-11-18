@@ -31,6 +31,9 @@ export const AutoDispatchBadge: React.FC<{ incident: AutoDispatchIncident }> = (
         : t('incidents.autoDispatch.badgeSkipped')}
       {auto.suspectedDuplicateOfId && <span aria-hidden>·</span>}
       {auto.suspectedDuplicateOfId && t('incidents.autoDispatch.badgeDuplicate')}
+      {/* §35: AI điều chưa đủ số tổ theo kế hoạch */}
+      {auto.partial && <span aria-hidden>·</span>}
+      {auto.partial && <span title={t('incidents.autoDispatch.badgePartialTitle')}>{t('incidents.autoDispatch.badgePartial')}</span>}
     </span>
   );
 };
@@ -162,10 +165,12 @@ export const HandoverReasonBox: React.FC<HandoverReasonBoxProps> = ({
     incident.lock?.operatorId === currentOperatorId
       ? t('layout.incomingIncident.you')
       : incident.lock?.operatorName || t('layout.incomingIncident.anotherOperator');
+  // §35: lý do "đang giữ ca" do backend lưu có thể đến sau khi khóa đã nhả → không biết ai giữ.
+  const reasonKey = reason === 'operatorHandling' && !incident.lock ? 'operatorHandlingNoName' : reason;
   const text =
     reason === 'skipped' && incident.autoDispatch?.note
       ? incident.autoDispatch.note
-      : t(`layout.incomingIncident.reasons.${reason}`, {
+      : t(`layout.incomingIncident.reasons.${reasonKey}`, {
           confidence: incident.confidenceScore,
           threshold: threshold ?? 0,
           name: lockName,

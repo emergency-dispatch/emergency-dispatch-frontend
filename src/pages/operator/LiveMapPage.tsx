@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useDispatchRoutes } from '../../hooks/useDispatchRoutes';
 import { DispatchIncidentList } from '../../components/operator/livemap/DispatchIncidentList';
@@ -78,6 +78,8 @@ export const LiveMapPage: React.FC = () => {
   const [cancellingVehicleId, setCancellingVehicleId] = useState<string | null>(null);
   const [cancellingIncidentId, setCancellingIncidentId] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
+  /** §35: hệ quả của thao tác vừa xong (VD thu hồi lượt cuối → sự cố tự đóng / về hàng chờ). */
+  const [panelNotice, setPanelNotice] = useState<string | null>(null);
   // Tablet: bottom sheet
   const [sheetOpen, setSheetOpen] = useState(true);
 
@@ -141,6 +143,7 @@ export const LiveMapPage: React.FC = () => {
   const handleSelectIncident = (id: string | null) => {
     setSelectedIncidentId(id);
     setPanelError(null);
+    setPanelNotice(null);
     setServingRequestId(null);
     if (id) setSheetOpen(true);
   };
@@ -223,9 +226,11 @@ export const LiveMapPage: React.FC = () => {
   const handleCancelVehicle = async (vehicleId: string) => {
     setCancellingVehicleId(vehicleId);
     setPanelError(null);
+    setPanelNotice(null);
     const result = await cancelAssignment(vehicleId);
     setCancellingVehicleId(null);
     if (!result.ok) setPanelError(result.message ?? t('context.unassignFailed'));
+    else setPanelNotice(result.notice ?? null);
   };
 
   const handleCancelIncident = async (incidentId: string, reasonCode: OperatorCancellationCode) => {
@@ -265,6 +270,18 @@ export const LiveMapPage: React.FC = () => {
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <span className="flex-1">{panelError}</span>
                 <button onClick={() => setPanelError(null)} aria-label={t('liveMap.incidentList.dismissError')}>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            {panelNotice && (
+              <div
+                role="status"
+                className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
+              >
+                <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span className="flex-1">{panelNotice}</span>
+                <button onClick={() => setPanelNotice(null)} aria-label={t('common.close')}>
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>

@@ -270,7 +270,8 @@ export interface AssignOptions {
   notes?: string;
 }
 
-export type ActionResult = { ok: boolean; message?: string };
+/** `notice`: câu backend trả khi thành công mà Operator cần biết hệ quả (VD thu hồi lượt cuối → sự cố tự đóng). */
+export type ActionResult = { ok: boolean; message?: string; notice?: string };
 
 /** Kết quả Operator tự tạo sự cố: `errors` = lỗi kiểm tra từng trường backend trả kèm HTTP 400. */
 export type CreateIncidentResult =
@@ -939,6 +940,9 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // §31.E: AI tự điều phối xong (Dispatched) hoặc bỏ qua (Skipped). Lệnh giao xe vẫn đi qua sự kiện cũ, nhưng tải
       // lại bảng để có ngay sự cố đã xác minh + lượt phân công; GET sự cố để lấy tiêu đề cho thông báo.
       incidentHubService.on<AutoDispatchEventDto>(HubEvents.ReceiveAutoDispatched, (evt) => {
+        // §35: NotEligible đến với hầu hết sự cố, chỉ là nhãn lý do → không toast, không tải lại bảng (backend phát kèm
+        // ReceiveIncidentUpdate bản đầy đủ có autoDispatchState / autoDispatchReasonCode).
+        if (evt.state === 'NotEligible') return;
         refreshBoard();
         const notify = (title: string) => {
           const dispatched = evt.state === 'Dispatched';
@@ -1026,21 +1030,36 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const incident = incidentDtosRef.current.get(a.incidentId);
         // BR-21: đội vừa từ chối / không phản hồi → báo ở mọi trang (Operator thường đã quay về Hàng đợi sau khi giao).
         if (a.status === 'Rejected' && previousStatus !== 'Rejected' && incident) {
-          staffAudioService.playPriorityBeep();
-          pushOperatorAlert({
-            kind: 'crew_rejected',
-            incidentId: a.incidentId,
-            title: i18n.t(
-              a.rejectionReason === 'NoResponse'
-                ? 'layout.operatorAlerts.crewTimeoutTitle'
-                : 'layout.operatorAlerts.crewRejectedTitle'
-            ),
-            message: i18n.t('layout.operatorAlerts.crewRejectedMessage', {
-              unit: a.rescueUnit?.plateNumber ?? '—',
-              incident: incident.title,
-              reason: a.rejectionNotes?.trim() || i18n.t(`enums.rejectionReason.${a.rejectionReason ?? 'Other'}`),
-            }),
+          // §35: tổ cuối từ chối → backend tự xét sự cố: đã có tổ nghiệm thu → tự đóng; chưa → cần giao tổ thay thế.
+          const others = [...assignmentsRef.current.values()].filter((x) => x.incidentId === a.incidentId && x.id !== a.id);
+          const wasLast = !others.some(isActiveAssignment);
+          const closed = wasLast && others.some((x) => x.status === 'Completed');
+          const base = i18n.t('layout.operatorAlerts.crewRejectedMessage', {
+            unit: a.rescueUnit?.plateNumber ?? '—',
+            incident: incident.title,
+            reason: a.rejectionNotes?.trim() || i18n.t(`enums.rejectionReason.${a.rejectionReason ?? 'Other'}`),
           });
+          const hint = closed
+            ? i18n.t('layout.operatorAlerts.crewRejectedIncidentClosed')
+            : wasLast
+              ? i18n.t('layout.operatorAlerts.crewRejectedNoTeamLeft')
+              : null;
+          if (!closed) staffAudioService.playPriorityBeep();
+          pushOperatorAlert(
+            {
+              kind: 'crew_rejected',
+              incidentId: a.incidentId,
+              title: i18n.t(
+                a.rejectionReason === 'NoResponse'
+                  ? 'layout.operatorAlerts.crewTimeoutTitle'
+                  : 'layout.operatorAlerts.crewRejectedTitle'
+              ),
+              message: hint ? `${base}. ${hint}` : base,
+            },
+            // Sự cố đã tự đóng: không còn việc phải giao lại → tự đóng như thông báo thường.
+            closed ? INFO_ALERT_MS : undefined
+          );
+          if (wasLast) refreshBoard();
         }
         // Tổ vừa nộp nghiệm thu cho sự cố trạm mình → báo nhẹ, mở thẳng màn Nghiệm thu.
         if (a.status === 'Completed' && report && !wasCompleted && incident && !announcedReportIdsRef.current.has(report.id)) {
@@ -1576,17 +1595,30 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     respondFieldRequest(() => fieldRequestService.decline(id, note));
 
   // Hủy lệnh điều phối của một xe — không tự gán xe thay thế, Operator chọn lại từ gợi ý.
+  // §35: thu hồi lượt cuối → backend tự xét sự cố (đã có tổ nghiệm thu → đóng; chưa → về hàng chờ / giữ leo thang).
   const cancelAssignment = async (vehicleId: string): Promise<ActionResult> => {
     const vehicle = vehicles.find((v) => v.id === vehicleId);
-    if (!vehicle?.assignmentId) return { ok: false, message: i18n.t('context.noActiveAssignment') };
+    const assignmentId = vehicle?.assignmentId;
+    if (!assignmentId) return { ok: false, message: i18n.t('context.noActiveAssignment') };
+    const incidentId = assignmentsRef.current.get(assignmentId)?.incidentId;
+    const wasLast =
+      !!incidentId &&
+      ![...assignmentsRef.current.values()].some(
+        (a) => a.id !== assignmentId && a.incidentId === incidentId && isActiveAssignment(a)
+      );
     try {
-      const res = await dispatchService.updateAssignmentStatus(vehicle.assignmentId, {
+      const res = await dispatchService.updateAssignmentStatus(assignmentId, {
         status: 'Cancelled',
         notes: 'Điều phối viên hủy giao xe.',
       });
       if (!res.success) return { ok: false, message: res.message || i18n.t('context.unassignFailed') };
       setAssignments((prev) => upsert(prev, [res.data]));
       refreshUnits();
+      // Lượt cuối: sự cố vừa đóng / về hàng chờ → tải lại bảng (bản realtime rút gọn có thể đến sau) và báo câu backend.
+      if (wasLast) {
+        refreshBoard();
+        return { ok: true, notice: res.message || undefined };
+      }
       return { ok: true };
     } catch (err) {
       if (isConflict(err)) {

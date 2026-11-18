@@ -430,6 +430,8 @@ export const incidentsVi = {
     badgeDispatched: 'AI tự điều phối · {{confidence}}%',
     badgeSkipped: 'AI bỏ qua',
     badgeDuplicate: 'nghi trùng',
+    badgePartial: 'chưa đủ tổ',
+    badgePartialTitle: 'AI đã điều nhưng chưa đủ số tổ theo kế hoạch — cân nhắc điều thêm.',
     dispatchedTitle: 'AI đã tự xác minh và điều xe (độ tin cậy {{confidence}}%)',
     skippedTitle: 'AI đủ tin cậy nhưng không tự điều phối',
     dispatchedHint: 'Operator vẫn hủy / đổi / điều thêm xe như bình thường.',

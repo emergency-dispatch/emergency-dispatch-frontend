@@ -3,7 +3,7 @@ import type { AutoDispatchIneligibleReason, Incident } from '../../../types/inci
 
 /**
  * Vì sao ca tới tay Operator thay vì được AI tự điều phối:
- * - lý do không đủ điều kiện (mirror backend, xem `AutoDispatchIneligibleReason`);
+ * - lý do không đủ điều kiện: backend lưu từ §35 (`autoDispatchNotEligible`), ca cũ thì FE tự suy (`AutoDispatchIneligibleReason`);
  * - `belowThreshold`: độ tin cậy đo thật nhưng thấp hơn ngưỡng Admin đặt;
  * - `operatorHandling`: ca đang bị Operator giữ (khóa mềm) lúc AI chấm → AI không chen vào;
  * - `skipped`: AI đã thử nhưng bỏ qua (nghi trùng / hết tổ / giao lỗi) — câu cụ thể ở `autoDispatch.note`;
@@ -59,6 +59,9 @@ export function autoDispatchVerdict(
   if (!settings?.enabled || options.transferred || incident.source !== 'CitizenApp') return { phase: 'manual' };
   if (incident.autoDispatch?.state === 'Skipped') return { phase: 'handover', reason: 'skipped' };
   if (incident.aiPending) return { phase: 'analyzing' };
+  // §35: backend đã chấm và lưu lý do → tin backend (đúng cả khóa mềm lúc AI chấm, ngưỡng lúc đó).
+  if (incident.autoDispatchNotEligible) return { phase: 'handover', reason: incident.autoDispatchNotEligible };
+  // Ca chưa có lý do lưu (ca cũ / backend chưa chấm xong) → tự suy như trước.
   if (incident.autoDispatchIneligible) return { phase: 'handover', reason: incident.autoDispatchIneligible };
   if (incident.confidenceScore < settings.minConfidence * 100) return { phase: 'handover', reason: 'belowThreshold' };
   // Xét khóa sau cùng (backend xét trước phần độ tin cậy): khóa có thể được đặt sau khi AI đã bỏ qua vì lý do khác.

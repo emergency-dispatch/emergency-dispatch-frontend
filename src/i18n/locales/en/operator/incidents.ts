@@ -429,6 +429,8 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     badgeDispatched: 'AI auto-dispatch · {{confidence}}%',
     badgeSkipped: 'AI skipped',
     badgeDuplicate: 'possible duplicate',
+    badgePartial: 'short of teams',
+    badgePartialTitle: 'AI dispatched fewer teams than the plan requires — consider adding more.',
     dispatchedTitle: 'AI verified and dispatched vehicles ({{confidence}}% confidence)',
     skippedTitle: 'AI was confident but did not auto-dispatch',
     dispatchedHint: 'Operators can still cancel, change or add vehicles as usual.',

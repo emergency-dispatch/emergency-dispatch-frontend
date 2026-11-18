@@ -77,6 +77,7 @@ export const layoutVi = {
       aiTypeMismatch: 'Loại sự cố AI nhận diện khác loại đang ghi nhận.',
       belowThreshold: 'Độ tin cậy {{confidence}}% thấp hơn ngưỡng tự điều phối {{threshold}}%.',
       operatorHandling: '{{name}} đã mở ca trước khi AI phân tích xong, nên AI không tự điều phối.',
+      operatorHandlingNoName: 'Ca đang được Điều phối viên giữ lúc AI phân tích xong, nên AI không tự điều phối.',
       skipped: 'AI đã thử điều phối nhưng bỏ qua ca này.',
       undecided: 'AI đã phân tích xong nhưng chưa tự điều phối được — hãy xử lý thủ công.',
     },
@@ -141,6 +142,8 @@ export const layoutVi = {
     crewRejectedTitle: 'Đội từ chối nhiệm vụ',
     crewTimeoutTitle: 'Đội không phản hồi',
     crewRejectedMessage: '{{unit}} · {{incident}} · {{reason}}',
+    crewRejectedIncidentClosed: 'Sự cố đã tự đóng vì tổ khác đã nghiệm thu.',
+    crewRejectedNoTeamLeft: 'Không còn tổ nào xử lý — cần giao tổ thay thế.',
   },
   stationNotAssigned: {
     title: 'Chưa có trạm phụ trách',
