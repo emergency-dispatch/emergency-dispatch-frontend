@@ -3,7 +3,7 @@ import type mapboxgl from 'mapbox-gl';
 import { Bot } from 'lucide-react';
 import { MapMarker } from './MapMarker';
 import { glowAiWorkingMarkerHtml } from './glowMarkers';
-import { AiTakeOver } from '../AiLane';
+import { AiStepGlyph, AiTakeOver } from '../AiLane';
 import { IncidentCode } from '../incidents/IncidentCode';
 import { aiProgressOf, formatWaitTime, isAiWorking, useIncomingTriage } from '../incidents/incomingTriage';
 import { useDispatchStore } from '../../../context/DispatchContext';
@@ -58,7 +58,10 @@ export const AiWorkingMarkers: React.FC<{
                 {incident.aiPending ? t('layout.aiLane.pendingAi') : incidentKindLabel(incident)}
               </p>
               <p className="text-xs text-slate-600">{incident.area}</p>
-              <p className={`text-[11px] ${progress.slow ? 'text-amber-800' : 'text-indigo-800'}`}>
+              <p
+                className={`flex items-center gap-1.5 text-[11px] ${progress.slow ? 'text-amber-800' : 'text-indigo-800'}`}
+              >
+                <AiStepGlyph phase={progress.phase} />
                 {progress.slow
                   ? t('layout.aiLane.slow')
                   : progress.phase === 'analyzing'

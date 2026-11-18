@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, ChevronDown, MapPin, X } from 'lucide-react';
+import { Bot, Building2, ChevronDown, Image as ImageIcon, MapPin, Truck, X } from 'lucide-react';
 import { SEVERITY_LEVEL_COLOR } from '../../data/incidentMock';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { SeverityBadge } from './incidents/SeverityBadge';
@@ -14,6 +14,7 @@ import {
   type AiWorkingItem,
 } from './incidents/incomingTriage';
 import { useTranslation } from '../../i18n';
+import './aiLane.css';
 
 const QUEUE_PATH = '/dashboard/command-center/incidents';
 const LIVE_MAP_PATH = '/dashboard/command-center/live-map';
@@ -41,7 +42,7 @@ const railStyle = (item: AiWorkingItem): React.CSSProperties =>
 
 /**
  * Thanh thời gian 2 đoạn: Phân tích ảnh (so với mốc ~2 phút backend chờ AI) | Điều phối (so với hạn 20 s).
- * Đoạn đang chạy chuyển vàng khi lâu hơn thường lệ.
+ * Đoạn đang chạy chuyển vàng khi lâu hơn thường lệ, và có vệt sáng quét qua để thấy AI vẫn đang làm.
  */
 const SegmentBar: React.FC<{ progress: AiProgress; className?: string; height?: string }> = ({
   progress,
@@ -56,6 +57,7 @@ const SegmentBar: React.FC<{ progress: AiProgress; className?: string; height?: 
         }`}
         style={{ width: `${fill * 100}%` }}
       />
+      {active && <span className="ai-lane-sweep" />}
     </span>
   );
   return (
@@ -112,7 +114,46 @@ export const AiTakeOver: React.FC<{ incidentId: string; onDone?: () => void }> =
   );
 };
 
-/** Ô nhỏ trên thanh trên cùng: viền cấp độ · đuôi mã · loại · thanh 2 đoạn · thời gian chờ. */
+/**
+ * Biểu tượng bước AI đang làm (đúng 2 giai đoạn backend có, không bịa bước con):
+ * - phân tích ảnh = khung ảnh có đường quét chạy lên xuống;
+ * - điều phối = ba chấm sáng lần lượt từ trạm sang xe (đang chọn tổ).
+ */
+export const AiStepGlyph: React.FC<{ phase: 'analyzing' | 'deciding' }> = ({ phase }) => {
+  const { t } = useTranslation();
+  const label = phase === 'analyzing' ? t('layout.aiLane.analyzing') : t('layout.aiLane.deciding');
+  if (phase === 'analyzing') {
+    return (
+      <span role="img" aria-label={label} title={label} className="relative w-4 h-4 shrink-0 text-indigo-600">
+        <ImageIcon className="w-4 h-4" strokeWidth={2} />
+        <span
+          aria-hidden
+          className="ai-lane-scanline absolute left-0 right-0 top-[2px] h-[1.5px] rounded-full bg-indigo-500 shadow-[0_0_4px_theme(colors.indigo.400)]"
+          style={{ ['--ai-lane-scan-travel' as string]: '11px' }}
+        />
+      </span>
+    );
+  }
+  return (
+    <span role="img" aria-label={label} title={label} className="flex items-center gap-[2px] shrink-0 text-indigo-600">
+      <Building2 className="w-3 h-3" strokeWidth={2.25} />
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          aria-hidden
+          className="ai-lane-dot w-[3px] h-[3px] rounded-full bg-indigo-500"
+          style={{ animationDelay: `${i * 0.2}s` }}
+        />
+      ))}
+      <Truck className="w-3 h-3" strokeWidth={2.25} />
+    </span>
+  );
+};
+
+/** Ca đã "nhận" trong phiên này — vòng sáng lúc nhận ca chỉ chạy lần đầu, không chạy lại khi ô dời sang "+N". */
+const pickedUpIds = new Set<string>();
+
+/** Ô nhỏ trên thanh trên cùng: viền cấp độ · biểu tượng bước · đuôi mã · loại · thanh 2 đoạn · thời gian chờ. */
 const Ticket: React.FC<{
   item: AiWorkingItem;
   now: number;
@@ -125,30 +166,39 @@ const Ticket: React.FC<{
   const progress = aiProgressOf(item, now);
   const { incident } = item;
   const kind = incident.aiPending ? t('layout.aiLane.sos') : incidentKindLabel(incident);
+  // B: lần đầu ô xuất hiện = AI vừa nhận ca → điểm sáng chạy một vòng quanh viền (giữ trong state để không tắt giữa chừng
+  // khi đồng hồ chạy làm ô vẽ lại).
+  const [pickup] = useState(() => !pickedUpIds.has(incident.id));
+  useEffect(() => {
+    pickedUpIds.add(incident.id);
+  }, [incident.id]);
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-expanded={expanded}
-      title={`${incident.code || incident.title} · ${incident.area}`}
-      className={`flex items-stretch h-9 rounded-md border bg-white overflow-hidden text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-indigo-600 ${
-        expanded ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-300'
-      } ${fullWidth ? 'w-full' : 'shrink-0'}`}
-    >
-      <span aria-hidden className="w-1 shrink-0 bg-indigo-400" style={railStyle(item)} />
-      <span className={`flex items-center gap-2 px-2.5 min-w-0 ${fullWidth ? 'flex-1' : ''}`}>
-        <span className="font-mono-data text-xs font-bold text-slate-900 tabular-nums">
-          {incident.code ? codeTail(incident.code) : '—'}
+    <span className={`relative flex rounded-md ${pickup ? 'ai-lane-pickup' : ''} ${fullWidth ? 'w-full' : 'shrink-0'}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-expanded={expanded}
+        title={`${incident.code || incident.title} · ${incident.area}`}
+        className={`flex items-stretch h-9 rounded-md border bg-white overflow-hidden text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-indigo-600 ${
+          expanded ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-300'
+        } ${fullWidth ? 'w-full' : ''}`}
+      >
+        <span aria-hidden className="w-1 shrink-0 bg-indigo-400" style={railStyle(item)} />
+        <span className={`flex items-center gap-2 px-2.5 min-w-0 ${fullWidth ? 'flex-1' : ''}`}>
+          <AiStepGlyph phase={progress.phase} />
+          <span className="font-mono-data text-xs font-bold text-slate-900 tabular-nums">
+            {incident.code ? codeTail(incident.code) : '—'}
+          </span>
+          <span className={`text-[11px] text-slate-600 truncate ${fullWidth ? 'flex-1' : 'max-w-[5.5rem]'}`}>{kind}</span>
+          <SegmentBar progress={progress} className="w-12 shrink-0" />
+          <span
+            className={`font-mono-data text-[11px] tabular-nums shrink-0 ${progress.slow ? 'text-amber-700 font-bold' : 'text-slate-500'}`}
+          >
+            {formatWaitTime(progress.elapsedSeconds)}
+          </span>
         </span>
-        <span className={`text-[11px] text-slate-600 truncate ${fullWidth ? 'flex-1' : 'max-w-[5.5rem]'}`}>{kind}</span>
-        <SegmentBar progress={progress} className="w-12 shrink-0" />
-        <span
-          className={`font-mono-data text-[11px] tabular-nums shrink-0 ${progress.slow ? 'text-amber-700 font-bold' : 'text-slate-500'}`}
-        >
-          {formatWaitTime(progress.elapsedSeconds)}
-        </span>
-      </span>
-    </button>
+      </button>
+    </span>
   );
 };
 
@@ -218,7 +268,7 @@ const TicketPanel: React.FC<{ item: AiWorkingItem; now: number; onClose: () => v
             role="status"
             className={`flex items-center gap-1.5 text-xs ${progress.slow ? 'text-amber-800' : 'text-indigo-800'}`}
           >
-            <Bot className="w-3.5 h-3.5 shrink-0" />
+            <AiStepGlyph phase={progress.phase} />
             {status}
           </p>
         </div>

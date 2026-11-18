@@ -1,0 +1,112 @@
+/*
+ * §31.E: hiệu ứng của dải "Ca AI đang xử lý" (AiLane). Để riêng ở đây thay vì tailwind.config.js / index.css (file dùng
+ * chung). Quy ước: chàm = việc của AI; chỉ một chuyển động chạy liên tục mỗi ô (biểu tượng bước + vệt quét trên thanh),
+ * viền chạy quanh ô chỉ một vòng lúc AI nhận ca. Giảm chuyển động → đứng yên hết.
+ */
+
+/* A — vệt sáng quét qua đoạn đang chạy của thanh 2 đoạn: AI vẫn đang làm dù phần tô đầy nhích rất chậm. */
+@keyframes ai-lane-sweep {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+.ai-lane-sweep {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 45%;
+  /* Chàm (không phải trắng): nền đoạn là indigo-100 nên vệt trắng gần như không thấy. */
+  background: linear-gradient(90deg, transparent, theme('colors.indigo.400'), transparent);
+  animation: ai-lane-sweep 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* B — lúc AI nhận ca: một điểm sáng chạy một vòng quanh viền ô rồi tắt. */
+@property --ai-lane-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes ai-lane-orbit {
+  from {
+    --ai-lane-angle: 0deg;
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  to {
+    --ai-lane-angle: 360deg;
+    opacity: 0;
+  }
+}
+.ai-lane-pickup::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: calc(0.375rem + 2px);
+  padding: 2px;
+  background: conic-gradient(
+    from var(--ai-lane-angle),
+    transparent 0 62%,
+    theme('colors.indigo.300') 80%,
+    theme('colors.indigo.600') 94%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: ai-lane-orbit 1.2s linear 1 forwards;
+  pointer-events: none;
+}
+
+/* C — biểu tượng bước "phân tích ảnh": đường quét chạy lên xuống trên khung ảnh. */
+@keyframes ai-lane-scanline {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(var(--ai-lane-scan-travel, 10px));
+  }
+}
+.ai-lane-scanline {
+  animation: ai-lane-scanline 1.4s ease-in-out infinite;
+}
+
+/* C — biểu tượng bước "điều phối": ba chấm sáng lần lượt từ trạm sang xe (đang chọn tổ). */
+@keyframes ai-lane-dot {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+.ai-lane-dot {
+  animation: ai-lane-dot 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-lane-sweep {
+    display: none;
+  }
+  .ai-lane-pickup::before {
+    animation: none;
+    opacity: 0;
+  }
+  .ai-lane-scanline,
+  .ai-lane-dot {
+    animation: none;
+    opacity: 1;
+  }
+}
