@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { notificationService, type NotificationDto } from '../services/notificationService';
 import { HubEvents, incidentHubService } from '../services/realtime/incidentHubService';
-import i18n from '../i18n';
+import i18n, { useTranslation } from '../i18n';
 
 const PAGE_SIZE = 20;
 
@@ -48,6 +48,16 @@ export function useNotifications() {
     ];
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
   }, [reload]);
+
+  // §41.6: GET /notifications trả theo ngôn ngữ của request → đổi VI / EN thì tải lại danh sách.
+  const { i18n: i18nInstance } = useTranslation();
+  const language = i18nInstance.language;
+  const loadedLanguage = useRef(language);
+  useEffect(() => {
+    if (loadedLanguage.current === language) return;
+    loadedLanguage.current = language;
+    reload();
+  }, [language, reload]);
 
   const markRead = useCallback(
     (id: string) => {

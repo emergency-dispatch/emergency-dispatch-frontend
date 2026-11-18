@@ -10,9 +10,10 @@ import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useAssignmentTeam } from '../../../hooks/useStationTeams';
-import type { DispatchAssignmentResponseDto } from '../../../types/dispatch';
+import { assignmentPlateLabel, type DispatchAssignmentResponseDto } from '../../../types/dispatch';
 import type { Incident } from '../../../types/incident';
 import { useTranslation } from '../../../i18n';
+import { IncidentCode } from './IncidentCode';
 
 interface AutoDispatchedDrawerProps {
   incident: Incident;
@@ -59,6 +60,7 @@ export const AutoDispatchedDrawer: React.FC<AutoDispatchedDrawerProps> = ({ inci
                   {incidentKindLabel(incident)}
                 </span>
                 <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+                <IncidentCode code={incident.code} className="text-slate-500" />
               </div>
               <h2 className="mt-1.5 text-lg font-bold text-slate-900 leading-snug">{incident.title}</h2>
               <p className="mt-0.5 flex items-start gap-1.5 text-xs text-slate-500">
@@ -141,7 +143,7 @@ const AssignmentRow: React.FC<{ assignment: DispatchAssignmentResponseDto }> = (
   const { unitTypeLabel } = useDispatchStore();
   const team = useAssignmentTeam()(assignment.rescueUnitId, assignment);
   const vehicleStatus = ASSIGNMENT_VEHICLE_STATUS[assignment.status];
-  const plate = assignment.rescueUnit?.plateNumber ?? '—';
+  const plate = assignmentPlateLabel(assignment);
   const unitType = assignment.rescueUnit?.unitType;
 
   let statusEl: React.ReactNode;

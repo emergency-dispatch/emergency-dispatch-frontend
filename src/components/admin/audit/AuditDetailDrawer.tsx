@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { ArrowRight, Lock, X } from 'lucide-react';
 import { labelClass } from '../common/styles';
+import { GuidText } from '../common/ui';
 import { actorNameLabel, actorRoleLabel, auditActionMeta, formatAuditTime, stateChanges } from './auditMeta';
 import type { AuditTrailEntryDto } from '../../../types/auditTrail';
 import { useTranslation } from '../../../i18n';
@@ -9,7 +10,7 @@ interface AuditDetailDrawerProps {
   entry: AuditTrailEntryDto;
   onClose: () => void;
   /** Lọc nhật ký theo sự cố của bản ghi này. */
-  onFilterIncident: (incidentId: string) => void;
+  onFilterIncident: (incidentCodeOrId: string) => void;
 }
 
 const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -63,17 +64,22 @@ export const AuditDetailDrawer: React.FC<AuditDetailDrawerProps> = ({ entry, onC
             </Row>
             <Row label={t('admin.monitoring.audit.incident')}>
               <div>{entry.incidentTitle || t('admin.monitoring.incident.missing')}</div>
-              <div className="font-mono-data text-xs text-slate-500">{entry.incidentId}</div>
+              <div className="flex items-center gap-2">
+                {entry.incidentCode && (
+                  <span className="font-mono-data text-xs font-semibold text-slate-700">{entry.incidentCode}</span>
+                )}
+                <GuidText value={entry.incidentId} />
+              </div>
               <button
                 type="button"
-                onClick={() => onFilterIncident(entry.incidentId)}
+                onClick={() => onFilterIncident(entry.incidentCode || entry.incidentId)}
                 className="mt-1 text-xs font-semibold text-red-600 hover:underline"
               >
                 {t('admin.monitoring.audit.viewIncidentRecords')}
               </button>
             </Row>
             <Row label={t('admin.monitoring.audit.recordId')}>
-              <span className="font-mono-data text-xs text-slate-500">{entry.id}</span>
+              <GuidText value={entry.id} />
             </Row>
           </dl>
 

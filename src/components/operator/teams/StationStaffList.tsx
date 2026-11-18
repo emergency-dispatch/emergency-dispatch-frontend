@@ -43,7 +43,13 @@ export const StationStaffList: React.FC<StationStaffListProps> = ({
     const term = normalizeText(search);
     return staff
       .filter((s) => !onlyWithoutTeam || !s.teamId)
-      .filter((s) => !term || normalizeText(s.fullName).includes(term) || s.phoneNumber.includes(term))
+      .filter(
+        (s) =>
+          !term ||
+          normalizeText(s.fullName).includes(term) ||
+          s.phoneNumber.includes(term) ||
+          normalizeText(s.staffCode ?? '').includes(term)
+      )
       .sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'));
   }, [staff, search, onlyWithoutTeam]);
 
@@ -107,6 +113,9 @@ export const StationStaffList: React.FC<StationStaffListProps> = ({
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-900 truncate flex items-center gap-1.5">
                     {s.fullName}
+                    {s.staffCode && (
+                      <span className="font-mono-data text-[11px] font-normal text-slate-500 shrink-0">{s.staffCode}</span>
+                    )}
                     {s.isLocked && (
                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-[9px] font-bold text-slate-500 uppercase">
                         <Lock className="w-2.5 h-2.5" />

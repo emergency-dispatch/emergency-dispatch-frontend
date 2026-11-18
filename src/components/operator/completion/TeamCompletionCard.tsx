@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CheckCircle2, Clock3, ImageOff, PenLine, PlayCircle, Truck, Users } from 'lucide-react';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import { formatDateTime, formatWaitDuration } from '../../../utils/incidentFormat';
-import type { DispatchAssignmentResponseDto } from '../../../types/dispatch';
+import { assignmentPlateLabel, type DispatchAssignmentResponseDto } from '../../../types/dispatch';
 import { ASSIGNMENT_VEHICLE_STATUS, isVideoUrl, reportTime, type CompletionGroup } from './completionGroups';
 import { useTranslation } from '../../../i18n';
 
@@ -24,7 +24,7 @@ const statusSince = (a: DispatchAssignmentResponseDto) =>
   (a.status === 'OnScene' ? a.arrivedAt : a.status === 'EnRoute' ? a.enRouteAt : a.status === 'Accepted' ? a.acceptedAt : null) ??
   a.dispatchedAt;
 
-const plateOf = (a: DispatchAssignmentResponseDto) => a.rescueUnit?.plateNumber ?? '—';
+const plateOf = (a: DispatchAssignmentResponseDto) => assignmentPlateLabel(a);
 
 export const TeamCompletionCard: React.FC<TeamCompletionCardProps> = ({ group, now, justSigned, onOpenMedia }) => {
   const { t } = useTranslation();

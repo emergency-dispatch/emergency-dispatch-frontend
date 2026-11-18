@@ -79,6 +79,8 @@ export const AUDIT_ACTIONS: AuditAction[] = [
 export interface AuditTrailEntryDto {
   id: string;
   incidentId: string;
+  /** §38: mã sự cố hiển thị SC-yyMMdd-NNNN. */
+  incidentCode?: string | null;
   incidentTitle: string | null;
   actorId: string | null;
   /** Tên người thao tác; tác vụ nền thì là tên vai trò (VD "AI Worker"). */

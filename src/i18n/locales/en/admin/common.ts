@@ -8,6 +8,8 @@ export const adminCommonEn: Messages<typeof adminCommonVi> = {
   allStatuses: 'All statuses',
   filterByStatus: 'Filter by status',
   clearFilters: 'Clear filters',
+  copyId: 'Copy full ID',
+  copied: 'Copied',
   invalidDateRange: 'The start date must be on or before the end date.',
   dateRange: {
     label: 'Date range',

@@ -1,7 +1,7 @@
 import React, { useLayoutEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { DispatchProvider } from '../../context/DispatchContext';
-import '../../services/operatorAdminLanguage';
+import { useSyncUiLanguage } from '../../services/operatorAdminLanguage';
 import { restoreStoredLanguage } from '../../i18n';
 import { EscalationAlert } from './EscalationAlert';
 import { IncomingIncidentToasts } from './IncomingIncidentToasts';
@@ -11,6 +11,7 @@ import { OperatorTopbar } from './OperatorTopbar';
 
 export const OperatorLayout: React.FC = () => {
   useLayoutEffect(restoreStoredLanguage, []);
+  useSyncUiLanguage();
   return (
     <DispatchProvider>
       <div className="h-screen w-screen flex bg-white text-slate-900 overflow-hidden">

@@ -27,6 +27,8 @@ export const teamsVi = {
     teamDeleted: 'Đã xóa {{name}}.',
     deleteBody: '{{count}} thành viên vẫn thuộc trạm và chuyển thành "chưa vào tổ".',
     deleteBodyVehicle: ' {{count}} xe của tổ sẽ không điều phối được cho tới khi gắn vào tổ khác.',
+    deleteBodyHistory:
+      ' Lịch sử nhiệm vụ vẫn giữ tên tổ, kèm ghi chú "(đã giải thể)". Tổ đang làm nhiệm vụ thì chưa xóa được.',
     teamUpdated: 'Đã cập nhật {{name}}.',
     teamCreated: 'Đã tạo {{name}}.',
   },

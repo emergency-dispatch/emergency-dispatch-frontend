@@ -70,7 +70,9 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ entries, loadi
               </td>
               <td className="px-4 py-3 max-w-[240px]">
                 <div className="text-slate-800 text-xs truncate">{e.incidentTitle || t('admin.monitoring.incident.missing')}</div>
-                <div className="text-[11px] text-slate-500 font-mono-data">{e.incidentId.slice(0, 8)}</div>
+                <div className="text-[11px] text-slate-500 font-mono-data" title={e.incidentId}>
+                  {e.incidentCode || `${e.incidentId.slice(0, 8)}…`}
+                </div>
               </td>
               <td className="px-4 py-3 text-xs text-slate-600 max-w-[360px]">
                 <span className="line-clamp-2">{e.description || '—'}</span>

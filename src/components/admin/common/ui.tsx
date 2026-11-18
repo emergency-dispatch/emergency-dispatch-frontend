@@ -1,5 +1,5 @@
-import React from 'react';
-import { ChevronLeft, ChevronRight, CircleCheck, CircleAlert, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Check, ChevronLeft, ChevronRight, CircleCheck, CircleAlert, Copy, X } from 'lucide-react';
 import { labelClass } from './styles';
 import { useTranslation } from '../../../i18n';
 
@@ -212,3 +212,37 @@ export const VehicleStatusBadge: React.FC<{ label: string; color: string }> = ({
     {label}
   </span>
 );
+
+/**
+ * §38: Guid kỹ thuật (id bản ghi, entityId) — rút gọn 8 ký tự + "…", tooltip là Guid đầy đủ, nút sao chép.
+ * Mã nghiệp vụ (SC-…, NV-…) hiển thị ở dòng chính; Guid chỉ để tra cứu kỹ thuật.
+ */
+export const GuidText: React.FC<{ value: string; className?: string }> = ({ value, className = '' }) => {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  const copy = () => {
+    navigator.clipboard
+      ?.writeText(value)
+      .then(() => setCopied(true))
+      .catch(() => undefined);
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 font-mono-data text-xs text-slate-500 ${className}`}>
+      <span title={value}>{value.length > 8 ? `${value.slice(0, 8)}…` : value}</span>
+      <button
+        type="button"
+        onClick={copy}
+        title={copied ? t('admin.common.copied') : t('admin.common.copyId')}
+        aria-label={copied ? t('admin.common.copied') : t('admin.common.copyId')}
+        className="p-0.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+      >
+        {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+      </button>
+    </span>
+  );
+};

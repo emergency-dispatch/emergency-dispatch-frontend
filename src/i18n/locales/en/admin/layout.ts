@@ -33,6 +33,7 @@ export const adminLayoutEn: Messages<typeof adminLayoutVi> = {
     serviceArea: 'Service area',
     duplicateDetection: 'Merge duplicate reports',
     reports: 'Incident reports',
+    completionReports: 'Completion reports',
     auditTrail: 'Audit Trail',
   },
 };

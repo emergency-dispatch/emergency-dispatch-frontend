@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { stationTeamService, type StationTeamsSnapshot } from '../services/stationTeamService';
-import type { DispatchAssignmentResponseDto } from '../types/dispatch';
+import { teamNameLabel, type DispatchAssignmentResponseDto } from '../types/dispatch';
 import type { StationTeam } from '../types/stationTeam';
 
 /** Nhân sự & tổ của mọi trạm, tự cập nhật khi Trưởng trạm thêm/sửa/xóa. */
@@ -39,9 +39,11 @@ export function useAssignmentTeam(): (
   return useCallback(
     (vehicleId, assignment) => {
       if (assignment?.stationTeamId) {
-        const team = teamsById.get(assignment.stationTeamId) ?? null;
+        // §40: tổ đã giải thể → không ghép chi tiết tổ hiện tại (tên có thể đã thuộc tổ mới), ghi rõ "(đã giải thể)".
+        const deleted = !!assignment.stationTeamDeleted;
+        const team = deleted ? null : teamsById.get(assignment.stationTeamId) ?? null;
         const name = assignment.stationTeamName || team?.name;
-        if (name) return { id: assignment.stationTeamId, name, team };
+        if (name) return { id: assignment.stationTeamId, name: teamNameLabel(name, deleted), team };
       }
       const team = teamByVehicle.get(vehicleId);
       return team ? { id: team.id, name: team.name, team } : null;

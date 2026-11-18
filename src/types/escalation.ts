@@ -44,6 +44,8 @@ export interface EscalationRuleInput {
 export interface EscalationLogDto {
   id: string;
   incidentId: string;
+  /** §38: mã sự cố hiển thị. */
+  incidentCode?: string | null;
   incidentTitle: string | null;
   incidentSeverity: BackendSeverityLevel;
   incidentStatus: BackendIncidentStatus;

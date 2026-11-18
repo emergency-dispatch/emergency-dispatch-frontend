@@ -2,7 +2,7 @@ import React, { Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminTopbar } from './AdminTopbar';
-import '../../services/operatorAdminLanguage';
+import { useSyncUiLanguage } from '../../services/operatorAdminLanguage';
 import { restoreStoredLanguage } from '../../i18n';
 
 const PageLoading: React.FC = () => (
@@ -18,6 +18,7 @@ const PageLoading: React.FC = () => (
 export const AdminLayout: React.FC = () => {
   // Hiển thị ngôn ngữ đã chọn (nút VI / EN trên Topbar, dùng chung lựa chọn với Command Center).
   useLayoutEffect(restoreStoredLanguage, []);
+  useSyncUiLanguage();
   const [collapsed, setCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 

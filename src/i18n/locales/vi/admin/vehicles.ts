@@ -10,6 +10,12 @@ export const adminVehiclesVi = {
   updated: 'Đã cập nhật xe {{plate}}.',
   deleted: 'Đã xóa xe {{plate}}.',
   statusChanged: 'Xe {{plate}} chuyển sang {{status}}.',
+  unstickDone: 'Đã gỡ kẹt — xe {{plate}} đã Sẵn sàng.',
+  unstickDialog: {
+    title: 'Đặt lại xe {{plate}} về Sẵn sàng?',
+    confirm: 'Đặt lại sẵn sàng',
+    body: 'Dùng khi xe ghi “{{status}}” nhưng thực tế không còn nhiệm vụ nào (trạng thái bị kẹt). Nếu xe còn lượt điều phối đang chạy hoặc đang giải tỏa điểm ùn tắc, hệ thống sẽ từ chối.',
+  },
   deleteDialog: {
     title: 'Xóa xe?',
     confirm: 'Xóa xe',
@@ -27,6 +33,7 @@ export const adminVehiclesVi = {
     edit: 'Sửa xe',
     toAvailable: 'Đưa xe về Sẵn sàng',
     toMaintenance: 'Đặt xe vào Bảo trì',
+    unstick: 'Đặt lại sẵn sàng (gỡ kẹt trạng thái)',
     delete: 'Xóa xe',
   },
   form: {

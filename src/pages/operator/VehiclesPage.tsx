@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Crown, Package, Pencil, Search, Truck, Users, Wrench } from 'lucide-react';
+import { AlertTriangle, Crown, Package, Pencil, RotateCcw, Search, Truck, Users, Wrench } from 'lucide-react';
 import { ConfirmModal, LockableButton, Notice, VehicleStatusBadge, type NoticeState } from '../../components/admin/common/ui';
 import { inputClass, thClass } from '../../components/admin/common/styles';
 import { VehicleFormDrawer } from '../../components/operator/vehicles/VehicleFormDrawer';
@@ -27,14 +27,30 @@ const statusLabel = (v: Vehicle) =>
     ? { label: i18n.t('enums.vehicleStatus.outOfService'), color: '#64748B' }
     : { label: i18n.t(`enums.vehicleStatus.${v.status}`), color: VEHICLE_STATUS_META[v.status].color };
 
-/** Hành động Operator được làm với một xe (chỉ Sẵn sàng ⇄ Bảo trì) hoặc lý do bị khóa. */
-function vehicleAction(v: Vehicle): { next: 'Available' | 'Maintenance' | null; lockedReason: string | null } {
-  if (isOnMission(v)) return { next: null, lockedReason: i18n.t('vehicles.locked.onMission') };
-  if (v.status === 'recovering') return { next: null, lockedReason: i18n.t('vehicles.locked.recovering') };
-  if (v.unitStatus === 'OutOfService') return { next: null, lockedReason: i18n.t('vehicles.locked.outOfService') };
-  if (v.unitStatus === 'Maintenance') return { next: 'Available', lockedReason: null };
-  if (v.status === 'available') return { next: 'Maintenance', lockedReason: null };
-  return { next: null, lockedReason: i18n.t('vehicles.locked.other') };
+/** Trạng thái nhiệm vụ của backend (RescueUnitService.IsOnMission) — Returning không còn được đặt, chỉ còn ở dữ liệu cũ. */
+const MISSION_UNIT_STATUSES = ['Dispatched', 'OnScene', 'Returning'];
+
+/**
+ * §35: xe "kẹt" — backend ghi trạng thái nhiệm vụ nhưng không còn lượt điều phối nào đang chạy (lệch dữ liệu).
+ * Xe đang giải tỏa điểm ùn tắc cũng ở Dispatched mà không có lượt → không phải kẹt.
+ */
+const isStuck = (v: Vehicle, onHotspot: boolean) =>
+  !v.assignmentId && !onHotspot && MISSION_UNIT_STATUSES.includes(v.unitStatus);
+
+type VehicleAction = { next: 'Available' | 'Maintenance' | null; lockedReason: string | null; unstick: boolean };
+
+/** Hành động Operator được làm với một xe (Sẵn sàng ⇄ Bảo trì, gỡ kẹt) hoặc lý do bị khóa. */
+function vehicleAction(v: Vehicle, onHotspot: boolean): VehicleAction {
+  if (isStuck(v, onHotspot)) return { next: 'Available', lockedReason: null, unstick: true };
+  const locked = (reason: string): VehicleAction => ({ next: null, lockedReason: reason, unstick: false });
+  // §40.5: backend chặn đổi trạng thái xe đang giải tỏa điểm ùn tắc.
+  if (onHotspot) return locked(i18n.t('vehicles.locked.onHotspot'));
+  if (isOnMission(v)) return locked(i18n.t('vehicles.locked.onMission'));
+  if (v.status === 'recovering') return locked(i18n.t('vehicles.locked.recovering'));
+  if (v.unitStatus === 'OutOfService') return locked(i18n.t('vehicles.locked.outOfService'));
+  if (v.unitStatus === 'Maintenance') return { next: 'Available', lockedReason: null, unstick: false };
+  if (v.status === 'available') return { next: 'Maintenance', lockedReason: null, unstick: false };
+  return locked(i18n.t('vehicles.locked.other'));
 }
 
 type FleetTab = 'vehicles' | 'equipment';
@@ -46,7 +62,7 @@ type FleetTab = 'vehicles' | 'equipment';
  */
 export const VehiclesPage: React.FC = () => {
   const { user, refreshProfile } = useAuth();
-  const { vehicles, stations, incidents, setVehicleStatus } = useDispatchStore();
+  const { vehicles, stations, incidents, trafficJams, setVehicleStatus } = useDispatchStore();
   const teamByVehicle = useTeamByVehicle();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -54,6 +70,12 @@ export const VehiclesPage: React.FC = () => {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [target, setTarget] = useState<Vehicle | null>(null);
+  // §40.5: xe đang được giao giải tỏa điểm ùn tắc (không có lượt điều phối nhưng vẫn ở trạng thái Dispatched).
+  const hotspotUnitIds = useMemo(
+    () => new Set(trafficJams.map((j) => j.assignedUnitId).filter((id): id is string => !!id)),
+    [trafficJams]
+  );
+  const actionOf = (v: Vehicle) => vehicleAction(v, hotspotUnitIds.has(v.id));
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<NoticeState>(null);
   /** undefined = đóng form · null = thêm xe mới · Vehicle = sửa xe đó. */
@@ -122,7 +144,7 @@ export const VehiclesPage: React.FC = () => {
 
   const handleConfirm = async () => {
     if (!target) return;
-    const { next } = vehicleAction(target);
+    const { next, unstick } = actionOf(target);
     if (!next) return;
     setSubmitting(true);
     const result = await setVehicleStatus(target.id, next);
@@ -131,8 +153,9 @@ export const VehiclesPage: React.FC = () => {
       result.ok
         ? {
             kind: 'success',
-            message:
-              next === 'Maintenance'
+            message: unstick
+              ? t('vehicles.page.unstickDone', { plate: target.plate })
+              : next === 'Maintenance'
                 ? t('vehicles.page.setMaintenanceDone', { plate: target.plate })
                 : t('vehicles.page.setAvailableDone', { plate: target.plate }),
           }
@@ -283,7 +306,7 @@ export const VehiclesPage: React.FC = () => {
                   const TypeIcon = VEHICLE_TYPE_META[v.type].icon;
                   const status = statusLabel(v);
                   const incident = v.incidentId ? incidentsById.get(v.incidentId) : undefined;
-                  const action = vehicleAction(v);
+                  const action = actionOf(v);
                   return (
                     <tr key={v.id} className="hover:bg-slate-50/60">
                       <td className="px-4 py-3">
@@ -385,15 +408,27 @@ export const VehiclesPage: React.FC = () => {
                           <LockableButton
                             onClick={() => setTarget(v)}
                             lockedReason={action.lockedReason}
-                            title={action.next === 'Maintenance' ? t('vehicles.page.setMaintenance') : t('vehicles.page.setAvailable')}
+                            title={
+                              action.unstick
+                                ? t('vehicles.page.unstickHint')
+                                : action.next === 'Maintenance'
+                                  ? t('vehicles.page.setMaintenance')
+                                  : t('vehicles.page.setAvailable')
+                            }
                             className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                              action.next === 'Available'
-                                ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                              action.unstick
+                                ? 'border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100'
+                                : action.next === 'Available'
+                                  ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                             }`}
                           >
-                            <Wrench className="w-3.5 h-3.5" />
-                            {action.next === 'Available' ? t('vehicles.page.setAvailable') : t('vehicles.page.setMaintenance')}
+                            {action.unstick ? <RotateCcw className="w-3.5 h-3.5" /> : <Wrench className="w-3.5 h-3.5" />}
+                            {action.unstick
+                              ? t('vehicles.page.unstick')
+                              : action.next === 'Available'
+                                ? t('vehicles.page.setAvailable')
+                                : t('vehicles.page.setMaintenance')}
                           </LockableButton>
                         </div>
                       </td>
@@ -441,18 +476,26 @@ export const VehiclesPage: React.FC = () => {
       {target && (
         <ConfirmModal
           title={
-            vehicleAction(target).next === 'Maintenance'
-              ? t('vehicles.page.confirmMaintenance', { plate: target.plate })
-              : t('vehicles.page.confirmAvailable', { plate: target.plate })
+            actionOf(target).unstick
+              ? t('vehicles.page.confirmUnstick', { plate: target.plate })
+              : actionOf(target).next === 'Maintenance'
+                ? t('vehicles.page.confirmMaintenance', { plate: target.plate })
+                : t('vehicles.page.confirmAvailable', { plate: target.plate })
           }
           confirmLabel={
-            vehicleAction(target).next === 'Maintenance' ? t('vehicles.page.setMaintenance') : t('vehicles.page.setAvailable')
+            actionOf(target).unstick
+              ? t('vehicles.page.unstick')
+              : actionOf(target).next === 'Maintenance'
+                ? t('vehicles.page.setMaintenance')
+                : t('vehicles.page.setAvailable')
           }
           submitting={submitting}
           onCancel={() => setTarget(null)}
           onConfirm={handleConfirm}
         >
-          {vehicleAction(target).next === 'Maintenance' ? (
+          {actionOf(target).unstick ? (
+            <p>{t('vehicles.page.unstickBody', { status: statusLabel(target).label })}</p>
+          ) : actionOf(target).next === 'Maintenance' ? (
             <p>
               {t('vehicles.page.maintenanceBody')}
               {teamByVehicle.get(target.id) &&

@@ -2,6 +2,7 @@ import { apiClient, unwrapApi } from './apiClient';
 import { UserRole, UserStatus, type ApiResponse, type UserResponseDto } from '../types/auth';
 import type { PaginatedResultDto } from '../types/incident';
 import type { CrewRole, StationStaff, StationTeam, StationTeamInput } from '../types/stationTeam';
+import { staffCodeOf } from '../types/internalAccount';
 
 // Store dùng chung cho màn Trạm & Tổ và Dispatch Panel (tổ đi kèm xe khi giao xe).
 // Tổ: GET/POST/PUT/DELETE /api/stations/{id}/teams. Nhân sự: RescueStaff từ GET /api/users (với Operator chỉ trả
@@ -33,7 +34,17 @@ interface StationTeamDto {
   /** [Cũ] Xe đầu tiên của tổ. */
   rescueUnitId: string | null;
   rescueUnitPlate: string | null;
-  members: Array<{ staffId: string; fullName: string; phoneNumber: string | null; crewRole: BackendCrewRole }>;
+  members: Array<{
+    staffId: string;
+    /** §38: mã nhân sự NV-NNNN. */
+    staffCode?: string | null;
+    fullName: string;
+    phoneNumber: string | null;
+    crewRole: BackendCrewRole;
+  }>;
+  /** §38: mã + tên trạm của tổ. */
+  stationCode?: string | null;
+  stationName?: string | null;
   isUnderstaffed: boolean;
   /** §34: loại xe tổ phụ trách; backend cũ chưa có. */
   functions?: string[];
@@ -55,7 +66,12 @@ const mapTeam = (dto: StationTeamDto): StationTeam => {
     name: dto.name,
     vehicleIds,
     vehiclePlates: dto.rescueUnitPlates ?? (dto.rescueUnitPlate ? [dto.rescueUnitPlate] : []),
-    members: dto.members.map((m) => ({ staffId: m.staffId, crewRole: toCrewRole(m.crewRole), fullName: m.fullName })),
+    members: dto.members.map((m) => ({
+      staffId: m.staffId,
+      crewRole: toCrewRole(m.crewRole),
+      fullName: m.fullName,
+      staffCode: m.staffCode ?? null,
+    })),
     functions: dto.functions ?? [],
     // Backend cũ chưa có cờ → suy gần đúng: có xe và có thành viên.
     canBeAssigned: dto.canBeAssigned ?? (vehicleIds.length > 0 && dto.members.length > 0),
@@ -77,6 +93,7 @@ function commit() {
     teams,
     staff: allStaff.map((u) => ({
       id: u.id,
+      staffCode: staffCodeOf(u),
       fullName: u.fullName,
       phoneNumber: u.phoneNumber ?? '',
       isLocked: u.status === UserStatus.Suspended,

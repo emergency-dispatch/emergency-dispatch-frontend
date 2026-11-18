@@ -115,7 +115,7 @@ export const CompletionPage: React.FC = () => {
   const pendingRows = useMemo<CompletionRow[]>(() => {
     const term = normalize(debouncedSearch);
     return pendingIncidents
-      .filter((i) => !term || normalize(`${i.title} ${i.area}`).includes(term))
+      .filter((i) => !term || normalize(`${i.code} ${i.title} ${i.area}`).includes(term))
       .map((incident) => ({
         incident,
         groups: groupCompletion(assignmentsByIncident.get(incident.id) ?? [], teamByVehicle),

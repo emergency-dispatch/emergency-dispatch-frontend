@@ -16,6 +16,8 @@ export interface BlockedNumberDto {
   expiresAt: string | null;
   reason: string;
   incidentId: string | null;
+  /** §38: mã sự cố hiển thị. */
+  incidentCode?: string | null;
   blockedByName: string | null;
   lastExtendedAt: string | null;
   removedAt: string | null;

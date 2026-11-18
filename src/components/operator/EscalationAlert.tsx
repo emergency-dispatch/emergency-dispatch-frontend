@@ -6,6 +6,7 @@ import { useDispatchStore } from '../../context/DispatchContext';
 import { useNow } from '../../hooks/useNow';
 import { escalationThresholdMinutes, isNightShift } from '../../utils/escalation';
 import { dateLocale, useTranslation } from '../../i18n';
+import { IncidentCode } from './incidents/IncidentCode';
 
 /**
  * Báo động leo thang toàn dashboard (FR-SYS-02): viền đỏ + banner khi backend đánh dấu sự cố
@@ -106,6 +107,12 @@ export const EscalationAlert: React.FC = () => {
                       {incident.title}
                     </p>
                     <p className="text-[10px] text-red-100 truncate">
+                      {incident.code && (
+                        <>
+                          <IncidentCode code={incident.code} />
+                          {' · '}
+                        </>
+                      )}
                       {incident.area} · {t('layout.escalation.waiting', { minutes: waitMinutes })} ·{' '}
                       {incident.status === 'pending' ? t('layout.escalation.notVerified') : t('layout.escalation.noUnit')}
                     </p>

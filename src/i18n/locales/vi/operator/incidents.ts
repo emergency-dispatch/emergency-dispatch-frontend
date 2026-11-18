@@ -47,6 +47,13 @@ export const incidentsVi = {
     recalled: 'Đã thu hồi',
     rejected: 'Từ chối',
   },
+  assignmentLabel: {
+    teamDisbanded: '{{name}} (đã giải thể)',
+    unitDeleted: '{{plate}} (đã xóa)',
+  },
+  code: {
+    label: 'Mã sự cố',
+  },
   row: {
     handover: {
       outOfServiceArea: 'Ngoài khu vực',

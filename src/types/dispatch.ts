@@ -1,3 +1,5 @@
+import i18n from '../i18n';
+
 export type BackendDispatchStatus =
   | 'Dispatched'
   | 'Accepted'
@@ -31,6 +33,8 @@ export interface RescueUnitInAssignment {
 export interface DispatchAssignmentResponseDto {
   id: string;
   incidentId: string;
+  /** §38: mã sự cố hiển thị SC-yyMMdd-NNNN. */
+  incidentCode?: string;
   incidentTitle: string;
   incidentAddress: string;
   incidentLat: number;
@@ -38,9 +42,13 @@ export interface DispatchAssignmentResponseDto {
   incidentSeverity: string;
   rescueUnitId: string;
   rescueUnit?: RescueUnitInAssignment;
+  /** §41: xe đã bị xóa (mềm) sau nhiệm vụ này — `rescueUnit` vẫn có biển số để xem lại lịch sử. */
+  rescueUnitDeleted?: boolean;
   /** §34: tổ được giao (chốt lúc phát lệnh); null = lượt cũ của xe chưa gán tổ. */
   stationTeamId?: string | null;
   stationTeamName?: string | null;
+  /** §40–41: tổ đã giải thể (xóa mềm) sau nhiệm vụ này — tên có thể đã được tổ mới dùng lại. */
+  stationTeamDeleted?: boolean;
   dispatchedAt: string;
   acceptedAt?: string | null;
   arrivedAt?: string | null;
@@ -66,6 +74,8 @@ export interface CompletionReportDto {
   id: string;
   stationTeamId?: string | null;
   stationTeamName?: string | null;
+  /** §41: tổ nộp báo cáo đã giải thể. */
+  stationTeamDeleted?: boolean;
   actionsSummary: string;
   victimsAssistedCount: number;
   equipmentUsed: string[];
@@ -209,3 +219,15 @@ export interface StaffTeamResponseDto {
   teamMembers: TeamMemberSummaryDto[];
   stationVehicles: StationVehicleSummaryDto[];
 }
+
+/**
+ * §40–41: tên tổ / biển số của lượt điều xe kèm ghi chú khi tổ đã giải thể / xe đã xóa (tên tổ có thể đã được tổ mới
+ * dùng lại nên phải ghi rõ). Dùng cho mọi nơi hiện lượt điều xe cũ (Chi tiết ca, Nghiệm thu, Hàng đợi).
+ */
+export const teamNameLabel = (name: string, deleted: boolean | undefined) =>
+  deleted ? i18n.t('incidents.assignmentLabel.teamDisbanded', { name }) : name;
+
+export const assignmentPlateLabel = (a: Pick<DispatchAssignmentResponseDto, 'rescueUnit' | 'rescueUnitDeleted'>) => {
+  const plate = a.rescueUnit?.plateNumber ?? '—';
+  return a.rescueUnitDeleted ? i18n.t('incidents.assignmentLabel.unitDeleted', { plate }) : plate;
+};

@@ -64,7 +64,7 @@ export const BlockedNumbersTable: React.FC<BlockedNumbersTableProps> = ({ items,
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">{b.blockedByName ?? '—'}</td>
                 <td className="px-4 py-3 font-mono-data text-slate-600 whitespace-nowrap" title={b.incidentId ?? undefined}>
-                  {b.incidentId ? b.incidentId.slice(0, 8) : '—'}
+                  {b.incidentId ? b.incidentCode || `${b.incidentId.slice(0, 8)}…` : '—'}
                 </td>
                 <td className="px-4 py-3 text-xs max-w-[240px]">
                   <span className="line-clamp-2" title={b.reason}>

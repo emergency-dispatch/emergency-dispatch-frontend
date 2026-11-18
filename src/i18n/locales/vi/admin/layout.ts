@@ -30,6 +30,7 @@ export const adminLayoutVi = {
     serviceArea: 'Khu vực phục vụ',
     duplicateDetection: 'Gộp báo cáo trùng',
     reports: 'Báo cáo sự cố',
+    completionReports: 'Báo cáo nghiệm thu',
     auditTrail: 'Audit Trail',
   },
 } as const;

@@ -18,6 +18,7 @@ import { useTranslation } from '../../../i18n';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { AutoDispatchBadge } from './AutoDispatchInfo';
 import type { HandoverReason } from './autoDispatchVerdict';
+import { IncidentCode } from './IncidentCode';
 
 // Lý do đã có chip / badge riêng trên dòng (Ngoài khu vực, Chưa phân loại, AI bỏ qua) → không lặp lại.
 const REASONS_WITH_OWN_CHIP: ReadonlySet<HandoverReason> = new Set(['outOfServiceArea', 'unclassified', 'skipped']);
@@ -93,6 +94,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
       <div className="flex-1 min-w-0">
         <p className="text-[15px] font-semibold text-slate-900 truncate">{incident.title}</p>
         <div className="flex items-center gap-3 mt-1 text-xs min-w-0">
+          <IncidentCode code={incident.code} className="text-slate-500" />
           <span className="inline-flex items-center gap-1 font-semibold shrink-0" style={{ color: category.color }}>
             <CategoryIcon className="w-3.5 h-3.5" />
             {incidentKindLabel(incident)}

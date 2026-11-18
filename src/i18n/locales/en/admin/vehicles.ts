@@ -13,6 +13,12 @@ export const adminVehiclesEn: Messages<typeof adminVehiclesVi> = {
   updated: 'Vehicle {{plate}} updated.',
   deleted: 'Vehicle {{plate}} deleted.',
   statusChanged: 'Vehicle {{plate}} set to {{status}}.',
+  unstickDone: 'Unstuck — vehicle {{plate}} is now available.',
+  unstickDialog: {
+    title: 'Reset vehicle {{plate}} to available?',
+    confirm: 'Reset to available',
+    body: 'Use this when the vehicle shows “{{status}}” but no longer has any mission (stuck status). If it still has a running assignment or is clearing a traffic jam, the system will refuse.',
+  },
   deleteDialog: {
     title: 'Delete vehicle?',
     confirm: 'Delete vehicle',
@@ -30,6 +36,7 @@ export const adminVehiclesEn: Messages<typeof adminVehiclesVi> = {
     edit: 'Edit vehicle',
     toAvailable: 'Set vehicle to Available',
     toMaintenance: 'Put vehicle into Maintenance',
+    unstick: 'Reset to available (unstick status)',
     delete: 'Delete vehicle',
   },
   form: {

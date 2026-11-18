@@ -102,6 +102,14 @@ export const vehicleAdminService = {
     return unwrapApi(apiClient.put<ApiResponse<RescueUnitResponseDto>>(`/rescue-units/${id}/status`, { status }));
   },
 
+  /**
+   * §35: gỡ kẹt — xe ghi trạng thái nhiệm vụ nhưng không còn lượt điều phối đang chạy → đưa về Sẵn sàng. Admin không
+   * biết xe còn lượt hay không, nên để backend quyết: còn nhiệm vụ thật / đang giải tỏa ùn tắc → 400 kèm `message`.
+   */
+  async unstick(id: string): Promise<RescueUnitResponseDto> {
+    return unwrapApi(apiClient.put<ApiResponse<RescueUnitResponseDto>>(`/rescue-units/${id}/status`, { status: 'Available' }));
+  },
+
   /** Xóa mềm. Backend chặn (400) khi xe đang làm nhiệm vụ hoặc còn lượt phân công đang chạy. */
   async remove(id: string): Promise<void> {
     await unwrapApi(apiClient.delete<ApiResponse<null>>(`/rescue-units/${id}`));

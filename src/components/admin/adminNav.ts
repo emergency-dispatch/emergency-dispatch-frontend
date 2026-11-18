@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import {
   Ban,
   CircleDashed,
+  ClipboardCheck,
   Combine,
   FileBarChart,
   Building2,
@@ -71,6 +72,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     key: 'monitoring',
     items: [
       { key: 'reports', path: '/admin/reports', icon: FileBarChart },
+      { key: 'completionReports', path: '/admin/completion-reports', icon: ClipboardCheck },
       { key: 'auditTrail', path: '/admin/audit-trail', icon: ScrollText },
     ],
   },

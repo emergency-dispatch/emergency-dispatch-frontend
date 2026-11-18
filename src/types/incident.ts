@@ -165,6 +165,8 @@ export type BlockDuration = '7d' | '30d' | '1y' | 'permanent';
 
 export interface Incident {
   id: string;
+  /** §38: mã hiển thị SC-yyMMdd-NNNN (chỉ để hiển thị / tìm kiếm, API vẫn dùng id). '' = backend cũ. */
+  code: string;
   title: string;
   description: string;
   category: IncidentCategory;
@@ -374,6 +376,8 @@ export interface AiClassificationResultDto {
 
 export interface IncidentResponseDto {
   id: string;
+  /** §38: mã hiển thị SC-yyMMdd-NNNN. */
+  code?: string;
   title: string;
   description: string;
   latitude: number;
@@ -439,6 +443,7 @@ export interface IncidentResponseDto {
  */
 export interface LinkedToIncidentDto {
   incidentId: string;
+  code?: string;
   title: string;
   locationAddress: string;
   eventType: BackendEventType;
@@ -806,6 +811,7 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
 
   return {
     id: dto.id,
+    code: dto.code ?? '',
     title: dto.title,
     description: dto.description,
     category,

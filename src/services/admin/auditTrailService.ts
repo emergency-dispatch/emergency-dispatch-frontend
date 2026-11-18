@@ -12,8 +12,10 @@ import type { PageParams } from './listUtils';
 import i18n from '../../i18n';
 
 export interface AuditTrailFilter {
-  /** Mã sự cố đầy đủ (GUID) — backend lọc khớp chính xác. */
+  /** Id sự cố (GUID) — backend lọc khớp chính xác. */
   incidentId?: string;
+  /** §38: mã sự cố SC-… đầy đủ hoặc một phần (VD "0042") — backend so khớp "chứa", không phân biệt hoa thường. */
+  incidentCode?: string;
   action?: AuditAction;
   /** "yyyy-MM-dd" theo giờ địa phương, tính trọn ngày. */
   fromDate?: string;
@@ -49,6 +51,7 @@ export const auditTrailService = {
       apiClient.get<ApiResponse<PaginatedResultDto<AuditTrailEntryDto>>>('/audit-trail', {
         params: {
           incidentId: filter.incidentId || undefined,
+          incidentCode: filter.incidentCode || undefined,
           action: filter.action,
           from: filter.fromDate ? startOfDay(filter.fromDate) : undefined,
           to: filter.toDate ? endOfDay(filter.toDate) : undefined,

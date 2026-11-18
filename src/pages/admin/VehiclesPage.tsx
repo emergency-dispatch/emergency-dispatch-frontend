@@ -75,6 +75,7 @@ const VehiclesPage: React.FC = () => {
 
   const [formVehicle, setFormVehicle] = useState<RescueUnitResponseDto | 'new' | null>(null);
   const [deletingVehicle, setDeletingVehicle] = useState<RescueUnitResponseDto | null>(null);
+  const [unstickVehicle, setUnstickVehicle] = useState<RescueUnitResponseDto | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<NoticeState>(null);
@@ -99,6 +100,22 @@ const VehiclesPage: React.FC = () => {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     } finally {
       setPendingId(null);
+      query.reload();
+    }
+  };
+
+  const handleUnstick = async () => {
+    if (!unstickVehicle) return;
+    const vehicle = unstickVehicle;
+    setPendingId(vehicle.id);
+    try {
+      await vehicleAdminService.unstick(vehicle.id);
+      setNotice({ kind: 'success', message: t('admin.vehicles.unstickDone', { plate: vehicle.plateNumber }) });
+    } catch (err) {
+      setNotice({ kind: 'error', message: getApiErrorMessage(err) });
+    } finally {
+      setPendingId(null);
+      setUnstickVehicle(null);
       query.reload();
     }
   };
@@ -193,6 +210,7 @@ const VehiclesPage: React.FC = () => {
         pendingId={pendingId}
         onEdit={setFormVehicle}
         onToggleMaintenance={handleToggleMaintenance}
+        onUnstick={setUnstickVehicle}
         onDelete={setDeletingVehicle}
       />
 
@@ -241,6 +259,22 @@ const VehiclesPage: React.FC = () => {
               }}
               components={{ b: <span className="font-semibold font-mono-data text-slate-900" /> }}
             />
+          </p>
+        </ConfirmModal>
+      )}
+
+      {unstickVehicle && (
+        <ConfirmModal
+          title={t('admin.vehicles.unstickDialog.title', { plate: unstickVehicle.plateNumber })}
+          confirmLabel={t('admin.vehicles.unstickDialog.confirm')}
+          submitting={pendingId === unstickVehicle.id}
+          onCancel={() => setUnstickVehicle(null)}
+          onConfirm={handleUnstick}
+        >
+          <p>
+            {t('admin.vehicles.unstickDialog.body', {
+              status: t(`enums.unitStatus.${unstickVehicle.status}`, { defaultValue: unstickVehicle.statusName }),
+            })}
           </p>
         </ConfirmModal>
       )}

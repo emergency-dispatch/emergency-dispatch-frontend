@@ -30,6 +30,7 @@ import { MapPickLocation, type PickedPoint } from './MapPickLocation';
 import { SourceChip } from '../incidents/SourceChip';
 import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } from './MapLayerToggle';
 import { dateLocale, useTranslation } from '../../../i18n';
+import { IncidentCode } from '../incidents/IncidentCode';
 
 // Bán kính gom cụm (px trên màn hình) — các xe nằm gần nhau hơn mức này ở zoom hiện tại sẽ gộp lại.
 const MAX_ZOOM = 18;
@@ -620,6 +621,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
                     <SourceChip source={incident.source} />
                   </div>
                   <p className="text-sm font-bold text-slate-900">{incident.title}</p>
+                  <IncidentCode code={incident.code} className="block text-[11px] font-semibold text-slate-500" />
                   <span
                     className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${severityMeta.badgeClass}`}
                   >

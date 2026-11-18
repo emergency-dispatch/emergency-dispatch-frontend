@@ -6,6 +6,7 @@ import { ROLE_META, canUnlockUser } from './accountMeta';
 import { maskPhone } from '../../../utils/incidentFormat';
 import { UserRole, UserStatus, type UserResponseDto } from '../../../types/auth';
 import { dateLocale, useTranslation } from '../../../i18n';
+import { staffCodeOf } from '../../../types/internalAccount';
 
 interface AccountsTableProps {
   accounts: UserResponseDto[];
@@ -65,7 +66,12 @@ export const AccountsTable: React.FC<AccountsTableProps> = ({
             return (
               <tr key={account.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-slate-900">{account.fullName}</div>
+                  <div className="font-semibold text-slate-900">
+                    {account.fullName}
+                    {staffCodeOf(account) && (
+                      <span className="ml-1.5 font-mono-data text-[11px] font-semibold text-slate-500">{staffCodeOf(account)}</span>
+                    )}
+                  </div>
                   <div className="text-[11px] text-slate-400 font-mono-data">{t('admin.users.table.createdAt', { date: formatDate(account.createdAt) })}</div>
                 </td>
                 <td className="px-4 py-3 text-slate-600">

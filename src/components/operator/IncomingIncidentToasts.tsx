@@ -25,6 +25,7 @@ import { useNow } from '../../hooks/useNow';
 import { useDispatchStore, type IncomingTransferNote } from '../../context/DispatchContext';
 import type { Incident } from '../../types/incident';
 import { useTranslation } from '../../i18n';
+import { IncidentCode } from './incidents/IncidentCode';
 
 /** Số thẻ "AI đang xử lý" hiện cùng lúc; ca còn lại vẫn nằm trong hàng đợi. */
 const MAX_AI_CARDS = 3;
@@ -150,6 +151,7 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, verdict, threshold, tra
           {/* Tiêu đề + mô tả */}
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
             <h3 className="text-base font-bold text-slate-900">{incident.title}</h3>
+            <IncidentCode code={incident.code} className="block text-[11px] font-semibold text-slate-500" />
             {incident.description && (
               <p className="text-xs text-slate-600 leading-relaxed">{incident.description}</p>
             )}

@@ -22,6 +22,8 @@ import {
 } from './completionGroups';
 import { useTranslation } from '../../../i18n';
 import { useDispatchStore } from '../../../context/DispatchContext';
+import { IncidentCode } from '../incidents/IncidentCode';
+import { assignmentPlateLabel } from '../../../types/dispatch';
 
 /** Viên tổ trên dòng danh sách — tối đa 3 viên, còn lại gộp "+N". */
 const MAX_PILLS = 3;
@@ -269,6 +271,7 @@ const CompletionListRow: React.FC<{
             </span>
           )}
           <span className="truncate">{incident.title}</span>
+          <IncidentCode code={incident.code} className="text-[11px] font-normal text-slate-400" />
         </p>
         <span
           className="shrink-0 text-[11px] font-mono-data text-slate-400 whitespace-nowrap"
@@ -294,7 +297,7 @@ const CompletionListRow: React.FC<{
         <div className="flex flex-wrap items-center gap-1.5 mt-2" aria-label={progress ? t('incidents.completion.progress', { ...progress }) : undefined}>
           {pills.map((g) => {
             const done = g.state === 'submitted';
-            const label = g.teamName ?? g.assignments.map((a) => a.rescueUnit?.plateNumber ?? '—').join(', ');
+            const label = g.teamName ?? g.assignments.map(assignmentPlateLabel).join(', ');
             return (
               <span
                 key={g.key}

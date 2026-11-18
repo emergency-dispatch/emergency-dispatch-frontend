@@ -14,6 +14,7 @@ import type { Incident } from '../../../types/incident';
 import type { Vehicle } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
 import { AutoDispatchBadge } from '../incidents/AutoDispatchInfo';
+import { IncidentCode } from '../incidents/IncidentCode';
 
 const GROUP_ORDER: CaseGroup[] = ['attention', 'active', 'completed'];
 
@@ -123,7 +124,15 @@ const CaseCard: React.FC<CaseCardProps> = ({
             </span>
           </div>
           <p className="mt-1 text-sm font-semibold text-slate-900 truncate leading-snug">{incident.title}</p>
-          <p className="text-[11px] text-slate-500 truncate">{incident.area}</p>
+          <p className="text-[11px] text-slate-500 truncate">
+            {incident.code && (
+              <>
+                <IncidentCode code={incident.code} />
+                {' · '}
+              </>
+            )}
+            {incident.area}
+          </p>
           {(incident.source !== 'CitizenApp' ||
             incident.isOutOfServiceArea ||
             incident.linkedReportCount > 0 ||

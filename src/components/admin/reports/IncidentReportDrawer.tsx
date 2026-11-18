@@ -10,6 +10,8 @@ interface IncidentReportDrawerProps {
   onClose: () => void;
   /** Mở nhật ký thao tác của sự cố (tab Sự cố của Audit Trail). */
   onOpenAudit: (incidentId: string) => void;
+  /** §36: mở các báo cáo nghiệm thu của sự cố (chỉ sự cố Hoàn thành). */
+  onOpenCompletion: (item: IncidentHistoryItemDto) => void;
 }
 
 const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -20,7 +22,7 @@ const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, ch
 );
 
 /** Chi tiết một sự cố đã đóng: các mốc thời gian, người xử lý, trạm / xe tham gia — chỉ đọc. */
-export const IncidentReportDrawer: React.FC<IncidentReportDrawerProps> = ({ item, onClose, onOpenAudit }) => {
+export const IncidentReportDrawer: React.FC<IncidentReportDrawerProps> = ({ item, onClose, onOpenAudit, onOpenCompletion }) => {
   const { t } = useTranslation();
   const severity = severityMeta(item.severity);
   const completed = item.status === 'Completed';
@@ -54,6 +56,7 @@ export const IncidentReportDrawer: React.FC<IncidentReportDrawerProps> = ({ item
         <div className="shrink-0 flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200">
           <div className="min-w-0">
             <p className="text-base font-bold text-slate-900">{item.title}</p>
+            {item.code && <p className="font-mono-data text-xs font-semibold text-slate-600 mt-0.5">{item.code}</p>}
             <p className="text-xs text-slate-500 mt-0.5">{item.locationAddress}</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 shrink-0" aria-label={t('common.close')}>
@@ -109,13 +112,24 @@ export const IncidentReportDrawer: React.FC<IncidentReportDrawerProps> = ({ item
             </ol>
           </section>
 
-          <button
-            type="button"
-            onClick={() => onOpenAudit(item.id)}
-            className="text-xs font-semibold text-red-600 hover:underline"
-          >
-            {t('admin.monitoring.reports.drawer.viewAudit')}
-          </button>
+          <div className="flex flex-col items-start gap-1">
+            {completed && (
+              <button
+                type="button"
+                onClick={() => onOpenCompletion(item)}
+                className="text-xs font-semibold text-red-600 hover:underline"
+              >
+                {t('admin.monitoring.reports.drawer.viewCompletion')}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onOpenAudit(item.id)}
+              className="text-xs font-semibold text-red-600 hover:underline"
+            >
+              {t('admin.monitoring.reports.drawer.viewAudit')}
+            </button>
+          </div>
         </div>
 
         <div className="shrink-0 px-5 py-3 border-t border-slate-200 flex items-center gap-2 text-[11px] text-slate-500">

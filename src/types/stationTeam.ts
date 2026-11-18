@@ -20,6 +20,8 @@ export interface TeamMember {
   crewRole: CrewRole;
   /** Tên do backend trả kèm tổ — Dispatch Panel dùng để hiện tổ trưởng mà không cần tải danh sách nhân sự. */
   fullName?: string;
+  /** §38: mã nhân sự NV-NNNN. */
+  staffCode?: string | null;
 }
 
 /** Mirror StationTeamDto (GET /api/stations/{id}/teams). */
@@ -46,6 +48,8 @@ export type StationTeamInput = Pick<StationTeam, 'name' | 'vehicleIds' | 'member
 /** RescueStaff kèm trạm / tổ đang thuộc (null = chưa có). */
 export interface StationStaff {
   id: string;
+  /** §38: mã nhân sự NV-NNNN (null = backend cũ / danh sách không trả). */
+  staffCode: string | null;
   fullName: string;
   phoneNumber: string;
   /** Admin khóa tài khoản → không thêm được vào trạm / tổ. */

@@ -35,6 +35,7 @@ const AdminEscalationSettingsPage = lazy(() => import('./pages/admin/EscalationS
 const AdminServiceAreaSettingsPage = lazy(() => import('./pages/admin/ServiceAreaSettingsPage'));
 const AdminDuplicateDetectionSettingsPage = lazy(() => import('./pages/admin/DuplicateDetectionSettingsPage'));
 const AdminReportsPage = lazy(() => import('./pages/admin/ReportsPage'));
+const AdminCompletionReportsPage = lazy(() => import('./pages/admin/CompletionReportsPage'));
 
 const App: React.FC = () => {
   return (
@@ -110,6 +111,7 @@ const App: React.FC = () => {
             <Route path="settings/service-area" element={<AdminServiceAreaSettingsPage />} />
             <Route path="settings/duplicate-detection" element={<AdminDuplicateDetectionSettingsPage />} />
             <Route path="reports" element={<AdminReportsPage />} />
+            <Route path="completion-reports" element={<AdminCompletionReportsPage />} />
             <Route path="audit-trail" element={<AdminAuditTrailPage />} />
             <Route path="*" element={<Navigate to="overview" replace />} />
           </Route>

@@ -55,6 +55,7 @@ import { dateLocale, useTranslation } from '../../../i18n';
 import { IncidentTypePicker } from './IncidentTypePicker';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { AutoDispatchBanner } from './AutoDispatchInfo';
+import { IncidentCode } from './IncidentCode';
 
 const CONFIRMABLE_LEVELS: SeverityLevel[] = [1, 2, 3];
 // Lý do chuyển trạm: backend yêu cầu tối thiểu 5 ký tự.
@@ -312,6 +313,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
           </div>
           <h2 className="mt-2.5 text-lg font-bold text-slate-900 leading-snug truncate">{incident.title}</h2>
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+            <IncidentCode code={incident.code} className="font-semibold text-slate-600" />
             <span className="inline-flex items-center gap-1 font-semibold" style={{ color: category.color }}>
               <CategoryIcon className="w-3.5 h-3.5" />
               {incidentKindLabel(incident)}

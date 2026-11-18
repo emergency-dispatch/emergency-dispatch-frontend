@@ -298,7 +298,10 @@ const ReportsPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3 max-w-[300px]">
                     <div className="font-semibold text-slate-900 truncate">{item.title}</div>
-                    <div className="text-[11px] text-slate-500 truncate">{item.locationAddress}</div>
+                    <div className="text-[11px] text-slate-500 truncate">
+                      {item.code && <span className="font-mono-data text-slate-600">{item.code} · </span>}
+                      {item.locationAddress}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold whitespace-nowrap ${sev.badgeClass}`}>
@@ -350,6 +353,11 @@ const ReportsPage: React.FC = () => {
           item={selected}
           onClose={() => setSelected(null)}
           onOpenAudit={(id) => navigate(`/admin/audit-trail?incident=${id}`)}
+          onOpenCompletion={(it) =>
+            navigate(
+              `/admin/completion-reports?incident=${encodeURIComponent(it.id)}&code=${encodeURIComponent(it.code ?? '')}`
+            )
+          }
         />
       )}
     </div>

@@ -312,6 +312,7 @@ export const StationTeamsPage: React.FC = () => {
             {t('teams.page.deleteBody', { count: deletingTeam.members.length })}
             {deletingTeam.vehicleIds.length > 0 &&
               t('teams.page.deleteBodyVehicle', { count: deletingTeam.vehicleIds.length })}
+            {t('teams.page.deleteBodyHistory')}
           </p>
         </ConfirmModal>
       )}

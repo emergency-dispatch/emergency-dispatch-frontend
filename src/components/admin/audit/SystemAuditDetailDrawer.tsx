@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Lock, X } from 'lucide-react';
 import { labelClass } from '../common/styles';
+import { GuidText } from '../common/ui';
 import {
   actorNameLabel,
   actorRoleLabel,
@@ -82,7 +83,7 @@ export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = (
               <div>
                 <span className="text-slate-500">{entity.label}:</span> {entityDisplayName(entry.entityType, entry.entityName)}
               </div>
-              {entry.entityId && <div className="font-mono-data text-xs text-slate-500">{entry.entityId}</div>}
+              {entry.entityId && <GuidText value={entry.entityId} />}
               {entry.entityId && (
                 <button
                   type="button"
@@ -99,7 +100,7 @@ export const SystemAuditDetailDrawer: React.FC<SystemAuditDetailDrawerProps> = (
               </Row>
             )}
             <Row label={t('admin.monitoring.audit.recordId')}>
-              <span className="font-mono-data text-xs text-slate-500">{entry.id}</span>
+              <GuidText value={entry.id} />
             </Row>
           </dl>
 

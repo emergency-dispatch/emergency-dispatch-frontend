@@ -27,10 +27,11 @@ export const IncidentAuditTab: React.FC = () => {
   const debouncedIncident = useDebouncedValue(incidentId.trim());
   const [selected, setSelected] = useState<AuditTrailEntryDto | null>(null);
 
-  // Backend chỉ lọc theo mã sự cố đầy đủ → mã gõ dở thì chưa lọc, chỉ nhắc.
-  const incidentValid = !debouncedIncident || GUID_PATTERN.test(debouncedIncident);
+  // §38: một ô cho cả hai kiểu — dán GUID thì lọc theo id, còn lại lọc theo mã SC-… (đủ hoặc một phần, VD "0042").
+  const isGuid = GUID_PATTERN.test(debouncedIncident);
   const filter = {
-    incidentId: incidentValid ? debouncedIncident || undefined : undefined,
+    incidentId: isGuid ? debouncedIncident : undefined,
+    incidentCode: !isGuid && debouncedIncident ? debouncedIncident : undefined,
     action: action || undefined,
     fromDate: fromDate || undefined,
     toDate: toDate || undefined,
@@ -69,12 +70,10 @@ export const IncidentAuditTab: React.FC = () => {
                 value={incidentId}
                 onChange={(e) => withPageReset(setIncidentId)(e.target.value)}
                 placeholder={t('admin.monitoring.audit.incidentIdPlaceholder')}
-                className={`${inputClass} pl-9 font-mono-data ${incidentValid ? '' : 'border-amber-400'}`}
+                className={`${inputClass} pl-9 font-mono-data`}
               />
             </div>
-            {!incidentValid && (
-              <p className="text-[11px] text-amber-700">{t('admin.monitoring.audit.incidentIdInvalid')}</p>
-            )}
+            <p className="text-[11px] text-slate-500">{t('admin.monitoring.audit.incidentIdHint')}</p>
           </div>
           <div className="space-y-1.5">
             <label className={labelClass}>{t('admin.monitoring.audit.action')}</label>

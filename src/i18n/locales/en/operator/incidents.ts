@@ -50,6 +50,13 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     recalled: 'Withdrawn',
     rejected: 'Declined',
   },
+  assignmentLabel: {
+    teamDisbanded: '{{name}} (disbanded)',
+    unitDeleted: '{{plate}} (deleted)',
+  },
+  code: {
+    label: 'Incident code',
+  },
   row: {
     handover: {
       outOfServiceArea: 'Outside service area',

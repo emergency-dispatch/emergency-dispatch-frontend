@@ -214,6 +214,9 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
                     <span className="text-sm text-slate-900 truncate flex items-center gap-1.5">
                       {member?.crewRole === 'commander' && <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
                       {s.fullName}
+                      {s.staffCode && (
+                        <span className="font-mono-data text-[11px] text-slate-500 shrink-0">{s.staffCode}</span>
+                      )}
                       {s.isLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0" aria-label={t('teams.form.locked')} />}
                     </span>
                   </label>

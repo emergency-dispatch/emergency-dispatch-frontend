@@ -25,6 +25,18 @@ const formatTime = (iso: string) => {
     : date.toLocaleString(dateLocale(), { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
 };
 
+/** §39.6: backend đặt mã sự cố ở đầu nội dung ("[SC-261118-0003] …") → tô đậm mã cho dễ đọc khi trao đổi. */
+const CODE_PREFIX = /^\[(SC-[^\]]+)\]\s*/;
+const NotificationMessage: React.FC<{ message: string }> = ({ message }) => {
+  const match = CODE_PREFIX.exec(message);
+  if (!match) return <>{message}</>;
+  return (
+    <>
+      <span className="font-mono-data font-semibold text-slate-700">{match[1]}</span> {message.slice(match[0].length)}
+    </>
+  );
+};
+
 export const OperatorTopbar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -196,7 +208,9 @@ export const OperatorTopbar: React.FC = () => {
                           {!notification.isRead && <span className="w-2 h-2 rounded-full bg-red-500" />}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{notification.message}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
+                        <NotificationMessage message={notification.message} />
+                      </p>
                     </button>
                   ))
                 )}

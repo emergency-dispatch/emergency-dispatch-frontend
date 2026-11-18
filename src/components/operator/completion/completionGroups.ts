@@ -1,4 +1,9 @@
-import type { BackendDispatchStatus, CompletionReportDto, DispatchAssignmentResponseDto } from '../../../types/dispatch';
+import {
+  teamNameLabel,
+  type BackendDispatchStatus,
+  type CompletionReportDto,
+  type DispatchAssignmentResponseDto,
+} from '../../../types/dispatch';
 import type { Incident } from '../../../types/incident';
 import type { StationTeam } from '../../../types/stationTeam';
 import type { VehicleStatus } from '../../../types/vehicle';
@@ -80,10 +85,13 @@ export function groupCompletion(
           state: 'submitted',
           // Tên tổ lúc nộp (backend) ưu tiên hơn tổ hiện tại — tổ có thể đã đổi tên / đổi xe sau đó.
           teamId: report?.stationTeamId ?? a.stationTeamId ?? team?.id ?? null,
-          teamName:
-            report?.stationTeamName ??
-            a.stationTeamName ??
-            (report?.stationTeamId || a.stationTeamId ? team?.name ?? null : null),
+          teamName: report?.stationTeamName
+            ? teamNameLabel(report.stationTeamName, report.stationTeamDeleted)
+            : a.stationTeamName
+              ? teamNameLabel(a.stationTeamName, a.stationTeamDeleted)
+              : report?.stationTeamId || a.stationTeamId
+                ? team?.name ?? null
+                : null,
           report,
         },
         a
@@ -93,7 +101,12 @@ export function groupCompletion(
       const teamId = a.stationTeamId ?? team?.id ?? null;
       add(
         teamId ? `team:${teamId}` : `unit:${a.rescueUnitId}`,
-        { state: 'pending', teamId, teamName: a.stationTeamName ?? team?.name ?? null, report: null },
+        {
+          state: 'pending',
+          teamId,
+          teamName: a.stationTeamName ? teamNameLabel(a.stationTeamName, a.stationTeamDeleted) : team?.name ?? null,
+          report: null,
+        },
         a
       );
     }

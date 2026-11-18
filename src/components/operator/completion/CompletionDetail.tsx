@@ -12,6 +12,7 @@ import type { DispatchAssignmentResponseDto } from '../../../types/dispatch';
 import type { Incident } from '../../../types/incident';
 import { dateLocale, useTranslation } from '../../../i18n';
 import { useDispatchStore } from '../../../context/DispatchContext';
+import { IncidentCode } from '../incidents/IncidentCode';
 
 // Viền sáng của thẻ tổ vừa nghiệm thu trong lúc đang xem.
 const JUST_SIGNED_MS = 4000;
@@ -117,6 +118,7 @@ export const CompletionDetail: React.FC<CompletionDetailProps> = ({
               </span>
             </div>
             <h2 className="text-lg font-bold text-slate-900 leading-snug break-words">{incident.title}</h2>
+            <IncidentCode code={incident.code} className="block text-xs font-semibold text-slate-500" />
             <p className="flex items-start gap-1.5 text-xs text-slate-500">
               <MapPin className="w-3.5 h-3.5 shrink-0 mt-px text-slate-400" />
               <span>{incident.area}</span>

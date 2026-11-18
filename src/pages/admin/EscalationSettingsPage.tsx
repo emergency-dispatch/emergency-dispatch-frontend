@@ -251,7 +251,9 @@ const EscalationSettingsPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-semibold text-slate-900">{log.incidentTitle || t('admin.monitoring.incident.missing')}</div>
-                      <div className="text-[11px] font-mono-data text-slate-400">{log.incidentId.slice(0, 8)}</div>
+                      <div className="text-[11px] font-mono-data text-slate-400" title={log.incidentId}>
+                        {log.incidentCode || `${log.incidentId.slice(0, 8)}…`}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-xs font-mono-data whitespace-nowrap">{severityLabel(log.incidentSeverity)}</td>
                     <td className="px-4 py-3 text-xs whitespace-nowrap">

@@ -5,6 +5,8 @@ export const adminCommonVi = {
   allStatuses: 'Tất cả trạng thái',
   filterByStatus: 'Lọc theo trạng thái',
   clearFilters: 'Xóa bộ lọc',
+  copyId: 'Sao chép ID đầy đủ',
+  copied: 'Đã sao chép',
   invalidDateRange: 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.',
   dateRange: {
     label: 'Khoảng ngày',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil, Trash2, Wrench, CircleCheck } from 'lucide-react';
+import { Pencil, RotateCcw, Trash2, Wrench, CircleCheck } from 'lucide-react';
 import { LockableButton, VehicleStatusBadge } from '../common/ui';
 import { iconButtonClass, thClass } from '../common/styles';
 import { RESCUE_UNIT_STATUS_META, unitTypeIcon, unitTypeLabel } from '../fleetMeta';
@@ -17,6 +17,8 @@ interface VehiclesTableProps {
   pendingId: string | null;
   onEdit: (vehicle: RescueUnitResponseDto) => void;
   onToggleMaintenance: (vehicle: RescueUnitResponseDto) => void;
+  /** §35: xe ở trạng thái nhiệm vụ → thử đưa về Sẵn sàng (backend từ chối nếu còn nhiệm vụ thật). */
+  onUnstick: (vehicle: RescueUnitResponseDto) => void;
   onDelete: (vehicle: RescueUnitResponseDto) => void;
 }
 
@@ -30,6 +32,7 @@ export const VehiclesTable: React.FC<VehiclesTableProps> = ({
   pendingId,
   onEdit,
   onToggleMaintenance,
+  onUnstick,
   onDelete,
 }) => {
   const { t } = useTranslation();
@@ -104,6 +107,18 @@ export const VehiclesTable: React.FC<VehiclesTableProps> = ({
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </LockableButton>
+                    {ON_MISSION_UNIT_STATUSES.includes(vehicle.status) && (
+                      <LockableButton
+                        onClick={() => onUnstick(vehicle)}
+                        lockedReason={null}
+                        disabled={pending}
+                        title={t('admin.vehicles.table.unstick')}
+                        aria-label={t('admin.vehicles.table.unstick')}
+                        className={`${iconButtonClass} text-amber-700`}
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </LockableButton>
+                    )}
                     <LockableButton
                       onClick={() => onToggleMaintenance(vehicle)}
                       lockedReason={missionLock}

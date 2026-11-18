@@ -15,10 +15,16 @@ export interface CreateInternalAccountDto {
   role: InternalRole;
 }
 
+/** §38: mã nhân sự NV-NNNN (null với người dân / backend cũ). types/auth.ts dùng chung mọi vai trò nên đọc ở đây. */
+export const staffCodeOf = (user: UserResponseDto): string | null =>
+  (user as UserResponseDto & { staffCode?: string | null }).staffCode ?? null;
+
 /**
  * Trường khóa backend trả thêm trong UserResponseDto. Khai báo riêng cho Admin vì types/auth.ts dùng chung mọi vai trò.
  */
 export interface AdminUserDto extends UserResponseDto {
+  /** §38: mã nhân sự NV-NNNN. */
+  staffCode?: string | null;
   /** Lý do Admin khóa (khi status = Suspended). */
   lockReason?: string | null;
   lockedAt?: string | null;

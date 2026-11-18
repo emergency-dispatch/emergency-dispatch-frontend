@@ -30,6 +30,7 @@ export const teamsEn: Messages<typeof teamsVi> = {
     teamDeleted: 'Deleted {{name}}.',
     deleteBody: '{{count}} member(s) stay at the station and become "not in a team".',
     deleteBodyVehicle: ' The team’s {{count}} vehicle(s) cannot be dispatched until added to another team.',
+    deleteBodyHistory: ' Mission history keeps the team name, marked "(disbanded)". A team on a mission cannot be deleted yet.',
     teamUpdated: 'Updated {{name}}.',
     teamCreated: 'Created {{name}}.',
   },
