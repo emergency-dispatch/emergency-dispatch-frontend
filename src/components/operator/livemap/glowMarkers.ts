@@ -78,6 +78,37 @@ export function glowIncidentMarkerHtml(category: IncidentCategory, severity: Sev
   `;
 }
 
+/**
+ * §31.E: tin báo AI đang xử lý (chưa duyệt). Cùng họ "Quầng sáng" nhưng màu chàm:
+ * - đang phân tích ảnh = vòng nét đứt quay chậm (đang "quét");
+ * - đang điều phối = vòng liền + quầng nhấp nháy (sắp có kết quả).
+ * Không có cung cấp độ vì AI chưa chốt. Giảm chuyển động (prefers-reduced-motion) → đứng yên. Neo tâm.
+ */
+export function glowAiWorkingMarkerHtml(category: IncidentCategory, phase: 'analyzing' | 'deciding'): string {
+  const { ring, halo, glyph: glyphColor } = C.ai;
+  const outer =
+    phase === 'analyzing'
+      ? `<g class="motion-safe:animate-spin" style="transform-box:fill-box;transform-origin:center;animation-duration:3.2s;">
+           <circle cx="26" cy="26" r="21.5" fill="none" stroke="${ring}" stroke-width="2.6" stroke-dasharray="9 5.5" stroke-linecap="round"/>
+         </g>`
+      : `<circle cx="26" cy="26" r="21.5" fill="none" stroke="${ring}" stroke-width="2.6"/>`;
+  const pulse =
+    phase === 'deciding'
+      ? `<span class="absolute rounded-full motion-safe:animate-ping pointer-events-none" style="left:6px;top:6px;width:40px;height:40px;background:${halo};opacity:0.35;"></span>`
+      : '';
+  return `
+    <div class="relative cursor-pointer" style="width:52px;height:52px;">
+      ${pulse}
+      <svg viewBox="0 0 52 52" width="52" height="52" style="position:absolute;inset:0;overflow:visible;pointer-events:none;">
+        <circle cx="26" cy="26" r="25" fill="${halo}" opacity="0.18"/>
+        ${outer}
+        <circle cx="26" cy="26" r="14" fill="${C.core}" stroke="${ring}" stroke-width="1.5"/>
+      </svg>
+      ${glyph(INCIDENT_GLYPH[category], 18, 18, 16, glyphColor)}
+    </div>
+  `;
+}
+
 /** Trạm: ô vuông tối bo góc; trạm của tôi viền đỏ + quầng đỏ, trạm khác viền xám. Neo tâm. */
 export function glowStationMarkerHtml(isMine = false): string {
   const ring = isMine ? C.station.mine : C.station.other;

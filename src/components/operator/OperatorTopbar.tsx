@@ -16,6 +16,7 @@ const HUB_STATUS_STYLE: Record<HubStatus, { dot: string; text: string; ping: boo
   disconnected: { dot: 'bg-amber-500', text: 'text-amber-600', ping: false },
 };
 import { UserProfileModal } from '../profile/UserProfileModal';
+import { AiLane } from './AiLane';
 
 const formatTime = (iso: string) => {
   const date = new Date(iso);
@@ -124,6 +125,11 @@ export const OperatorTopbar: React.FC = () => {
             </span>
           </span>
         </div>
+      </div>
+
+      {/* §31.E: ca AI đang xử lý — nằm trong thanh trên cùng để không che bản đồ */}
+      <div className="flex-1 min-w-0 flex items-center px-4">
+        <AiLane />
       </div>
 
       {/* Right: Notification bell + Avatar */}

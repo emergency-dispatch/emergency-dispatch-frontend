@@ -122,6 +122,13 @@ export const LiveMapPage: React.FC = () => {
     if (focusTrafficJamId) setFocusTrafficJam((prev) => ({ id: focusTrafficJamId, key: (prev?.key ?? 0) + 1 }));
   }, [focusTrafficJamId, location.key]);
 
+  // §31.E: dải AI → "Xem trên bản đồ": bay tới tin báo AI đang xử lý, không chọn / không mở ca (AI vẫn chạy).
+  const focusAiIncidentId = (location.state as { focusAiIncidentId?: string } | null)?.focusAiIncidentId;
+  const [focusAiIncident, setFocusAiIncident] = useState<{ id: string; key: number } | null>(null);
+  useEffect(() => {
+    if (focusAiIncidentId) setFocusAiIncident((prev) => ({ id: focusAiIncidentId, key: (prev?.key ?? 0) + 1 }));
+  }, [focusAiIncidentId, location.key]);
+
   // §21.2: thông báo yêu cầu hiện trường → làm nổi yêu cầu trong mục "Yêu cầu từ hiện trường".
   const focusFieldRequestId = (location.state as { focusFieldRequestId?: string } | null)?.focusFieldRequestId ?? null;
   const [highlightFieldRequestId, setHighlightFieldRequestId] = useState<string | null>(null);
@@ -344,6 +351,7 @@ export const LiveMapPage: React.FC = () => {
           onUnassignTrafficJam={unassignTrafficJam}
           trafficAssignableUnits={trafficAssignableUnits}
           focusTrafficJam={focusTrafficJam}
+          focusAiIncident={focusAiIncident}
           routes={routes}
           vehiclesById={vehiclesById}
           incidentsById={incidentsById}

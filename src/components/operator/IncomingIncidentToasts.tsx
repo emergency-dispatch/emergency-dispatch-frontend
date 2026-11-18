@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowRightLeft,
   BellRing,
-  Bot,
   CheckCircle2,
   Clock,
   Loader2,
@@ -15,11 +14,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { INCIDENT_CATEGORY_META } from '../../data/incidentMock';
 import { SeverityBadge } from './incidents/SeverityBadge';
-import {
-  AUTO_DISPATCH_DECIDING_TIMEOUT_MS,
-  autoDispatchVerdict,
-  type AutoDispatchVerdict,
-} from './incidents/autoDispatchVerdict';
+import type { AutoDispatchVerdict } from './incidents/autoDispatchVerdict';
+import { formatWaitTime, useIncomingTriage, type IncomingTriageItem } from './incidents/incomingTriage';
 import { AiProgressStrip, HandoverReasonBox } from './incidents/AutoDispatchInfo';
 import { useNow } from '../../hooks/useNow';
 import { useDispatchStore, type IncomingTransferNote } from '../../context/DispatchContext';
@@ -27,20 +23,7 @@ import type { Incident } from '../../types/incident';
 import { useTranslation } from '../../i18n';
 import { IncidentCode } from './incidents/IncidentCode';
 
-/** Số thẻ "AI đang xử lý" hiện cùng lúc; ca còn lại vẫn nằm trong hàng đợi. */
-const MAX_AI_CARDS = 3;
-
 const QUEUE_PATH = '/dashboard/command-center/incidents';
-
-const pad2 = (n: number) => String(n).padStart(2, '0');
-
-/** mm:ss, từ 1 giờ trở lên thành h:mm:ss. */
-const formatWaitTime = (totalSeconds: number) => {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return h > 0 ? `${h}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`;
-};
 
 interface ModalProps {
   incident: Incident;
@@ -221,167 +204,38 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, verdict, threshold, tra
   );
 };
 
-interface AiCardProps {
-  incident: Incident;
-  phase: 'analyzing' | 'deciding';
-  onHide: () => void;
-  onTakeOver: () => void;
-}
-
-/**
- * Thẻ nhỏ cho tin báo AI đang xử lý: không chặn màn hình, không giữ ca. Mở ca lúc này = giữ khóa mềm → backend bỏ qua
- * tự điều phối, nên "Tôi xử lý thay AI" hỏi lại một lần.
- */
-const AiCard: React.FC<AiCardProps> = ({ incident, phase, onHide, onTakeOver }) => {
-  const { t } = useTranslation();
-  const { incidentKindLabel } = useDispatchStore();
-  const [confirming, setConfirming] = useState(false);
-  const now = useNow(1000);
-  const waitSeconds = Math.max(0, Math.floor((now - new Date(incident.createdAt).getTime()) / 1000));
-
-  return (
-    <div
-      role="status"
-      className="pointer-events-auto rounded-xl border border-indigo-200 bg-white shadow-xl p-3 space-y-2 animate-drawer-in"
-    >
-      <div className="flex items-start gap-2.5">
-        <span className="mt-0.5 p-1.5 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
-          <Bot className="w-4 h-4" />
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-slate-900 truncate">
-            {t('layout.incomingIncident.ai.newReport')}
-            {!incident.aiPending && ` · ${incidentKindLabel(incident)}`}
-          </p>
-          <p className="text-xs text-slate-600 line-clamp-2">{incident.area}</p>
-        </div>
-        <button
-          onClick={onHide}
-          aria-label={t('layout.incomingIncident.ai.hide')}
-          title={t('layout.incomingIncident.ai.hideTitle')}
-          className="p-1 rounded-md text-slate-400 hover:bg-slate-100 shrink-0"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </div>
-      <AiProgressStrip phase={phase} />
-      <p className="flex items-center gap-1.5 text-xs text-indigo-800">
-        <Loader2 className="w-3.5 h-3.5 shrink-0 motion-safe:animate-spin" />
-        <span className="flex-1">
-          {phase === 'analyzing' ? t('layout.incomingIncident.ai.analyzing') : t('layout.incomingIncident.ai.deciding')}
-        </span>
-        <span className="font-mono-data text-slate-500">{formatWaitTime(waitSeconds)}</span>
-      </p>
-      {confirming ? (
-        <div className="rounded-lg bg-amber-50 border border-amber-200 p-2 space-y-2">
-          <p className="text-xs text-amber-900">{t('layout.incomingIncident.ai.takeOverConfirm')}</p>
-          <div className="flex gap-2">
-            <button
-              onClick={onTakeOver}
-              className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-bold"
-            >
-              {t('layout.incomingIncident.ai.takeOverYes')}
-            </button>
-            <button
-              onClick={() => setConfirming(false)}
-              className="px-2.5 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50"
-            >
-              {t('layout.incomingIncident.ai.takeOverNo')}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={() => setConfirming(true)}
-          className="text-xs font-bold text-slate-600 hover:text-red-700 underline underline-offset-2"
-        >
-          {t('layout.incomingIncident.ai.takeOver')}
-        </button>
-      )}
-    </div>
-  );
-};
-
 /**
  * Tin báo mới từ người dân (§31.E — AI tự điều phối là luồng chính):
- * - AI đang phân tích / đang điều phối → thẻ nhỏ góc phải, không chặn màn hình, không giữ ca;
+ * - AI đang phân tích / đang điều phối → hiện ở dải AI trên thanh trên cùng (`AiLane`) + marker có vòng trên Live Map,
+ *   không chặn màn hình, không giữ ca;
  * - AI chuyển cho người (hoặc tự điều phối đang tắt, ca chuyển trạm) → modal giữa màn hình, kèm lý do;
  * - AI đã điều phối → sự cố rời khỏi danh sách chờ duyệt, thông báo "AI đã điều phối" do OperatorAlerts hiện.
  * Modal hiện từng tin một (FIFO).
  */
 export const IncomingIncidentToasts: React.FC = () => {
-  const { incomingIncidents, dismissIncomingIncident, incomingTransferNotes, autoDispatchSettings } = useDispatchStore();
+  const { dismissIncomingIncident, incomingTransferNotes, autoDispatchSettings } = useDispatchStore();
   const navigate = useNavigate();
-  const now = useNow(1000);
-  // Lúc bắt đầu thấy ca ở bước "đang điều phối" — quá hạn mà chưa có kết quả thì chuyển cho người.
-  const [decidingSince, setDecidingSince] = useState<Record<string, number>>({});
-  // Thẻ AI Operator đã ẩn: chỉ ẩn thẻ, ca vẫn bật modal nếu AI chuyển về cho người.
-  const [hiddenAiIds, setHiddenAiIds] = useState<ReadonlySet<string>>(() => new Set());
-
-  const items = incomingIncidents.map((incident) => {
-    const since = decidingSince[incident.id];
-    return {
-      incident,
-      verdict: autoDispatchVerdict(incident, autoDispatchSettings, {
-        transferred: incomingTransferNotes.has(incident.id),
-        decidingExpired: since !== undefined && now - since > AUTO_DISPATCH_DECIDING_TIMEOUT_MS,
-      }),
-    };
-  });
-
-  const newlyDeciding = items
-    .filter(({ incident, verdict }) => verdict.phase === 'deciding' && decidingSince[incident.id] === undefined)
-    .map(({ incident }) => incident.id)
-    .join(',');
-  useEffect(() => {
-    if (!newlyDeciding) return;
-    const at = Date.now();
-    setDecidingSince((prev) => ({ ...prev, ...Object.fromEntries(newlyDeciding.split(',').map((id) => [id, at])) }));
-  }, [newlyDeciding]);
+  const { items } = useIncomingTriage();
 
   const human = items.find(
-    (item): item is { incident: Incident; verdict: Extract<AutoDispatchVerdict, { phase: 'manual' | 'handover' }> } =>
+    (item): item is IncomingTriageItem & { verdict: Extract<AutoDispatchVerdict, { phase: 'manual' | 'handover' }> } =>
       item.verdict.phase === 'manual' || item.verdict.phase === 'handover'
   );
-  const aiCards = items
-    .filter(({ incident, verdict }) => (verdict.phase === 'analyzing' || verdict.phase === 'deciding') && !hiddenAiIds.has(incident.id))
-    .slice(0, MAX_AI_CARDS);
   const threshold = autoDispatchSettings ? Math.round(autoDispatchSettings.minConfidence * 100) : null;
 
-  const openInQueue = (id: string) => {
-    dismissIncomingIncident(id);
-    navigate(QUEUE_PATH, { state: { openIncidentId: id } });
-  };
-
+  if (!human) return null;
   return (
-    <>
-      {aiCards.length > 0 &&
-        createPortal(
-          // Góc trên phải, dưới thanh đầu trang — tránh chồng lên OperatorAlerts (góc dưới phải).
-          <div className="pointer-events-none fixed top-20 right-4 z-[9998] w-[min(22rem,calc(100vw-2rem))] space-y-2">
-            {aiCards.map(({ incident, verdict }) => (
-              <AiCard
-                key={incident.id}
-                incident={incident}
-                phase={verdict.phase === 'analyzing' ? 'analyzing' : 'deciding'}
-                onHide={() => setHiddenAiIds((prev) => new Set(prev).add(incident.id))}
-                onTakeOver={() => openInQueue(incident.id)}
-              />
-            ))}
-          </div>,
-          document.body
-        )}
-      {human && (
-        <IncidentModal
-          key={human.incident.id}
-          incident={human.incident}
-          verdict={human.verdict}
-          threshold={threshold}
-          transfer={incomingTransferNotes.get(human.incident.id)}
-          onDismiss={() => dismissIncomingIncident(human.incident.id)}
-          onGoToQueue={() => openInQueue(human.incident.id)}
-        />
-      )}
-    </>
+    <IncidentModal
+      key={human.incident.id}
+      incident={human.incident}
+      verdict={human.verdict}
+      threshold={threshold}
+      transfer={incomingTransferNotes.get(human.incident.id)}
+      onDismiss={() => dismissIncomingIncident(human.incident.id)}
+      onGoToQueue={() => {
+        dismissIncomingIncident(human.incident.id);
+        navigate(QUEUE_PATH, { state: { openIncidentId: human.incident.id } });
+      }}
+    />
   );
 };

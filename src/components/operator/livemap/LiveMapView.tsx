@@ -31,6 +31,7 @@ import { SourceChip } from '../incidents/SourceChip';
 import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } from './MapLayerToggle';
 import { dateLocale, useTranslation } from '../../../i18n';
 import { IncidentCode } from '../incidents/IncidentCode';
+import { AiWorkingMarkers } from './AiWorkingMarkers';
 
 // Bán kính gom cụm (px trên màn hình) — các xe nằm gần nhau hơn mức này ở zoom hiện tại sẽ gộp lại.
 const MAX_ZOOM = 18;
@@ -345,6 +346,8 @@ interface LiveMapViewProps {
   trafficAssignableUnits?: RescueUnitResponseDto[];
   /** Bay tới + mở popup điểm ùn tắc (bấm cảnh báo leo thang §24); `key` đổi mỗi lần yêu cầu. */
   focusTrafficJam?: { id: string; key: number } | null;
+  /** §31.E: bay tới + mở popup tin báo AI đang xử lý ("Xem trên bản đồ" ở dải AI); `key` đổi mỗi lần yêu cầu. */
+  focusAiIncident?: { id: string; key: number } | null;
   /** Lộ trình xe đang tới hiện trường. */
   routes?: DispatchRoute[];
   vehiclesById?: Map<string, Vehicle>;
@@ -371,6 +374,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   onUnassignTrafficJam,
   trafficAssignableUnits = [],
   focusTrafficJam = null,
+  focusAiIncident = null,
   routes = [],
   serviceArea = null,
   vehiclesById,
@@ -381,7 +385,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { incidentKindLabel } = useDispatchStore();
+  const { incidentKindLabel, incomingIncidents } = useDispatchStore();
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
   const [tileMode, setTileMode] = useState<MapTileMode>('satellite');
   const appliedTileModeRef = useRef(tileMode);
@@ -495,6 +499,14 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
     // Chỉ bay khi có yêu cầu mới, không bay lại mỗi lần dữ liệu điểm ùn tắc đổi.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, focusTrafficJam?.key, !!focusJam]);
+
+  // Dải AI → "Xem trên bản đồ": bay tới tin báo (popup mở qua popupOpenKey). Ca vừa rời tay AI thì không còn marker.
+  const focusAi = focusAiIncident ? incomingIncidents.find((i) => i.id === focusAiIncident.id) : undefined;
+  useEffect(() => {
+    if (!map || !focusAi) return;
+    map.flyTo({ center: [focusAi.lng, focusAi.lat], zoom: Math.max(map.getZoom(), 16), duration: 800 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, focusAiIncident?.key, !!focusAi]);
 
   const handleOpenDirections = () => {
     if (!selectedVehicle) return;
@@ -641,6 +653,8 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
               </MapMarker>
             );
           })}
+
+          <AiWorkingMarkers map={map} focus={focusAiIncident} />
 
           {nearbyOffMap.map((incident) => (
             <MapMarker

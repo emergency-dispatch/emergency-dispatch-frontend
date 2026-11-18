@@ -49,6 +49,8 @@ export const GLOW_MARKER_COLORS: {
   station: { mine: string; mineHalo: string; other: string };
   trafficJam: Record<'active' | 'assigned' | 'escalated', { ring: string; glyph: string }>;
   pulse: string;
+  /** §31.E: tin báo AI đang xử lý — chàm = việc của AI (cùng quy ước với dải AI trên thanh trên cùng). */
+  ai: { ring: string; halo: string; glyph: string };
 } = {
   core: '#0F172A',
   arcIdle: 'rgba(203,213,225,0.75)',
@@ -61,6 +63,7 @@ export const GLOW_MARKER_COLORS: {
     escalated: { ring: '#F87171', glyph: '#FCA5A5' },
   },
   pulse: '#DC2626',
+  ai: { ring: '#818CF8', halo: '#6366F1', glyph: '#C7D2FE' },
 };
 
 // Khu Công nghệ cao TP. HCM (TP. Thủ Đức) — bối cảnh triển khai của đề tài.
