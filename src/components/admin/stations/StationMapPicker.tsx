@@ -5,7 +5,7 @@ import type MapboxDraw from '@mapbox/mapbox-gl-draw';
 import type { FeatureCollection } from 'geojson';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE } from '../../../services/mapboxService';
 import { boundaryBounds, type PolygonCoords } from '../settings/serviceAreaBoundary';
-import { glowStationMarkerHtml } from '../../operator/livemap/glowMarkers';
+import { STATION_ICON_SIZE, glowStationMarkerHtml } from '../../operator/livemap/glowMarkers';
 
 const COVERAGE_SOURCE_ID = 'station-coverage';
 const DEFAULT_COVERAGE_COLOR = '#DC2626';
@@ -14,8 +14,8 @@ const DEFAULT_COVERAGE_COLOR = '#DC2626';
 // đường bộ (OSRM).
 const REFERENCE_SOURCE_ID = 'picker-reference';
 const SERVICE_AREA_COLOR = '#2563EB';
-// Icon trạm (glowStationMarkerHtml) là ô 40px neo tâm.
-const STATION_ICON_HALF = 20;
+// Icon trạm (glowStationMarkerHtml) là ô vuông neo tâm.
+const STATION_ICON_HALF = STATION_ICON_SIZE / 2;
 
 export interface MapReferenceStation {
   id: string;

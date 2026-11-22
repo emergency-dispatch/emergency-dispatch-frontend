@@ -1,6 +1,7 @@
 <!-- Trạm — kiểu nét theo ảnh mẫu người dùng (2026-11-22): tòa giữa có mái + gờ mái, 6 cửa sổ, cửa đôi;
      hai cánh có gờ mái + 2 cửa sổ hở; nền thềm bo góc trên. Lưới 48×48, nét một màu;
-     code tô màu qua currentColor (đỏ = trạm của tôi, xám = trạm khác). -->
+     code tô màu qua currentColor (đỏ = trạm của tôi, xám = trạm khác).
+     Hiện chưa dùng: Live Map / Admin dùng bản 3D trong `assets/map-icons-3d/` (giữ lại để có thể quay về). -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
   <!-- Mái + gờ mái tòa giữa -->
   <path d="M13.6 4.2 L14.4 2.6 H33.6 L34.4 4.2"/>

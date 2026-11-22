@@ -1,0 +1,20 @@
+<!-- Xe cứu thương (chữ thập đỏ trên nóc) — 3D nhìn từ trên xuống, đầu xe hướng lên (0° = bắc); marker xoay theo heading.
+     Chốt 2026-11-22. Khung 64×64, tâm xe ở tâm khung (neo center); bóng vẽ sẵn, không CSS filter. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect x="22.5" y="11.5" width="24" height="48" rx="6" fill="#0F172A" opacity="0.28"/>
+  <rect x="18.4" y="17" width="3.2" height="8" rx="1.4" fill="#1F2937"/>
+  <rect x="42.4" y="17" width="3.2" height="8" rx="1.4" fill="#1F2937"/>
+  <rect x="18.4" y="43" width="3.2" height="8" rx="1.4" fill="#1F2937"/>
+  <rect x="42.4" y="43" width="3.2" height="8" rx="1.4" fill="#1F2937"/>
+  <rect x="20.0" y="8" width="24" height="48" rx="6" fill="#CBD5E1"/>
+  <rect x="20.0" y="8" width="21" height="46.5" rx="6" fill="#F8FAFC"/>
+  <rect x="21.2" y="10" width="1.6" height="42" rx="0.8" fill="#FFFFFF" opacity="0.8"/>
+  <path d="M23.0 20 L25.0 14.5 H38.0 L40.0 20 Z" fill="#1E293B"/>
+  <path d="M26.0 18.8 L27.5 15.5 H30.0 L28.5 18.8 Z" fill="#FFFFFF" opacity="0.4"/>
+  <rect x="25.0" y="21.5" width="6.5" height="2.6" rx="1" fill="#EF4444"/>
+  <rect x="31.5" y="21.5" width="6.5" height="2.6" rx="1" fill="#3B82F6"/>
+  <rect x="22.5" y="26.5" width="16" height="26.5" rx="2.5" fill="#E2E8F0"/>
+  <rect x="28.1" y="32.75" width="4.8" height="14" rx="1" fill="#DC2626"/>
+  <rect x="23.5" y="37.35" width="14" height="4.8" rx="1" fill="#DC2626"/>
+  <rect x="22.5" y="49" width="16" height="2.2" rx="1" fill="#DC2626"/>
+</svg>

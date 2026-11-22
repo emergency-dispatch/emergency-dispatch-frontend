@@ -21,7 +21,7 @@ import {
 } from '../../../types/station';
 import { useTranslation } from '../../../i18n';
 import { parseBoundary } from '../settings/serviceAreaBoundary';
-import { glowStationMarkerHtml } from '../../operator/livemap/glowMarkers';
+import { legendStationIconHtml } from '../../operator/livemap/glowMarkers';
 
 interface StationFormDrawerProps {
   initialStation: StationResponseDto | null;
@@ -46,10 +46,6 @@ const preservedRadiusKm = (station: StationResponseDto | null) => {
   if (current === undefined || !Number.isFinite(current)) return COVERAGE_RADIUS_KM.default;
   return Math.min(COVERAGE_RADIUS_KM.max, Math.max(COVERAGE_RADIUS_KM.min, current));
 };
-
-/** Icon trạm của Live Map thu nhỏ một nửa (40px → 20px) cho chú thích bản đồ; HTML do code tự sinh, không có dữ liệu người dùng. */
-const legendStationIcon = (isMine: boolean) =>
-  `<div style="transform:scale(0.5);transform-origin:center;">${glowStationMarkerHtml(isMine).replace('cursor-pointer', '')}</div>`;
 
 /** Nút nổi trên bản đồ (góc trên trái — góc phải đã có nút +/− của Mapbox). */
 const mapOverlayButtonClass =
@@ -199,7 +195,8 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
       referenceStations={referenceStations}
     />
   );
-  // Chú thích (khớp StationMapPicker / Live Map của Operator): trạm = icon trạm thu nhỏ, khu vực = nét đứt.
+  // Chú thích (khớp StationMapPicker / Live Map của Operator): trạm = nhà 3D thu nhỏ, khu vực = nét đứt.
+  // HTML icon do code tự sinh từ SVG trong assets, không chứa dữ liệu người dùng.
   const legendRow = (swatch: string, label: string) => (
     <div className="flex items-center gap-2">
       <span className={`w-5 shrink-0 border-t-2 ${swatch}`} />
@@ -210,7 +207,7 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
     <div className="flex items-center gap-2">
       <span
         className={`w-5 h-5 shrink-0 flex items-center justify-center ${dimmed ? 'opacity-50' : ''}`}
-        dangerouslySetInnerHTML={{ __html: legendStationIcon(isMine) }}
+        dangerouslySetInnerHTML={{ __html: legendStationIconHtml(isMine, 20) }}
       />
       <span>{label}</span>
     </div>

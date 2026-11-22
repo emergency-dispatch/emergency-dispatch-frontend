@@ -1,0 +1,26 @@
+<!-- Xe cứu hộ (giá nóc + cần cẩu, sọc cảnh báo đuôi) — 3D nhìn từ trên xuống, đầu xe hướng lên (0° = bắc); marker xoay theo heading.
+     Chốt 2026-11-22. Khung 64×64, tâm xe ở tâm khung (neo center); bóng vẽ sẵn, không CSS filter. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect x="22.5" y="9.5" width="24" height="52" rx="6" fill="#0F172A" opacity="0.28"/>
+  <rect x="18.4" y="15" width="3.2" height="8" rx="1.4" fill="#1F2937"/>
+  <rect x="42.4" y="15" width="3.2" height="8" rx="1.4" fill="#1F2937"/>
+  <rect x="18.4" y="45" width="3.2" height="8" rx="1.4" fill="#1F2937"/>
+  <rect x="42.4" y="45" width="3.2" height="8" rx="1.4" fill="#1F2937"/>
+  <rect x="20.0" y="6" width="24" height="52" rx="6" fill="#B45309"/>
+  <rect x="20.0" y="6" width="21" height="50.5" rx="6" fill="#F59E0B"/>
+  <rect x="21.2" y="8" width="1.6" height="46" rx="0.8" fill="#FCD34D" opacity="0.8"/>
+  <path d="M23.0 18 L25.0 12.5 H38.0 L40.0 18 Z" fill="#1E293B"/>
+  <path d="M26.0 16.8 L27.5 13.5 H30.0 L28.5 16.8 Z" fill="#FFFFFF" opacity="0.4"/>
+  <rect x="25.0" y="19.5" width="6.5" height="2.6" rx="1" fill="#F97316"/>
+  <rect x="31.5" y="19.5" width="6.5" height="2.6" rx="1" fill="#FBBF24"/>
+  <rect x="22.5" y="24.5" width="16" height="30.5" rx="2" fill="#374151"/>
+  <line x1="23.5" y1="30.6" x2="37.5" y2="30.6" stroke="#6B7280" stroke-width="0.9"/>
+  <line x1="23.5" y1="36.7" x2="37.5" y2="36.7" stroke="#6B7280" stroke-width="0.9"/>
+  <line x1="23.5" y1="42.8" x2="37.5" y2="42.8" stroke="#6B7280" stroke-width="0.9"/>
+  <line x1="23.5" y1="48.9" x2="37.5" y2="48.9" stroke="#6B7280" stroke-width="0.9"/>
+  <rect x="27.5" y="27.5" width="6" height="24.5" rx="1.2" fill="#F59E0B"/>
+  <path d="M23.0 55.5 l2.4 -3.2 h2.2 l-2.4 3.2 Z" fill="#111827"/>
+  <path d="M27.6 55.5 l2.4 -3.2 h2.2 l-2.4 3.2 Z" fill="#111827"/>
+  <path d="M32.2 55.5 l2.4 -3.2 h2.2 l-2.4 3.2 Z" fill="#111827"/>
+  <path d="M36.8 55.5 l2.4 -3.2 h2.2 l-2.4 3.2 Z" fill="#111827"/>
+</svg>

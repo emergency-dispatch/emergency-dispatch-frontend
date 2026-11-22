@@ -14,7 +14,7 @@ import {
   glowIncidentMarkerHtml,
   glowStationMarkerHtml,
   glowTrafficJamMarkerHtml,
-  stickerVehicleMarkerHtml,
+  vehicle3dMarkerHtml,
 } from './glowMarkers';
 import { MapMarker } from './MapMarker';
 import { TrafficJamPopup } from './TrafficJamPopup';
@@ -182,16 +182,17 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam
   );
 };
 
-// Xe đậu tại trạm xếp hàng ngay dưới ô trạm (pixel), mỗi hàng tối đa PARKED_PER_ROW xe.
-// Ô trạm 40px neo tâm; xe semi-flat rộng ~64px, neo đáy (mặt đất) → hàng đầu cách tâm trạm 58px.
+// Xe đậu tại trạm xếp hàng ngay dưới nhà trạm (pixel), mỗi hàng tối đa PARKED_PER_ROW xe, đầu xe hướng lên như bãi đỗ.
+// Nhà trạm 3D 48px neo tâm (chân nhà ≈ +16px); xe 3D 48px neo tâm, thân dài ≈ 40px, rộng ≈ 20px
+// → tâm hàng đầu cách tâm trạm 40px, các xe cách nhau 28px, các hàng cách nhau 44px.
 const PARKED_PER_ROW = 3;
-const PARKED_SPACING_PX = 62;
-const PARKED_ROW_SPACING_PX = 36;
-const PARKED_TOP_PX = 58;
-// Xe tại hiện trường nấp một phần sau ghim sự cố (ghim 48px, z-index cao hơn xe): nóc xe lấn ~11px vào nửa dưới ghim
+const PARKED_SPACING_PX = 28;
+const PARKED_ROW_SPACING_PX = 44;
+const PARKED_TOP_PX = 40;
+// Xe tại hiện trường nấp một phần sau ghim sự cố (ghim 48px, z-index cao hơn xe): đầu xe lấn ~10px vào nửa dưới ghim
 // → nhìn như xe đỗ ngay tại hiện trường ở mọi mức zoom (dời pixel cố định, zoom xa mà cách xa thì trông như chỗ khác).
 // Chấm trạng thái ở góc xe vẫn lộ ra ngoài vòng ghim.
-const SCENE_TOP_PX = 44;
+const SCENE_TOP_PX = 34;
 
 interface VehicleMarkersProps {
   map: mapboxgl.Map;
@@ -293,6 +294,9 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
       {vehicles.map((vehicle) => {
         const place = placements.get(vehicle.id)!;
         const isSelected = vehicle.id === selectedVehicleId;
+        // Xe theo GPS thật (không bị dời xếp hàng) → xoay theo hướng chạy, nằm phẳng trên mặt đường khi nghiêng 3D.
+        // Xe đậu / ở hiện trường → đứng thẳng, đầu xe hướng lên cho hàng xe gọn.
+        const followsGps = !place.offset;
         return (
           <MapMarker
             key={vehicle.id}
@@ -300,10 +304,11 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
             lat={place.lat}
             lng={place.lng}
             offset={place.offset}
-            anchor="bottom"
-            html={stickerVehicleMarkerHtml(vehicle.type, vehicle.status, isSelected, vehicle.heading)}
+            rotation={followsGps ? vehicle.heading : 0}
+            rotationAlignment={followsGps ? 'map' : 'viewport'}
+            html={vehicle3dMarkerHtml(vehicle.type, vehicle.status, isSelected)}
             zIndex={isSelected ? VEHICLE_Z_INDEX + 1 : VEHICLE_Z_INDEX}
-            popupOffset={isSelected ? 40 : 36}
+            popupOffset={isSelected ? 28 : 24}
             onClick={() => onSelectVehicle(vehicle.id)}
           >
             <VehiclePopup
@@ -376,7 +381,8 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   const { t } = useTranslation();
   const { incidentKindLabel, incomingIncidents } = useDispatchStore();
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
-  const [tileMode, setTileMode] = useState<MapTileMode>('satellite');
+  // Mặc định Đường phố: nền sáng, nhãn đường rõ, marker 3D (trạm / xe) và Quầng sáng nổi hơn; ảnh vệ tinh cũng nặng hơn.
+  const [tileMode, setTileMode] = useState<MapTileMode>('light');
   const appliedTileModeRef = useRef(tileMode);
   const [recenterCount, setRecenterCount] = useState(0);
   const [is3DMode, setIs3DMode] = useState(true);
@@ -404,7 +410,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
       return station && isParkedAtStation(v) ? { ...v, lat: station.lat, lng: station.lng } : v;
     });
   }, [vehicles, stations, pinnedIncidentsById]);
-  // Vẽ xe đang làm nhiệm vụ (đã nhận / đang đi / tại hiện trường); hình xe theo loại (stickerVehicleMarkerHtml).
+  // Vẽ xe đang làm nhiệm vụ (đã nhận / đang đi / tại hiện trường); hình xe theo loại (vehicle3dMarkerHtml, xoay theo heading).
   const movingVehicles = useMemo(
     () =>
       mapVehicles.filter(
