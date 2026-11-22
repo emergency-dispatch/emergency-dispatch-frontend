@@ -1,13 +1,13 @@
-import fireSvg from './icons/fire.svg?raw';
-import accidentSvg from './icons/accident.svg?raw';
-import sosSvg from './icons/sos.svg?raw';
-import otherSvg from './icons/other.svg?raw';
-import stationSvg from './icons/station.svg?raw';
-import trafficJamSvg from './icons/traffic-jam.svg?raw';
-import pickPinSvg from './icons/pick-pin.svg?raw';
-import vehicleFireSvg from './icons/vehicle-fire.svg?raw';
-import vehicleAmbulanceSvg from './icons/vehicle-ambulance.svg?raw';
-import vehicleRescueSvg from './icons/vehicle-rescue.svg?raw';
+import fireSvg from '../../../assets/map-icons/fire.svg?raw';
+import accidentSvg from '../../../assets/map-icons/accident.svg?raw';
+import sosSvg from '../../../assets/map-icons/sos.svg?raw';
+import otherSvg from '../../../assets/map-icons/other.svg?raw';
+import stationSvg from '../../../assets/map-icons/station.svg?raw';
+import trafficJamSvg from '../../../assets/map-icons/traffic-jam.svg?raw';
+import pickPinSvg from '../../../assets/map-icons/pick-pin.svg?raw';
+import vehicleFireSvg from '../../../assets/map-icons/vehicle-fire.svg?raw';
+import vehicleAmbulanceSvg from '../../../assets/map-icons/vehicle-ambulance.svg?raw';
+import vehicleRescueSvg from '../../../assets/map-icons/vehicle-rescue.svg?raw';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { GLOW_MARKER_COLORS as C, VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import type { IncidentCategory, SeverityLevel } from '../../../types/incident';
@@ -15,7 +15,7 @@ import type { DispatchVehicleType, VehicleStatus } from '../../../types/vehicle'
 
 /**
  * Bộ marker mới của Live Map Operator (chốt 2026-11-12):
- * - Sự cố / trạm / ùn tắc: kiểu "Quầng sáng" — lõi tối, vòng màu, hình một màu trong `icons/*.svg`.
+ * - Sự cố / trạm / ùn tắc: kiểu "Quầng sáng" — lõi tối, vòng màu, hình một màu trong `src/assets/map-icons/*.svg`.
  * - Xe: hình semi-flat nhiều màu, viền trắng kiểu hình dán + chấm trạng thái, lật ngang khi chạy về phía tây.
  * mapIcons.ts giữ nguyên vì Citizen / Landing / MapboxLocationPicker vẫn dùng bộ cũ.
  */

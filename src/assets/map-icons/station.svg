@@ -1,6 +1,27 @@
-<!-- Trạm — phương án 2 "Khối đặc" theo bố cục mẫu người dùng (chốt 2026-11-12): tháp giữa có bảng hiệu + đồng hồ + cửa,
-     hai cánh có cửa sổ, nền thềm. Lưới 24×24, một màu; code tô màu qua currentColor (đỏ = trạm của tôi, xám = trạm khác). -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
-  <path fill="currentColor" fill-rule="evenodd" d="M8.5 2.3h7v3.2h-7Z M10 3.5h4v.8h-4Z M7 7.8h10v11.7H7Z M10.1 10.8a1.9 1.9 0 1 0 3.8 0a1.9 1.9 0 1 0-3.8 0Z M10.2 15.2h3.6v4.3h-3.6Z M2.5 11.6h4v7.9h-4Z M3.3 13h2.4v1.4H3.3Z M3.3 15.8h2.4v1.4H3.3Z M17.5 11.6h4v7.9h-4Z M18.3 13h2.4v1.4h-2.4Z M18.3 15.8h2.4v1.4h-2.4Z"/>
-  <path fill="currentColor" d="M6 6h12v1.8H6Z M2 10h4.6v1.2H2Z M17.4 10H22v1.2h-4.6Z M1.5 20.2h21v2.2h-21Z M11.6 9.6h.8v1.3h-.8Z M12.4 10.8h1.1v.8h-1.1Z"/>
+<!-- Trạm — kiểu nét theo ảnh mẫu người dùng (2026-11-22): tòa giữa có mái + gờ mái, 6 cửa sổ, cửa đôi;
+     hai cánh có gờ mái + 2 cửa sổ hở; nền thềm bo góc trên. Lưới 48×48, nét một màu;
+     code tô màu qua currentColor (đỏ = trạm của tôi, xám = trạm khác). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Mái + gờ mái tòa giữa -->
+  <path d="M13.6 4.2 L14.4 2.6 H33.6 L34.4 4.2"/>
+  <rect x="10.4" y="6.6" width="27.2" height="3" rx="0.6"/>
+  <!-- Tường tòa giữa -->
+  <path d="M12.4 9.6 V39.4 M35.6 9.6 V39.4"/>
+  <!-- 6 cửa sổ -->
+  <rect x="15.2" y="12.2" width="4" height="5.2" rx="0.5"/>
+  <rect x="22" y="12.2" width="4" height="5.2" rx="0.5"/>
+  <rect x="28.8" y="12.2" width="4" height="5.2" rx="0.5"/>
+  <rect x="15.2" y="20.6" width="4" height="5.2" rx="0.5"/>
+  <rect x="22" y="20.6" width="4" height="5.2" rx="0.5"/>
+  <rect x="28.8" y="20.6" width="4" height="5.2" rx="0.5"/>
+  <!-- Cửa đôi -->
+  <path d="M19.2 39.4 V29.9 H28.8 V39.4 M24 29.9 V39.4"/>
+  <!-- Cánh trái: gờ mái, tường, 2 cửa sổ hở -->
+  <path d="M9.6 15.7 H2.8 V18.4 H9.6 M4.2 18.4 V39.4"/>
+  <path d="M9.6 22.4 H6.9 V24.9 H9.6 M9.6 29.3 H6.9 V31.9 H9.6"/>
+  <!-- Cánh phải (đối xứng) -->
+  <path d="M38.4 15.7 H45.2 V18.4 H38.4 M43.8 18.4 V39.4"/>
+  <path d="M38.4 22.4 H41.1 V24.9 H38.4 M38.4 29.3 H41.1 V31.9 H38.4"/>
+  <!-- Nền thềm -->
+  <path d="M2.8 45.2 V44.4 A1.9 1.9 0 0 1 4.7 42.5 H43.3 A1.9 1.9 0 0 1 45.2 44.4 V45.2 Z"/>
 </svg>
