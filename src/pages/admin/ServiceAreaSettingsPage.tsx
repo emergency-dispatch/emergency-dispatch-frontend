@@ -188,7 +188,7 @@ const ServiceAreaForm: React.FC<{
     [stations, isPolygon, polygonValid, draft.polygons, values.centerLat, values.centerLng, values.radiusKm, radiusValid]
   );
 
-  // Hiện các trạm (vòng phủ sóng + tên) trên bản đồ để thấy trạm nào lọt ngoài khu vực.
+  // Hiện các trạm (chấm + tên) trên bản đồ để thấy trạm nào lọt ngoài khu vực.
   const referenceStations = useMemo<MapReferenceStation[]>(
     () =>
       stations.map((s) => ({
@@ -196,7 +196,6 @@ const ServiceAreaForm: React.FC<{
         name: s.name,
         lat: s.latitude,
         lng: s.longitude,
-        radiusKm: s.coverageRadiusKm,
         inactive: !s.isActive,
       })),
     [stations]

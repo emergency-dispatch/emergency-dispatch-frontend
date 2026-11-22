@@ -55,6 +55,7 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
   },
   readyTeams: {
     title: 'Ready teams',
+    blocked: '{{count}} team(s) have a ready vehicle but cannot be assigned (no active rescue staff). Check Stations & Teams.',
   },
   recommend: {
     loadFailed: 'Could not load vehicle suggestions.',
@@ -116,9 +117,6 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     myStation: 'Your station',
     station: 'Rescue station',
     availableVehicles: '{{available}}/{{total}} vehicles available',
-    coverageRadius: 'Coverage radius {{km}} km',
-    showCoverage: 'Show station coverage',
-    hideCoverage: 'Hide station coverage',
     vehicleEta: '{{plate}} · ETA {{eta}} min',
     noVehicle: 'No vehicle assigned',
     recenterSelected: 'Re-center on the selected vehicle',

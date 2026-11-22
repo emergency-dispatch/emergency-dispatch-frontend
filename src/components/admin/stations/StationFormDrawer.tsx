@@ -21,6 +21,7 @@ import {
 } from '../../../types/station';
 import { useTranslation } from '../../../i18n';
 import { parseBoundary } from '../settings/serviceAreaBoundary';
+import { glowStationMarkerHtml } from '../../operator/livemap/glowMarkers';
 
 interface StationFormDrawerProps {
   initialStation: StationResponseDto | null;
@@ -36,6 +37,20 @@ const ADDRESS_MAX = 500;
 // giữa sidebar Admin (≤ 16rem) và drawer (32rem).
 const WIDE_QUERY = '(min-width: 1280px)';
 
+/**
+ * Bán kính trạm không còn tác dụng (backend giao trạm theo quãng đường bộ OSRM) nên form không cho nhập,
+ * nhưng DTO vẫn bắt buộc 5–50 km → gửi lại giá trị đang lưu (kẹp vào khoảng hợp lệ), trạm mới dùng mặc định.
+ */
+const preservedRadiusKm = (station: StationResponseDto | null) => {
+  const current = station?.coverageRadiusKm;
+  if (current === undefined || !Number.isFinite(current)) return COVERAGE_RADIUS_KM.default;
+  return Math.min(COVERAGE_RADIUS_KM.max, Math.max(COVERAGE_RADIUS_KM.min, current));
+};
+
+/** Icon trạm của Live Map thu nhỏ một nửa (40px → 20px) cho chú thích bản đồ; HTML do code tự sinh, không có dữ liệu người dùng. */
+const legendStationIcon = (isMine: boolean) =>
+  `<div style="transform:scale(0.5);transform-origin:center;">${glowStationMarkerHtml(isMine).replace('cursor-pointer', '')}</div>`;
+
 /** Nút nổi trên bản đồ (góc trên trái — góc phải đã có nút +/− của Mapbox). */
 const mapOverlayButtonClass =
   'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/95 border border-slate-200 shadow-md text-xs font-semibold text-slate-700 hover:bg-white hover:text-slate-900';
@@ -50,8 +65,6 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
     longitude: initialStation?.longitude ?? MAP_CENTER[1],
     phoneNumber: initialStation?.phoneNumber ?? '',
     isActive: initialStation?.isActive ?? true,
-    // Ô số giữ dạng chuỗi để gõ dở không bị nhảy.
-    coverageRadiusKm: String(initialStation?.coverageRadiusKm ?? COVERAGE_RADIUS_KM.default),
   });
   const [headOperatorId, setHeadOperatorId] = useState<string | null>(initialStation?.headOperatorId ?? null);
   const [submitting, setSubmitting] = useState(false);
@@ -96,7 +109,6 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
           name: s.name,
           lat: s.latitude,
           lng: s.longitude,
-          radiusKm: s.coverageRadiusKm,
           inactive: !s.isActive,
         })),
     [references.data, initialStation?.id]
@@ -129,8 +141,6 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
 
   const hotline = form.phoneNumber.replace(/\s/g, '');
   const hotlineValid = HOTLINE_PATTERN.test(hotline);
-  const radiusKm = form.coverageRadiusKm.trim() === '' ? NaN : Number(form.coverageRadiusKm);
-  const radiusValid = radiusKm >= COVERAGE_RADIUS_KM.min && radiusKm <= COVERAGE_RADIUS_KM.max;
   // §23 Mã trạm: kiểm tra định dạng + trùng với trạm khác ngay khi gõ (backend vẫn kiểm tra lại, trả 400).
   const code = form.code.trim().toUpperCase();
   const otherStations = (references.data?.stations ?? []).filter((s) => s.id !== initialStation?.id);
@@ -147,7 +157,7 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
       ? t('admin.stations.form.nameDuplicate', { name: trimmedName })
       : null;
   const canSubmit =
-    trimmedName.length > 0 && form.address.trim().length > 0 && hotlineValid && radiusValid && !codeError && !nameError;
+    trimmedName.length > 0 && form.address.trim().length > 0 && hotlineValid && !codeError && !nameError;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,7 +172,7 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
       longitude: form.longitude,
       phoneNumber: hotline,
       isActive: form.isActive,
-      coverageRadiusKm: radiusKm,
+      coverageRadiusKm: preservedRadiusKm(initialStation),
       headOperatorId,
     };
     try {
@@ -182,25 +192,34 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
     <StationMapPicker
       lat={form.latitude}
       lng={form.longitude}
-      radiusKm={radiusValid ? radiusKm : undefined}
       onChange={handlePickLocation}
+      markerVariant="station"
       recenterKey={recenterKey}
       referenceArea={referenceArea}
       referenceStations={referenceStations}
     />
   );
-  // Chú thích màu (khớp màu trong StationMapPicker / Live Map của Operator).
+  // Chú thích (khớp StationMapPicker / Live Map của Operator): trạm = icon trạm thu nhỏ, khu vực = nét đứt.
   const legendRow = (swatch: string, label: string) => (
     <div className="flex items-center gap-2">
       <span className={`w-5 shrink-0 border-t-2 ${swatch}`} />
       <span>{label}</span>
     </div>
   );
+  const legendStation = (isMine: boolean, label: string, dimmed = false) => (
+    <div className="flex items-center gap-2">
+      <span
+        className={`w-5 h-5 shrink-0 flex items-center justify-center ${dimmed ? 'opacity-50' : ''}`}
+        dangerouslySetInnerHTML={{ __html: legendStationIcon(isMine) }}
+      />
+      <span>{label}</span>
+    </div>
+  );
   const mapLegend = (
     <div className="absolute bottom-2.5 right-2.5 space-y-1 rounded-lg bg-white/95 border border-slate-200 shadow-md px-3 py-2 text-[11px] text-slate-700">
-      {legendRow('border-red-600', t('admin.stations.form.legend.thisStation'))}
-      {referenceStations.length > 0 && legendRow('border-violet-600', t('admin.stations.form.legend.otherStations'))}
-      {hasInactiveStation && legendRow('border-slate-500', t('admin.stations.form.legend.inactiveStations'))}
+      {legendStation(true, t('admin.stations.form.legend.thisStation'))}
+      {referenceStations.length > 0 && legendStation(false, t('admin.stations.form.legend.otherStations'))}
+      {hasInactiveStation && legendStation(false, t('admin.stations.form.legend.inactiveStations'), true)}
       {referenceArea && legendRow('border-dashed border-blue-600', t('admin.stations.form.legend.serviceArea'))}
     </div>
   );
@@ -318,26 +337,6 @@ export const StationFormDrawer: React.FC<StationFormDrawerProps> = ({ initialSta
           inputMode="tel"
           placeholder={t('admin.stations.form.hotlinePlaceholder')}
           className={inputClass}
-        />
-      </FormField>
-
-      <FormField
-        label={t('admin.stations.form.radius')}
-        required
-        hint={t(radiusValid ? 'admin.stations.form.radiusHint' : 'admin.stations.form.radiusInvalid', {
-          min: COVERAGE_RADIUS_KM.min,
-          max: COVERAGE_RADIUS_KM.max,
-        })}
-      >
-        <input
-          type="number"
-          inputMode="decimal"
-          min={COVERAGE_RADIUS_KM.min}
-          max={COVERAGE_RADIUS_KM.max}
-          step={0.5}
-          value={form.coverageRadiusKm}
-          onChange={(e) => set('coverageRadiusKm', e.target.value)}
-          className={`${inputClass} font-mono-data sm:max-w-[160px] ${radiusValid ? '' : 'border-red-400'}`}
         />
       </FormField>
 

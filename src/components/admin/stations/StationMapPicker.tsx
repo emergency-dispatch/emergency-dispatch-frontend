@@ -5,22 +5,23 @@ import type MapboxDraw from '@mapbox/mapbox-gl-draw';
 import type { FeatureCollection } from 'geojson';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE } from '../../../services/mapboxService';
 import { boundaryBounds, type PolygonCoords } from '../settings/serviceAreaBoundary';
+import { glowStationMarkerHtml } from '../../operator/livemap/glowMarkers';
 
 const COVERAGE_SOURCE_ID = 'station-coverage';
 const DEFAULT_COVERAGE_COLOR = '#DC2626';
-// Lớp tham chiếu (không bấm được): cùng màu với Live Map của Operator —
-// khu vực phục vụ xanh nét đứt (MapServiceAreaLayer), trạm khác tím nét liền (MapStationCoverageLayer).
+// Lớp tham chiếu (không bấm được): khu vực phục vụ xanh nét đứt như Live Map (MapServiceAreaLayer),
+// trạm khác dùng icon trạm của Live Map Operator + tên — không vẽ bán kính trạm vì backend giao trạm theo quãng
+// đường bộ (OSRM).
 const REFERENCE_SOURCE_ID = 'picker-reference';
 const SERVICE_AREA_COLOR = '#2563EB';
-const OTHER_STATION_COLOR = '#7C3AED';
-const INACTIVE_STATION_COLOR = '#64748B';
+// Icon trạm (glowStationMarkerHtml) là ô 40px neo tâm.
+const STATION_ICON_HALF = 20;
 
 export interface MapReferenceStation {
   id: string;
   name: string;
   lat: number;
   lng: number;
-  radiusKm: number;
   /** Trạm tạm ngưng → vẽ màu xám. */
   inactive?: boolean;
 }
@@ -33,15 +34,9 @@ export interface MapReferenceArea {
   polygons?: PolygonCoords[];
 }
 
-const toReferenceCollection = (area: MapReferenceArea | null, stations: MapReferenceStation[]) => ({
+const toReferenceCollection = (area: MapReferenceArea | null) => ({
   type: 'FeatureCollection' as const,
   features: [
-    ...stations
-      .filter((s) => s.radiusKm > 0)
-      .map((s) => ({
-        ...buildCoveragePolygon(s.lat, s.lng, s.radiusKm),
-        properties: { kind: 'station', color: s.inactive ? INACTIVE_STATION_COLOR : OTHER_STATION_COLOR },
-      })),
     ...(area?.polygons?.length
       ? [
           {
@@ -56,17 +51,20 @@ const toReferenceCollection = (area: MapReferenceArea | null, stations: MapRefer
   ],
 });
 
-/** Chấm + tên trạm khác; pointer-events:none để bấm lên vẫn đặt được vị trí. */
-const createReferenceStationElement = (name: string, color: string) => {
+/**
+ * Icon trạm khác (như Live Map Operator: viền xám) + tên; trạm tạm ngưng thì mờ đi.
+ * pointer-events:none để bấm lên vẫn đặt được vị trí.
+ */
+const createReferenceStationElement = (name: string, inactive: boolean) => {
   const el = document.createElement('div');
-  el.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;';
-  const dot = document.createElement('div');
-  dot.style.cssText = `width:10px;height:10px;border-radius:9999px;background:${color};border:2px solid #FFFFFF;box-shadow:0 0 4px rgba(15,23,42,0.45);`;
+  el.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:1px;pointer-events:none;${inactive ? 'opacity:0.5;' : ''}`;
+  const icon = document.createElement('div');
+  icon.innerHTML = glowStationMarkerHtml(false).replace('cursor-pointer', '');
   const label = document.createElement('div');
   label.textContent = name;
   label.style.cssText =
     'padding:1px 6px;border-radius:4px;background:rgba(255,255,255,0.92);color:#334155;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 2px rgba(15,23,42,0.25);';
-  el.append(dot, label);
+  el.append(icon, label);
   return el;
 };
 
@@ -102,8 +100,16 @@ const buildCoveragePolygon = (lat: number, lng: number, radiusKm: number, steps 
   };
 };
 
-const createPickerElement = () => {
+/** Điểm đang chọn: icon trạm của tôi (viền đỏ, như Live Map) khi chọn vị trí trạm; chấm đỏ cho tâm khu vực. */
+const createPickerElement = (variant: 'point' | 'station') => {
   const el = document.createElement('div');
+  if (variant === 'station') {
+    el.style.cursor = 'grab';
+    // Luôn nằm trên icon các trạm khác (marker thêm sau sẽ đè lên nếu không đặt z-index).
+    el.style.zIndex = '2';
+    el.innerHTML = glowStationMarkerHtml(true).replace('cursor-pointer', '');
+    return el;
+  }
   el.style.cssText =
     'width:16px;height:16px;border-radius:9999px;background:#DC2626;border:2px solid #FFFFFF;box-shadow:0 0 8px 2px rgba(220,38,38,0.5);cursor:grab;';
   return el;
@@ -112,7 +118,7 @@ const createPickerElement = () => {
 interface StationMapPickerProps {
   lat: number;
   lng: number;
-  /** Bán kính phủ sóng; bỏ trống thì không vẽ vòng tròn (backend chưa lưu CoverageRadiusKm). */
+  /** Bán kính vòng tròn quanh điểm chọn (chỉ khu vực phục vụ dạng hình tròn); bỏ trống thì không vẽ vòng. */
   radiusKm?: number;
   onChange: (lat: number, lng: number) => void;
   /** Đổi giá trị này để bay bản đồ tới vị trí hiện tại (VD sau khi chọn địa chỉ từ ô tìm kiếm). */
@@ -123,8 +129,10 @@ interface StationMapPickerProps {
   fitToRadius?: boolean;
   /** Khu vực phục vụ để tham chiếu (null/bỏ trống = không vẽ). Truyền giá trị đã memo. */
   referenceArea?: MapReferenceArea | null;
-  /** Các trạm khác để tham chiếu (vòng phủ sóng + tên). Truyền mảng đã memo. */
+  /** Các trạm khác để tham chiếu (icon trạm + tên). Truyền mảng đã memo. */
   referenceStations?: MapReferenceStation[];
+  /** Hình điểm đang chọn: 'station' = icon trạm (form trạm), 'point' = chấm đỏ (tâm khu vực, mặc định). Chỉ đọc lúc khởi tạo. */
+  markerVariant?: 'point' | 'station';
   /**
    * Chế độ vẽ đa giác (khu vực phục vụ, §33): không có chấm tâm / bấm đặt tâm, thay bằng công cụ vẽ.
    * Chỉ đọc lúc khởi tạo → đổi chế độ hoặc vẽ lại từ đầu thì đổi `key` để dựng lại bản đồ.
@@ -153,6 +161,7 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
   fitToRadius = false,
   referenceArea = null,
   referenceStations,
+  markerVariant = 'point',
   boundary,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -239,7 +248,7 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
         }
       });
     } else {
-      marker = new mapboxgl.Marker({ element: createPickerElement(), draggable: true })
+      marker = new mapboxgl.Marker({ element: createPickerElement(markerVariant), draggable: true })
         .setLngLat([lng, lat])
         .addTo(map);
 
@@ -316,7 +325,7 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
     source?.setData(buildCoveragePolygon(lat, lng, radiusKm));
   }, [lat, lng, radiusKm]);
 
-  // Lớp tham chiếu nằm dưới vòng phủ sóng của trạm đang sửa. Dữ liệu về sau (gọi API) nên đợi style sẵn sàng.
+  // Lớp tham chiếu nằm dưới vòng tròn của điểm đang chọn. Dữ liệu về sau (gọi API) nên đợi style sẵn sàng.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -325,27 +334,7 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
       if (!map.getSource(REFERENCE_SOURCE_ID)) {
         const ownFill = `${COVERAGE_SOURCE_ID}-fill`;
         const beforeId = map.getLayer(ownFill) ? ownFill : undefined;
-        map.addSource(REFERENCE_SOURCE_ID, { type: 'geojson', data: toReferenceCollection(null, []) });
-        map.addLayer(
-          {
-            id: `${REFERENCE_SOURCE_ID}-fill`,
-            type: 'fill',
-            source: REFERENCE_SOURCE_ID,
-            filter: ['==', ['get', 'kind'], 'station'],
-            paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.06 },
-          },
-          beforeId
-        );
-        map.addLayer(
-          {
-            id: `${REFERENCE_SOURCE_ID}-station-line`,
-            type: 'line',
-            source: REFERENCE_SOURCE_ID,
-            filter: ['==', ['get', 'kind'], 'station'],
-            paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.9 },
-          },
-          beforeId
-        );
+        map.addSource(REFERENCE_SOURCE_ID, { type: 'geojson', data: toReferenceCollection(null) });
         map.addLayer(
           {
             id: `${REFERENCE_SOURCE_ID}-area-line`,
@@ -357,7 +346,7 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
           beforeId
         );
       }
-      (map.getSource(REFERENCE_SOURCE_ID) as mapboxgl.GeoJSONSource).setData(toReferenceCollection(referenceArea, stations));
+      (map.getSource(REFERENCE_SOURCE_ID) as mapboxgl.GeoJSONSource).setData(toReferenceCollection(referenceArea));
     };
 
     // isStyleLoaded() còn false lúc tile đang tải → đợi 'idle' (luôn bắn lại), giống MapServiceAreaLayer.
@@ -366,9 +355,9 @@ export const StationMapPicker: React.FC<StationMapPickerProps> = ({
 
     const markers = stations.map((s) =>
       new mapboxgl.Marker({
-        element: createReferenceStationElement(s.name, s.inactive ? INACTIVE_STATION_COLOR : OTHER_STATION_COLOR),
+        element: createReferenceStationElement(s.name, !!s.inactive),
         anchor: 'top',
-        offset: [0, -5],
+        offset: [0, -STATION_ICON_HALF],
       })
         .setLngLat([s.lng, s.lat])
         .addTo(map)

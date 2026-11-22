@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { Building2, Clock, Compass, Crown, ExternalLink, LocateFixed, MapPin, Radius, TrafficCone, Users } from 'lucide-react';
+import { Building2, Clock, Compass, Crown, ExternalLink, LocateFixed, MapPin, TrafficCone, Users } from 'lucide-react';
 import { MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import { MAPBOX_ACCESS_TOKEN } from '../../../services/mapboxService';
@@ -22,7 +22,6 @@ import { useDispatchStore, type ActionResult } from '../../../context/DispatchCo
 import type { RescueUnitResponseDto } from '../../../types/rescueUnit';
 import { MapRouteLayer } from './MapRouteLayer';
 import { MapServiceAreaLayer } from './MapServiceAreaLayer';
-import { MapStationCoverageLayer } from './MapStationCoverageLayer';
 import type { ServiceAreaDto } from '../../../services/liveMapService';
 import type { DispatchRoute } from '../../../hooks/useDispatchRoutes';
 import { MapLegend } from './MapLegend';
@@ -39,16 +38,6 @@ const MAX_ZOOM = 18;
 const STATION_Z_INDEX = 1;
 const VEHICLE_Z_INDEX = 2;
 const INCIDENT_Z_INDEX = 3;
-
-// Nhớ lựa chọn bật/tắt vòng phủ sóng trạm cho lần mở sau (chỉ là tiện ích của từng người xem).
-const COVERAGE_STORAGE_KEY = 'resq.liveMap.showStationCoverage';
-const readShowCoverage = () => {
-  try {
-    return localStorage.getItem(COVERAGE_STORAGE_KEY) !== '0';
-  } catch {
-    return true;
-  }
-};
 
 const boundsOf = (points: Array<{ lat: number; lng: number }>) =>
   points.reduce((b, p) => b.extend([p.lng, p.lat]), new mapboxgl.LngLatBounds());
@@ -391,16 +380,6 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   const appliedTileModeRef = useRef(tileMode);
   const [recenterCount, setRecenterCount] = useState(0);
   const [is3DMode, setIs3DMode] = useState(true);
-  const [showCoverage, setShowCoverage] = useState(readShowCoverage);
-  const toggleCoverage = () =>
-    setShowCoverage((prev) => {
-      try {
-        localStorage.setItem(COVERAGE_STORAGE_KEY, prev ? '0' : '1');
-      } catch {
-        // Trình duyệt chặn storage → chỉ không nhớ được lựa chọn.
-      }
-      return !prev;
-    });
 
   // Góc nghiêng 2D / 3D như bản đồ Staff (45°); các lần bay camera sau đó giữ nguyên góc đang chọn.
   const handleToggle3D = () => {
@@ -531,12 +510,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
             recenterTrigger={recenterCount}
           />
 
-          <MapStationCoverageLayer
-            map={map}
-            stations={stations}
-            myStationId={user?.stationId ?? null}
-            visible={showCoverage}
-          />
+          {/* Không vẽ vòng bán kính trạm: backend giao trạm theo quãng đường bộ (OSRM), bán kính không còn tác dụng. */}
           <MapServiceAreaLayer map={map} area={serviceArea} />
           <MapRouteLayer map={map} routes={routes} placements={placements} selectedVehicleId={selectedVehicleId} />
 
@@ -565,11 +539,6 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
                       total: stationVehicles.length,
                     })}
                   </p>
-                  {station.coverageRadiusKm > 0 && (
-                    <p className="text-[11px] text-slate-500">
-                      {t('liveMap.map.coverageRadius', { km: station.coverageRadiusKm })}
-                    </p>
-                  )}
                 </div>
               </MapMarker>
             );
@@ -725,20 +694,6 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
           aria-label={is3DMode ? t('liveMap.layers.view2d') : t('liveMap.layers.view3d')}
         >
           <Compass className={`w-5 h-5 transition-transform ${is3DMode ? 'rotate-45' : ''}`} />
-        </button>
-
-        <button
-          onClick={toggleCoverage}
-          aria-pressed={showCoverage}
-          className={`p-2.5 rounded-xl border shadow-md transition-all active:scale-95 ${
-            showCoverage
-              ? 'bg-red-600 text-white border-red-600'
-              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-          }`}
-          title={showCoverage ? t('liveMap.map.hideCoverage') : t('liveMap.map.showCoverage')}
-          aria-label={showCoverage ? t('liveMap.map.hideCoverage') : t('liveMap.map.showCoverage')}
-        >
-          <Radius className="w-5 h-5" />
         </button>
 
         <button
