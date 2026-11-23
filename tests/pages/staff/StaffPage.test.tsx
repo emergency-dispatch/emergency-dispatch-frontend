@@ -50,8 +50,8 @@ const renderPage = () =>
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(incidentHubService, 'start').mockResolvedValue(false);
-  vi.spyOn(incidentHubService, 'onJobAssigned').mockReturnValue(() => {});
-  vi.spyOn(incidentHubService, 'onAssignmentStatus').mockReturnValue(() => {});
+  vi.spyOn(incidentHubService, 'onJobAssigned').mockReturnValue(() => { });
+  vi.spyOn(incidentHubService, 'onAssignmentStatus').mockReturnValue(() => { });
   vi.spyOn(routingService, 'calculateDrivingRoute').mockImplementation(async (o, d) => routingService.createFallbackRoute(o, d));
   vi.mocked(userService.getMe).mockResolvedValue({ success: false, message: '', data: null as never });
   vi.mocked(userService.getMyTeam).mockResolvedValue({ success: false, message: '', data: null as never });
@@ -88,7 +88,7 @@ describe('StaffPage', () => {
 
   it('lỗi đồng bộ nhiệm vụ không làm hỏng trang (vẫn ở chế độ túc trực)', async () => {
     disp.getMyAssignments.mockRejectedValue(new Error('offline'));
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => { });
     renderPage();
     await waitFor(() => expect(warn).toHaveBeenCalled());
     // Ghi chú: banner lỗi chỉ hiện trong nhánh có nhiệm vụ đang chạy; ở chế độ túc trực lỗi không hiển thị.
@@ -108,7 +108,7 @@ describe('StaffPage', () => {
   it('từ chối lệnh: lý do khác cần ghi chú ≥ 5 ký tự', async () => {
     disp.getMyAssignments.mockResolvedValue({ success: true, message: '', data: [assignment()] } as never);
     renderPage();
-    await userEvent.click(await screen.findByText('Từ Chối Lệnh (BR-22)'));
+    await userEvent.click(await screen.findByText('Từ Chối Lệnh '));
     const select = screen.getByRole('combobox');
     await userEvent.selectOptions(select, 'Other');
     await userEvent.click(screen.getByText('Xác Nhận Từ Chối Lệnh'));

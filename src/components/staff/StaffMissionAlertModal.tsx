@@ -481,7 +481,7 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
           <div className="p-4 bg-amber-50/70 border-t border-amber-200 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-amber-900 uppercase font-mono">
-                Xác Nhận Lý Do Từ Chối Lệnh Điều Phối (Quy định BR-22)
+                Xác Nhận Lý Do Từ Chối Lệnh Điều Phối
               </span>
               <button
                 type="button"
@@ -554,7 +554,7 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
               className="w-full sm:w-1/3 py-3 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
             >
               <XCircle className="w-4 h-4 text-slate-500" />
-              Từ Chối Lệnh (BR-22)
+              Từ Chối Lệnh
             </button>
 
             <button
