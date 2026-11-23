@@ -41,6 +41,11 @@ interface CitizenReportsModalProps {
   onSelectIncident?: (incident: IncidentResponseDto) => void;
 }
 
+const isDuplicateCancellation = (reason?: string | number | null) => {
+  const r = String(reason ?? '').toLowerCase();
+  return r.includes('duplicate') || r === '1';
+};
+
 export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
   isOpen,
   onClose,
@@ -81,6 +86,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
         const res = await incidentService.getMyReports({ pageSize: 50 });
         items = (res.data?.items || []).map((item) => ({
           id: item.id,
+          code: item.code,
           title: item.title,
           description: item.description,
           locationAddress: item.locationAddress,
@@ -90,6 +96,18 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
           severity: item.severity,
           cancellationReason: item.cancellationReason,
           linkedToIncidentId: item.linkedToIncidentId,
+          linkedTo: item.linkedToIncidentId
+            ? {
+                incidentId: item.linkedToIncidentId,
+                code: item.linkedToIncidentCode ?? undefined,
+                title: item.linkedToIncidentTitle ?? '',
+                locationAddress: item.linkedToIncidentAddress ?? '',
+                eventType: 'None',
+                status: item.linkedToIncidentStatus ?? 'Verified',
+                distanceMeters: 0,
+                assignedUnitPlates: [],
+              }
+            : undefined,
           reportedEventType: item.reportedEventType,
           createdAt: item.reportedAt,
           updatedAt: item.reportedAt,
@@ -103,9 +121,11 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
           })),
         } as IncidentResponseDto));
 
-        // Nếu có sự cố Linked hoặc Cancelled vì Duplicate mà thiếu linkedToIncidentId, gọi chi tiết để bù
+        // Chỉ gọi chi tiết bù nếu backend chưa trả linkedToIncidentId cho ca Linked / Cancelled (Duplicate)
         const needDetail = items.filter(
-          (i) => (i.status === 'Linked' || i.status === 'Cancelled') && !i.linkedToIncidentId
+          (i) =>
+            !i.linkedToIncidentId &&
+            (i.status === 'Linked' || (i.status === 'Cancelled' && isDuplicateCancellation(i.cancellationReason)))
         );
         if (needDetail.length > 0) {
           const detailRes = await Promise.allSettled(
@@ -360,7 +380,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                           <span>{visual.label}</span>
                         </span>
                         <span className="font-mono text-xs font-extrabold text-slate-500">
-                          INC-{incident.id.substring(0, 8).toUpperCase()}
+                          {incident.code || `INC-${incident.id.substring(0, 8).toUpperCase()}`}
                         </span>
                         {getStatusBadge(incident.status)}
                       </div>
@@ -447,15 +467,15 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
 
                   {/* Linked to original incident banner (BR-07) */}
                   {(incident.status === 'Linked' ||
-                    (incident.status === 'Cancelled' &&
-                      (String(incident.cancellationReason || '').toLowerCase().includes('duplicate') ||
-                        incident.cancellationReason === '1'))) && (
+                    (incident.status === 'Cancelled' && isDuplicateCancellation(incident.cancellationReason))) && (
                     <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200 text-xs space-y-2">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-1.5 text-indigo-900 font-bold">
                           <Link2 className="w-4 h-4 text-indigo-600 shrink-0" />
                           <span>
-                            {incident.status === 'Linked'
+                            {incident.linkedTo?.title
+                              ? `${incident.status === 'Linked' ? t('citizen.reports.linkedIncidentNotice', 'Báo cáo này đã được gộp vào sự cố đang xử lý.') : 'Báo cáo đã đóng do trùng với sự cố đang xử lý.'} (${incident.linkedTo.title})`
+                              : incident.status === 'Linked'
                               ? t('citizen.reports.linkedIncidentNotice', 'Báo cáo này đã được gộp vào sự cố đang xử lý.')
                               : 'Báo cáo đã đóng do trùng với sự cố đang xử lý.'}
                           </span>
@@ -467,15 +487,18 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                               handleOpenTracking({
                                 ...incident,
                                 id: incident.linkedToIncidentId!,
-                                title: 'Sự cố gốc',
+                                code: incident.linkedTo?.code,
+                                title: incident.linkedTo?.title || 'Sự cố gốc',
+                                locationAddress: incident.linkedTo?.locationAddress || incident.locationAddress,
+                                status: incident.linkedTo?.status || incident.status,
                               })
                             }
                             className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] font-mono transition-colors cursor-pointer flex items-center gap-1"
                           >
                             <Navigation className="w-3 h-3" />
                             <span>
-                              {t('citizen.reports.viewOriginalIncident', 'Xem sự cố gốc')} (#INC-
-                              {incident.linkedToIncidentId.substring(0, 8).toUpperCase()})
+                              {t('citizen.reports.viewOriginalIncident', 'Xem sự cố gốc')} (
+                              {incident.linkedTo?.code || `#INC-${incident.linkedToIncidentId.substring(0, 8).toUpperCase()}`})
                             </span>
                           </button>
                         )}

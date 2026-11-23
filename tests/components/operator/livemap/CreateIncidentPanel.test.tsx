@@ -16,7 +16,16 @@ vi.mock('@/services/mapboxService', async (orig) => ({
   mapboxService: { reverseGeocode: vi.fn() },
 }));
 vi.mock('@/services/mediaService', () => ({ mediaService: { upload: vi.fn() } }));
-vi.mock('@/services/admin/geocodeService', () => ({ searchAddressInArea: vi.fn(), searchAddress: vi.fn() }));
+vi.mock('@/services/admin/geocodeService', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/admin/geocodeService')>();
+  return {
+    ...actual,
+    searchAddressInArea: vi.fn(),
+    searchAddress: vi.fn(),
+    searchOpenStreetMap: vi.fn(),
+    searchOpenStreetMapInArea: vi.fn(),
+  };
+});
 
 const inside = { lat: DEFAULT_SERVICE_AREA.centerLat, lng: DEFAULT_SERVICE_AREA.centerLng };
 

@@ -48,10 +48,10 @@ export const adminEquipmentVi = {
   },
   history: {
     title: 'Lịch sử thay đổi',
-    openAudit: 'Xem trong Nhật ký',
+    openAudit: 'Xem trong Nhật ký thao tác',
     loading: 'Đang tải lịch sử...',
     empty: 'Chưa có bản ghi nào.',
     system: 'Hệ thống',
-    more: 'Còn {{count}} bản ghi cũ hơn — xem trong Nhật ký.',
+    more: 'Còn {{count}} bản ghi cũ hơn — xem trong Nhật ký thao tác.',
   },
 };

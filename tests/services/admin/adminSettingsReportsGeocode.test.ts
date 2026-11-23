@@ -32,6 +32,7 @@ describe('validateDispatchSettings', () => {
     autoExpireHours: 24,
     autoDispatchEnabled: false,
     autoDispatchMinConfidence: 0.9,
+    autoDispatchMode: 'Ensemble',
     autoDispatchDuplicateRadiusMeters: 500,
     autoDispatchDuplicateWindowMinutes: 30,
   };
@@ -166,7 +167,7 @@ describe('reportAdminService', () => {
   describe('exportIncidents', () => {
     let click: ReturnType<typeof vi.spyOn>;
     beforeEach(() => {
-      click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+      click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => { });
     });
 
     it('lấy tên file từ Content-Disposition (UTF-8)', async () => {

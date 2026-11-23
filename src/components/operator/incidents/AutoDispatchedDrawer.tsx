@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { AlertTriangle, Ban, FileCheck2, History, Map as MapIcon, MapPin, X } from 'lucide-react';
 import { AutoDispatchNotice } from './AutoDispatchInfo';
+import { AiVotesPanel } from './AiVotesPanel';
 import { IncidentAuditTimeline } from './IncidentAuditTimeline';
 import { IncidentMediaGallery } from './IncidentMediaGallery';
 import { SeverityBadge } from './SeverityBadge';
@@ -94,6 +95,7 @@ export const AutoDispatchedDrawer: React.FC<AutoDispatchedDrawerProps> = ({ inci
           )}
 
           <AutoDispatchNotice incident={incident} />
+          <AiVotesPanel votes={incident.aiVotes} />
 
           {incident.media.length > 0 && (
             <IncidentMediaGallery key={incident.id} media={incident.media} title={incident.title} />

@@ -10,9 +10,12 @@ import {
 } from './settingsDraft';
 import { Notice, type NoticeState } from '../common/ui';
 import { inputClass, labelClass } from '../common/styles';
+import { showToast } from '../common/toastStore';
 import { useServiceQuery, useUnsavedChangesGuard } from '../common/hooks';
 import {
+  AUTO_DISPATCH_DEFAULTS,
   AUTO_DISPATCH_LIMITS,
+  AUTO_DISPATCH_MODES,
   AUTO_EXPIRE_HOURS,
   WEIGHT_SUM_TOLERANCE,
   adminSettingsService,
@@ -50,8 +53,6 @@ export const DispatchSettingsSection: React.FC<{ reloadKey?: number; onSaved?: (
     ]);
     return { dispatch, escalation };
   }, `dispatch-settings|${reloadKey}`);
-  // Thông báo "đã lưu" giữ ở đây vì form được dựng lại sau khi lưu.
-  const [flash, setFlash] = useState<NoticeState>(null);
 
   if (query.error && !query.data) return <Notice notice={{ kind: 'error', message: query.error }} />;
   if (!query.data) return <div className="text-sm text-slate-400">{t('admin.common.settings.loading')}</div>;
@@ -61,9 +62,8 @@ export const DispatchSettingsSection: React.FC<{ reloadKey?: number; onSaved?: (
       key={query.data.dispatch.updatedAt ?? 'default'}
       record={query.data.dispatch}
       maxRadiusKm={query.data.escalation.values.maxRadiusKm}
-      initialNotice={flash}
       onSaved={(message) => {
-        setFlash({ kind: 'success', message });
+        showToast(message);
         query.reload();
         onSaved?.();
       }}
@@ -74,13 +74,12 @@ export const DispatchSettingsSection: React.FC<{ reloadKey?: number; onSaved?: (
 const DispatchForm: React.FC<{
   record: SettingsRecord<DispatchSettings>;
   maxRadiusKm: number;
-  initialNotice: NoticeState;
   onSaved: (message: string) => void;
-}> = ({ record, maxRadiusKm, initialNotice, onSaved }) => {
+}> = ({ record, maxRadiusKm, onSaved }) => {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<DispatchDraft>(() => dispatchToDraft(record.values));
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState<NoticeState>(initialNotice);
+  const [notice, setNotice] = useState<NoticeState>(null);
 
   const values = draftToDispatch(draft);
   const errors = validateDispatchSettings(values, maxRadiusKm);
@@ -92,7 +91,7 @@ const DispatchForm: React.FC<{
   const weightSum = WEIGHT_FIELDS.reduce((sum, key) => sum + (toNumber(draft[key]) || 0), 0);
   const weightSumOk = Math.abs(weightSum - 1) <= WEIGHT_SUM_TOLERANCE;
 
-  const set = (key: Exclude<keyof DispatchDraft, 'radiusStepsKm' | 'autoDispatchEnabled'>) => (value: string) =>
+  const set = (key: Exclude<keyof DispatchDraft, 'radiusStepsKm' | 'autoDispatchEnabled' | 'autoDispatchMode'>) => (value: string) =>
     setDraft((d) => ({ ...d, [key]: value }));
   const setStep = (index: number, value: string) =>
     setDraft((d) => ({ ...d, radiusStepsKm: d.radiusStepsKm.map((r, i) => (i === index ? value : r)) }));
@@ -120,7 +119,8 @@ const DispatchForm: React.FC<{
     try {
       const defaults = await adminSettingsService.getDefaults();
       setDraft(dispatchToDraft(defaults.dispatch));
-      setNotice({ kind: 'success', message: t('admin.common.settings.defaultsFilled') });
+      setNotice(null);
+      showToast(t('admin.common.settings.defaultsFilled'), { kind: 'info' });
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     }
@@ -297,6 +297,44 @@ const DispatchForm: React.FC<{
             <span className="font-bold text-slate-700">{t('admin.settings.dispatch.auto.noteLabel')}</span>{' '}
             {t('admin.settings.dispatch.auto.enableHint')}
           </p>
+          {/* §42: cách AI quyết định. Tắt → làm mờ nhưng vẫn sửa được, như các ô bên dưới. */}
+          <fieldset className={`transition-opacity ${draft.autoDispatchEnabled ? '' : 'opacity-50'}`}>
+            <legend className={`${labelClass} mb-1.5`}>{t('admin.settings.dispatch.auto.mode')}</legend>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {AUTO_DISPATCH_MODES.map((mode) => {
+                const active = draft.autoDispatchMode === mode;
+                return (
+                  <label
+                    key={mode}
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      active ? 'border-red-500 bg-red-50/60' : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="auto-dispatch-mode"
+                      checked={active}
+                      onChange={() => setDraft((d) => ({ ...d, autoDispatchMode: mode }))}
+                      className="w-4 h-4 mt-0.5 accent-red-600"
+                    />
+                    <span>
+                      <span className="block text-sm font-bold text-slate-900">
+                        {t(`admin.settings.dispatch.auto.modes.${mode}`)}
+                        {mode === AUTO_DISPATCH_DEFAULTS.autoDispatchMode && (
+                          <span className="ml-1.5 text-[10px] font-mono-data font-semibold text-slate-400">
+                            {t('admin.settings.dispatch.auto.modeDefault')}
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-[11px] text-slate-500 mt-0.5">
+                        {t(`admin.settings.dispatch.auto.modeHints.${mode}`)}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
           {/* Tắt → làm mờ nhưng vẫn sửa được (backend lưu và kiểm tra cả khi tắt). */}
           <div
             className={`grid grid-cols-1 sm:grid-cols-3 gap-4 transition-opacity sm:[&>div]:grid sm:[&>div]:grid-rows-subgrid sm:[&>div]:row-span-3 sm:gap-y-0 ${

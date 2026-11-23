@@ -18,10 +18,7 @@ export const citizenLandingEn: Messages<typeof citizenLandingVi> = {
   phoneMissingDesc: 'Please add your phone number so emergency dispatchers can verify the scene when SOS is triggered.',
   phoneMissingBtn: 'Update',
 
-  // Hero Guide Notes & Telemetry
-  dispatchStatusReady: 'INTERNAL CAD SYSTEM ON-DUTY',
-  dispatchUnitsReady: '{{stations}} STATIONS · {{units}} UNITS AVAILABLE',
-  etaApproach: 'APPROACH ETA:',
+  // Hero Guide Notes
   guideOneTouchTitle: '1-Touch SOS',
   guideOneTouchTag: 'Workers',
   guideOneTouchDesc: 'Tap SOS to instantly send factory GPS coordinates and scene photos',

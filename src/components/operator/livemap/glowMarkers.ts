@@ -1,13 +1,17 @@
-import fireSvg from './icons/fire.svg?raw';
-import accidentSvg from './icons/accident.svg?raw';
-import sosSvg from './icons/sos.svg?raw';
-import otherSvg from './icons/other.svg?raw';
-import stationSvg from './icons/station.svg?raw';
-import trafficJamSvg from './icons/traffic-jam.svg?raw';
-import pickPinSvg from './icons/pick-pin.svg?raw';
-import vehicleFireSvg from './icons/vehicle-fire.svg?raw';
-import vehicleAmbulanceSvg from './icons/vehicle-ambulance.svg?raw';
-import vehicleRescueSvg from './icons/vehicle-rescue.svg?raw';
+import fireSvg from '../../../assets/map-icons/fire.svg?raw';
+import accidentSvg from '../../../assets/map-icons/accident.svg?raw';
+import sosSvg from '../../../assets/map-icons/sos.svg?raw';
+import otherSvg from '../../../assets/map-icons/other.svg?raw';
+import stationMineSvg from '../../../assets/map-icons-3d/station-mine.svg?raw';
+import stationOtherSvg from '../../../assets/map-icons-3d/station-other.svg?raw';
+import vehicleFire3dSvg from '../../../assets/map-icons-3d/vehicle-fire.svg?raw';
+import vehicleAmbulance3dSvg from '../../../assets/map-icons-3d/vehicle-ambulance.svg?raw';
+import vehicleRescue3dSvg from '../../../assets/map-icons-3d/vehicle-rescue.svg?raw';
+import trafficJamSvg from '../../../assets/map-icons/traffic-jam.svg?raw';
+import pickPinSvg from '../../../assets/map-icons/pick-pin.svg?raw';
+import vehicleFireSvg from '../../../assets/map-icons/vehicle-fire.svg?raw';
+import vehicleAmbulanceSvg from '../../../assets/map-icons/vehicle-ambulance.svg?raw';
+import vehicleRescueSvg from '../../../assets/map-icons/vehicle-rescue.svg?raw';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { GLOW_MARKER_COLORS as C, VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import type { IncidentCategory, SeverityLevel } from '../../../types/incident';
@@ -15,8 +19,10 @@ import type { DispatchVehicleType, VehicleStatus } from '../../../types/vehicle'
 
 /**
  * Bộ marker mới của Live Map Operator (chốt 2026-11-12):
- * - Sự cố / trạm / ùn tắc: kiểu "Quầng sáng" — lõi tối, vòng màu, hình một màu trong `icons/*.svg`.
- * - Xe: hình semi-flat nhiều màu, viền trắng kiểu hình dán + chấm trạng thái, lật ngang khi chạy về phía tây.
+ * - Trạm (2026-11-22): nhà isometric 3D nhiều màu (`assets/map-icons-3d/station-{mine,other}.svg`), mái đỏ = trạm của tôi, xám = trạm khác.
+ * - Sự cố / ùn tắc: kiểu "Quầng sáng" — lõi tối, vòng màu, hình một màu trong `src/assets/map-icons/*.svg`.
+ * - Xe (2026-11-22): 3D nhìn từ trên xuống (`assets/map-icons-3d/vehicle-*.svg`), marker xoay theo heading (MapMarker
+ *   `rotation`). Bản semi-flat nhìn ngang cũ (`stickerVehicleMarkerHtml`) giữ lại, hiện không dùng.
  * mapIcons.ts giữ nguyên vì Citizen / Landing / MapboxLocationPicker vẫn dùng bộ cũ.
  */
 
@@ -109,16 +115,18 @@ export function glowAiWorkingMarkerHtml(category: IncidentCategory, phase: 'anal
   `;
 }
 
-/** Trạm: ô vuông tối bo góc; trạm của tôi viền đỏ + quầng đỏ, trạm khác viền xám. Neo tâm. */
+/** Cạnh khung icon trạm 3D (px). Tâm nền nhà trùng tâm khung → neo 'center'. */
+export const STATION_ICON_SIZE = 48;
+
+/**
+ * Trạm: nhà isometric 3D, mái đỏ = trạm của tôi, mái xám = trạm khác. Bóng đổ vẽ sẵn trong SVG
+ * (không dùng CSS filter để kéo bản đồ không phải tính lại bóng từng marker). Neo tâm.
+ */
 export function glowStationMarkerHtml(isMine = false): string {
-  const ring = isMine ? C.station.mine : C.station.other;
+  const art = isMine ? stationMineSvg : stationOtherSvg;
   return `
-    <div class="relative cursor-pointer" style="width:40px;height:40px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.45));">
-      <svg viewBox="0 0 40 40" width="40" height="40" style="position:absolute;inset:0;pointer-events:none;">
-        ${isMine ? `<rect x="1" y="1" width="38" height="38" rx="12" fill="${C.station.mineHalo}" opacity="0.22"/>` : ''}
-        <rect x="6" y="6" width="28" height="28" rx="8" fill="${C.core}" stroke="${ring}" stroke-width="2.5"/>
-      </svg>
-      ${glyph(stationSvg, 10, 9.5, 20, ring)}
+    <div class="relative cursor-pointer" style="width:${STATION_ICON_SIZE}px;height:${STATION_ICON_SIZE}px;">
+      ${inlineSvg(art, STATION_ICON_SIZE, STATION_ICON_SIZE)}
     </div>
   `;
 }
@@ -205,6 +213,43 @@ export function stickerVehicleMarkerHtml(
   `;
 }
 
+const VEHICLE_3D_ART: Record<DispatchVehicleType, string> = {
+  fire_truck: vehicleFire3dSvg,
+  ambulance: vehicleAmbulance3dSvg,
+  rescue: vehicleRescue3dSvg,
+};
+
+/** Cạnh khung xe 3D (px); đang chọn to hơn. Thân xe chiếm ~0.37 bề ngang, ~0.84 chiều dọc khung. */
+export const VEHICLE_ICON_SIZE = 48;
+const VEHICLE_ICON_SIZE_SELECTED = 56;
+
+/**
+ * Xe 3D nhìn từ trên xuống, đầu xe hướng lên; MapMarker xoay cả phần tử theo heading nên chấm trạng thái luôn ở góc
+ * trước-phải của xe (đang di chuyển thì nhấp nháy). Đang chọn: to hơn + vòng nét đứt trắng quanh thân xe.
+ * Bóng vẽ sẵn trong SVG (không còn 5 lớp drop-shadow CSS của bản cũ). Neo tâm.
+ */
+export function vehicle3dMarkerHtml(type: DispatchVehicleType, status: VehicleStatus, selected: boolean): string {
+  const size = selected ? VEHICLE_ICON_SIZE_SELECTED : VEHICLE_ICON_SIZE;
+  const color = VEHICLE_STATUS_META[status].color;
+  // Góc trước-phải của thân xe trong khung 64: x ≈ 44, y ≈ 6.
+  const dotBox = `left:${(size * 44) / 64 - 5.5}px;top:${(size * 6) / 64 - 5.5}px;width:11px;height:11px;`;
+  const pulse =
+    status === 'en_route'
+      ? `<span class="absolute rounded-full animate-ping pointer-events-none" style="${dotBox}background:${color};opacity:0.6;"></span>`
+      : '';
+  const ring = selected
+    ? `<span class="absolute rounded-full pointer-events-none" style="left:50%;top:50%;width:${Math.round(size * 0.56)}px;height:${Math.round(size * 0.98)}px;transform:translate(-50%,-50%);border:2px dashed #FFFFFF;background:rgba(255,255,255,0.18);"></span>`
+    : '';
+  return `
+    <div class="relative cursor-pointer" style="width:${size}px;height:${size}px;">
+      ${ring}
+      <div style="position:relative;pointer-events:none;">${inlineSvg(VEHICLE_3D_ART[type], size, size)}</div>
+      ${pulse}
+      <span class="absolute rounded-full pointer-events-none" style="${dotBox}background:${color};border:2px solid #FFFFFF;box-sizing:border-box;box-shadow:0 1px 2px rgba(0,0,0,0.4);"></span>
+    </div>
+  `;
+}
+
 /** Ghim chọn vị trí khi Operator tạo sự cố: ghim lõi tối, quầng đỏ, vòng nhấp nháy dưới chân. Neo 'bottom' (mũi ghim). */
 export function pickPinMarkerHtml(): string {
   return `
@@ -234,20 +279,14 @@ export function legendSeverityIconHtml(severity: SeverityLevel, size = 18): stri
   return `<svg viewBox="0 0 48 48" width="${size}" height="${size}" style="display:block;"><circle cx="24" cy="24" r="12" fill="${C.core}"/>${severityArcs(severity, 18, 6)}</svg>`;
 }
 
-/** Hình xe semi-flat thu nhỏ. */
+/** Xe 3D thu nhỏ, xoay nằm ngang (đầu xe sang phải) cho vừa dòng chú thích. */
 export function legendVehicleIconHtml(type: DispatchVehicleType, width = 30): string {
-  return inlineSvg(VEHICLE_ART[type], width, width * VEHICLE_ART_RATIO);
+  return `<div style="width:${width}px;height:${width}px;transform:rotate(90deg);">${inlineSvg(VEHICLE_3D_ART[type], width, width)}</div>`;
 }
 
-/** Ô trạm thu nhỏ. */
-export function legendStationIconHtml(isMine: boolean, size = 18): string {
-  const ring = isMine ? C.station.mine : C.station.other;
-  const g = Math.round(size * 0.68);
-  return `
-    <div style="position:relative;width:${size}px;height:${size}px;">
-      <svg viewBox="0 0 20 20" width="${size}" height="${size}" style="position:absolute;inset:0;"><rect x="1" y="1" width="18" height="18" rx="5" fill="${C.core}" stroke="${ring}" stroke-width="1.6"/></svg>
-      ${glyph(stationSvg, (size - g) / 2, (size - g) / 2, g, ring)}
-    </div>`;
+/** Nhà trạm 3D thu nhỏ (chú thích bản đồ). */
+export function legendStationIconHtml(isMine: boolean, size = 22): string {
+  return inlineSvg(isMine ? stationMineSvg : stationOtherSvg, size, size);
 }
 
 /** Điểm ùn tắc thu nhỏ theo trạng thái. */

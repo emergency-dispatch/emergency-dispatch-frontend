@@ -60,6 +60,6 @@ export const citizenReportsEn: Messages<typeof citizenReportsVi> = {
   approximateNote: '(estimated)',
   rescueVehicleTitle: 'Emergency Rescue Unit',
   incidentLocationTitle: 'Incident Location',
-  dispatchChannelTitle: '114 / 115 Dispatch Channel Connected',
+  dispatchChannelTitle: 'Rescue Team En Route',
   dispatchChannelDesc: 'Rescue forces are en route under emergency traffic guidance. Please keep your registered phone line open.',
 };

@@ -6,7 +6,6 @@ import {
   Flame,
   ShieldCheck,
   Truck,
-  Clock,
   ArrowRight,
   MapPin,
   Zap
@@ -26,15 +25,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
   const { user } = useAuth();
   const { isCooldown, cooldownLabel } = useSosCooldown(user?.id);
   const [etaTime, setEtaTime] = useState(135); // seconds
-  const [radarStats, setRadarStats] = useState<{
-    stationCount: number;
-    unitCount: number;
-    activeEtaMinutes: number | null;
-  }>({
-    stationCount: 0,
-    unitCount: 0,
-    activeEtaMinutes: null,
-  });
 
   // ETA countdown simulator
   useEffect(() => {
@@ -77,14 +67,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
                 <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
                 <span className="text-red-600 font-bold tracking-wider">LIVE CAD INCIDENT RADAR</span>
               </div>
-              <div className="flex items-center gap-3 text-slate-500 text-[11px] sm:text-xs">
-                <span className="flex items-center gap-1">
-                  <Radio className="w-3.5 h-3.5 text-red-500 animate-pulse" />
-                  <span>FREQ: 148.25 MHz</span>
-                </span>
-                <span className="text-slate-300 hidden sm:inline">|</span>
-                <span className="text-slate-700 font-semibold hidden sm:inline">GRID: SHTP-TP-THUDUC</span>
-              </div>
             </div>
 
             {/* Interactive Real Mapbox CAD Tactical Radar Screen */}
@@ -92,31 +74,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
               etaTime={etaTime}
               formatEta={formatEta}
               onOpenReports={onOpenReports}
-              onStatsUpdate={setRadarStats}
             />
-
-            {/* Bottom Telemetry Strip */}
-            <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-[11px] font-mono-data text-slate-600 shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 font-medium">DISPATCH STATUS:</span>
-                <span className="text-red-600 font-bold">
-                  {radarStats.stationCount > 0
-                    ? t('citizen.landing.dispatchUnitsReady', { stations: radarStats.stationCount, units: radarStats.unitCount })
-                    : t('citizen.landing.dispatchStatusReady')}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-700">
-                <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-600" />
-                <span>
-                  {t('citizen.landing.etaApproach')}{' '}
-                  <strong className="text-slate-900">
-                    {radarStats.activeEtaMinutes != null
-                      ? `~${radarStats.activeEtaMinutes}m`
-                      : formatEta(etaTime)}
-                  </strong>
-                </span>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -144,8 +102,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
             onClick={onOpenSos}
             disabled={isCooldown}
             className={`group relative px-8 py-3.5 sm:py-4 rounded-xl text-white font-black text-sm sm:text-base tracking-wide transition-all duration-300 border hidden sm:flex items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap shrink-0 w-full sm:w-auto min-w-[220px] ${isCooldown
-                ? 'bg-slate-400 border-slate-400 opacity-60 cursor-not-allowed shadow-none'
-                : 'bg-red-600 hover:bg-red-700 border-red-600 shadow-lg shadow-red-500/30 hover:scale-[1.03] active:scale-[0.98] cursor-pointer'
+              ? 'bg-slate-400 border-slate-400 opacity-60 cursor-not-allowed shadow-none'
+              : 'bg-red-600 hover:bg-red-700 border-red-600 shadow-lg shadow-red-500/30 hover:scale-[1.03] active:scale-[0.98] cursor-pointer'
               }`}
             id="hero-submit-sos-btn"
           >

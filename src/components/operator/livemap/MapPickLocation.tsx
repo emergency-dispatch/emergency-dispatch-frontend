@@ -15,7 +15,7 @@ interface MapPickLocationProps {
   flyKey: number;
 }
 
-// Ghim kiểu Quầng sáng (icons/pick-pin.svg) — mũi ghim nằm đúng đáy phần tử, neo 'bottom'.
+// Ghim kiểu Quầng sáng (assets/map-icons/pick-pin.svg) — mũi ghim nằm đúng đáy phần tử, neo 'bottom'.
 const PIN_HTML = pickPinMarkerHtml();
 
 /**

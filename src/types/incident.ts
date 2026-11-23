@@ -1,3 +1,4 @@
+import type { AiModelVoteDto } from './aiVote';
 import type { IncidentSeverity } from './dashboard';
 import type { DispatchAssignmentResponseDto } from './dispatch';
 
@@ -49,6 +50,10 @@ export type AutoDispatchReasonCode =
   | 'unclassified'
   | 'out-of-service-area'
   | 'linked-report'
+  // NotEligible (§42: chế độ 3 AI bỏ phiếu)
+  | 'ensemble-no-majority'
+  | 'ensemble-unavailable'
+  | 'ensemble-no-photo'
   // Skipped
   | 'suspected-duplicate'
   | 'no-teams'
@@ -70,8 +75,19 @@ export type AutoDispatchIneligibleReason =
   | 'confidenceNotMeasured'
   | 'aiTypeMismatch';
 
-/** §35: lý do "không đủ điều kiện" backend đã lưu, theo tên FE (gồm cả ngưỡng và khóa mềm). */
-export type AutoDispatchNotEligibleReason = AutoDispatchIneligibleReason | 'belowThreshold' | 'operatorHandling';
+/**
+ * §35: lý do "không đủ điều kiện" backend đã lưu, theo tên FE (gồm cả ngưỡng và khóa mềm).
+ * `ensemble*` (§42): chỉ backend biết (cần phiếu của 2 model CNN), FE không tự suy được.
+ * `other`: mã FE chưa biết → vẫn chuyển ca cho Operator, hiện câu của backend (`autoDispatchNotEligibleNote`).
+ */
+export type AutoDispatchNotEligibleReason =
+  | AutoDispatchIneligibleReason
+  | 'belowThreshold'
+  | 'operatorHandling'
+  | 'ensembleNoMajority'
+  | 'ensembleUnavailable'
+  | 'ensembleNoPhoto'
+  | 'other';
 
 const NOT_ELIGIBLE_REASON_FROM_CODE: Partial<Record<AutoDispatchReasonCode, AutoDispatchNotEligibleReason>> = {
   'out-of-service-area': 'outOfServiceArea',
@@ -83,7 +99,10 @@ const NOT_ELIGIBLE_REASON_FROM_CODE: Partial<Record<AutoDispatchReasonCode, Auto
   'ai-type-mismatch': 'aiTypeMismatch',
   'below-threshold': 'belowThreshold',
   'operator-handling': 'operatorHandling',
-  // 'linked-report': ca đã gộp bị ẩn khỏi hàng đợi → không cần nhãn.
+  'ensemble-no-majority': 'ensembleNoMajority',
+  'ensemble-unavailable': 'ensembleUnavailable',
+  'ensemble-no-photo': 'ensembleNoPhoto',
+  // 'linked-report': ca đã gộp bị ẩn khỏi hàng đợi → không cần nhãn riêng (rơi vào 'other').
 };
 
 /** SignalR ReceiveAutoDispatched (Operator trạm phụ trách + Admin). */
@@ -99,6 +118,8 @@ export interface AutoDispatchEventDto {
   /** Biển số các xe đã điều (khi Dispatched), chuỗi nối sẵn. */
   plates: string | null;
   suspectedDuplicateOfIncidentId: string | null;
+  /** §42: chỉ có ở chế độ 3 AI bỏ phiếu; backend cũ không có. */
+  votes?: AiModelVoteDto[] | null;
   at: string;
 }
 
@@ -192,8 +213,12 @@ export interface Incident {
   } | null;
   /** §35: backend đã xét và lưu lý do không đủ điều kiện (state NotEligible). null = chưa lưu → FE tự suy. */
   autoDispatchNotEligible: AutoDispatchNotEligibleReason | null;
+  /** Câu lý do của backend (đã dịch) khi NotEligible — hiện khi FE chưa biết mã lý do (`other`). */
+  autoDispatchNotEligibleNote: string | null;
   /** Độ tin cậy AI là xác suất đo thật (logprob); false = chỉ tham khảo; null = không rõ nguồn (AI / backend cũ). */
   confidenceMeasured: boolean | null;
+  /** §42: phiếu của 3 AI, phần tử đầu là TriageVL; null = chưa bỏ phiếu. */
+  aiVotes: AiModelVoteDto[] | null;
   /** §31.E: lý do không đủ điều kiện AI tự điều phối (null = đủ, còn xét khóa mềm + ngưỡng). Vô nghĩa khi aiPending. */
   autoDispatchIneligible: AutoDispatchIneligibleReason | null;
   hazardTags: string[];
@@ -365,6 +390,8 @@ export interface AiClassificationResultDto {
    * phối); "heuristic" / "self-reported" = chỉ để tham khảo; null = backend / AI cũ.
    */
   confidenceSource?: string | null;
+  /** §42: phiếu của 3 AI (null khi chưa bỏ phiếu; backend cũ không có). */
+  ensembleVotes?: AiModelVoteDto[] | null;
   isSuccess: boolean;
   modelName?: string;
   rawResponse?: string;
@@ -611,6 +638,8 @@ export interface MyReportUnitDto {
 
 export interface MyReportDto {
   id: string;
+  /** §38: mã hiển thị SC-yyMMdd-NNNN. */
+  code?: string;
   title: string;
   description: string;
   locationAddress: string;
@@ -621,6 +650,10 @@ export interface MyReportDto {
   resolutionSummary?: string;
   cancellationReason?: string;
   linkedToIncidentId?: string | null;
+  linkedToIncidentCode?: string | null;
+  linkedToIncidentTitle?: string | null;
+  linkedToIncidentAddress?: string | null;
+  linkedToIncidentStatus?: BackendIncidentStatus | null;
   reportedEventType?: BackendEventType | null;
   mediaUrls: string[];
   reportedAt: string;
@@ -829,10 +862,13 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
           }
         : null,
     autoDispatchNotEligible:
+      // Mã lạ (backend mới hơn FE) mà để null thì verdict tưởng AI còn đang điều phối → 'other' để chuyển ca ngay.
       dto.autoDispatchState === 'NotEligible' && dto.autoDispatchReasonCode
-        ? NOT_ELIGIBLE_REASON_FROM_CODE[dto.autoDispatchReasonCode] ?? null
+        ? NOT_ELIGIBLE_REASON_FROM_CODE[dto.autoDispatchReasonCode] ?? 'other'
         : null,
+    autoDispatchNotEligibleNote: dto.autoDispatchState === 'NotEligible' ? dto.autoDispatchNote ?? null : null,
     confidenceMeasured: ai?.confidenceSource ? ai.confidenceSource.startsWith('logprob') : null,
+    aiVotes: ai?.ensembleVotes?.length ? ai.ensembleVotes : null,
     autoDispatchIneligible: autoDispatchIneligibleOf(dto),
     hazardTags,
     severity: SEVERITY_FROM_BACKEND[dto.severity] ?? 1,

@@ -80,8 +80,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       return null;
     } catch (err) {
-      // If token is invalid or user not found, clear auth session to prevent continuous 500/401 loops
-      clearAuthSession();
+      // Chỉ xóa phiên khi backend xác nhận token/tài khoản không hợp lệ (401/403/404),
+      // tránh mất đăng nhập do mạng chập chờn hoặc backend đang khởi động lại (5xx / timeout).
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      const isTransientError = status
+        ? status >= 500
+        : Boolean((err as { isAxiosError?: boolean })?.isAxiosError);
+      if (!isTransientError) {
+        clearAuthSession();
+      }
       return null;
     }
   }, []);

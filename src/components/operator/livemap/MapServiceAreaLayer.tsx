@@ -29,7 +29,7 @@ export function circlePolygon(lat: number, lng: number, radiusKm: number): [numb
 }
 
 // §33: có đa giác ranh giới → vẽ đúng đa giác; không có → vòng tròn tâm + bán kính như trước.
-const toFeatureCollection = (area: ServiceAreaDto | null) => {
+export const serviceAreaToFeatureCollection = (area: ServiceAreaDto | null) => {
   if (!area || !area.enabled) return { type: 'FeatureCollection' as const, features: [] };
   const polygons = parseBoundary(area.boundaryGeoJson);
   const properties = { name: area.name ?? '' };
@@ -76,7 +76,7 @@ export const MapServiceAreaLayer: React.FC<MapServiceAreaLayerProps> = ({ map, a
   useEffect(() => {
     const update = () => {
       if (!map.getSource(SOURCE_ID)) {
-        map.addSource(SOURCE_ID, { type: 'geojson', data: toFeatureCollection(null) });
+        map.addSource(SOURCE_ID, { type: 'geojson', data: serviceAreaToFeatureCollection(null) });
         map.addLayer({
           id: FILL_LAYER_ID,
           type: 'fill',
@@ -91,7 +91,7 @@ export const MapServiceAreaLayer: React.FC<MapServiceAreaLayerProps> = ({ map, a
           paint: { 'line-color': '#2563EB', 'line-width': 2.5, 'line-opacity': 1, 'line-dasharray': [3, 2] },
         });
       }
-      (map.getSource(SOURCE_ID) as GeoJSONSource).setData(toFeatureCollection(area));
+      (map.getSource(SOURCE_ID) as GeoJSONSource).setData(serviceAreaToFeatureCollection(area));
     };
 
     // isStyleLoaded() còn false trong lúc tile đang tải (kể cả sau sự kiện 'load') → đợi 'idle' (luôn bắn lại),

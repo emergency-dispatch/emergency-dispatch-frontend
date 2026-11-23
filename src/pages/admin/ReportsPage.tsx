@@ -11,6 +11,7 @@ import {
 } from '../../components/admin/reports/reportMeta';
 import { DateRangeFilter, YMD_PATTERN } from '../../components/admin/common/DateRangeFilter';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { inputClass, labelClass, thClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { reportAdminService } from '../../services/admin/reportAdminService';
@@ -100,7 +101,8 @@ const ReportsPage: React.FC = () => {
     setNotice(null);
     try {
       const name = await reportAdminService.exportIncidents(filter, format);
-      setNotice({ kind: 'success', message: t('admin.monitoring.reports.downloaded', { name }) });
+      setNotice(null);
+      showToast(t('admin.monitoring.reports.downloaded', { name }));
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err, t('admin.monitoring.reports.exportFailed')) });
     } finally {

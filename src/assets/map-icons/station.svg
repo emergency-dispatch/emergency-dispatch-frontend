@@ -1,0 +1,28 @@
+<!-- Trạm — kiểu nét theo ảnh mẫu người dùng (2026-11-22): tòa giữa có mái + gờ mái, 6 cửa sổ, cửa đôi;
+     hai cánh có gờ mái + 2 cửa sổ hở; nền thềm bo góc trên. Lưới 48×48, nét một màu;
+     code tô màu qua currentColor (đỏ = trạm của tôi, xám = trạm khác).
+     Hiện chưa dùng: Live Map / Admin dùng bản 3D trong `assets/map-icons-3d/` (giữ lại để có thể quay về). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Mái + gờ mái tòa giữa -->
+  <path d="M13.6 4.2 L14.4 2.6 H33.6 L34.4 4.2"/>
+  <rect x="10.4" y="6.6" width="27.2" height="3" rx="0.6"/>
+  <!-- Tường tòa giữa -->
+  <path d="M12.4 9.6 V39.4 M35.6 9.6 V39.4"/>
+  <!-- 6 cửa sổ -->
+  <rect x="15.2" y="12.2" width="4" height="5.2" rx="0.5"/>
+  <rect x="22" y="12.2" width="4" height="5.2" rx="0.5"/>
+  <rect x="28.8" y="12.2" width="4" height="5.2" rx="0.5"/>
+  <rect x="15.2" y="20.6" width="4" height="5.2" rx="0.5"/>
+  <rect x="22" y="20.6" width="4" height="5.2" rx="0.5"/>
+  <rect x="28.8" y="20.6" width="4" height="5.2" rx="0.5"/>
+  <!-- Cửa đôi -->
+  <path d="M19.2 39.4 V29.9 H28.8 V39.4 M24 29.9 V39.4"/>
+  <!-- Cánh trái: gờ mái, tường, 2 cửa sổ hở -->
+  <path d="M9.6 15.7 H2.8 V18.4 H9.6 M4.2 18.4 V39.4"/>
+  <path d="M9.6 22.4 H6.9 V24.9 H9.6 M9.6 29.3 H6.9 V31.9 H9.6"/>
+  <!-- Cánh phải (đối xứng) -->
+  <path d="M38.4 15.7 H45.2 V18.4 H38.4 M43.8 18.4 V39.4"/>
+  <path d="M38.4 22.4 H41.1 V24.9 H38.4 M38.4 29.3 H41.1 V31.9 H38.4"/>
+  <!-- Nền thềm -->
+  <path d="M2.8 45.2 V44.4 A1.9 1.9 0 0 1 4.7 42.5 H43.3 A1.9 1.9 0 0 1 45.2 44.4 V45.2 Z"/>
+</svg>

@@ -141,6 +141,13 @@ describe('apiClient – làm mới token khi 401', () => {
     expect(localStorage.getItem(API_CONFIG.REFRESH_TOKEN_KEY)).toBe('r');
   });
 
+  it('401 trên trang chủ / không có phiên đăng nhập → không chuyển hướng về /login', async () => {
+    window.history.pushState({}, '', '/');
+    useAdapter(() => ({ status: 401 }));
+    await expect(apiClient.get('/stations')).rejects.toBeInstanceOf(AxiosError);
+    expect(window.location.pathname).toBe('/');
+  });
+
   it('lỗi khác 401 trả nguyên', async () => {
     useAdapter(() => ({ status: 500 }));
     await expect(apiClient.get('/p')).rejects.toMatchObject({ response: { status: 500 } });

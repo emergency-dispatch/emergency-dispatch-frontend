@@ -96,8 +96,30 @@
   animation: ai-lane-dot 1.2s ease-in-out infinite;
 }
 
+/* D — thẻ ca AI trong panel "Theo dõi ca": vệt quét dọc ảnh người dân gửi khi AI đang phân tích. */
+@keyframes ai-case-scan {
+  0%,
+  100% {
+    top: 0;
+  }
+  50% {
+    top: calc(100% - 2px);
+  }
+}
+.ai-case-scan {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  background: theme('colors.indigo.400');
+  box-shadow: 0 0 10px 3px theme('colors.indigo.500');
+  animation: ai-case-scan 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .ai-lane-sweep {
+  .ai-lane-sweep,
+  .ai-case-scan {
     display: none;
   }
   .ai-lane-pickup::before {

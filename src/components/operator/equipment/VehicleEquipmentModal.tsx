@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Loader2, Package, Plus, Users, X } from 'lucide-react';
 import { Notice, VehicleStatusBadge, type NoticeState } from '../../admin/common/ui';
+import { showToast } from '../../admin/common/toastStore';
 import { EquipmentListItem } from '../../equipment/EquipmentBits';
 import { EquipmentFormDrawer } from '../../equipment/EquipmentFormDrawer';
 import { EquipmentStatusDialog } from '../../equipment/EquipmentStatusDialog';
@@ -233,12 +234,12 @@ export const VehicleEquipmentModal: React.FC<VehicleEquipmentModalProps> = ({
             upsert(saved);
             if (keepOpen) return;
             setEditing(undefined);
-            setNotice({
-              kind: 'success',
-              message: created
+            setNotice(null);
+            showToast(
+              created
                 ? t('vehicles.equipment.notices.created', { name: saved.name })
-                : t('vehicles.equipment.notices.updated', { name: saved.name }),
-            });
+                : t('vehicles.equipment.notices.updated', { name: saved.name })
+            );
           }}
           onGone={handleGone}
         />
@@ -251,13 +252,12 @@ export const VehicleEquipmentModal: React.FC<VehicleEquipmentModalProps> = ({
           onDone={(updated) => {
             upsert(updated);
             setStatusTarget(null);
-            setNotice({
-              kind: 'success',
-              message:
-                updated.status === 'Maintenance'
-                  ? t('vehicles.equipment.notices.maintenance', { name: updated.name })
-                  : t('vehicles.equipment.notices.available', { name: updated.name }),
-            });
+            setNotice(null);
+            showToast(
+              updated.status === 'Maintenance'
+                ? t('vehicles.equipment.notices.maintenance', { name: updated.name })
+                : t('vehicles.equipment.notices.available', { name: updated.name })
+            );
           }}
           onGone={handleGone}
         />
@@ -271,7 +271,8 @@ export const VehicleEquipmentModal: React.FC<VehicleEquipmentModalProps> = ({
           onDeleted={(deleted) => {
             removeLocal(deleted.id);
             setDeleteTarget(null);
-            setNotice({ kind: 'success', message: t('vehicles.equipment.notices.deleted', { name: deleted.name }) });
+            setNotice(null);
+            showToast(t('vehicles.equipment.notices.deleted', { name: deleted.name }));
           }}
           onGone={handleGone}
         />

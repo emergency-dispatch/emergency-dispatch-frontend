@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { Building2, Clock, Compass, Crown, ExternalLink, LocateFixed, MapPin, Radius, TrafficCone, Users } from 'lucide-react';
+import { Building2, Clock, Compass, Crown, ExternalLink, LocateFixed, MapPin, TrafficCone, Users } from 'lucide-react';
 import { MAP_CENTER, VEHICLE_STATUS_META, VEHICLE_TYPE_META } from '../../../data/liveMapMeta';
 import { INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } from '../../../data/incidentMock';
 import { MAPBOX_ACCESS_TOKEN } from '../../../services/mapboxService';
@@ -14,7 +14,7 @@ import {
   glowIncidentMarkerHtml,
   glowStationMarkerHtml,
   glowTrafficJamMarkerHtml,
-  stickerVehicleMarkerHtml,
+  vehicle3dMarkerHtml,
 } from './glowMarkers';
 import { MapMarker } from './MapMarker';
 import { TrafficJamPopup } from './TrafficJamPopup';
@@ -22,7 +22,6 @@ import { useDispatchStore, type ActionResult } from '../../../context/DispatchCo
 import type { RescueUnitResponseDto } from '../../../types/rescueUnit';
 import { MapRouteLayer } from './MapRouteLayer';
 import { MapServiceAreaLayer } from './MapServiceAreaLayer';
-import { MapStationCoverageLayer } from './MapStationCoverageLayer';
 import type { ServiceAreaDto } from '../../../services/liveMapService';
 import type { DispatchRoute } from '../../../hooks/useDispatchRoutes';
 import { MapLegend } from './MapLegend';
@@ -39,16 +38,6 @@ const MAX_ZOOM = 18;
 const STATION_Z_INDEX = 1;
 const VEHICLE_Z_INDEX = 2;
 const INCIDENT_Z_INDEX = 3;
-
-// Nhớ lựa chọn bật/tắt vòng phủ sóng trạm cho lần mở sau (chỉ là tiện ích của từng người xem).
-const COVERAGE_STORAGE_KEY = 'resq.liveMap.showStationCoverage';
-const readShowCoverage = () => {
-  try {
-    return localStorage.getItem(COVERAGE_STORAGE_KEY) !== '0';
-  } catch {
-    return true;
-  }
-};
 
 const boundsOf = (points: Array<{ lat: number; lng: number }>) =>
   points.reduce((b, p) => b.extend([p.lng, p.lat]), new mapboxgl.LngLatBounds());
@@ -193,16 +182,17 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam
   );
 };
 
-// Xe đậu tại trạm xếp hàng ngay dưới ô trạm (pixel), mỗi hàng tối đa PARKED_PER_ROW xe.
-// Ô trạm 40px neo tâm; xe semi-flat rộng ~64px, neo đáy (mặt đất) → hàng đầu cách tâm trạm 58px.
+// Xe đậu tại trạm xếp hàng ngay dưới nhà trạm (pixel), mỗi hàng tối đa PARKED_PER_ROW xe, đầu xe hướng lên như bãi đỗ.
+// Nhà trạm 3D 48px neo tâm (chân nhà ≈ +16px); xe 3D 48px neo tâm, thân dài ≈ 40px, rộng ≈ 20px
+// → tâm hàng đầu cách tâm trạm 40px, các xe cách nhau 28px, các hàng cách nhau 44px.
 const PARKED_PER_ROW = 3;
-const PARKED_SPACING_PX = 62;
-const PARKED_ROW_SPACING_PX = 36;
-const PARKED_TOP_PX = 58;
-// Xe tại hiện trường nấp một phần sau ghim sự cố (ghim 48px, z-index cao hơn xe): nóc xe lấn ~11px vào nửa dưới ghim
+const PARKED_SPACING_PX = 28;
+const PARKED_ROW_SPACING_PX = 44;
+const PARKED_TOP_PX = 40;
+// Xe tại hiện trường nấp một phần sau ghim sự cố (ghim 48px, z-index cao hơn xe): đầu xe lấn ~10px vào nửa dưới ghim
 // → nhìn như xe đỗ ngay tại hiện trường ở mọi mức zoom (dời pixel cố định, zoom xa mà cách xa thì trông như chỗ khác).
 // Chấm trạng thái ở góc xe vẫn lộ ra ngoài vòng ghim.
-const SCENE_TOP_PX = 44;
+const SCENE_TOP_PX = 34;
 
 interface VehicleMarkersProps {
   map: mapboxgl.Map;
@@ -304,6 +294,9 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
       {vehicles.map((vehicle) => {
         const place = placements.get(vehicle.id)!;
         const isSelected = vehicle.id === selectedVehicleId;
+        // Xe theo GPS thật (không bị dời xếp hàng) → xoay theo hướng chạy, nằm phẳng trên mặt đường khi nghiêng 3D.
+        // Xe đậu / ở hiện trường → đứng thẳng, đầu xe hướng lên cho hàng xe gọn.
+        const followsGps = !place.offset;
         return (
           <MapMarker
             key={vehicle.id}
@@ -311,10 +304,11 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
             lat={place.lat}
             lng={place.lng}
             offset={place.offset}
-            anchor="bottom"
-            html={stickerVehicleMarkerHtml(vehicle.type, vehicle.status, isSelected, vehicle.heading)}
+            rotation={followsGps ? vehicle.heading : 0}
+            rotationAlignment={followsGps ? 'map' : 'viewport'}
+            html={vehicle3dMarkerHtml(vehicle.type, vehicle.status, isSelected)}
             zIndex={isSelected ? VEHICLE_Z_INDEX + 1 : VEHICLE_Z_INDEX}
-            popupOffset={isSelected ? 40 : 36}
+            popupOffset={isSelected ? 28 : 24}
             onClick={() => onSelectVehicle(vehicle.id)}
           >
             <VehiclePopup
@@ -385,22 +379,13 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { incidentKindLabel, incomingIncidents } = useDispatchStore();
+  const { incidentKindLabel, incidents: allIncidents } = useDispatchStore();
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
-  const [tileMode, setTileMode] = useState<MapTileMode>('satellite');
+  // Mặc định Đường phố: nền sáng, nhãn đường rõ, marker 3D (trạm / xe) và Quầng sáng nổi hơn; ảnh vệ tinh cũng nặng hơn.
+  const [tileMode, setTileMode] = useState<MapTileMode>('light');
   const appliedTileModeRef = useRef(tileMode);
   const [recenterCount, setRecenterCount] = useState(0);
   const [is3DMode, setIs3DMode] = useState(true);
-  const [showCoverage, setShowCoverage] = useState(readShowCoverage);
-  const toggleCoverage = () =>
-    setShowCoverage((prev) => {
-      try {
-        localStorage.setItem(COVERAGE_STORAGE_KEY, prev ? '0' : '1');
-      } catch {
-        // Trình duyệt chặn storage → chỉ không nhớ được lựa chọn.
-      }
-      return !prev;
-    });
 
   // Góc nghiêng 2D / 3D như bản đồ Staff (45°); các lần bay camera sau đó giữ nguyên góc đang chọn.
   const handleToggle3D = () => {
@@ -425,7 +410,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
       return station && isParkedAtStation(v) ? { ...v, lat: station.lat, lng: station.lng } : v;
     });
   }, [vehicles, stations, pinnedIncidentsById]);
-  // Vẽ xe đang làm nhiệm vụ (đã nhận / đang đi / tại hiện trường); hình xe theo loại (stickerVehicleMarkerHtml).
+  // Vẽ xe đang làm nhiệm vụ (đã nhận / đang đi / tại hiện trường); hình xe theo loại (vehicle3dMarkerHtml, xoay theo heading).
   const movingVehicles = useMemo(
     () =>
       mapVehicles.filter(
@@ -501,7 +486,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   }, [map, focusTrafficJam?.key, !!focusJam]);
 
   // Dải AI → "Xem trên bản đồ": bay tới tin báo (popup mở qua popupOpenKey). Ca vừa rời tay AI thì không còn marker.
-  const focusAi = focusAiIncident ? incomingIncidents.find((i) => i.id === focusAiIncident.id) : undefined;
+  const focusAi = focusAiIncident ? allIncidents.find((i) => i.id === focusAiIncident.id) : undefined;
   useEffect(() => {
     if (!map || !focusAi) return;
     map.flyTo({ center: [focusAi.lng, focusAi.lat], zoom: Math.max(map.getZoom(), 16), duration: 800 });
@@ -531,12 +516,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
             recenterTrigger={recenterCount}
           />
 
-          <MapStationCoverageLayer
-            map={map}
-            stations={stations}
-            myStationId={user?.stationId ?? null}
-            visible={showCoverage}
-          />
+          {/* Không vẽ vòng bán kính trạm: backend giao trạm theo quãng đường bộ (OSRM), bán kính không còn tác dụng. */}
           <MapServiceAreaLayer map={map} area={serviceArea} />
           <MapRouteLayer map={map} routes={routes} placements={placements} selectedVehicleId={selectedVehicleId} />
 
@@ -565,11 +545,6 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
                       total: stationVehicles.length,
                     })}
                   </p>
-                  {station.coverageRadiusKm > 0 && (
-                    <p className="text-[11px] text-slate-500">
-                      {t('liveMap.map.coverageRadius', { km: station.coverageRadiusKm })}
-                    </p>
-                  )}
                 </div>
               </MapMarker>
             );
@@ -725,20 +700,6 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
           aria-label={is3DMode ? t('liveMap.layers.view2d') : t('liveMap.layers.view3d')}
         >
           <Compass className={`w-5 h-5 transition-transform ${is3DMode ? 'rotate-45' : ''}`} />
-        </button>
-
-        <button
-          onClick={toggleCoverage}
-          aria-pressed={showCoverage}
-          className={`p-2.5 rounded-xl border shadow-md transition-all active:scale-95 ${
-            showCoverage
-              ? 'bg-red-600 text-white border-red-600'
-              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-          }`}
-          title={showCoverage ? t('liveMap.map.hideCoverage') : t('liveMap.map.showCoverage')}
-          aria-label={showCoverage ? t('liveMap.map.hideCoverage') : t('liveMap.map.showCoverage')}
-        >
-          <Radius className="w-5 h-5" />
         </button>
 
         <button

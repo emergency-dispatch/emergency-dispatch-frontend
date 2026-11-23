@@ -13,6 +13,7 @@ import {
   Clock,
   Car,
   Activity,
+  Loader2,
 } from 'lucide-react';
 import {
   MAPBOX_ACCESS_TOKEN,
@@ -28,19 +29,19 @@ import {
   HubEvents,
 } from '../../services/realtime/incidentHubService';
 import {
-  stationMarkerHtml,
-  vehicleMarkerHtml,
-  incidentMarkerHtml,
-} from '../operator/livemap/mapIcons';
+  glowStationMarkerHtml,
+  vehicle3dMarkerHtml,
+  glowIncidentMarkerHtml,
+} from '../operator/livemap/glowMarkers';
 import type { IncidentResponseDto, IncidentCategory, SeverityLevel } from '../../types/incident';
 import { getIncidentVisualMeta, formatCitizenIncidentStatus } from '../../utils/incidentFormat';
 import type { RescueUnitResponseDto } from '../../types/rescueUnit';
-import type { Station, VehicleStatus, VehicleType } from '../../types/vehicle';
+import type { DispatchVehicleType, Station, VehicleStatus } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types/auth';
-import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
-import { DEFAULT_SERVICE_AREA } from '../../utils/serviceArea';
+import { serviceAreaToFeatureCollection } from '../operator/livemap/MapServiceAreaLayer';
+import { getCachedServiceArea, haversineDistanceKm, normalizeServiceArea } from '../../utils/serviceArea';
 import type { ServiceAreaDto } from '../../services/liveMapService';
 
 interface HeroRadarMapProps {
@@ -54,13 +55,13 @@ interface HeroRadarMapProps {
   }) => void;
 }
 
-const UNIT_TYPE_MAP: Record<string, VehicleType> = {
+const UNIT_TYPE_MAP: Record<string, DispatchVehicleType> = {
   Ambulance: 'ambulance',
   FireTruck: 'fire_truck',
   LadderTruck: 'fire_truck',
   RescueBoat: 'rescue',
   HeavyRescueVehicle: 'rescue',
-  PolicePatrol: 'police',
+  PolicePatrol: 'rescue',
 };
 
 const UNIT_STATUS_MAP: Record<string, VehicleStatus> = {
@@ -108,21 +109,28 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   const [units, setUnits] = useState<RescueUnitResponseDto[]>([]);
   const [reportedIncident, setReportedIncident] = useState<IncidentResponseDto | null>(null);
   const [trackingData, setTrackingData] = useState<CitizenTrackingDto | null>(null);
-  const [serviceArea, setServiceArea] = useState<ServiceAreaDto>(DEFAULT_SERVICE_AREA);
+  const [liveVehicle, setLiveVehicle] = useState<{ lat: number; lng: number; speedKmh?: number; heading?: number } | null>(null);
+  const [trackingRefreshTick, setTrackingRefreshTick] = useState(0);
+  const [isCheckingIncident, setIsCheckingIncident] = useState<boolean>(() => Boolean(user));
+  const checkedUserKeyRef = useRef<string | null>(null);
+  const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(() => getCachedServiceArea());
+  const serviceAreaRef = useRef<ServiceAreaDto | null>(serviceArea);
+  serviceAreaRef.current = serviceArea;
 
   // Markers references for dynamic updates
   const stationMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const unitMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const incidentMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const myLocationMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const hasFittedTrackingBoundsRef = useRef<string | null>(null);
 
   // User location status
   const [locationStatus, setLocationStatus] = useState<'locating' | 'locked' | 'failed'>('locating');
   const [resolvedAddress, setResolvedAddress] = useState<string>('');
   const [isLocatingUser, setIsLocatingUser] = useState<boolean>(false);
 
-  // Service Area radius circle on Mapbox canvas (KCN SHTP)
-  const setupServiceAreaLayer = useCallback((area: ServiceAreaDto = serviceArea) => {
+  // Service Area boundary on Mapbox canvas (supports polygon boundaryGeoJson & circle fallback)
+  const setupServiceAreaLayer = useCallback((area: ServiceAreaDto | null = serviceAreaRef.current) => {
     const map = mapRef.current;
     if (!map) return;
 
@@ -133,24 +141,8 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           return;
         }
 
-        const lat = typeof area?.centerLat === 'number' && area.centerLat !== 0 ? area.centerLat : DEFAULT_SERVICE_AREA.centerLat;
-        const lng = typeof area?.centerLng === 'number' && area.centerLng !== 0 ? area.centerLng : DEFAULT_SERVICE_AREA.centerLng;
-        const rad = typeof area?.radiusKm === 'number' && area.radiusKm > 0 ? area.radiusKm : DEFAULT_SERVICE_AREA.radiusKm;
-        const polygon = circlePolygon(lat, lng, rad);
-
-        const data: any = {
-          type: 'FeatureCollection',
-          features: area?.enabled !== false ? [
-            {
-              type: 'Feature',
-              properties: { name: area?.name || DEFAULT_SERVICE_AREA.name },
-              geometry: {
-                type: 'Polygon',
-                coordinates: [polygon],
-              },
-            },
-          ] : [],
-        };
+        const targetArea = area ?? serviceAreaRef.current;
+        const data = serviceAreaToFeatureCollection(targetArea ? normalizeServiceArea(targetArea) : null) as any;
 
         const source = map.getSource('hero-service-area') as mapboxgl.GeoJSONSource | undefined;
         if (source) {
@@ -193,7 +185,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     };
 
     apply();
-  }, [serviceArea]);
+  }, []);
 
   // Tactical route updater on Mapbox canvas
   const updateRouteTrajectory = useCallback((coords: [number, number][]) => {
@@ -227,9 +219,12 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   // Fetch real stations & rescue units
   const fetchRealEntities = useCallback(async () => {
     try {
+      const isAuthenticatedUser = Boolean(user);
       const isPrivileged = user?.role === 'Admin' || user?.role === 'Operator';
       const [fetchedStations, fetchedUnits, fetchedArea] = await Promise.all([
-        liveMapService.getStations().catch(() => [] as Station[]),
+        isAuthenticatedUser
+          ? liveMapService.getStations().catch(() => [] as Station[])
+          : Promise.resolve([] as Station[]),
         isPrivileged
           ? liveMapService.getRescueUnits().catch(() => [] as RescueUnitResponseDto[])
           : Promise.resolve([] as RescueUnitResponseDto[]),
@@ -239,17 +234,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       setStations(fetchedStations);
       setUnits(fetchedUnits);
       if (fetchedArea) {
-        const rawLat = fetchedArea.centerLat ?? (fetchedArea as any).CenterLat;
-        const rawLng = fetchedArea.centerLng ?? (fetchedArea as any).CenterLng;
-        const rawRad = fetchedArea.radiusKm ?? (fetchedArea as any).RadiusKm;
-        const rawEnabled = fetchedArea.enabled ?? (fetchedArea as any).Enabled ?? true;
-        setServiceArea({
-          enabled: rawEnabled,
-          name: fetchedArea.name || DEFAULT_SERVICE_AREA.name,
-          centerLat: typeof rawLat === 'number' && rawLat !== 0 ? rawLat : DEFAULT_SERVICE_AREA.centerLat,
-          centerLng: typeof rawLng === 'number' && rawLng !== 0 ? rawLng : DEFAULT_SERVICE_AREA.centerLng,
-          radiusKm: typeof rawRad === 'number' && rawRad > 0 ? rawRad : DEFAULT_SERVICE_AREA.radiusKm,
-        });
+        setServiceArea(normalizeServiceArea(fetchedArea));
       }
 
       if (onStatsUpdate) {
@@ -262,22 +247,45 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     } catch (err) {
       console.warn('HeroRadarMap fetch entities notice:', err);
     }
-  }, [onStatsUpdate, trackingData?.estimatedArrivalMinutes]);
+  }, [user, onStatsUpdate, trackingData?.estimatedArrivalMinutes]);
 
   // Check citizen reported incident (from storage or API)
   const checkCitizenReportedIncident = useCallback(async () => {
+    const userKey = user?.id ?? null;
+    const isInitialForUser = Boolean(userKey && checkedUserKeyRef.current !== userKey);
+    if (isInitialForUser) {
+      setIsCheckingIncident(true);
+    }
     try {
-      // 1. Nếu công dân đã đăng nhập, ưu tiên dùng getMyReports để tránh bị 403 khi đổi acc
+      // 1. Nếu công dân đã đăng nhập: chỉ hiển thị báo cáo CHÍNH hiện tại lên radar map.
+      // Báo cáo trùng (Linked) hoặc báo cáo quá khứ (> 24h / đã có ca mới hơn) chỉ xem trong modal lịch sử & theo dõi.
       if (user?.role === UserRole.Citizen) {
+        const PRIMARY_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+        const isRecent = (iso?: string) => Boolean(iso && Date.now() - new Date(iso).getTime() <= PRIMARY_MAX_AGE_MS);
+        const isPrimaryActive = (status: string) =>
+          status !== 'Cancelled' && status !== 'Completed' && status !== 'Linked';
+
         const myReportsRes = await incidentService.getMyReports({ pageSize: 5 }).catch(() => null);
-        if (myReportsRes?.success && myReportsRes.data.items.length > 0) {
-          for (const item of myReportsRes.data.items) {
-            if (item.status !== 'Cancelled' && item.status !== 'Completed') {
-              const res = await incidentService.getById(item.id).catch(() => null);
-              if (res?.success && res.data) {
-                setReportedIncident(res.data);
-                return;
-              }
+        const items = myReportsRes?.success ? myReportsRes.data.items : [];
+        const latest = items[0];
+
+        if (latest) {
+          let targetId: string | null = null;
+          if (isPrimaryActive(latest.status) && isRecent(latest.reportedAt)) {
+            targetId = latest.id;
+          } else if (latest.status === 'Linked' && latest.linkedToIncidentId) {
+            // Nếu ca vừa bấm bị gộp vào chính báo cáo chính của mình còn đang xử lý → hiển thị báo cáo chính đó
+            const ownPrimary = items.find(
+              (x) => x.id === latest.linkedToIncidentId && isPrimaryActive(x.status) && isRecent(x.reportedAt)
+            );
+            if (ownPrimary) targetId = ownPrimary.id;
+          }
+
+          if (targetId) {
+            const res = await incidentService.getById(targetId).catch(() => null);
+            if (res?.success && res.data && isPrimaryActive(res.data.status)) {
+              setReportedIncident(res.data);
+              return;
             }
           }
         }
@@ -285,7 +293,14 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         return;
       }
 
-      // 2. Với khách vãng lai: dùng storedIds trong localStorage
+      // 2. Chỉ gọi GET /incidents/{id} khi đã đăng nhập (backend yêu cầu [Authorize])
+      if (!user) {
+        checkedUserKeyRef.current = null;
+        setReportedIncident(null);
+        return;
+      }
+
+      // 3. Fallback từ localStorage khi tài khoản đã đăng nhập đang theo dõi trên trang chủ
       const storedIds: string[] = JSON.parse(
         localStorage.getItem('resq_my_reported_incident_ids') || '[]'
       );
@@ -318,68 +333,88 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       setReportedIncident(null);
     } catch {
       // Ignore
+    } finally {
+      if (userKey) {
+        checkedUserKeyRef.current = userKey;
+      }
+      setIsCheckingIncident(false);
     }
   }, [user]);
 
-  // Load tracking data if incident has active dispatch
+  // Load & refresh tracking data while primary incident has active dispatch
   useEffect(() => {
     if (!reportedIncident?.id || reportedIncident.status === 'Cancelled' || reportedIncident.status === 'Completed') {
       setTrackingData(null);
+      setLiveVehicle(null);
+      hasFittedTrackingBoundsRef.current = null;
       updateRouteTrajectory([]);
       return;
     }
 
-    if (reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress') {
+    if (reportedIncident.status !== 'Dispatched' && reportedIncident.status !== 'InProgress') {
+      setTrackingData(null);
+      setLiveVehicle(null);
+      updateRouteTrajectory([]);
+      return;
+    }
+
+    let cancelled = false;
+    const loadTracking = () => {
       incidentService
         .getTracking(reportedIncident.id)
         .then((res) => {
-          if (res.data) {
-            setTrackingData(res.data);
-            if (res.data.routeTrajectory && res.data.routeTrajectory.length >= 2) {
-              const coords: [number, number][] = res.data.routeTrajectory.map((pt) => [
-                pt.longitude,
-                pt.latitude,
-              ]);
-              updateRouteTrajectory(coords);
-            } else if (
-              res.data.vehicleLat &&
-              res.data.vehicleLng &&
-              reportedIncident.latitude &&
-              reportedIncident.longitude
-            ) {
-              updateRouteTrajectory([
-                [res.data.vehicleLng, res.data.vehicleLat],
-                [reportedIncident.longitude, reportedIncident.latitude],
-              ]);
-            }
+          if (cancelled || !res.data) return;
+          setTrackingData(res.data);
+          if (res.data.routeTrajectory && res.data.routeTrajectory.length >= 2) {
+            const coords: [number, number][] = res.data.routeTrajectory.map((pt) => [
+              pt.longitude,
+              pt.latitude,
+            ]);
+            updateRouteTrajectory(coords);
+          } else if (
+            res.data.vehicleLat &&
+            res.data.vehicleLng &&
+            reportedIncident.latitude &&
+            reportedIncident.longitude
+          ) {
+            updateRouteTrajectory([
+              [res.data.vehicleLng, res.data.vehicleLat],
+              [reportedIncident.longitude, reportedIncident.latitude],
+            ]);
+          }
 
-            if (
-              mapRef.current &&
-              res.data.vehicleLng &&
-              res.data.vehicleLat &&
-              reportedIncident.longitude &&
-              reportedIncident.latitude
-            ) {
-              const minLng = Math.min(res.data.vehicleLng, reportedIncident.longitude);
-              const maxLng = Math.max(res.data.vehicleLng, reportedIncident.longitude);
-              const minLat = Math.min(res.data.vehicleLat, reportedIncident.latitude);
-              const maxLat = Math.max(res.data.vehicleLat, reportedIncident.latitude);
-              mapRef.current.fitBounds(
-                [
-                  [minLng, minLat],
-                  [maxLng, maxLat],
-                ],
-                { padding: { top: 90, bottom: 60, left: 60, right: 60 }, maxZoom: 16, duration: 1000 }
-              );
-            }
+          if (
+            hasFittedTrackingBoundsRef.current !== reportedIncident.id &&
+            mapRef.current &&
+            res.data.vehicleLng &&
+            res.data.vehicleLat &&
+            reportedIncident.longitude &&
+            reportedIncident.latitude
+          ) {
+            hasFittedTrackingBoundsRef.current = reportedIncident.id;
+            const minLng = Math.min(res.data.vehicleLng, reportedIncident.longitude);
+            const maxLng = Math.max(res.data.vehicleLng, reportedIncident.longitude);
+            const minLat = Math.min(res.data.vehicleLat, reportedIncident.latitude);
+            const maxLat = Math.max(res.data.vehicleLat, reportedIncident.latitude);
+            mapRef.current.fitBounds(
+              [
+                [minLng, minLat],
+                [maxLng, maxLat],
+              ],
+              { padding: { top: 90, bottom: 60, left: 60, right: 60 }, maxZoom: 16, duration: 1000 }
+            );
           }
         })
         .catch(() => {});
-    } else {
-      setTrackingData(null);
-      updateRouteTrajectory([]);
-    }
-  }, [reportedIncident?.id, reportedIncident?.status, reportedIncident?.latitude, reportedIncident?.longitude, updateRouteTrajectory]);
+    };
+
+    loadTracking();
+    const pollId = setInterval(loadTracking, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(pollId);
+    };
+  }, [reportedIncident?.id, reportedIncident?.status, reportedIncident?.latitude, reportedIncident?.longitude, trackingRefreshTick, updateRouteTrajectory]);
 
   // Initial loads & custom events
   useEffect(() => {
@@ -420,11 +455,13 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
   // SignalR Realtime Listeners
   useEffect(() => {
+    let isSubscribed = false;
     const setupSignalR = async () => {
       try {
         await trackingHubService.start();
         if (reportedIncident?.id) {
           await trackingHubService.invoke('SubscribeIncident', reportedIncident.id);
+          isSubscribed = true;
         }
       } catch {
         // Fallback to polling
@@ -444,9 +481,16 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       HubEvents.ReceiveRescueUnitLocation,
       (msg: any) => {
         if (!msg) return;
+        const targetIncId = msg.incidentId || msg.IncidentId;
+        if (targetIncId && reportedIncident?.id && targetIncId.toLowerCase() !== reportedIncident.id.toLowerCase()) {
+          return;
+        }
+
         const unitId = msg.rescueUnitId || msg.RescueUnitId;
         const lat = msg.latitude ?? msg.Latitude;
         const lng = msg.longitude ?? msg.Longitude;
+        const speedKmh = msg.speedKmh ?? msg.SpeedKmh;
+        const heading = msg.headingDegrees ?? msg.HeadingDegrees;
 
         if (unitId && typeof lat === 'number' && typeof lng === 'number') {
           const marker = unitMarkersRef.current.get(unitId);
@@ -454,16 +498,24 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             marker.setLngLat([lng, lat]);
           }
 
-          // If assigned to citizen's incident, update route trajectory live
-          if (
-            trackingData?.rescueUnitId === unitId &&
-            reportedIncident?.latitude &&
-            reportedIncident?.longitude
-          ) {
-            updateRouteTrajectory([
-              [lng, lat],
-              [reportedIncident.longitude, reportedIncident.latitude],
-            ]);
+          if (trackingData?.rescueUnitId === unitId || (targetIncId && reportedIncident?.id)) {
+            setLiveVehicle({
+              lat,
+              lng,
+              speedKmh: typeof speedKmh === 'number' ? Math.round(speedKmh) : undefined,
+              heading: typeof heading === 'number' ? heading : undefined,
+            });
+            // Giữ nguyên tuyến đường nhiều điểm từ backend nếu đã có; chỉ nối 2 điểm khi chưa có trajectory
+            if (
+              (!trackingData?.routeTrajectory || trackingData.routeTrajectory.length < 2) &&
+              reportedIncident?.latitude &&
+              reportedIncident?.longitude
+            ) {
+              updateRouteTrajectory([
+                [lng, lat],
+                [reportedIncident.longitude, reportedIncident.latitude],
+              ]);
+            }
           }
         }
       }
@@ -496,6 +548,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       (assignUpdate: any) => {
         if (!assignUpdate) return;
         if (reportedIncident?.id && (assignUpdate.incidentId === reportedIncident.id || assignUpdate.IncidentId === reportedIncident.id)) {
+          setTrackingRefreshTick((n) => n + 1);
           checkCitizenReportedIncident();
         }
       }
@@ -506,20 +559,23 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       (msg: any) => {
         if (msg?.key === 'serviceArea') {
           liveMapService.getServiceArea().then((area) => {
-            if (area) setServiceArea(area);
+            if (area) setServiceArea(normalizeServiceArea(area));
           }).catch(() => {});
         }
       }
     );
 
     return () => {
+      if (isSubscribed && reportedIncident?.id) {
+        trackingHubService.invoke('UnsubscribeIncident', reportedIncident.id).catch(() => {});
+      }
       unsubLocation();
       unsubIncident();
       unsubIncidentStatus();
       unsubAssignment();
       unsubSettings();
     };
-  }, [reportedIncident?.id, reportedIncident?.latitude, reportedIncident?.longitude, trackingData?.rescueUnitId, updateRouteTrajectory, checkCitizenReportedIncident]);
+  }, [reportedIncident?.id, reportedIncident?.latitude, reportedIncident?.longitude, trackingData?.rescueUnitId, trackingData?.routeTrajectory, updateRouteTrajectory, checkCitizenReportedIncident]);
 
   // Determine user GPS / cached location
   useEffect(() => {
@@ -696,7 +752,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
       const el = document.createElement('div');
       el.className = 'cad-station-marker';
-      el.innerHTML = stationMarkerHtml(false);
+      el.innerHTML = glowStationMarkerHtml(false);
 
       const popupHtml = `
         <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 170px;">
@@ -709,9 +765,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         </div>
       `;
 
-      const popup = new mapboxgl.Popup({ offset: [0, -32], closeButton: false }).setHTML(popupHtml);
+      const popup = new mapboxgl.Popup({ offset: [0, -24], closeButton: false }).setHTML(popupHtml);
 
-      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([station.lng, station.lat])
         .setPopup(popup)
         .addTo(map);
@@ -720,17 +776,57 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     });
   }, [stations]);
 
-  // Render Real Rescue Unit Markers (Vehicles / Staff)
+  // Render Rescue Unit Markers (Operator/Admin units + Citizen's active assigned vehicle from trackingData)
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || units.length === 0) return;
+    if (!map) return;
+
+    const trackedLat = liveVehicle?.lat ?? trackingData?.vehicleLat;
+    const trackedLng = liveVehicle?.lng ?? trackingData?.vehicleLng;
+    const hasTrackedUnit = Boolean(
+      trackingData?.rescueUnitId &&
+        trackedLat &&
+        trackedLng &&
+        !units.some((u) => u.id === trackingData.rescueUnitId)
+    );
+
+    const inferUnitType = (name?: string | null): string => {
+      const lower = (name || '').toLowerCase();
+      if (lower.includes('thương') || lower.includes('ambulance')) return 'Ambulance';
+      if (lower.includes('thang') || lower.includes('hỏa') || lower.includes('fire')) return 'FireTruck';
+      if (lower.includes('cảnh') || lower.includes('police')) return 'PolicePatrol';
+      return 'HeavyRescueVehicle';
+    };
+
+    const effectiveUnits: RescueUnitResponseDto[] = hasTrackedUnit && trackingData?.rescueUnitId
+      ? [
+          ...units,
+          {
+            id: trackingData.rescueUnitId,
+            plateNumber: trackingData.plateNumber || t('citizen.reports.rescueUnitDefault'),
+            unitType: inferUnitType(trackingData.unitTypeName),
+            unitTypeName: trackingData.unitTypeName || t('citizen.reports.rescueUnitDefault'),
+            status: trackingData.dispatchStatus === 'OnScene' ? 'OnScene' : 'Dispatched',
+            statusName:
+              trackingData.dispatchStatus === 'OnScene'
+                ? t('citizen.reports.statusOnScene')
+                : trackingData.dispatchStatus === 'EnRoute'
+                ? t('citizen.reports.statusEnRoute')
+                : t('citizen.reports.statusMissionAccepted'),
+            stationId: '',
+            stationName: trackingData.stationName || t('citizen.reports.cadStationDefault'),
+            currentLat: trackedLat!,
+            currentLng: trackedLng!,
+          } as RescueUnitResponseDto,
+        ]
+      : units;
 
     // Map stations for coordinate placement fallback if unit has 0,0
     const stationMap = new Map<string, Station>();
     stations.forEach((s) => stationMap.set(s.id, s));
 
     // Clear removed units
-    const currentUnitIds = new Set(units.map((u) => u.id));
+    const currentUnitIds = new Set(effectiveUnits.map((u) => u.id));
     unitMarkersRef.current.forEach((marker, id) => {
       if (!currentUnitIds.has(id)) {
         marker.remove();
@@ -738,14 +834,14 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       }
     });
 
-    units.forEach((unit, idx) => {
+    effectiveUnits.forEach((unit, idx) => {
       let lat = unit.currentLat;
       let lng = unit.currentLng;
 
       // Use live GPS coordinates from active tracking if this unit is dispatched
-      if (trackingData?.rescueUnitId === unit.id && trackingData.vehicleLat && trackingData.vehicleLng) {
-        lat = trackingData.vehicleLat;
-        lng = trackingData.vehicleLng;
+      if (trackingData?.rescueUnitId === unit.id && trackedLat && trackedLng) {
+        lat = trackedLat;
+        lng = trackedLng;
       } else if ((!lat || !lng || (lat === 0 && lng === 0)) && unit.stationId) {
         // Fallback: if coordinates are (0,0), position neatly near its station
         const station = stationMap.get(unit.stationId);
@@ -761,12 +857,13 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       const vType = UNIT_TYPE_MAP[unit.unitType] || 'rescue';
       const vStatus = UNIT_STATUS_MAP[unit.status] || 'available';
       const isAssigned = trackingData?.rescueUnitId === unit.id;
+      const heading = isAssigned && typeof liveVehicle?.heading === 'number' ? liveVehicle.heading : 0;
 
       let marker = unitMarkersRef.current.get(unit.id);
       if (!marker) {
         const el = document.createElement('div');
         el.className = 'cad-unit-marker';
-        el.innerHTML = vehicleMarkerHtml(vType, vStatus, isAssigned);
+        el.innerHTML = vehicle3dMarkerHtml(vType, vStatus, isAssigned);
 
         const popupHtml = `
           <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 170px;">
@@ -781,9 +878,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           </div>
         `;
 
-        const popup = new mapboxgl.Popup({ offset: 14, closeButton: false }).setHTML(popupHtml);
+        const popup = new mapboxgl.Popup({ offset: 22, closeButton: false }).setHTML(popupHtml);
 
-        marker = new mapboxgl.Marker({ element: el })
+        marker = new mapboxgl.Marker({ element: el, anchor: 'center', rotationAlignment: 'map', rotation: heading })
           .setLngLat([lng, lat])
           .setPopup(popup)
           .addTo(map);
@@ -791,11 +888,14 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         unitMarkersRef.current.set(unit.id, marker);
       } else {
         marker.setLngLat([lng, lat]);
+        if (isAssigned && typeof liveVehicle?.heading === 'number') {
+          marker.setRotation(liveVehicle.heading);
+        }
         const el = marker.getElement();
-        el.innerHTML = vehicleMarkerHtml(vType, vStatus, isAssigned);
+        el.innerHTML = vehicle3dMarkerHtml(vType, vStatus, isAssigned);
       }
     });
-  }, [units, stations, trackingData?.rescueUnitId]);
+  }, [units, stations, trackingData, liveVehicle, t]);
 
   // Render Citizen Reported Incident Marker
   useEffect(() => {
@@ -852,11 +952,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     if (!incidentMarkerRef.current) {
       const el = document.createElement('div');
       el.className = 'cad-marker-incident cursor-pointer';
-      el.innerHTML = incidentMarkerHtml(cat, sev, true);
+      el.innerHTML = glowIncidentMarkerHtml(cat, sev, true);
 
-      const popup = new mapboxgl.Popup({ offset: 18, closeButton: false }).setHTML(popupHtml);
+      const popup = new mapboxgl.Popup({ offset: 22, closeButton: false }).setHTML(popupHtml);
 
-      incidentMarkerRef.current = new mapboxgl.Marker({ element: el })
+      incidentMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([reportedIncident.longitude, reportedIncident.latitude])
         .setPopup(popup)
         .addTo(map);
@@ -870,13 +970,13 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     } else {
       incidentMarkerRef.current.setLngLat([reportedIncident.longitude, reportedIncident.latitude]);
       const el = incidentMarkerRef.current.getElement();
-      el.innerHTML = incidentMarkerHtml(cat, sev, true);
+      el.innerHTML = glowIncidentMarkerHtml(cat, sev, true);
       const popup = incidentMarkerRef.current.getPopup();
       if (popup) {
         popup.setHTML(popupHtml);
       }
     }
-  }, [reportedIncident]);
+  }, [reportedIncident, i18n.language]);
 
   const handleSetRadarLayer = (nextMode: 'satellite' | 'dark') => {
     if (nextMode === radarLayer) return;
@@ -996,7 +1096,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             : null;
 
           const isTypeKnown = visual.category === 'fire' || visual.category === 'accident';
-          const displayTitle = isTypeKnown ? visual.label : 'Tín hiệu SOS';
+          const displayTitle = isTypeKnown
+            ? visual.label
+            : reportedIncident.title && !reportedIncident.title.includes('Tín hiệu') && !reportedIncident.title.includes('SOS')
+            ? reportedIncident.title
+            : t('citizen.reports.incidentTypes.sosSignal');
           const userNote = reportedIncident.description &&
             !reportedIncident.description.startsWith('Tín hiệu cứu nạn SOS từ người dân tại') &&
             !reportedIncident.description.startsWith('Tín hiệu SOS từ người dân tại') &&
@@ -1008,7 +1112,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             <div
               onClick={onOpenReports}
               className="bg-white/95 backdrop-blur-md border border-slate-200 hover:border-red-400 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[240px] sm:max-w-[300px] text-left cursor-pointer transition-all hover:scale-[1.02]"
-              title="Bấm để mở lịch sử sự cố và theo dõi xe cứu hộ"
+              title={t('citizen.landing.radarFollowAction')}
             >
               {/* Top line: Category pill + Status badge */}
               <div className="flex items-center justify-between gap-1.5 mb-2">
@@ -1034,7 +1138,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
                 {hasPhoto && (
                   <img
                     src={reportedIncident.mediaItems[0].mediaUrl}
-                    alt="Hiện trường"
+                    alt={i18n.language === 'en' ? 'Incident scene' : 'Hiện trường'}
                     className="w-11 h-11 rounded-lg object-cover border border-slate-200 shrink-0 shadow-xs"
                   />
                 )}
@@ -1063,17 +1167,52 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
               </div>
 
               {/* Tracking live info if dispatched */}
-              {(reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress') && trackingData && (
-                <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] font-mono text-slate-700">
-                  <span className="text-emerald-700 font-bold flex items-center gap-1">
-                    <Navigation className="w-3 h-3 text-emerald-600" />
-                    ETA: ~{trackingData.estimatedArrivalMinutes || 3}p
-                  </span>
-                  <span className="text-slate-600 font-bold truncate max-w-[110px]">
-                    {trackingData.plateNumber || 'Xe cứu hộ'}
-                  </span>
-                </div>
-              )}
+              {(reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress') && trackingData && (() => {
+                const vLat = liveVehicle?.lat ?? trackingData.vehicleLat;
+                const vLng = liveVehicle?.lng ?? trackingData.vehicleLng;
+                const liveDistKm =
+                  vLat && vLng && reportedIncident.latitude && reportedIncident.longitude
+                    ? haversineDistanceKm(vLat, vLng, reportedIncident.latitude, reportedIncident.longitude)
+                    : trackingData.distanceKm ?? null;
+                const isOnScene = trackingData.dispatchStatus === 'OnScene';
+                const liveEta = isOnScene
+                  ? 0
+                  : liveDistKm !== null
+                  ? Math.max(1, Math.round((liveDistKm / (liveVehicle?.speedKmh && liveVehicle.speedKmh > 5 ? liveVehicle.speedKmh : 35)) * 60))
+                  : trackingData.estimatedArrivalMinutes || 3;
+                const dispatchLabel =
+                  trackingData.dispatchStatus === 'OnScene'
+                    ? t('citizen.reports.statusOnScene')
+                    : trackingData.dispatchStatus === 'EnRoute'
+                    ? t('citizen.reports.statusEnRoute')
+                    : trackingData.dispatchStatus === 'Accepted'
+                    ? t('citizen.reports.statusMissionAccepted')
+                    : t('citizen.reports.statusDispatching');
+
+                return (
+                  <div className="mt-2 pt-1.5 border-t border-slate-100 space-y-1 text-[10px] font-mono">
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className={`font-extrabold truncate ${isOnScene ? 'text-amber-600' : 'text-blue-600'}`}>
+                        {dispatchLabel}
+                      </span>
+                      <span className="text-slate-700 font-bold truncate shrink-0 max-w-[100px]">
+                        {trackingData.plateNumber || t('citizen.reports.rescueUnitDefault')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span className="text-emerald-700 font-bold flex items-center gap-1">
+                        <Navigation className="w-3 h-3 text-emerald-600" />
+                        {t('citizen.landing.radarTrackingEta', { min: liveEta })}
+                      </span>
+                      {liveDistKm !== null && (
+                        <span className="font-semibold text-slate-500">
+                          {liveDistKm.toFixed(1)} km
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] font-mono-data text-red-600 font-bold">
                 <span>{t('citizen.landing.radarFollowAction')}</span>
@@ -1081,7 +1220,25 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
               </div>
             </div>
           );
-        })() : locationStatus === 'failed' ? (
+        })() : isCheckingIncident ? (
+          <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[230px] sm:max-w-[270px] text-left">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-blue-600 flex items-center gap-1.5">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 shrink-0" />
+                <span>{i18n.language === 'en' ? 'OPERATIONAL RADAR' : 'RADAR TÁC CHIẾN'}</span>
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[9px] sm:text-[10px] font-bold font-mono-data">
+                {i18n.language === 'en' ? 'LOADING' : 'ĐANG TẢI'}
+              </span>
+            </div>
+            <p className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
+              {i18n.language === 'en' ? 'Checking active rescues...' : 'Đang tải dữ liệu cứu hộ...'}
+            </p>
+            <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+              {i18n.language === 'en' ? 'Syncing your rescue status from CAD...' : 'Đang đồng bộ trạng thái cứu hộ hiện có...'}
+            </p>
+          </div>
+        ) : locationStatus === 'failed' ? (
           <div className="bg-white/95 backdrop-blur-md border border-red-200 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[220px] sm:max-w-[260px] text-left">
             <div className="flex items-center justify-between gap-1.5 mb-1">
               <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-red-600 flex items-center gap-1.5">

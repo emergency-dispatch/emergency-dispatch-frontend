@@ -4,6 +4,7 @@ import { CatalogTypeFormDrawer } from '../../components/admin/catalog/CatalogTyp
 import { CatalogTypesTable } from '../../components/admin/catalog/CatalogTypesTable';
 import { catalogName, entryToUpsert } from '../../components/admin/catalog/catalogMeta';
 import { ConfirmModal, Notice, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { normalizeText } from '../../services/admin/listUtils';
@@ -50,12 +51,12 @@ const UnitTypesPage: React.FC = () => {
     setPendingId(entry.id);
     try {
       const saved = await typeCatalogService.updateUnitType(entry.id, entryToUpsert(entry, !entry.isActive));
-      setNotice({
-        kind: 'success',
-        message: t(saved.isActive ? 'admin.catalog.unitTypes.shown' : 'admin.catalog.unitTypes.hidden', {
+      setNotice(null);
+      showToast(
+        t(saved.isActive ? 'admin.catalog.unitTypes.shown' : 'admin.catalog.unitTypes.hidden', {
           name: catalogName(saved),
-        }),
-      });
+        })
+      );
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     } finally {
@@ -69,7 +70,8 @@ const UnitTypesPage: React.FC = () => {
     setDeleteSubmitting(true);
     try {
       await typeCatalogService.removeUnitType(deleting.id);
-      setNotice({ kind: 'success', message: t('admin.catalog.unitTypes.deleted', { name: catalogName(deleting) }) });
+      setNotice(null);
+      showToast(t('admin.catalog.unitTypes.deleted', { name: catalogName(deleting) }));
     } catch (err) {
       // 409: đang được dùng → message backend đã gợi ý ẩn thay vì xóa.
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
@@ -137,12 +139,12 @@ const UnitTypesPage: React.FC = () => {
           nextOrder={nextOrder}
           onClose={() => setFormEntry(null)}
           onSaved={(saved) => {
-            setNotice({
-              kind: 'success',
-              message: t(formEntry === 'new' ? 'admin.catalog.unitTypes.added' : 'admin.catalog.unitTypes.updated', {
+            setNotice(null);
+            showToast(
+              t(formEntry === 'new' ? 'admin.catalog.unitTypes.added' : 'admin.catalog.unitTypes.updated', {
                 name: catalogName(saved),
-              }),
-            });
+              })
+            );
             setFormEntry(null);
             query.reload();
           }}

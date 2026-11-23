@@ -27,6 +27,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
+import { aiVoteModelName, aiVotePercent } from '../../../types/aiVote';
 import type { AuditAction, SystemAuditAction, SystemAuditEntityType } from '../../../types/auditTrail';
 import i18n from '../../../i18n';
 import { trafficJamAuditDecision } from '../../../utils/trafficJamAudit';
@@ -195,6 +196,33 @@ export interface StateChange {
   to: string | null;
 }
 
+/**
+ * §42: phiếu 3 AI trong nhật ký "AI tự điều phối" → "ResNet-50: Cháy nổ · Cấp 3 · 97%, được tính". Backend ghi nhật ký
+ * bằng JSON mặc định nên khóa viết hoa đầu (Model, IsAvailable…), khác API (model, isAvailable…). null = không phải phiếu.
+ */
+function formatVote(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null;
+  const vote: Record<string, unknown> = Object.fromEntries(Object.entries(value).map(([k, v]) => [k.charAt(0).toLowerCase() + k.slice(1), v]));
+  if (typeof vote.model !== 'string' || typeof vote.isAvailable !== 'boolean') return null;
+  const parts: string[] = [];
+  if (!vote.isAvailable) parts.push(i18n.t('admin.monitoring.audit.vote.unavailable'));
+  else {
+    if (vote.incidentType === 'fire' || vote.incidentType === 'accident') parts.push(i18n.t(`enums.category.${vote.incidentType}`));
+    else parts.push(i18n.t('admin.monitoring.audit.vote.none'));
+    const level = vote.severity;
+    if (level === 1 || level === 2 || level === 3) parts.push(i18n.t(`enums.severityShort.level${level}`));
+    if (typeof vote.confidence === 'number') parts.push(`${aiVotePercent(vote.confidence)}%`);
+  }
+  const counted = vote.inMajority ? `, ${i18n.t('admin.monitoring.audit.vote.counted')}` : '';
+  return `${aiVoteModelName(vote.model)}: ${parts.join(' · ')}${counted}`;
+}
+
+function formatArray(items: unknown[]): string {
+  const votes = items.map(formatVote);
+  if (votes.length > 0 && votes.every((v) => v !== null)) return votes.join('\n');
+  return items.map((v) => (typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v))).join(', ') || '—';
+}
+
 const formatValue = (value: unknown): string =>
   value === null || value === undefined
     ? '—'
@@ -203,7 +231,7 @@ const formatValue = (value: unknown): string =>
         ? i18n.t('admin.monitoring.audit.yes')
         : i18n.t('admin.monitoring.audit.no')
       : Array.isArray(value)
-        ? value.map((v) => (typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v))).join(', ') || '—'
+        ? formatArray(value)
         : typeof value === 'object'
           ? JSON.stringify(value)
           : String(value);

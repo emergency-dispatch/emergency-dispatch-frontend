@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Crown, Package, Pencil, RotateCcw, Search, Truck, Users, Wrench } from 'lucide-react';
 import { ConfirmModal, LockableButton, Notice, VehicleStatusBadge, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { inputClass, thClass } from '../../components/admin/common/styles';
 import { VehicleFormDrawer } from '../../components/operator/vehicles/VehicleFormDrawer';
 import { FleetHeader } from '../../components/operator/vehicles/FleetHeader';
@@ -149,18 +150,18 @@ export const VehiclesPage: React.FC = () => {
     setSubmitting(true);
     const result = await setVehicleStatus(target.id, next);
     setSubmitting(false);
-    setNotice(
-      result.ok
-        ? {
-            kind: 'success',
-            message: unstick
-              ? t('vehicles.page.unstickDone', { plate: target.plate })
-              : next === 'Maintenance'
-                ? t('vehicles.page.setMaintenanceDone', { plate: target.plate })
-                : t('vehicles.page.setAvailableDone', { plate: target.plate }),
-          }
-        : { kind: 'error', message: result.message ?? t('vehicles.page.statusFailed') }
-    );
+    if (result.ok) {
+      setNotice(null);
+      showToast(
+        unstick
+          ? t('vehicles.page.unstickDone', { plate: target.plate })
+          : next === 'Maintenance'
+            ? t('vehicles.page.setMaintenanceDone', { plate: target.plate })
+            : t('vehicles.page.setAvailableDone', { plate: target.plate })
+      );
+    } else {
+      setNotice({ kind: 'error', message: result.message ?? t('vehicles.page.statusFailed') });
+    }
     setTarget(null);
   };
 
@@ -449,10 +450,8 @@ export const VehiclesPage: React.FC = () => {
           onClose={() => setEditing(undefined)}
           onSaved={(plate, created) => {
             setEditing(undefined);
-            setNotice({
-              kind: 'success',
-              message: created ? t('vehicles.page.created', { plate }) : t('vehicles.page.updated', { plate }),
-            });
+            setNotice(null);
+            showToast(created ? t('vehicles.page.created', { plate }) : t('vehicles.page.updated', { plate }));
           }}
         />
       )}

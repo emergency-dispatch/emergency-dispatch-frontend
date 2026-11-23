@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminTopbar } from './AdminTopbar';
+import { ToastHost } from './common/ToastHost';
 import { useSyncUiLanguage } from '../../services/operatorAdminLanguage';
 import { restoreStoredLanguage } from '../../i18n';
 
@@ -58,6 +59,7 @@ export const AdminLayout: React.FC = () => {
           </Suspense>
         </main>
       </div>
+      <ToastHost />
     </div>
   );
 };

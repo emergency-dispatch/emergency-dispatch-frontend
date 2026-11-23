@@ -1,14 +1,19 @@
-import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { MapMarker } from '../livemap/MapMarker';
 import { createBaseMapStyle } from '../livemap/MapLayerToggle';
-import { stationMarkerHtml, vehicleMarkerHtml } from '../livemap/mapIcons';
-import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
+import {
+  glowIncidentMarkerHtml,
+  glowStationMarkerHtml,
+  legendIncidentIconHtml,
+  legendStationIconHtml,
+  legendVehicleIconHtml,
+  vehicle3dMarkerHtml,
+} from '../livemap/glowMarkers';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import { MAPBOX_ACCESS_TOKEN } from '../../../services/mapboxService';
-import type { IncidentCategory } from '../../../types/incident';
-import type { VehicleStatus, VehicleType } from '../../../types/vehicle';
+import type { IncidentCategory, SeverityLevel } from '../../../types/incident';
+import type { DispatchVehicleType, VehicleStatus } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
 
 // Ghim tổ gợi ý dùng màu "Sẵn sàng" của Live Map: tổ được gợi ý luôn là xe đang sẵn sàng.
@@ -18,8 +23,11 @@ const MAX_FIT_ZOOM = 15;
 // Xe cách trạm dưới ngần này (độ ~ 150 m) coi như đang đậu tại trạm → xếp hàng dưới ghim trạm như Live Map.
 const PARKED_THRESHOLD_DEG = 0.0015;
 const STACK_SPACING_PX = 24;
-// Hàng ghim số dưới ghim trạm (ghim trạm neo đáy, cao ~37 px).
-const PARKED_ROW_OFFSET_Y = 16;
+// Hàng ghim số dưới nhà trạm 3D (48px neo tâm, chân nhà ≈ +18px).
+const PARKED_ROW_OFFSET_Y = 34;
+// Xe đã giao còn đậu ở trạm → đứng bên phải nhà trạm (phía dưới là hàng ghim số).
+const PARKED_ASSIGNED_OFFSET_X = 36;
+const PARKED_ASSIGNED_SPACING_PX = 28;
 
 export interface MiniMapCandidate {
   vehicleId: string;
@@ -34,8 +42,10 @@ export interface MiniMapAssigned {
   vehicleId: string;
   lat: number;
   lng: number;
-  type: VehicleType;
+  type: DispatchVehicleType;
   status: VehicleStatus;
+  stationId: string;
+  heading: number;
 }
 
 export interface MiniMapStation {
@@ -45,7 +55,13 @@ export interface MiniMapStation {
 }
 
 interface DispatchMiniMapProps {
-  incident: { lat: number; lng: number; category: IncidentCategory; responsibleStationId?: string | null };
+  incident: {
+    lat: number;
+    lng: number;
+    category: IncidentCategory;
+    severity: SeverityLevel;
+    responsibleStationId?: string | null;
+  };
   candidates: MiniMapCandidate[];
   assigned: MiniMapAssigned[];
   stations: MiniMapStation[];
@@ -57,6 +73,13 @@ interface DispatchMiniMapProps {
 
 type LatLng = { lat: number; lng: number };
 const isValid = (p: LatLng) => Number.isFinite(p.lat) && Number.isFinite(p.lng) && !(p.lat === 0 && p.lng === 0);
+const isNear = (a: LatLng, b: LatLng) =>
+  Math.abs(a.lat - b.lat) < PARKED_THRESHOLD_DEG && Math.abs(a.lng - b.lng) < PARKED_THRESHOLD_DEG;
+
+/** Icon chú thích, cùng bộ với Live Map (HTML do code tự sinh từ SVG trong assets). */
+const LegendIcon: React.FC<{ html: string }> = ({ html }) => (
+  <span className="shrink-0 inline-flex" aria-hidden dangerouslySetInnerHTML={{ __html: html }} />
+);
 
 function rankMarkerHtml(rank: number, highlighted: boolean): string {
   const size = highlighted ? 30 : 22;
@@ -69,24 +92,10 @@ function rankMarkerHtml(rank: number, highlighted: boolean): string {
   `;
 }
 
-// Ghim hiện trường không kèm huy hiệu cấp độ (số cấp dễ nhầm với số thứ hạng tổ trên cùng bản đồ).
-function incidentPinHtml(category: IncidentCategory): string {
-  const { color, icon } = INCIDENT_CATEGORY_META[category];
-  const svg = renderToStaticMarkup(createElement(icon, { width: 18, height: 18, color: '#FFFFFF', strokeWidth: 2.5 }));
-  return `
-    <div class="relative flex items-center justify-center" style="width:34px;height:34px;">
-      <span class="absolute inset-0 rounded-full animate-ping motion-reduce:animate-none" style="background:${color};opacity:0.45;"></span>
-      <div class="relative flex items-center justify-center rounded-full border-2"
-        style="width:34px;height:34px;background:${color};border-color:#FFFFFF;box-shadow:0 0 10px 2px ${color}99;">
-        ${svg}
-      </div>
-    </div>
-  `;
-}
-
 /**
  * Bản đồ nhỏ ở bước "Điều xe" (Hàng đợi) — chỉ để nhìn sơ qua khoảng cách: nền bản đồ đường như Live Map, không tương tác,
- * tự thu phóng vừa hiện trường + trạm của các tổ gợi ý + xe đã giao. Tổ đậu tại trạm xếp hàng dưới ghim trạm.
+ * tự thu phóng vừa hiện trường + trạm của các tổ gợi ý + xe đã giao. Tổ đậu tại trạm xếp hàng dưới nhà trạm.
+ * Marker cùng bộ với Live Map (glowMarkers); tổ gợi ý giữ ghim số vì số là thứ hạng trong danh sách.
  */
 export const DispatchMiniMap: React.FC<DispatchMiniMapProps> = ({
   incident,
@@ -135,10 +144,7 @@ export const DispatchMiniMap: React.FC<DispatchMiniMapProps> = ({
     const groups = new Map<string, { anchor: LatLng; parked: boolean; ids: string[] }>();
     for (const c of valid) {
       const station = stationsById.get(c.stationId);
-      const parked =
-        !!station &&
-        Math.abs(station.lat - c.lat) < PARKED_THRESHOLD_DEG &&
-        Math.abs(station.lng - c.lng) < PARKED_THRESHOLD_DEG;
+      const parked = !!station && isNear(station, c);
       const anchor = parked && station ? { lat: station.lat, lng: station.lng } : { lat: c.lat, lng: c.lng };
       const key = parked ? `station:${c.stationId}` : `${c.lat.toFixed(5)},${c.lng.toFixed(5)}`;
       const group = groups.get(key) ?? { anchor, parked, ids: [] };
@@ -170,13 +176,36 @@ export const DispatchMiniMap: React.FC<DispatchMiniMapProps> = ({
     });
   }, [candidates, incident.responsibleStationId, stationsById]);
 
-  const validAssigned = useMemo(() => assigned.filter(isValid), [assigned]);
+  // Xe đã giao: còn đậu ở trạm → đứng cạnh nhà trạm, đầu xe hướng lên; đang ngoài đường → vị trí GPS, xoay theo hướng chạy.
+  const placedAssigned = useMemo(() => {
+    const parkedCount = new Map<string, number>();
+    return assigned.filter(isValid).map((v) => {
+      const station = stationsById.get(v.stationId);
+      if (!station || !isNear(station, v)) return { ...v, offset: undefined };
+      const k = parkedCount.get(v.stationId) ?? 0;
+      parkedCount.set(v.stationId, k + 1);
+      const offset: [number, number] = [PARKED_ASSIGNED_OFFSET_X + k * PARKED_ASSIGNED_SPACING_PX, 0];
+      return { ...v, lat: station.lat, lng: station.lng, offset };
+    });
+  }, [assigned, stationsById]);
+  const parkedReach = Math.max(0, ...placedAssigned.map((v) => v.offset?.[0] ?? 0));
+
+  // Trạm của xe đã giao cũng phải hiện (xe đứng cạnh trạm).
+  const shownStations = useMemo(() => {
+    const shown = new Map(visibleStations.map((s) => [s.id, s] as const));
+    for (const v of placedAssigned) {
+      const station = v.offset ? stationsById.get(v.stationId) : undefined;
+      if (station) shown.set(station.id, station);
+    }
+    return [...shown.values()];
+  }, [visibleStations, placedAssigned, stationsById]);
 
   // Khung nhìn bao trọn hiện trường + trạm + tổ + xe đã giao; chỉ tính lại khi tập điểm đổi.
-  const points: LatLng[] = [...visibleStations, ...placedCandidates.map((c) => c.anchor), ...validAssigned];
+  const points: LatLng[] = [...shownStations, ...placedCandidates.map((c) => c.anchor), ...placedAssigned];
   const boundsKey = points
     .map((p) => `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`)
     .sort()
+    .concat(String(parkedReach))
     .join('|');
   useEffect(() => {
     if (!map) return;
@@ -186,9 +215,9 @@ export const DispatchMiniMap: React.FC<DispatchMiniMapProps> = ({
     }
     const bounds = new mapboxgl.LngLatBounds([incident.lng, incident.lat], [incident.lng, incident.lat]);
     points.forEach((p) => bounds.extend([p.lng, p.lat]));
-    // Đáy chừa thêm chỗ cho hàng ghim số dưới ghim trạm; đỉnh chừa cho ghim trạm.
+    // Đáy chừa thêm chỗ cho hàng ghim số dưới nhà trạm; bên phải chừa cho xe đã giao đứng cạnh trạm.
     map.fitBounds(bounds, {
-      padding: { top: 52, bottom: 48, left: 40, right: 40 },
+      padding: { top: 40, bottom: 56, left: 40, right: Math.min(120, 40 + parkedReach) },
       maxZoom: MAX_FIT_ZOOM,
       duration: 0,
     });
@@ -207,24 +236,26 @@ export const DispatchMiniMap: React.FC<DispatchMiniMapProps> = ({
       />
       {map && (
         <>
-          {visibleStations.map((s) => (
+          {shownStations.map((s) => (
             <MapMarker
               key={`station-${s.id}`}
               map={map}
               lat={s.lat}
               lng={s.lng}
-              anchor="bottom"
-              html={stationMarkerHtml(s.id === incident.responsibleStationId)}
+              html={glowStationMarkerHtml(s.id === incident.responsibleStationId)}
               zIndex={1}
             />
           ))}
-          {validAssigned.map((v) => (
+          {placedAssigned.map((v) => (
             <MapMarker
               key={`assigned-${v.vehicleId}`}
               map={map}
               lat={v.lat}
               lng={v.lng}
-              html={vehicleMarkerHtml(v.type, v.status, false)}
+              offset={v.offset}
+              rotation={v.offset ? 0 : v.heading}
+              rotationAlignment={v.offset ? 'viewport' : 'map'}
+              html={vehicle3dMarkerHtml(v.type, v.status, false)}
               zIndex={2}
             />
           ))}
@@ -243,25 +274,31 @@ export const DispatchMiniMap: React.FC<DispatchMiniMapProps> = ({
               />
             );
           })}
-          <MapMarker map={map} lat={incident.lat} lng={incident.lng} html={incidentPinHtml(incident.category)} zIndex={4} />
+          <MapMarker
+            map={map}
+            lat={incident.lat}
+            lng={incident.lng}
+            html={glowIncidentMarkerHtml(incident.category, incident.severity, true)}
+            zIndex={4}
+          />
         </>
       )}
       <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: INCIDENT_CATEGORY_META[incident.category].color }} />
+          <LegendIcon html={legendIncidentIconHtml(incident.category, 16)} />
           {t('incidents.dispatchStep.miniMap.incident')}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-slate-800" />
+          <LegendIcon html={legendStationIconHtml(shownStations.some((s) => s.id === incident.responsibleStationId), 20)} />
           {t('incidents.dispatchStep.miniMap.station')}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full" style={{ background: CANDIDATE_COLOR }} />
           {t('incidents.dispatchStep.miniMap.candidate')}
         </span>
-        {validAssigned.length > 0 && (
+        {placedAssigned.length > 0 && (
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
+            <LegendIcon html={legendVehicleIconHtml(placedAssigned[0].type, 22)} />
             {t('incidents.dispatchStep.miniMap.assigned')}
           </span>
         )}

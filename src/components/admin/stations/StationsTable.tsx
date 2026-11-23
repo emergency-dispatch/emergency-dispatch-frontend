@@ -26,7 +26,6 @@ export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading,
             <th className={thClass}>{t('admin.stations.table.name')}</th>
             <th className={thClass}>{t('admin.stations.table.headOperator')}</th>
             <th className={thClass}>{t('admin.stations.table.hotline')}</th>
-            <th className={thClass}>{t('admin.stations.table.radius')}</th>
             <th className={thClass}>{t('admin.common.status')}</th>
             <th className={thClass}>{t('admin.stations.table.staff')}</th>
             <th className={thClass}>{t('admin.stations.table.availableUnits')}</th>
@@ -36,7 +35,7 @@ export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading,
         <tbody className="divide-y divide-slate-100">
           {stations.length === 0 && (
             <tr>
-              <td colSpan={9} className="px-4 py-10 text-center text-slate-400 text-sm">
+              <td colSpan={8} className="px-4 py-10 text-center text-slate-400 text-sm">
                 {loading ? t('admin.common.loading') : t('admin.stations.table.empty')}
               </td>
             </tr>
@@ -76,7 +75,6 @@ export const StationsTable: React.FC<StationsTableProps> = ({ stations, loading,
                   {station.phoneNumber || '—'}
                 </span>
               </td>
-              <td className="px-4 py-3 text-slate-500 font-mono-data whitespace-nowrap">{station.coverageRadiusKm} km</td>
               <td className="px-4 py-3 whitespace-nowrap">
                 {station.isActive ? (
                   <span className="px-2 py-0.5 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold font-mono-data">

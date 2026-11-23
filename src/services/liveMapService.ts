@@ -1,4 +1,5 @@
 import { apiClient, unwrapApi } from './apiClient';
+import { cacheServiceArea } from '../utils/serviceArea';
 import type { ApiResponse } from '../types/auth';
 import type { TrafficCongestionLevel, TrafficJamReport } from '../types/incident';
 import type { CreateRescueUnitDto, RescueUnitResponseDto, UpdateRescueUnitDto } from '../types/rescueUnit';
@@ -80,6 +81,7 @@ export interface EscalationSettingsDto {
 /** Khu vực phục vụ (GET /api/settings/service-area — công khai). */
 export interface ServiceAreaDto {
   enabled: boolean;
+  rejectOutside?: boolean;
   name: string | null;
   centerLat: number;
   centerLng: number;
@@ -219,7 +221,9 @@ export const liveMapService = {
     const data = await unwrapApi(
       apiClient.get<ApiResponse<ServiceAreaDto | { values: ServiceAreaDto }>>('/settings/service-area')
     );
-    return 'values' in data ? data.values : data;
+    const area = 'values' in data ? data.values : data;
+    cacheServiceArea(area);
+    return area;
   },
 
   /**

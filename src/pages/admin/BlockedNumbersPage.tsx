@@ -10,6 +10,7 @@ import {
 } from '../../components/admin/blocked/blockedMeta';
 import { ReasonModal } from '../../components/admin/common/ReasonModal';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { inputClass, labelClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { blockedNumberService } from '../../services/admin/blockedNumberService';
@@ -101,7 +102,8 @@ const BlockedNumbersPage: React.FC = () => {
           onCancel={() => setUnblocking(null)}
           onConfirm={async (reason) => {
             await blockedNumberService.unblock(unblocking.id, reason);
-            setNotice({ kind: 'success', message: t('admin.users.blocked.unblock.done', { phone: unblocking.maskedPhone }) });
+            setNotice(null);
+            showToast(t('admin.users.blocked.unblock.done', { phone: unblocking.maskedPhone }));
             setUnblocking(null);
             query.reload();
           }}
@@ -120,7 +122,8 @@ const BlockedNumbersPage: React.FC = () => {
           item={extending}
           onCancel={() => setExtending(null)}
           onDone={(message) => {
-            setNotice({ kind: 'success', message });
+            setNotice(null);
+            showToast(message);
             setExtending(null);
             query.reload();
           }}

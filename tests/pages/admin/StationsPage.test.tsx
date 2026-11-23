@@ -15,7 +15,16 @@ vi.mock('@/services/admin/stationAdminService', async (orig) => ({
   stationAdminService: { list: vi.fn(), getById: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() },
 }));
 vi.mock('@/services/admin/accountAdminService', () => ({ accountAdminService: { listAccounts: vi.fn() } }));
-vi.mock('@/services/admin/geocodeService', () => ({ searchAddress: vi.fn() }));
+vi.mock('@/services/admin/geocodeService', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/admin/geocodeService')>();
+  return {
+    ...actual,
+    searchAddress: vi.fn(),
+    searchAddressInArea: vi.fn(),
+    searchOpenStreetMap: vi.fn(),
+    searchOpenStreetMapInArea: vi.fn(),
+  };
+});
 vi.mock('@/services/mapboxService', async (orig) => ({
   ...(await orig<typeof import('@/services/mapboxService')>()),
   mapboxService: { reverseGeocode: vi.fn() },

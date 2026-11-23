@@ -1,0 +1,26 @@
+<!-- Xe chữa cháy (thang trên nóc) — 3D nhìn từ trên xuống, đầu xe hướng lên (0° = bắc); marker xoay theo heading.
+     Chốt 2026-11-22. Khung 64×64, tâm xe ở tâm khung (neo center); bóng vẽ sẵn, không CSS filter. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect x="22.5" y="8.5" width="24" height="54" rx="6" fill="#0F172A" opacity="0.28"/>
+  <rect x="18.4" y="14" width="3.2" height="8" rx="1.4" fill="#1F2937"/>
+  <rect x="42.4" y="14" width="3.2" height="8" rx="1.4" fill="#1F2937"/>
+  <rect x="18.4" y="46" width="3.2" height="8" rx="1.4" fill="#1F2937"/>
+  <rect x="42.4" y="46" width="3.2" height="8" rx="1.4" fill="#1F2937"/>
+  <rect x="20.0" y="5" width="24" height="54" rx="6" fill="#991B1B"/>
+  <rect x="20.0" y="5" width="21" height="52.5" rx="6" fill="#DC2626"/>
+  <rect x="21.2" y="7" width="1.6" height="48" rx="0.8" fill="#F87171" opacity="0.8"/>
+  <path d="M23.0 17 L25.0 11.5 H38.0 L40.0 17 Z" fill="#1E293B"/>
+  <path d="M26.0 15.8 L27.5 12.5 H30.0 L28.5 15.8 Z" fill="#FFFFFF" opacity="0.4"/>
+  <rect x="25.0" y="18.5" width="6.5" height="2.6" rx="1" fill="#EF4444"/>
+  <rect x="31.5" y="18.5" width="6.5" height="2.6" rx="1" fill="#3B82F6"/>
+  <rect x="22.5" y="23.5" width="16" height="32.5" rx="2" fill="#B91C1C"/>
+  <rect x="25.0" y="25.0" width="2" height="29.5" rx="1" fill="#E5E7EB"/>
+  <rect x="34.5" y="25.0" width="2" height="29.5" rx="1" fill="#E5E7EB"/>
+  <rect x="25.0" y="27.5" width="11.5" height="1.2" rx="0.5" fill="#CBD5E1"/>
+  <rect x="25.0" y="31.7" width="11.5" height="1.2" rx="0.5" fill="#CBD5E1"/>
+  <rect x="25.0" y="35.9" width="11.5" height="1.2" rx="0.5" fill="#CBD5E1"/>
+  <rect x="25.0" y="40.1" width="11.5" height="1.2" rx="0.5" fill="#CBD5E1"/>
+  <rect x="25.0" y="44.300000000000004" width="11.5" height="1.2" rx="0.5" fill="#CBD5E1"/>
+  <rect x="25.0" y="48.50000000000001" width="11.5" height="1.2" rx="0.5" fill="#CBD5E1"/>
+  <rect x="25.0" y="52.70000000000001" width="11.5" height="1.2" rx="0.5" fill="#CBD5E1"/>
+</svg>

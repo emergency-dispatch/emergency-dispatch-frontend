@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Bot, Building2, ChevronDown, Image as ImageIcon, MapPin, Truck, X } from 'lucide-react';
 import { SEVERITY_LEVEL_COLOR } from '../../data/incidentMock';
 import { useDispatchStore } from '../../context/DispatchContext';
@@ -8,8 +9,7 @@ import {
   aiProgressOf,
   codeTail,
   formatWaitTime,
-  isAiWorking,
-  useIncomingTriage,
+  useAiWorkingItems,
   type AiProgress,
   type AiWorkingItem,
 } from './incidents/incomingTriage';
@@ -44,7 +44,7 @@ const railStyle = (item: AiWorkingItem): React.CSSProperties =>
  * Thanh thời gian 2 đoạn: Phân tích ảnh (so với mốc ~2 phút backend chờ AI) | Điều phối (so với hạn 20 s).
  * Đoạn đang chạy chuyển vàng khi lâu hơn thường lệ, và có vệt sáng quét qua để thấy AI vẫn đang làm.
  */
-const SegmentBar: React.FC<{ progress: AiProgress; className?: string; height?: string }> = ({
+export const SegmentBar: React.FC<{ progress: AiProgress; className?: string; height?: string }> = ({
   progress,
   className = '',
   height = 'h-1',
@@ -297,21 +297,38 @@ type OpenState = { kind: 'detail'; id: string } | { kind: 'list' } | null;
 
 /**
  * §31.E: dải "Ca AI đang xử lý" trên thanh trên cùng của Operator — thay thẻ nổi góc phải (che bản đồ). Mỗi ô là một tin
- * báo AI đang phân tích / điều phối; bấm mở bảng chi tiết (xem trên bản đồ không giữ ca, "Tôi xử lý" hỏi lại). Ca AI
+ * báo AI đang phân tích / điều phối (Live Map: chỉ còn nút gọn, vì panel "Theo dõi ca" đã có thẻ); bấm mở bảng chi tiết (xem trên bản đồ không giữ ca, "Tôi xử lý" hỏi lại). Ca AI
  * chuyển cho người vẫn bật modal "Cần bạn xử lý" (IncomingIncidentToasts).
  */
 export const AiLane: React.FC = () => {
   const { t } = useTranslation();
-  const { items, now } = useIncomingTriage();
-  const working = items.filter(isAiWorking);
-  const visibleCount = useVisibleTicketCount();
+  const { items: working, now } = useAiWorkingItems();
+  // Live Map đã có thẻ AI trong panel "Theo dõi ca" → thu gọn thành nút "AI · N" để không hiện trùng.
+  const onLiveMap = useLocation().pathname.startsWith(LIVE_MAP_PATH);
+  const ticketCount = useVisibleTicketCount();
+  const visibleCount = onLiveMap ? 0 : ticketCount;
   const [open, setOpen] = useState<OpenState>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Bảng vẽ ra ngoài thanh trên cùng (portal) để nằm trên nút báo leo thang; vị trí lấy theo dải AI lúc mở.
+  const [anchor, setAnchor] = useState<{ left: number; top: number } | null>(null);
+  const isOpen = open !== null;
+  useEffect(() => {
+    if (!isOpen) return;
+    const place = () => {
+      const rect = rootRef.current?.getBoundingClientRect();
+      if (rect) setAnchor({ left: rect.left, top: rect.bottom + 8 });
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!open) return;
     const onMouseDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(null);
+      const target = e.target as Node;
+      if (!rootRef.current?.contains(target) && !panelRef.current?.contains(target)) setOpen(null);
     };
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(null);
     document.addEventListener('mousedown', onMouseDown);
@@ -334,9 +351,11 @@ export const AiLane: React.FC = () => {
 
   return (
     <div ref={rootRef} className="relative flex items-center gap-1.5 min-w-0" aria-label={t('layout.aiLane.label')} role="group">
-      <span className="hidden lg:flex items-center pr-1 text-indigo-600" title={t('layout.aiLane.label')}>
-        <Bot className="w-4 h-4" />
-      </span>
+      {visibleCount > 0 && (
+        <span className="hidden lg:flex items-center pr-1 text-indigo-600" title={t('layout.aiLane.label')}>
+          <Bot className="w-4 h-4" />
+        </span>
+      )}
       {visible.map((item) => (
         <Ticket
           key={item.incident.id}
@@ -368,8 +387,12 @@ export const AiLane: React.FC = () => {
         </button>
       )}
 
-      {(detail || showList) && (
-        <div className="absolute left-0 top-full mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white shadow-xl overflow-hidden animate-drawer-in">
+      {(detail || showList) && anchor && createPortal(
+        <div
+          ref={panelRef}
+          style={{ left: `max(1rem, min(${anchor.left}px, calc(100vw - 23rem)))`, top: anchor.top }}
+          className="fixed z-[1502] w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white shadow-xl overflow-hidden animate-drawer-in"
+        >
           {detail ? (
             <TicketPanel item={detail} now={now} onClose={() => setOpen(null)} />
           ) : (
@@ -389,7 +412,8 @@ export const AiLane: React.FC = () => {
               ))}
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, LayoutGrid, Loader2, Package, RefreshCw, Rows3, Search, X } from 'lucide-react';
 import { Notice, type NoticeState } from '../../admin/common/ui';
+import { showToast } from '../../admin/common/toastStore';
 import { inputClass } from '../../admin/common/styles';
 import { FleetHeader, type FleetStat } from '../vehicles/FleetHeader';
 import { EquipmentTable } from '../../equipment/EquipmentTable';
@@ -386,12 +387,12 @@ export const EquipmentTab: React.FC<EquipmentTabProps> = ({ title, tabs, station
             upsert(saved);
             if (keepOpen) return;
             setEditing(undefined);
-            setNotice({
-              kind: 'success',
-              message: created
+            setNotice(null);
+            showToast(
+              created
                 ? t('vehicles.equipment.notices.created', { name: saved.name })
-                : t('vehicles.equipment.notices.updated', { name: saved.name }),
-            });
+                : t('vehicles.equipment.notices.updated', { name: saved.name })
+            );
           }}
           onGone={handleGone}
         />
@@ -404,13 +405,12 @@ export const EquipmentTab: React.FC<EquipmentTabProps> = ({ title, tabs, station
           onDone={(updated) => {
             upsert(updated);
             setStatusTarget(null);
-            setNotice({
-              kind: 'success',
-              message:
-                updated.status === 'Maintenance'
-                  ? t('vehicles.equipment.notices.maintenance', { name: updated.name })
-                  : t('vehicles.equipment.notices.available', { name: updated.name }),
-            });
+            setNotice(null);
+            showToast(
+              updated.status === 'Maintenance'
+                ? t('vehicles.equipment.notices.maintenance', { name: updated.name })
+                : t('vehicles.equipment.notices.available', { name: updated.name })
+            );
           }}
           onGone={handleGone}
         />
@@ -424,7 +424,8 @@ export const EquipmentTab: React.FC<EquipmentTabProps> = ({ title, tabs, station
           onDeleted={(deleted) => {
             removeLocal(deleted.id);
             setDeleteTarget(null);
-            setNotice({ kind: 'success', message: t('vehicles.equipment.notices.deleted', { name: deleted.name }) });
+            setNotice(null);
+            showToast(t('vehicles.equipment.notices.deleted', { name: deleted.name }));
           }}
           onGone={handleGone}
         />

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, Users } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, Users } from 'lucide-react';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
@@ -7,8 +7,10 @@ import { getBusyTeamIds } from '../../../utils/teamAvailability';
 import { useTranslation } from '../../../i18n';
 
 /**
- * Thẻ nổi trên bản đồ Live Map: các tổ còn sẵn sàng (xe Sẵn sàng, tổ không bận). Chỉ để nắm lực lượng;
- * giao xe làm ở Chi tiết ca. Mặc định thu gọn để không che bản đồ.
+ * Thẻ nổi trên bản đồ Live Map: các tổ còn sẵn sàng (xe Sẵn sàng, tổ không bận, `canBeAssigned`). Chỉ để nắm lực
+ * lượng; giao xe làm ở Chi tiết ca. Mặc định thu gọn để không che bản đồ.
+ * §34: backend chỉ gợi ý / cho giao tổ `canBeAssigned` (có xe + ≥ 1 nhân viên cứu hộ đang hoạt động) → tổ có xe rảnh
+ * nhưng không đủ điều kiện không tính là sẵn sàng, chỉ đếm riêng để Operator biết mà kiểm tra ở Trạm & Tổ.
  */
 export const ReadyTeamsCard: React.FC = () => {
   const { vehicles } = useDispatchStore();
@@ -16,19 +18,25 @@ export const ReadyTeamsCard: React.FC = () => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
-  const readyTeams = useMemo(() => {
+  const { readyTeams, blockedCount } = useMemo(() => {
     const busyTeamIds = getBusyTeamIds(vehicles, teamByVehicle);
     // Một tổ nhiều xe sẵn sàng → hiện một dòng theo xe đầu tiên.
     const seen = new Set<string>();
-    return vehicles
+    const blocked = new Set<string>();
+    const ready = vehicles
       .filter((v) => v.status === 'available')
       .flatMap((v) => {
         const team = teamByVehicle.get(v.id);
         if (!team || busyTeamIds.has(team.id) || seen.has(team.id)) return [];
+        if (!team.canBeAssigned) {
+          blocked.add(team.id);
+          return [];
+        }
         seen.add(team.id);
         return [{ vehicle: v, team }];
       })
       .sort((a, b) => a.team.name.localeCompare(b.team.name, 'vi'));
+    return { readyTeams: ready, blockedCount: blocked.size };
   }, [vehicles, teamByVehicle]);
 
   return (
@@ -57,6 +65,12 @@ export const ReadyTeamsCard: React.FC = () => {
                 <DispatchTeamLabel team={team} vehicle={vehicle} detail={` · ${vehicle.stationName}`} />
               </div>
             ))
+          )}
+          {blockedCount > 0 && (
+            <p className="flex items-start gap-1.5 pt-1 text-[11px] leading-snug text-amber-700">
+              <AlertTriangle className="w-3.5 h-3.5 mt-px shrink-0" />
+              {t('liveMap.readyTeams.blocked', { count: blockedCount })}
+            </p>
           )}
         </div>
       )}

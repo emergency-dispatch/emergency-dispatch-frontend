@@ -4,8 +4,10 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { LocateFixed, MapPin, Loader2, Shield } from 'lucide-react';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE, mapboxService } from '../../services/mapboxService';
 import { liveMapService, type ServiceAreaDto } from '../../services/liveMapService';
-import { stationMarkerHtml } from '../operator/livemap/mapIcons';
-import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
+import { glowStationMarkerHtml, pickPinMarkerHtml } from '../operator/livemap/glowMarkers';
+import { serviceAreaToFeatureCollection } from '../operator/livemap/MapServiceAreaLayer';
+import { parseBoundary } from '../admin/settings/serviceAreaBoundary';
+import { normalizeServiceArea } from '../../utils/serviceArea';
 import type { Station } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
 
@@ -15,7 +17,7 @@ interface MapboxLocationPickerProps {
   onChange: (lat: number, lng: number, address?: string) => void;
   height?: string;
   scrollZoom?: boolean;
-  serviceArea?: ServiceAreaDto;
+  serviceArea?: ServiceAreaDto | null;
 }
 
 export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
@@ -27,10 +29,12 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
   serviceArea,
 }) => {
   const { i18n } = useTranslation();
-  const areaLat = serviceArea?.centerLat || 10.8441;
-  const areaLng = serviceArea?.centerLng || 106.8089;
-  const areaRadiusKm = (typeof serviceArea?.radiusKm === 'number' && serviceArea.radiusKm > 0) ? serviceArea.radiusKm : 4.5;
-  const areaEnabled = serviceArea?.enabled ?? true;
+  const normalizedArea = serviceArea ? normalizeServiceArea(serviceArea) : null;
+  const areaRadiusKm = normalizedArea?.radiusKm ?? 0;
+  const areaEnabled = Boolean(normalizedArea?.enabled);
+  const hasPolygonBoundary = parseBoundary(normalizedArea?.boundaryGeoJson).length > 0;
+  const serviceAreaRef = useRef<ServiceAreaDto | null>(normalizedArea);
+  serviceAreaRef.current = normalizedArea;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
@@ -68,22 +72,12 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
     // Navigation Controls (Zoom in/out)
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
 
-    // Create Custom Red Marker Element
+    // Create Custom Pick-Pin Marker Element
     const el = document.createElement('div');
     el.className = 'custom-sos-marker';
-    el.innerHTML = `
-      <div style="position: relative; display: flex; align-items: center; justify-content: center; cursor: grab;">
-        <div style="position: absolute; width: 32px; height: 32px; border-radius: 50%; background: rgba(220, 38, 38, 0.35); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-        <div style="width: 24px; height: 24px; border-radius: 50%; background: #DC2626; border: 2.5px solid #FFFFFF; box-shadow: 0 4px 10px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-            <circle cx="12" cy="10" r="3"/>
-          </svg>
-        </div>
-      </div>
-    `;
+    el.innerHTML = pickPinMarkerHtml();
 
-    const marker = new mapboxgl.Marker({ element: el, draggable: true })
+    const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom', draggable: true })
       .setLngLat([longitude, latitude])
       .addTo(map);
 
@@ -112,19 +106,12 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
       updatePosition(lng, lat);
     });
 
-    // Draw operational boundary (dynamic from Admin or default KCN)
+    // Draw operational boundary (polygon boundaryGeoJson if configured by Admin, else circle)
     const addKcnBoundary = () => {
       if (!map.getSource('kcn-boundary')) {
         map.addSource('kcn-boundary', {
           type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: { name: serviceArea?.name || 'Khu Công nghệ cao' },
-            geometry: {
-              type: 'Polygon',
-              coordinates: areaEnabled && areaRadiusKm > 0 ? [circlePolygon(areaLat, areaLng, areaRadiusKm)] : [],
-            },
-          },
+          data: serviceAreaToFeatureCollection(serviceAreaRef.current) as any,
         });
         map.addLayer({
           id: 'kcn-boundary-fill',
@@ -164,9 +151,9 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
           if (!st.lat || !st.lng) return;
           const stEl = document.createElement('div');
           stEl.className = 'custom-rescue-station-marker';
-          stEl.innerHTML = stationMarkerHtml(false);
+          stEl.innerHTML = glowStationMarkerHtml(false);
 
-          const popup = new mapboxgl.Popup({ offset: [0, -32], closeButton: false }).setHTML(`
+          const popup = new mapboxgl.Popup({ offset: [0, -24], closeButton: false }).setHTML(`
             <div style="font-family: inherit; font-size: 11px; padding: 4px 2px; min-width: 170px; color: #0F172A;">
               <p style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: #64748B; margin: 0 0 2px 0;">Trạm cứu hộ</p>
               <p style="font-size: 12px; font-weight: 700; color: #0F172A; margin: 0 0 2px 0;">${st.name}</p>
@@ -177,7 +164,7 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
             </div>
           `);
 
-          const stMarker = new mapboxgl.Marker({ element: stEl, anchor: 'bottom' })
+          const stMarker = new mapboxgl.Marker({ element: stEl, anchor: 'center' })
             .setLngLat([st.lng, st.lat])
             .setPopup(popup)
             .addTo(map);
@@ -241,16 +228,9 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
     const map = mapRef.current;
     const source = map.getSource('kcn-boundary') as mapboxgl.GeoJSONSource | undefined;
     if (source) {
-      source.setData({
-        type: 'Feature',
-        properties: { name: serviceArea?.name || 'Khu Công nghệ cao' },
-        geometry: {
-          type: 'Polygon',
-          coordinates: areaEnabled && areaRadiusKm > 0 ? [circlePolygon(areaLat, areaLng, areaRadiusKm)] : [],
-        },
-      } as any);
+      source.setData(serviceAreaToFeatureCollection(normalizedArea) as any);
     }
-  }, [areaLat, areaLng, areaRadiusKm, areaEnabled, serviceArea?.name]);
+  }, [normalizedArea]);
 
   const handleLocateMe = () => {
     if (!navigator.geolocation) return;
@@ -312,10 +292,16 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
       </div>
 
       {/* Operational Boundary Indicator */}
-      {areaEnabled && areaRadiusKm > 0 && (
+      {normalizedArea && areaEnabled && (areaRadiusKm > 0 || hasPolygonBoundary) && (
         <div className="absolute top-2.5 right-12 z-10 hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/85 backdrop-blur-xs text-red-400 text-[10px] font-mono font-bold border border-red-500/30 shadow-md">
           <Shield className="w-3.5 h-3.5 text-red-400" />
-          <span>{i18n.language === 'en' ? `Service Area (${areaRadiusKm} km)` : `Ranh giới KCN (${areaRadiusKm} km)`}</span>
+          <span>
+            {hasPolygonBoundary
+              ? normalizedArea.name || (i18n.language === 'en' ? 'Service Area' : 'Khu vực phục vụ')
+              : i18n.language === 'en'
+              ? `Service Area (${areaRadiusKm} km)`
+              : `Ranh giới KCN (${areaRadiusKm} km)`}
+          </span>
         </div>
       )}
 

@@ -2,7 +2,12 @@ import { useEffect, useSyncExternalStore } from 'react';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useNow } from '../../../hooks/useNow';
 import type { Incident } from '../../../types/incident';
-import { AUTO_DISPATCH_DECIDING_TIMEOUT_MS, autoDispatchVerdict, type AutoDispatchVerdict } from './autoDispatchVerdict';
+import {
+  AUTO_DISPATCH_DECIDING_TIMEOUT_MS,
+  autoDispatchVerdict,
+  autoDispatchVerdictAt,
+  type AutoDispatchVerdict,
+} from './autoDispatchVerdict';
 
 /**
  * Backend chờ AI phân tích tối đa ~2 phút rồi mới chấm tự điều phối → mốc "bình thường" cho đoạn Phân tích ảnh.
@@ -70,10 +75,48 @@ export function useIncomingTriage(): { items: IncomingTriageItem[]; now: number 
   return { items, now };
 }
 
+/**
+ * Ca chờ duyệt có từ trước khi mở trang (không phải tin báo mới của phiên) mà AI vẫn "đang làm" quá hạn này → coi như kẹt,
+ * chuyển cho người.
+ */
+const AI_STUCK_MS = 10 * 60_000;
+
+/**
+ * Giai đoạn của **mọi** ca chờ duyệt: tin báo mới trong phiên dùng `useIncomingTriage` (mốc điều phối chính xác), ca còn lại
+ * (VD vừa tải lại trang) tính theo lúc tiếp nhận. Dùng cho panel "Theo dõi ca", dải AI và marker AI trên bản đồ.
+ */
+export function usePendingTriage(): { items: IncomingTriageItem[]; now: number } {
+  const { incidents, autoDispatchSettings } = useDispatchStore();
+  const incoming = useIncomingTriage();
+  const { now } = incoming;
+  const incomingIds = new Set(incoming.items.map((item) => item.incident.id));
+  const others = incidents
+    .filter((incident) => incident.status === 'pending' && !incomingIds.has(incident.id))
+    .map((incident): IncomingTriageItem => {
+      const verdict = autoDispatchVerdictAt(incident, autoDispatchSettings, now);
+      const stuck =
+        (verdict.phase === 'analyzing' || verdict.phase === 'deciding') &&
+        now - new Date(incident.createdAt).getTime() > AI_STUCK_MS;
+      return {
+        incident,
+        verdict: stuck ? { phase: 'handover', reason: 'undecided' } : verdict,
+        decidingSince: decidingSince.get(incident.id) ?? null,
+      };
+    });
+  return { items: [...incoming.items, ...others], now };
+}
+
+/** Ca AI đang làm. Đang có người giữ khóa thì AI sẽ bỏ qua → không tính. */
+export function useAiWorkingItems(): { items: AiWorkingItem[]; now: number } {
+  const { items, now } = usePendingTriage();
+  return { items: items.filter(isAiWorkingUnheld), now };
+}
+
 /** Ca đang ở tay AI (phân tích ảnh / đang điều phối). */
 export type AiWorkingItem = IncomingTriageItem & { verdict: { phase: 'analyzing' | 'deciding' } };
 export const isAiWorking = (item: IncomingTriageItem): item is AiWorkingItem =>
   item.verdict.phase === 'analyzing' || item.verdict.phase === 'deciding';
+export const isAiWorkingUnheld = (item: IncomingTriageItem): item is AiWorkingItem => isAiWorking(item) && !item.incident.lock;
 
 export interface AiProgress {
   phase: 'analyzing' | 'deciding';

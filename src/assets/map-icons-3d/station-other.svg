@@ -1,0 +1,43 @@
+<!-- Trạm kiểu 3D isometric — trạm khác (mái xám). Chốt 2026-11-22: thay icon nét; đổ khối 3 mặt, cửa cuốn, đèn ưu tiên trên mái,
+     bóng đổ vẽ sẵn (không dùng CSS filter). Khung 64×64, tâm nền trùng tâm khung → marker neo center. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <ellipse cx="34.7" cy="34.3" rx="22" ry="9" fill="#0F172A" opacity="0.24"/>
+  <polygon points="6.3,30.5 36.6,45.7 36.6,43.9 6.3,28.7" fill="#94A3B8"/>
+  <polygon points="58.3,34.8 36.6,45.7 36.6,43.9 58.3,33.0" fill="#7C8BA1"/>
+  <polygon points="28.0,17.8 58.3,33.0 36.6,43.9 6.3,28.7" fill="#E2E8F0"/>
+  <polygon points="13.0,26.9 20.4,30.6 20.4,22.0 13.0,18.3" fill="#E2E8F0"/>
+  <polygon points="32.7,24.5 20.4,30.6 20.4,22.0 32.7,15.9" fill="#B6C2D2"/>
+  <polygon points="25.3,12.2 32.7,15.9 20.4,22.0 13.0,18.3" fill="#94A3B8"/>
+  <polygon points="18.4,31.7 30.7,37.8 30.7,21.0 18.4,14.8" fill="#E2E8F0"/>
+  <polygon points="47.1,29.6 30.7,37.8 30.7,21.0 47.1,12.8" fill="#B6C2D2"/>
+  <polygon points="34.8,6.6 47.1,12.8 30.7,21.0 18.4,14.8" fill="#F8FAFC"/>
+  <polygon points="45.4,21.6 42.3,23.2 42.3,20.5 45.4,18.9" fill="#2B5797"/>
+  <polygon points="40.7,24.0 37.6,25.5 37.6,22.8 40.7,21.3" fill="#2B5797"/>
+  <polygon points="36.0,26.3 32.9,27.9 32.9,25.2 36.0,23.7" fill="#2B5797"/>
+  <polygon points="45.4,17.1 42.3,18.6 42.3,16.0 45.4,14.4" fill="#2B5797"/>
+  <polygon points="40.7,19.5 37.6,21.0 37.6,18.3 40.7,16.8" fill="#2B5797"/>
+  <polygon points="36.0,21.8 32.9,23.4 32.9,20.7 36.0,19.2" fill="#2B5797"/>
+  <polygon points="20.0,32.5 29.0,37.0 29.0,29.8 20.0,25.3" fill="#475569"/>
+  <line x1="20.0" y1="30.7" x2="29.0" y2="35.2" stroke="#94A3B8" stroke-width="0.45"/>
+  <line x1="20.0" y1="29.0" x2="29.0" y2="33.5" stroke="#94A3B8" stroke-width="0.45"/>
+  <line x1="20.0" y1="27.2" x2="29.0" y2="31.8" stroke="#94A3B8" stroke-width="0.45"/>
+  <polygon points="20.0,22.8 23.1,24.4 23.1,21.5 20.0,20.0" fill="#3B6FB6"/>
+  <polygon points="25.9,25.8 29.0,27.4 29.0,24.5 25.9,22.9" fill="#3B6FB6"/>
+  <polygon points="17.1,14.8 30.7,21.6 30.7,19.8 17.1,13.0" fill="#64748B"/>
+  <polygon points="48.3,12.8 30.7,21.6 30.7,19.8 48.3,11.0" fill="#475569"/>
+  <polygon points="34.8,4.2 48.3,11.0 30.7,19.8 17.1,13.0" fill="#94A3B8"/>
+  <polyline points="17.1,13.0 30.7,19.8 48.3,11.0" fill="none" stroke="#E2E8F0" stroke-width="0.8" stroke-linejoin="round" opacity="0.9"/>
+  <polygon points="30.0,12.1 32.5,13.3 32.5,11.1 30.0,9.8" fill="#64748B"/>
+  <polygon points="35.8,11.7 32.5,13.3 32.5,11.1 35.8,9.4" fill="#475569"/>
+  <polygon points="33.3,8.2 35.8,9.4 32.5,11.1 30.0,9.8" fill="#64748B"/>
+  <polyline points="30.0,9.8 32.5,11.1 35.8,9.4" fill="none" stroke="#FFFFFF" stroke-width="0.8" stroke-linejoin="round" opacity="0.9"/>
+  <polygon points="32.7,36.8 40.1,40.5 40.1,31.9 32.7,28.2" fill="#E2E8F0"/>
+  <polygon points="52.4,34.3 40.1,40.5 40.1,31.9 52.4,25.7" fill="#B6C2D2"/>
+  <polygon points="45.0,22.0 52.4,25.7 40.1,31.9 32.7,28.2" fill="#F8FAFC"/>
+  <polygon points="50.5,31.8 47.5,33.3 47.5,30.6 50.5,29.1" fill="#2B5797"/>
+  <polygon points="45.4,34.3 42.3,35.9 42.3,33.2 45.4,31.7" fill="#2B5797"/>
+  <polygon points="31.9,28.2 40.1,32.3 40.1,30.8 31.9,26.7" fill="#64748B"/>
+  <polygon points="53.2,25.7 40.1,32.3 40.1,30.8 53.2,24.3" fill="#475569"/>
+  <polygon points="45.0,20.2 53.2,24.3 40.1,30.8 31.9,26.7" fill="#94A3B8"/>
+  <polyline points="31.9,26.7 40.1,30.8 53.2,24.3" fill="none" stroke="#E2E8F0" stroke-width="0.8" stroke-linejoin="round" opacity="0.9"/>
+</svg>

@@ -46,7 +46,6 @@ export const GLOW_MARKER_COLORS: {
   arcIdle: string;
   categoryGlyph: Record<IncidentCategory, string>;
   severityArc: Record<SeverityLevel, string>;
-  station: { mine: string; mineHalo: string; other: string };
   trafficJam: Record<'active' | 'assigned' | 'escalated', { ring: string; glyph: string }>;
   pulse: string;
   /** §31.E: tin báo AI đang xử lý — chàm = việc của AI (cùng quy ước với dải AI trên thanh trên cùng). */
@@ -56,7 +55,6 @@ export const GLOW_MARKER_COLORS: {
   arcIdle: 'rgba(203,213,225,0.75)',
   categoryGlyph: { fire: '#FF7A6E', accident: '#FDBA74', other: '#67E8F9', unknown: '#FF7A6E' },
   severityArc: { 1: '#34D399', 2: '#FBBF24', 3: '#F87171' },
-  station: { mine: '#F87171', mineHalo: '#DC2626', other: '#CBD5E1' },
   trafficJam: {
     active: { ring: '#FB923C', glyph: '#FDBA74' },
     assigned: { ring: '#60A5FA', glyph: '#93C5FD' },

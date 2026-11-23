@@ -13,6 +13,13 @@ interface MapMarkerProps {
   anchor?: mapboxgl.Anchor;
   /** Dời phần tử theo pixel so với điểm neo — xe đậu xếp hàng dưới ghim trạm. */
   offset?: [number, number];
+  /** Góc xoay theo chiều kim đồng hồ (độ) — xe 3D xoay theo hướng chạy. */
+  rotation?: number;
+  /**
+   * 'map' = xoay theo bản đồ và nằm phẳng trên mặt đất khi nghiêng 3D (xe đang chạy theo GPS);
+   * 'viewport' = luôn đứng thẳng trên màn hình (mặc định; xe đậu xếp hàng, trạm, sự cố).
+   */
+  rotationAlignment?: 'map' | 'viewport';
   /** Khoảng cách popup so với tâm marker (px). */
   popupOffset?: number;
   onClick?: () => void;
@@ -53,6 +60,8 @@ export const MapMarker: React.FC<MapMarkerProps> = ({
   zIndex,
   anchor = 'center',
   offset,
+  rotation = 0,
+  rotationAlignment = 'viewport',
   popupOffset = 16,
   onClick,
   popupOpenKey,
@@ -101,6 +110,15 @@ export const MapMarker: React.FC<MapMarkerProps> = ({
   useEffect(() => {
     markerRef.current?.setLngLat([lng, lat]);
   }, [lng, lat]);
+
+  // Xoay tại chỗ (không tạo lại marker) — heading đổi theo từng tick GPS.
+  useEffect(() => {
+    const marker = markerRef.current;
+    if (!marker) return;
+    marker.setRotationAlignment(rotationAlignment);
+    marker.setPitchAlignment(rotationAlignment);
+    marker.setRotation(rotation);
+  }, [rotation, rotationAlignment, hasPopup, anchor]);
 
   useEffect(() => {
     if (!popupOpenKey) return;

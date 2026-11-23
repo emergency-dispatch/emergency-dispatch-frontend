@@ -123,8 +123,8 @@ export const MapLegend: React.FC = () => {
       <div className="pt-2 border-t border-slate-200">
         <div className={sectionTitle}>{t('liveMap.legend.stationsAndTraffic')}</div>
         <div className={grid2}>
-          <Item icon={<MarkerIcon html={legendStationIconHtml(true, 16)} />} label={t('liveMap.legend.myStation')} />
-          <Item icon={<MarkerIcon html={legendStationIconHtml(false, 16)} />} label={t('liveMap.legend.otherStation')} />
+          <Item icon={<MarkerIcon html={legendStationIconHtml(true, 22)} />} label={t('liveMap.legend.myStation')} />
+          <Item icon={<MarkerIcon html={legendStationIconHtml(false, 22)} />} label={t('liveMap.legend.otherStation')} />
           <Item icon={<MarkerIcon html={legendTrafficJamIconHtml('active', 16)} />} label={t('liveMap.legend.trafficJam')} />
           <Item icon={<MarkerIcon html={legendTrafficJamIconHtml('assigned', 16)} />} label={t('liveMap.legend.trafficJamAssigned')} />
         </div>

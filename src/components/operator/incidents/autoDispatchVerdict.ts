@@ -1,15 +1,17 @@
 import type { AutoDispatchSettings } from '../../../services/liveMapService';
-import type { AutoDispatchIneligibleReason, Incident } from '../../../types/incident';
+import type { AutoDispatchNotEligibleReason, Incident } from '../../../types/incident';
 
 /**
  * Vì sao ca tới tay Operator thay vì được AI tự điều phối:
  * - lý do không đủ điều kiện: backend lưu từ §35 (`autoDispatchNotEligible`), ca cũ thì FE tự suy (`AutoDispatchIneligibleReason`);
  * - `belowThreshold`: độ tin cậy đo thật nhưng thấp hơn ngưỡng Admin đặt;
  * - `operatorHandling`: ca đang bị Operator giữ (khóa mềm) lúc AI chấm → AI không chen vào;
+ * - `ensemble*` (§42): chế độ 3 AI bỏ phiếu không đủ đồng thuận / model CNN không chạy được / ca không có ảnh;
+ * - `other`: mã lý do FE chưa biết → hiện câu của backend;
  * - `skipped`: AI đã thử nhưng bỏ qua (nghi trùng / hết tổ / giao lỗi) — câu cụ thể ở `autoDispatch.note`;
  * - `undecided`: AI phân tích xong, trông đủ điều kiện nhưng quá lâu chưa thấy kết quả (cài đặt FE cũ, lỗi giữa chừng…).
  */
-export type HandoverReason = AutoDispatchIneligibleReason | 'belowThreshold' | 'operatorHandling' | 'skipped' | 'undecided';
+export type HandoverReason = AutoDispatchNotEligibleReason | 'skipped' | 'undecided';
 
 export type AutoDispatchVerdict =
   /** Tự điều phối đang tắt / chưa tải được cài đặt / ca chuyển trạm → Operator thẩm định như luồng cũ. */

@@ -8,6 +8,7 @@ import { IncomingIncidentToasts } from './IncomingIncidentToasts';
 import { OperatorAlerts } from './OperatorAlerts';
 import { OperatorSidebar } from './OperatorSidebar';
 import { OperatorTopbar } from './OperatorTopbar';
+import { ToastHost } from '../admin/common/ToastHost';
 
 export const OperatorLayout: React.FC = () => {
   useLayoutEffect(restoreStoredLanguage, []);
@@ -27,6 +28,7 @@ export const OperatorLayout: React.FC = () => {
       <EscalationAlert />
       <IncomingIncidentToasts />
       <OperatorAlerts />
+      <ToastHost />
     </DispatchProvider>
   );
 };
