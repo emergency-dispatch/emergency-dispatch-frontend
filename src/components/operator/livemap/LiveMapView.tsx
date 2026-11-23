@@ -379,7 +379,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { incidentKindLabel, incomingIncidents } = useDispatchStore();
+  const { incidentKindLabel, incidents: allIncidents } = useDispatchStore();
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
   // Mặc định Đường phố: nền sáng, nhãn đường rõ, marker 3D (trạm / xe) và Quầng sáng nổi hơn; ảnh vệ tinh cũng nặng hơn.
   const [tileMode, setTileMode] = useState<MapTileMode>('light');
@@ -486,7 +486,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   }, [map, focusTrafficJam?.key, !!focusJam]);
 
   // Dải AI → "Xem trên bản đồ": bay tới tin báo (popup mở qua popupOpenKey). Ca vừa rời tay AI thì không còn marker.
-  const focusAi = focusAiIncident ? incomingIncidents.find((i) => i.id === focusAiIncident.id) : undefined;
+  const focusAi = focusAiIncident ? allIncidents.find((i) => i.id === focusAiIncident.id) : undefined;
   useEffect(() => {
     if (!map || !focusAi) return;
     map.flyTo({ center: [focusAi.lng, focusAi.lat], zoom: Math.max(map.getZoom(), 16), duration: 800 });

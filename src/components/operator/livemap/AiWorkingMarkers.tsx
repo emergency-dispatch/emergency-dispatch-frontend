@@ -5,7 +5,7 @@ import { MapMarker } from './MapMarker';
 import { glowAiWorkingMarkerHtml } from './glowMarkers';
 import { AiStepGlyph, AiTakeOver } from '../AiLane';
 import { IncidentCode } from '../incidents/IncidentCode';
-import { aiProgressOf, formatWaitTime, isAiWorking, useIncomingTriage } from '../incidents/incomingTriage';
+import { aiProgressOf, formatWaitTime, useAiWorkingItems } from '../incidents/incomingTriage';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useTranslation } from '../../../i18n';
 
@@ -13,7 +13,7 @@ import { useTranslation } from '../../../i18n';
 const AI_MARKER_Z_INDEX = 4;
 
 /**
- * §31.E: tin báo AI đang phân tích / điều phối trên Live Map (sự cố chưa duyệt nên không có trong danh sách ca).
+ * §31.E: tin báo AI đang phân tích / điều phối trên Live Map (sự cố chưa duyệt nên không thuộc marker sự cố thường).
  * Tách khỏi LiveMapView vì đồng hồ chờ chạy mỗi giây — chỉ phần này vẽ lại.
  */
 export const AiWorkingMarkers: React.FC<{
@@ -23,11 +23,11 @@ export const AiWorkingMarkers: React.FC<{
 }> = ({ map, focus }) => {
   const { t } = useTranslation();
   const { incidentKindLabel } = useDispatchStore();
-  const { items, now } = useIncomingTriage();
+  const { items, now } = useAiWorkingItems();
 
   return (
     <>
-      {items.filter(isAiWorking).map((item) => {
+      {items.map((item) => {
         const { incident } = item;
         const progress = aiProgressOf(item, now);
         return (

@@ -3,11 +3,13 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useDispatchRoutes } from '../../hooks/useDispatchRoutes';
+import { useNow } from '../../hooks/useNow';
 import { DispatchIncidentList } from '../../components/operator/livemap/DispatchIncidentList';
 import { DispatchRecommendPanel } from '../../components/operator/livemap/DispatchRecommendPanel';
 import { CaseAssignments } from '../../components/operator/livemap/CaseAssignments';
 import { ReadyTeamsCard } from '../../components/operator/livemap/ReadyTeamsCard';
 import { countAttentionCases } from '../../components/operator/livemap/caseGroups';
+import { autoDispatchVerdictAt } from '../../components/operator/incidents/autoDispatchVerdict';
 import { groupCompletion, progressOf } from '../../components/operator/completion/completionGroups';
 import { COMPLETION_PATH } from '../../data/dashboardMock';
 import { useTeamByVehicle } from '../../hooks/useStationTeams';
@@ -67,6 +69,7 @@ export const LiveMapPage: React.FC = () => {
     fieldRequests,
     escalatedIncidentIds,
     assignmentsByIncident,
+    autoDispatchSettings,
   } = useDispatchStore();
   const teamByVehicle = useTeamByVehicle();
   const navigate = useNavigate();
@@ -99,12 +102,18 @@ export const LiveMapPage: React.FC = () => {
   const incidentsById = useMemo(() => new Map(incidents.map((i) => [i.id, i])), [incidents]);
   const routes = useDispatchRoutes(incidents, vehicles);
 
+  // Nhịp chậm: chỉ để đếm, không vẽ lại cả trang (bản đồ) mỗi giây.
+  const slowNow = useNow(15_000);
   // Danh sách ca là màn chính → không tự mở ca nào; số ca cần xử lý hiện cạnh nút quay lại ở Chi tiết ca.
   const attentionCount = useMemo(() => {
     const fieldRequestCounts = new Map<string, number>();
     for (const r of fieldRequests) fieldRequestCounts.set(r.incidentId, (fieldRequestCounts.get(r.incidentId) ?? 0) + 1);
-    return countAttentionCases(incidents, { escalatedIds: escalatedIncidentIds, fieldRequestCounts });
-  }, [incidents, fieldRequests, escalatedIncidentIds]);
+    return countAttentionCases(incidents, {
+      escalatedIds: escalatedIncidentIds,
+      fieldRequestCounts,
+      verdictOf: (incident) => autoDispatchVerdictAt(incident, autoDispatchSettings, slowNow),
+    });
+  }, [incidents, fieldRequests, escalatedIncidentIds, autoDispatchSettings, slowNow]);
 
   // Deep link từ banner leo thang / thông báo
   const focusIncidentId = (location.state as { focusIncidentId?: string } | null)?.focusIncidentId;
@@ -317,6 +326,7 @@ export const LiveMapPage: React.FC = () => {
         onClearError={() => setPanelError(null)}
         onServeFieldRequest={handleServeFieldRequest}
         highlightFieldRequestId={highlightFieldRequestId}
+        onFocusAiIncident={(id) => setFocusAiIncident((prev) => ({ id, key: (prev?.key ?? 0) + 1 }))}
       />
     );
 
