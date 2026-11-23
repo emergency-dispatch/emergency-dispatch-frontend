@@ -29,12 +29,12 @@ import {
 } from '../../services/realtime/incidentHubService';
 import { liveMapService } from '../../services/liveMapService';
 import {
-  stationMarkerHtml,
-  vehicleMarkerHtml,
-  incidentMarkerHtml,
-} from '../operator/livemap/mapIcons';
+  glowStationMarkerHtml,
+  vehicle3dMarkerHtml,
+  glowIncidentMarkerHtml,
+} from '../operator/livemap/glowMarkers';
 import type { IncidentResponseDto, IncidentCategory, SeverityLevel } from '../../types/incident';
-import type { VehicleStatus, VehicleType } from '../../types/vehicle';
+import type { DispatchVehicleType, VehicleStatus } from '../../types/vehicle';
 import { haversineDistanceKm } from '../../utils/serviceArea';
 import { useTranslation } from '../../i18n';
 import { CitizenSupplementModal } from './CitizenSupplementModal';
@@ -279,9 +279,9 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           );
 
           const stEl = document.createElement('div');
-          stEl.innerHTML = stationMarkerHtml(isAssigningStation);
+          stEl.innerHTML = glowStationMarkerHtml(isAssigningStation);
 
-          const popup = new mapboxgl.Popup({ offset: [0, -32], closeButton: false }).setHTML(`
+          const popup = new mapboxgl.Popup({ offset: [0, -24], closeButton: false }).setHTML(`
             <div style="font-family: inherit; font-size: 11px; padding: 4px; min-width: 170px; color: #0F172A;">
               <p style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: #64748B; margin: 0 0 2px 0;">
                 ${isAssigningStation ? 'Trạm xuất phát cứu hộ' : 'Trạm cứu hộ'}
@@ -291,7 +291,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
             </div>
           `);
 
-          const m = new mapboxgl.Marker({ element: stEl, anchor: 'bottom' })
+          const m = new mapboxgl.Marker({ element: stEl, anchor: 'center' })
             .setLngLat([st.lng, st.lat])
             .setPopup(popup)
             .addTo(map);
@@ -333,9 +333,9 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
       const severity: SeverityLevel =
         incident.severity === 'Level3' ? 3 : incident.severity === 'Level2' ? 2 : 1;
 
-      el.innerHTML = incidentMarkerHtml(category, severity, true);
+      el.innerHTML = glowIncidentMarkerHtml(category, severity, true);
 
-      const popup = new mapboxgl.Popup({ offset: 18, closeButton: false }).setHTML(`
+      const popup = new mapboxgl.Popup({ offset: 22, closeButton: false }).setHTML(`
         <div style="font-family: inherit; font-size: 11px; padding: 4px; min-width: 160px; color: #0F172A;">
           <p style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: #DC2626; margin: 0 0 2px 0;">Điểm báo sự cố</p>
           <p style="font-size: 12px; font-weight: 700; color: #0F172A; margin: 0 0 2px 0;">${incident.title || 'Hiện trường SOS'}</p>
@@ -360,7 +360,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
 
     if (vLat && vLng) {
       const unitNameLower = (trackingData?.unitTypeName || '').toLowerCase();
-      const vType: VehicleType =
+      const vType: DispatchVehicleType =
         unitNameLower.includes('thương') || unitNameLower.includes('ambulance')
           ? 'ambulance'
           : unitNameLower.includes('hỏa') || unitNameLower.includes('fire')
@@ -373,9 +373,9 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
       if (!vehicleMarkerRef.current) {
         const el = document.createElement('div');
         vehicleMarkerElRef.current = el;
-        el.innerHTML = vehicleMarkerHtml(vType, vStatus, true);
+        el.innerHTML = vehicle3dMarkerHtml(vType, vStatus, true);
 
-        const popup = new mapboxgl.Popup({ offset: 18, closeButton: false }).setHTML(`
+        const popup = new mapboxgl.Popup({ offset: 22, closeButton: false }).setHTML(`
           <div style="font-family: inherit; font-size: 11px; padding: 4px; min-width: 170px; color: #0F172A;">
             <p style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: #2563EB; margin: 0 0 2px 0;">Xe cứu hộ ứng cứu</p>
             <p style="font-size: 12px; font-weight: 700; color: #0F172A; margin: 0 0 2px 0;">${trackingData?.plateNumber || 'Xe cứu hộ'} (${trackingData?.unitTypeName || 'Đội CAD'})</p>
@@ -383,7 +383,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           </div>
         `);
 
-        vehicleMarkerRef.current = new mapboxgl.Marker({ element: el, rotationAlignment: 'map' })
+        vehicleMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: 'center', rotationAlignment: 'map' })
           .setLngLat([vLng, vLat])
           .setPopup(popup)
           .addTo(map);
@@ -396,7 +396,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           vehicleMarkerRef.current.setRotation(liveVehicle.heading);
         }
         if (vehicleMarkerElRef.current) {
-          vehicleMarkerElRef.current.innerHTML = vehicleMarkerHtml(vType, vStatus, true);
+          vehicleMarkerElRef.current.innerHTML = vehicle3dMarkerHtml(vType, vStatus, true);
         }
       }
     }

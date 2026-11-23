@@ -13,6 +13,7 @@ import {
   Clock,
   Car,
   Activity,
+  Loader2,
 } from 'lucide-react';
 import {
   MAPBOX_ACCESS_TOKEN,
@@ -28,19 +29,19 @@ import {
   HubEvents,
 } from '../../services/realtime/incidentHubService';
 import {
-  stationMarkerHtml,
-  vehicleMarkerHtml,
-  incidentMarkerHtml,
-} from '../operator/livemap/mapIcons';
+  glowStationMarkerHtml,
+  vehicle3dMarkerHtml,
+  glowIncidentMarkerHtml,
+} from '../operator/livemap/glowMarkers';
 import type { IncidentResponseDto, IncidentCategory, SeverityLevel } from '../../types/incident';
 import { getIncidentVisualMeta, formatCitizenIncidentStatus } from '../../utils/incidentFormat';
 import type { RescueUnitResponseDto } from '../../types/rescueUnit';
-import type { Station, VehicleStatus, VehicleType } from '../../types/vehicle';
+import type { DispatchVehicleType, Station, VehicleStatus } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types/auth';
 import { serviceAreaToFeatureCollection } from '../operator/livemap/MapServiceAreaLayer';
-import { DEFAULT_SERVICE_AREA, haversineDistanceKm, normalizeServiceArea } from '../../utils/serviceArea';
+import { getCachedServiceArea, haversineDistanceKm, normalizeServiceArea } from '../../utils/serviceArea';
 import type { ServiceAreaDto } from '../../services/liveMapService';
 
 interface HeroRadarMapProps {
@@ -54,13 +55,13 @@ interface HeroRadarMapProps {
   }) => void;
 }
 
-const UNIT_TYPE_MAP: Record<string, VehicleType> = {
+const UNIT_TYPE_MAP: Record<string, DispatchVehicleType> = {
   Ambulance: 'ambulance',
   FireTruck: 'fire_truck',
   LadderTruck: 'fire_truck',
   RescueBoat: 'rescue',
   HeavyRescueVehicle: 'rescue',
-  PolicePatrol: 'police',
+  PolicePatrol: 'rescue',
 };
 
 const UNIT_STATUS_MAP: Record<string, VehicleStatus> = {
@@ -110,7 +111,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   const [trackingData, setTrackingData] = useState<CitizenTrackingDto | null>(null);
   const [liveVehicle, setLiveVehicle] = useState<{ lat: number; lng: number; speedKmh?: number; heading?: number } | null>(null);
   const [trackingRefreshTick, setTrackingRefreshTick] = useState(0);
-  const [serviceArea, setServiceArea] = useState<ServiceAreaDto>(DEFAULT_SERVICE_AREA);
+  const [isCheckingIncident, setIsCheckingIncident] = useState<boolean>(() => Boolean(user));
+  const checkedUserKeyRef = useRef<string | null>(null);
+  const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(() => getCachedServiceArea());
+  const serviceAreaRef = useRef<ServiceAreaDto | null>(serviceArea);
+  serviceAreaRef.current = serviceArea;
 
   // Markers references for dynamic updates
   const stationMarkersRef = useRef<mapboxgl.Marker[]>([]);
@@ -125,7 +130,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   const [isLocatingUser, setIsLocatingUser] = useState<boolean>(false);
 
   // Service Area boundary on Mapbox canvas (supports polygon boundaryGeoJson & circle fallback)
-  const setupServiceAreaLayer = useCallback((area: ServiceAreaDto = serviceArea) => {
+  const setupServiceAreaLayer = useCallback((area: ServiceAreaDto | null = serviceAreaRef.current) => {
     const map = mapRef.current;
     if (!map) return;
 
@@ -136,7 +141,8 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           return;
         }
 
-        const data = serviceAreaToFeatureCollection(normalizeServiceArea(area)) as any;
+        const targetArea = area ?? serviceAreaRef.current;
+        const data = serviceAreaToFeatureCollection(targetArea ? normalizeServiceArea(targetArea) : null) as any;
 
         const source = map.getSource('hero-service-area') as mapboxgl.GeoJSONSource | undefined;
         if (source) {
@@ -179,7 +185,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     };
 
     apply();
-  }, [serviceArea]);
+  }, []);
 
   // Tactical route updater on Mapbox canvas
   const updateRouteTrajectory = useCallback((coords: [number, number][]) => {
@@ -245,6 +251,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
   // Check citizen reported incident (from storage or API)
   const checkCitizenReportedIncident = useCallback(async () => {
+    const userKey = user?.id ?? null;
+    const isInitialForUser = Boolean(userKey && checkedUserKeyRef.current !== userKey);
+    if (isInitialForUser) {
+      setIsCheckingIncident(true);
+    }
     try {
       // 1. Nếu công dân đã đăng nhập: chỉ hiển thị báo cáo CHÍNH hiện tại lên radar map.
       // Báo cáo trùng (Linked) hoặc báo cáo quá khứ (> 24h / đã có ca mới hơn) chỉ xem trong modal lịch sử & theo dõi.
@@ -284,6 +295,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
       // 2. Chỉ gọi GET /incidents/{id} khi đã đăng nhập (backend yêu cầu [Authorize])
       if (!user) {
+        checkedUserKeyRef.current = null;
         setReportedIncident(null);
         return;
       }
@@ -321,6 +333,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       setReportedIncident(null);
     } catch {
       // Ignore
+    } finally {
+      if (userKey) {
+        checkedUserKeyRef.current = userKey;
+      }
+      setIsCheckingIncident(false);
     }
   }, [user]);
 
@@ -735,7 +752,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
       const el = document.createElement('div');
       el.className = 'cad-station-marker';
-      el.innerHTML = stationMarkerHtml(false);
+      el.innerHTML = glowStationMarkerHtml(false);
 
       const popupHtml = `
         <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 170px;">
@@ -748,9 +765,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         </div>
       `;
 
-      const popup = new mapboxgl.Popup({ offset: [0, -32], closeButton: false }).setHTML(popupHtml);
+      const popup = new mapboxgl.Popup({ offset: [0, -24], closeButton: false }).setHTML(popupHtml);
 
-      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([station.lng, station.lat])
         .setPopup(popup)
         .addTo(map);
@@ -840,12 +857,13 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       const vType = UNIT_TYPE_MAP[unit.unitType] || 'rescue';
       const vStatus = UNIT_STATUS_MAP[unit.status] || 'available';
       const isAssigned = trackingData?.rescueUnitId === unit.id;
+      const heading = isAssigned && typeof liveVehicle?.heading === 'number' ? liveVehicle.heading : 0;
 
       let marker = unitMarkersRef.current.get(unit.id);
       if (!marker) {
         const el = document.createElement('div');
         el.className = 'cad-unit-marker';
-        el.innerHTML = vehicleMarkerHtml(vType, vStatus, isAssigned);
+        el.innerHTML = vehicle3dMarkerHtml(vType, vStatus, isAssigned);
 
         const popupHtml = `
           <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 170px;">
@@ -860,9 +878,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           </div>
         `;
 
-        const popup = new mapboxgl.Popup({ offset: 14, closeButton: false }).setHTML(popupHtml);
+        const popup = new mapboxgl.Popup({ offset: 22, closeButton: false }).setHTML(popupHtml);
 
-        marker = new mapboxgl.Marker({ element: el })
+        marker = new mapboxgl.Marker({ element: el, anchor: 'center', rotationAlignment: 'map', rotation: heading })
           .setLngLat([lng, lat])
           .setPopup(popup)
           .addTo(map);
@@ -870,8 +888,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         unitMarkersRef.current.set(unit.id, marker);
       } else {
         marker.setLngLat([lng, lat]);
+        if (isAssigned && typeof liveVehicle?.heading === 'number') {
+          marker.setRotation(liveVehicle.heading);
+        }
         const el = marker.getElement();
-        el.innerHTML = vehicleMarkerHtml(vType, vStatus, isAssigned);
+        el.innerHTML = vehicle3dMarkerHtml(vType, vStatus, isAssigned);
       }
     });
   }, [units, stations, trackingData, liveVehicle, t]);
@@ -931,11 +952,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     if (!incidentMarkerRef.current) {
       const el = document.createElement('div');
       el.className = 'cad-marker-incident cursor-pointer';
-      el.innerHTML = incidentMarkerHtml(cat, sev, true);
+      el.innerHTML = glowIncidentMarkerHtml(cat, sev, true);
 
-      const popup = new mapboxgl.Popup({ offset: 18, closeButton: false }).setHTML(popupHtml);
+      const popup = new mapboxgl.Popup({ offset: 22, closeButton: false }).setHTML(popupHtml);
 
-      incidentMarkerRef.current = new mapboxgl.Marker({ element: el })
+      incidentMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([reportedIncident.longitude, reportedIncident.latitude])
         .setPopup(popup)
         .addTo(map);
@@ -949,7 +970,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     } else {
       incidentMarkerRef.current.setLngLat([reportedIncident.longitude, reportedIncident.latitude]);
       const el = incidentMarkerRef.current.getElement();
-      el.innerHTML = incidentMarkerHtml(cat, sev, true);
+      el.innerHTML = glowIncidentMarkerHtml(cat, sev, true);
       const popup = incidentMarkerRef.current.getPopup();
       if (popup) {
         popup.setHTML(popupHtml);
@@ -1199,7 +1220,25 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
               </div>
             </div>
           );
-        })() : locationStatus === 'failed' ? (
+        })() : isCheckingIncident ? (
+          <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[230px] sm:max-w-[270px] text-left">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-blue-600 flex items-center gap-1.5">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 shrink-0" />
+                <span>{i18n.language === 'en' ? 'OPERATIONAL RADAR' : 'RADAR TÁC CHIẾN'}</span>
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[9px] sm:text-[10px] font-bold font-mono-data">
+                {i18n.language === 'en' ? 'LOADING' : 'ĐANG TẢI'}
+              </span>
+            </div>
+            <p className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
+              {i18n.language === 'en' ? 'Checking active rescues...' : 'Đang tải dữ liệu cứu hộ...'}
+            </p>
+            <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+              {i18n.language === 'en' ? 'Syncing your rescue status from CAD...' : 'Đang đồng bộ trạng thái cứu hộ hiện có...'}
+            </p>
+          </div>
+        ) : locationStatus === 'failed' ? (
           <div className="bg-white/95 backdrop-blur-md border border-red-200 rounded-xl p-2.5 sm:p-3 shadow-xl max-w-[220px] sm:max-w-[260px] text-left">
             <div className="flex items-center justify-between gap-1.5 mb-1">
               <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-red-600 flex items-center gap-1.5">

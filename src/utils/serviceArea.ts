@@ -38,6 +38,26 @@ export function normalizeServiceArea(area?: ServiceAreaDto | null): ServiceAreaD
   };
 }
 
+const SERVICE_AREA_CACHE_KEY = 'resq_cached_service_area';
+
+export function getCachedServiceArea(): ServiceAreaDto | null {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(SERVICE_AREA_CACHE_KEY) : null;
+    return raw ? normalizeServiceArea(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function cacheServiceArea(area?: ServiceAreaDto | null): void {
+  if (!area || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(SERVICE_AREA_CACHE_KEY, JSON.stringify(normalizeServiceArea(area)));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function resolveServiceArea(area?: ServiceAreaDto | null): EffectiveServiceArea {
   const radius = typeof area?.radiusKm === 'number' && area.radiusKm > 0 ? area.radiusKm : DEFAULT_SERVICE_AREA.radiusKm;
   return {

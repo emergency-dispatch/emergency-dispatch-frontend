@@ -32,6 +32,7 @@ describe('validateDispatchSettings', () => {
     autoExpireHours: 24,
     autoDispatchEnabled: false,
     autoDispatchMinConfidence: 0.9,
+    autoDispatchMode: 'Ensemble',
     autoDispatchDuplicateRadiusMeters: 500,
     autoDispatchDuplicateWindowMinutes: 30,
   };

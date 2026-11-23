@@ -45,7 +45,7 @@ import { CitizenPhoneModal } from './CitizenPhoneModal';
 import { CitizenSupplementModal } from './CitizenSupplementModal';
 import { formatCitizenIncidentStatus } from '../../utils/incidentFormat';
 // Vùng phục vụ dùng chung với Operator (đa giác boundaryGeoJson nếu có, không thì hình tròn).
-import { DEFAULT_SERVICE_AREA, distanceOutsideAreaKm, normalizeServiceArea, resolveServiceArea } from '../../utils/serviceArea';
+import { distanceOutsideAreaKm, getCachedServiceArea, normalizeServiceArea, resolveServiceArea } from '../../utils/serviceArea';
 import { useTranslation, dateLocale } from '../../i18n';
 
 interface SosModalProps {
@@ -120,7 +120,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     radiusKm: number;
     outsideKm: number;
   }>({ areaName: '', radiusKm: 0, outsideKm: 0 });
-  const [serviceArea, setServiceArea] = useState<ServiceAreaDto>(DEFAULT_SERVICE_AREA);
+  const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(() => getCachedServiceArea());
 
   useEffect(() => {
     if (isOpen) {
@@ -132,8 +132,8 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     }
   }, [isOpen]);
 
-  const resolvedServiceArea = resolveServiceArea(serviceArea);
-  const outsideDistanceKm = serviceArea.enabled
+  const resolvedServiceArea = serviceArea ? resolveServiceArea(serviceArea) : null;
+  const outsideDistanceKm = serviceArea?.enabled && resolvedServiceArea
     ? distanceOutsideAreaKm({ lat: latitude, lng: longitude }, resolvedServiceArea)
     : 0;
   const isOutsideArea = outsideDistanceKm > 0;
@@ -514,12 +514,13 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     }
 
     // Service area boundary validation - STRICT BLOCK FIRST (khi Admin bật giới hạn & rejectOutside)
-    const finalOutsideKm = serviceArea.enabled
-      ? distanceOutsideAreaKm({ lat: finalLat, lng: finalLng }, resolvedServiceArea)
-      : 0;
-    const finalOutside = (serviceArea.rejectOutside ?? true) && finalOutsideKm > 0;
+    const finalOutsideKm =
+      serviceArea?.enabled && resolvedServiceArea
+        ? distanceOutsideAreaKm({ lat: finalLat, lng: finalLng }, resolvedServiceArea)
+        : 0;
+    const finalOutside = (serviceArea?.rejectOutside ?? true) && finalOutsideKm > 0;
 
-    if (finalOutside) {
+    if (finalOutside && resolvedServiceArea) {
       setOutOfAreaNotice({
         areaName: resolvedServiceArea.name,
         radiusKm: resolvedServiceArea.radiusKm,
