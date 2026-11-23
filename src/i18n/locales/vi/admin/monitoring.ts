@@ -34,7 +34,7 @@ export const adminMonitoringVi = {
     incidentDispatched: 'Đang xử lý',
     incidentEscalated: 'Leo thang',
     recentIncidents: 'Sự cố mới nhất',
-    recentIncidentsHint: 'Bấm một sự cố để xem diễn biến trong Nhật ký. Số liệu theo thời gian xem ở Báo cáo sự cố.',
+    recentIncidentsHint: 'Bấm một sự cố để xem diễn biến trong Nhật ký thao tác. Số liệu theo thời gian xem ở Báo cáo sự cố.',
     fleet: 'Đội xe',
     onMission: 'Đang làm nhiệm vụ',
     activeStations: 'Trạm đang hoạt động',

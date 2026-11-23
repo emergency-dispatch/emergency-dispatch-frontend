@@ -272,8 +272,8 @@ export const incidentsVi = {
     chooseTypeHelp: 'AI chưa xác định được loại sự cố — chọn để hệ thống gợi ý đúng loại xe.',
     confirmSeverity: 'Xác nhận mức độ nghiêm trọng',
     unclassifiedOverride:
-      'AI không phân loại được — bạn tự xác định mức {{level}}. Ghi lý do (căn cứ từ ảnh/video, mô tả, gọi xác minh…); lý do sẽ được lưu vào nhật ký kiểm tra.',
-    override: 'Bạn đang ghi đè cấp độ AI đề xuất ({{from}} → {{to}}). Lý do sẽ được lưu vào nhật ký kiểm tra.',
+      'AI không phân loại được — bạn tự xác định mức {{level}}. Ghi lý do (căn cứ từ ảnh/video, mô tả, gọi xác minh…); lý do sẽ được lưu vào nhật ký thao tác.',
+    override: 'Bạn đang ghi đè cấp độ AI đề xuất ({{from}} → {{to}}). Lý do sẽ được lưu vào nhật ký thao tác.',
     overridePlaceholder: 'Lý do ghi đè (bắt buộc). Vd: Ảnh cho thấy có người mắc kẹt...',
     back: 'Quay lại',
     confirmTransfer: 'Xác nhận chuyển trạm',

@@ -203,7 +203,7 @@ export const vehiclesVi = {
       maintenanceBody: 'Thiết bị Bảo trì sẽ không được mang theo nhiệm vụ cho tới khi Sẵn sàng lại.',
       reason: 'Lý do bảo trì',
       reasonPlaceholder: 'VD: Van bình rò khí, chờ thay',
-      reasonCounter: '{{length}}/{{min}} ký tự tối thiểu · ghi vào nhật ký hệ thống',
+      reasonCounter: '{{length}}/{{min}} ký tự tối thiểu · ghi vào nhật ký thao tác',
       quickReasonsLabel: 'Lý do thường gặp',
       quickReasons: {
         broken: 'Hỏng, chờ sửa',
@@ -220,7 +220,7 @@ export const vehiclesVi = {
     },
     delete: {
       title: 'Xóa thiết bị "{{name}}"?',
-      body: 'Thiết bị sẽ bị gỡ khỏi danh sách của trạm. Thao tác được ghi vào nhật ký hệ thống.',
+      body: 'Thiết bị sẽ bị gỡ khỏi danh sách của trạm. Thao tác được ghi vào nhật ký thao tác.',
       confirm: 'Xóa thiết bị',
       failed: 'Không xóa được thiết bị.',
     },

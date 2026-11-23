@@ -31,6 +31,6 @@ export const adminLayoutVi = {
     duplicateDetection: 'Gộp báo cáo trùng',
     reports: 'Báo cáo sự cố',
     completionReports: 'Báo cáo nghiệm thu',
-    auditTrail: 'Audit Trail',
+    auditTrail: 'Nhật ký thao tác',
   },
 } as const;
