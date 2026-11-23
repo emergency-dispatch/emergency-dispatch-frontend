@@ -15,10 +15,7 @@ export const citizenLandingVi = {
   phoneMissingDesc: 'Bổ sung SĐT để lực lượng cứu hộ liên hệ xác minh hiện trường khi gửi SOS.',
   phoneMissingBtn: 'Cập nhật',
 
-  // Hero Guide Notes & Telemetry
-  dispatchStatusReady: 'HỆ THỐNG TRỰC CHIẾN NỘI KHU',
-  dispatchUnitsReady: '{{stations}} TRẠM · {{units}} PHƯƠNG TIỆN SẴN SÀNG',
-  etaApproach: 'ETA TIẾP CẬN:',
+  // Hero Guide Notes
   guideOneTouchTitle: 'Báo nạn 1-Chạm',
   guideOneTouchTag: 'Công nhân KCN',
   guideOneTouchDesc: 'Bấm SOS gửi tọa độ GPS nhà xưởng & ảnh hiện trường tức thì',

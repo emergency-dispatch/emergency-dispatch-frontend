@@ -44,8 +44,8 @@ import type { CreateIncidentDto, IncidentResponseDto } from '../../types/inciden
 import { CitizenPhoneModal } from './CitizenPhoneModal';
 import { CitizenSupplementModal } from './CitizenSupplementModal';
 import { formatCitizenIncidentStatus } from '../../utils/incidentFormat';
-// Vùng phục vụ dùng chung với form Operator tạo sự cố (cùng tâm, cùng bán kính chặn).
-import { DEFAULT_SERVICE_AREA, KCN_RADIUS_KM, haversineDistanceKm } from '../../utils/serviceArea';
+// Vùng phục vụ dùng chung với Operator (đa giác boundaryGeoJson nếu có, không thì hình tròn).
+import { DEFAULT_SERVICE_AREA, distanceOutsideAreaKm, normalizeServiceArea, resolveServiceArea } from '../../utils/serviceArea';
 import { useTranslation, dateLocale } from '../../i18n';
 
 interface SosModalProps {
@@ -126,28 +126,17 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     if (isOpen) {
       liveMapService.getServiceArea().then((area) => {
         if (area) {
-          const rawLat = area.centerLat ?? (area as any).CenterLat;
-          const rawLng = area.centerLng ?? (area as any).CenterLng;
-          const rawRad = area.radiusKm ?? (area as any).RadiusKm;
-          const rawEnabled = area.enabled ?? (area as any).Enabled ?? true;
-          setServiceArea({
-            enabled: rawEnabled,
-            name: area.name || DEFAULT_SERVICE_AREA.name,
-            centerLat: typeof rawLat === 'number' && rawLat !== 0 ? rawLat : DEFAULT_SERVICE_AREA.centerLat,
-            centerLng: typeof rawLng === 'number' && rawLng !== 0 ? rawLng : DEFAULT_SERVICE_AREA.centerLng,
-            radiusKm: typeof rawRad === 'number' && rawRad > 0 ? rawRad : DEFAULT_SERVICE_AREA.radiusKm,
-          });
+          setServiceArea(normalizeServiceArea(area));
         }
       }).catch(() => undefined);
     }
   }, [isOpen]);
 
-  const effectiveCenterLat = (serviceArea.centerLat && serviceArea.centerLat !== 0) ? serviceArea.centerLat : DEFAULT_SERVICE_AREA.centerLat;
-  const effectiveCenterLng = (serviceArea.centerLng && serviceArea.centerLng !== 0) ? serviceArea.centerLng : DEFAULT_SERVICE_AREA.centerLng;
-  const effectiveRadiusKm = (typeof serviceArea.radiusKm === 'number' && serviceArea.radiusKm > 0) ? serviceArea.radiusKm : DEFAULT_SERVICE_AREA.radiusKm;
-  const currentDistanceKm = haversineDistanceKm(latitude, longitude, effectiveCenterLat, effectiveCenterLng);
-  const isOutsideArea = serviceArea.enabled && currentDistanceKm > effectiveRadiusKm;
-  const outsideDistanceKm = isOutsideArea ? Math.round((currentDistanceKm - effectiveRadiusKm) * 10) / 10 : 0;
+  const resolvedServiceArea = resolveServiceArea(serviceArea);
+  const outsideDistanceKm = serviceArea.enabled
+    ? distanceOutsideAreaKm({ lat: latitude, lng: longitude }, resolvedServiceArea)
+    : 0;
+  const isOutsideArea = outsideDistanceKm > 0;
 
   const isCitizen = !user || user.role === UserRole.Citizen;
   const isCitizenWithoutPhone = isAuthenticated && isCitizen && (!user?.phoneNumber || user.phoneNumber.trim() === '');
@@ -524,15 +513,16 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
       }
     }
 
-    // Service area boundary validation - STRICT BLOCK FIRST
-    const finalDistKm = haversineDistanceKm(finalLat, finalLng, effectiveCenterLat, effectiveCenterLng);
-    const finalOutside = serviceArea.enabled && finalDistKm > effectiveRadiusKm;
-    const finalOutsideKm = finalOutside ? Math.round((finalDistKm - effectiveRadiusKm) * 10) / 10 : 0;
+    // Service area boundary validation - STRICT BLOCK FIRST (khi Admin bật giới hạn & rejectOutside)
+    const finalOutsideKm = serviceArea.enabled
+      ? distanceOutsideAreaKm({ lat: finalLat, lng: finalLng }, resolvedServiceArea)
+      : 0;
+    const finalOutside = (serviceArea.rejectOutside ?? true) && finalOutsideKm > 0;
 
     if (finalOutside) {
       setOutOfAreaNotice({
-        areaName: serviceArea.name || 'Khu Công nghệ cao, TP. Thủ Đức',
-        radiusKm: effectiveRadiusKm,
+        areaName: resolvedServiceArea.name,
+        radiusKm: resolvedServiceArea.radiusKm,
         outsideKm: finalOutsideKm,
       });
       setShowOutOfAreaModal(true);

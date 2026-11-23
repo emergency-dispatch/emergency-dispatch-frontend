@@ -5,7 +5,9 @@ import { LocateFixed, MapPin, Loader2, Shield } from 'lucide-react';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE, mapboxService } from '../../services/mapboxService';
 import { liveMapService, type ServiceAreaDto } from '../../services/liveMapService';
 import { stationMarkerHtml } from '../operator/livemap/mapIcons';
-import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
+import { serviceAreaToFeatureCollection } from '../operator/livemap/MapServiceAreaLayer';
+import { parseBoundary } from '../admin/settings/serviceAreaBoundary';
+import { DEFAULT_SERVICE_AREA, normalizeServiceArea } from '../../utils/serviceArea';
 import type { Station } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
 
@@ -27,10 +29,12 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
   serviceArea,
 }) => {
   const { i18n } = useTranslation();
-  const areaLat = serviceArea?.centerLat || 10.8441;
-  const areaLng = serviceArea?.centerLng || 106.8089;
-  const areaRadiusKm = (typeof serviceArea?.radiusKm === 'number' && serviceArea.radiusKm > 0) ? serviceArea.radiusKm : 4.5;
-  const areaEnabled = serviceArea?.enabled ?? true;
+  const normalizedArea = normalizeServiceArea(serviceArea ?? DEFAULT_SERVICE_AREA);
+  const areaRadiusKm = normalizedArea.radiusKm;
+  const areaEnabled = normalizedArea.enabled;
+  const hasPolygonBoundary = parseBoundary(normalizedArea.boundaryGeoJson).length > 0;
+  const serviceAreaRef = useRef(normalizedArea);
+  serviceAreaRef.current = normalizedArea;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
@@ -112,19 +116,12 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
       updatePosition(lng, lat);
     });
 
-    // Draw operational boundary (dynamic from Admin or default KCN)
+    // Draw operational boundary (polygon boundaryGeoJson if configured by Admin, else circle)
     const addKcnBoundary = () => {
       if (!map.getSource('kcn-boundary')) {
         map.addSource('kcn-boundary', {
           type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: { name: serviceArea?.name || 'Khu Công nghệ cao' },
-            geometry: {
-              type: 'Polygon',
-              coordinates: areaEnabled && areaRadiusKm > 0 ? [circlePolygon(areaLat, areaLng, areaRadiusKm)] : [],
-            },
-          },
+          data: serviceAreaToFeatureCollection(serviceAreaRef.current) as any,
         });
         map.addLayer({
           id: 'kcn-boundary-fill',
@@ -241,16 +238,9 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
     const map = mapRef.current;
     const source = map.getSource('kcn-boundary') as mapboxgl.GeoJSONSource | undefined;
     if (source) {
-      source.setData({
-        type: 'Feature',
-        properties: { name: serviceArea?.name || 'Khu Công nghệ cao' },
-        geometry: {
-          type: 'Polygon',
-          coordinates: areaEnabled && areaRadiusKm > 0 ? [circlePolygon(areaLat, areaLng, areaRadiusKm)] : [],
-        },
-      } as any);
+      source.setData(serviceAreaToFeatureCollection(normalizedArea) as any);
     }
-  }, [areaLat, areaLng, areaRadiusKm, areaEnabled, serviceArea?.name]);
+  }, [normalizedArea]);
 
   const handleLocateMe = () => {
     if (!navigator.geolocation) return;
@@ -312,10 +302,16 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
       </div>
 
       {/* Operational Boundary Indicator */}
-      {areaEnabled && areaRadiusKm > 0 && (
+      {areaEnabled && (areaRadiusKm > 0 || hasPolygonBoundary) && (
         <div className="absolute top-2.5 right-12 z-10 hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/85 backdrop-blur-xs text-red-400 text-[10px] font-mono font-bold border border-red-500/30 shadow-md">
           <Shield className="w-3.5 h-3.5 text-red-400" />
-          <span>{i18n.language === 'en' ? `Service Area (${areaRadiusKm} km)` : `Ranh giới KCN (${areaRadiusKm} km)`}</span>
+          <span>
+            {hasPolygonBoundary
+              ? normalizedArea.name || (i18n.language === 'en' ? 'Service Area' : 'Khu vực phục vụ')
+              : i18n.language === 'en'
+              ? `Service Area (${areaRadiusKm} km)`
+              : `Ranh giới KCN (${areaRadiusKm} km)`}
+          </span>
         </div>
       )}
 

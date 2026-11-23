@@ -72,6 +72,16 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       const currentRefreshToken = localStorage.getItem(API_CONFIG.REFRESH_TOKEN_KEY);
+      const hadAuth = Boolean(
+        originalRequest.headers?.Authorization ||
+          localStorage.getItem(API_CONFIG.TOKEN_KEY) ||
+          currentRefreshToken
+      );
+
+      if (!hadAuth) {
+        isRefreshing = false;
+        return Promise.reject(error);
+      }
 
       if (!currentRefreshToken) {
         isRefreshing = false;
@@ -123,14 +133,18 @@ function handleAuthFailure() {
   localStorage.removeItem(API_CONFIG.TOKEN_KEY);
   localStorage.removeItem(API_CONFIG.REFRESH_TOKEN_KEY);
   localStorage.removeItem(API_CONFIG.USER_KEY);
-  
-  // Only redirect if not already on an auth page
-  if (
-    !window.location.pathname.startsWith('/login') &&
-    !window.location.pathname.startsWith('/register') &&
-    !window.location.pathname.startsWith('/forgot-password')
-  ) {
-    window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+
+  const path = window.location.pathname;
+  const isPublicOrAuthPage =
+    path === '/' ||
+    path.startsWith('/login') ||
+    path.startsWith('/register') ||
+    path.startsWith('/signup') ||
+    path.startsWith('/forgot-password') ||
+    path.startsWith('/unauthorized');
+
+  if (!isPublicOrAuthPage) {
+    window.location.href = `/login?redirect=${encodeURIComponent(path + window.location.search)}`;
   }
 }
 

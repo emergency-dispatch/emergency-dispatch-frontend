@@ -80,6 +80,7 @@ export interface EscalationSettingsDto {
 /** Khu vực phục vụ (GET /api/settings/service-area — công khai). */
 export interface ServiceAreaDto {
   enabled: boolean;
+  rejectOutside?: boolean;
   name: string | null;
   centerLat: number;
   centerLng: number;

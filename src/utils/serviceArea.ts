@@ -22,6 +22,22 @@ export interface EffectiveServiceArea {
   polygons: PolygonCoords[];
 }
 
+export function normalizeServiceArea(area?: ServiceAreaDto | null): ServiceAreaDto {
+  const raw = area as (ServiceAreaDto & Record<string, any>) | null | undefined;
+  const rawLat = raw?.centerLat ?? raw?.CenterLat;
+  const rawLng = raw?.centerLng ?? raw?.CenterLng;
+  const rawRad = raw?.radiusKm ?? raw?.RadiusKm;
+  return {
+    enabled: raw?.enabled ?? raw?.Enabled ?? true,
+    rejectOutside: raw?.rejectOutside ?? raw?.RejectOutside ?? true,
+    name: raw?.name ?? raw?.Name ?? DEFAULT_SERVICE_AREA.name,
+    centerLat: typeof rawLat === 'number' && rawLat !== 0 ? rawLat : DEFAULT_SERVICE_AREA.centerLat,
+    centerLng: typeof rawLng === 'number' && rawLng !== 0 ? rawLng : DEFAULT_SERVICE_AREA.centerLng,
+    radiusKm: typeof rawRad === 'number' && rawRad > 0 ? rawRad : DEFAULT_SERVICE_AREA.radiusKm,
+    boundaryGeoJson: raw?.boundaryGeoJson ?? raw?.BoundaryGeoJson ?? null,
+  };
+}
+
 export function resolveServiceArea(area?: ServiceAreaDto | null): EffectiveServiceArea {
   const radius = typeof area?.radiusKm === 'number' && area.radiusKm > 0 ? area.radiusKm : DEFAULT_SERVICE_AREA.radiusKm;
   return {
