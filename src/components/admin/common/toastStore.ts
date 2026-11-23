@@ -7,6 +7,8 @@ export interface ToastItem {
   id: number;
   kind: ToastKind;
   message: string;
+  /** Câu dài / kèm hướng dẫn → hiện lâu hơn. */
+  long: boolean;
 }
 
 const MAX_TOASTS = 3;
@@ -22,9 +24,9 @@ function update(next: ToastItem[]) {
 }
 
 /** Báo thao tác thành công. Trùng câu đang hiện → thay bằng toast mới (đếm giờ lại) thay vì xếp chồng. */
-export function showToast(message: string, kind: ToastKind = 'success') {
+export function showToast(message: string, { kind = 'success', long = false }: { kind?: ToastKind; long?: boolean } = {}) {
   const rest = toasts.filter((item) => item.message !== message || item.kind !== kind);
-  update([...rest, { id: nextId++, kind, message }].slice(-MAX_TOASTS));
+  update([...rest, { id: nextId++, kind, message, long }].slice(-MAX_TOASTS));
 }
 
 export const dismissToast = (id: number) => update(toasts.filter((item) => item.id !== id));

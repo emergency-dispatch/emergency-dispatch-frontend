@@ -98,7 +98,7 @@ const EscalationForm: React.FC<{
       const defaults = await adminSettingsService.getDefaults();
       setDraft(escalationToDraft(defaults.escalation));
       setNotice(null);
-      showToast(t('admin.common.settings.defaultsFilled'), 'info');
+      showToast(t('admin.common.settings.defaultsFilled'), { kind: 'info' });
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     }

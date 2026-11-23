@@ -5,6 +5,7 @@ import { CatalogTypesTable } from '../../components/admin/catalog/CatalogTypesTa
 import { DispatchPlanDrawer } from '../../components/admin/catalog/DispatchPlanDrawer';
 import { INCIDENT_TYPE_CATEGORIES, catalogName, entryToUpsert } from '../../components/admin/catalog/catalogMeta';
 import { ConfirmModal, Notice, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { normalizeText } from '../../services/admin/listUtils';
@@ -53,12 +54,12 @@ const IncidentTypesPage: React.FC = () => {
     setPendingId(entry.id);
     try {
       const saved = await typeCatalogService.updateIncidentType(entry.id, entryToUpsert(entry, !entry.isActive));
-      setNotice({
-        kind: 'success',
-        message: t(saved.isActive ? 'admin.catalog.incidentTypes.shown' : 'admin.catalog.incidentTypes.hidden', {
+      setNotice(null);
+      showToast(
+        t(saved.isActive ? 'admin.catalog.incidentTypes.shown' : 'admin.catalog.incidentTypes.hidden', {
           name: catalogName(saved),
-        }),
-      });
+        })
+      );
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     } finally {
@@ -72,7 +73,8 @@ const IncidentTypesPage: React.FC = () => {
     setDeleteSubmitting(true);
     try {
       await typeCatalogService.removeIncidentType(deleting.id);
-      setNotice({ kind: 'success', message: t('admin.catalog.incidentTypes.deleted', { name: catalogName(deleting) }) });
+      setNotice(null);
+      showToast(t('admin.catalog.incidentTypes.deleted', { name: catalogName(deleting) }));
     } catch (err) {
       // 409: đã có sự cố dùng loại này → message backend gợi ý ẩn thay vì xóa.
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
@@ -155,13 +157,13 @@ const IncidentTypesPage: React.FC = () => {
           nextOrder={nextOrder}
           onClose={() => setFormEntry(null)}
           onSaved={(saved) => {
-            setNotice({
-              kind: 'success',
-              message: t(
+            setNotice(null);
+            showToast(
+              t(
                 formEntry === 'new' ? 'admin.catalog.incidentTypes.added' : 'admin.catalog.incidentTypes.updated',
                 { name: catalogName(saved) }
-              ),
-            });
+              )
+            );
             setFormEntry(null);
             query.reload();
           }}
@@ -175,7 +177,8 @@ const IncidentTypesPage: React.FC = () => {
           unitTypesError={unitTypes.error}
           onClose={() => setPlanEntry(null)}
           onSaved={(saved) => {
-            setNotice({ kind: 'success', message: t('admin.catalog.plan.saved', { name: catalogName(saved) }) });
+            setNotice(null);
+            showToast(t('admin.catalog.plan.saved', { name: catalogName(saved) }));
             setPlanEntry(null);
             query.reload();
           }}

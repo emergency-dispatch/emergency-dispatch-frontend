@@ -27,6 +27,10 @@ export const FormField: React.FC<{
   </div>
 );
 
+/**
+ * Dải thông báo trong trang, dùng cho LỖI. Thành công → `showToast` (toastStore). Kiểu 'success' chỉ còn cho câu nhắc nằm
+ * trong form thêm thiết bị liên tiếp (components/equipment/EquipmentFormDrawer).
+ */
 export type NoticeState = { kind: 'success' | 'error'; message: string } | null;
 
 export const Notice: React.FC<{ notice: NoticeState; onClose?: () => void }> = ({ notice, onClose }) => {

@@ -18,6 +18,7 @@ import { createBoundaryDraw, polygonsFromDraw } from '../../components/admin/set
 import { ImportBoundaryDialog } from '../../components/admin/settings/ImportBoundaryDialog';
 import { MAP_CENTER } from '../../components/admin/fleetMeta';
 import { Notice, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { inputClass, labelClass } from '../../components/admin/common/styles';
 import { useServiceQuery, useUnsavedChangesGuard } from '../../components/admin/common/hooks';
 import {
@@ -45,7 +46,6 @@ const ServiceAreaSettingsPage: React.FC = () => {
     ]);
     return { area, stations: stations.items };
   }, 'service-area-settings');
-  const [flash, setFlash] = useState<NoticeState>(null);
 
   if (query.error && !query.data) {
     return (
@@ -61,9 +61,8 @@ const ServiceAreaSettingsPage: React.FC = () => {
       key={query.data.area.updatedAt ?? 'default'}
       record={query.data.area}
       stations={query.data.stations}
-      initialNotice={flash}
       onSaved={(message) => {
-        setFlash({ kind: 'success', message });
+        showToast(message, { long: true });
         query.reload();
       }}
     />
@@ -115,9 +114,8 @@ const toSettings = (d: ServiceAreaDraft): ServiceAreaSettings => {
 const ServiceAreaForm: React.FC<{
   record: SettingsRecord<ServiceAreaSettings>;
   stations: StationResponseDto[];
-  initialNotice: NoticeState;
   onSaved: (message: string) => void;
-}> = ({ record, stations, initialNotice, onSaved }) => {
+}> = ({ record, stations, onSaved }) => {
   const { t } = useTranslation();
   // Bản nháp ban đầu (chưa cấu hình thì tâm đã được đặt mặc định) — mốc để biết có thay đổi chưa lưu.
   const [initialDraft] = useState<ServiceAreaDraft>(() => {
@@ -141,7 +139,7 @@ const ServiceAreaForm: React.FC<{
   // Đổi để dựng lại bản đồ vẽ (Hủy thay đổi / Vẽ lại từ đầu) — công cụ vẽ chỉ nạp đa giác lúc khởi tạo.
   const [mapKey, setMapKey] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState<NoticeState>(initialNotice);
+  const [notice, setNotice] = useState<NoticeState>(null);
   const [importOpen, setImportOpen] = useState(false);
 
   const values = toSettings(draft);
@@ -419,14 +417,15 @@ const ServiceAreaForm: React.FC<{
                 // Công cụ vẽ chỉ nạp đa giác lúc khởi tạo → dựng lại bản đồ; bản đồ tự căn khung vừa đa giác mới.
                 setMapKey((k) => k + 1);
                 setImportOpen(false);
-                setNotice({
-                  kind: 'success',
-                  message: t('admin.settings.serviceArea.import.done', {
+                setNotice(null);
+                showToast(
+                  t('admin.settings.serviceArea.import.done', {
                     parts: polygons.length,
                     before: originalVertices,
                     after: boundaryVertexCount(polygons),
                   }),
-                });
+                  { kind: 'info', long: true }
+                );
               }}
             />
           )}

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Building2, Loader2, MapPin, Phone, Plus, ShieldCheck } from 'lucide-react';
 import { ConfirmModal, Notice, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { AddStaffModal } from '../../components/operator/teams/AddStaffModal';
 import { CreateStaffDrawer } from '../../components/operator/teams/CreateStaffDrawer';
 import { StationStaffList } from '../../components/operator/teams/StationStaffList';
@@ -103,7 +104,8 @@ export const StationTeamsPage: React.FC = () => {
     setSubmitting(true);
     try {
       await action();
-      setNotice({ kind: 'success', message: successMessage });
+      setNotice(null);
+      showToast(successMessage);
       return true;
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
@@ -252,7 +254,8 @@ export const StationTeamsPage: React.FC = () => {
           onClose={() => setCreatingStaff(false)}
           onCreated={(created) => {
             setCreatingStaff(false);
-            setNotice({ kind: 'success', message: t('teams.createStaff.created', { name: created.fullName }) });
+            setNotice(null);
+            showToast(t('teams.createStaff.created', { name: created.fullName }));
           }}
         />
       )}
@@ -326,12 +329,12 @@ export const StationTeamsPage: React.FC = () => {
           stationTeams={stationTeams}
           onClose={() => setTeamDrawer(null)}
           onSaved={(saved) => {
-            setNotice({
-              kind: 'success',
-              message: teamDrawer.mode === 'edit'
-                  ? t('teams.page.teamUpdated', { name: saved.name })
-                  : t('teams.page.teamCreated', { name: saved.name }),
-            });
+            setNotice(null);
+            showToast(
+              teamDrawer.mode === 'edit'
+                ? t('teams.page.teamUpdated', { name: saved.name })
+                : t('teams.page.teamCreated', { name: saved.name })
+            );
             setTeamDrawer(null);
           }}
         />

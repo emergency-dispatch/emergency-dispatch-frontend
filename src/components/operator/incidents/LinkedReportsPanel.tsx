@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   AlertTriangle,
-  CheckCircle2,
   Clock,
   CopyCheck,
   Loader2,
@@ -16,6 +15,7 @@ import { getApiErrorMessage } from '../../../services/apiClient';
 import { incidentService } from '../../../services/incidentService';
 import { formatDateTime } from '../../../utils/incidentFormat';
 import { CATEGORY_FROM_EVENT_TYPE, type BackendEventType, type LinkedReportDto } from '../../../types/incident';
+import { showToast } from '../../admin/common/toastStore';
 import i18n, { dateLocale, useTranslation } from '../../../i18n';
 
 // Số ảnh thu nhỏ hiện trên mỗi báo cáo; phần còn lại gộp vào "+N".
@@ -43,7 +43,7 @@ interface LinkedReportsPanelProps {
    * Vừa tách / xác nhận xong và không còn báo cáo nào đang gộp → nơi dùng đưa Operator về việc chính
    * (drawer quay về tab Thẩm định, hộp thoại Live Map đóng). `message` = thông báo thành công.
    */
-  onAllHandled?: (message: string) => void;
+  onAllHandled?: () => void;
 }
 
 const eventTypeLabel = (type: BackendEventType | null | undefined): string | null => {
@@ -70,7 +70,7 @@ export const LinkedReportsPanel: React.FC<LinkedReportsPanelProps> = ({
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [note, setNote] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   /** Tải danh sách; trả danh sách mới (null nếu lỗi) để submit biết còn báo cáo đang gộp không. */
   const load = useCallback(async (): Promise<LinkedReportDto[] | null> => {
@@ -95,15 +95,15 @@ export const LinkedReportsPanel: React.FC<LinkedReportsPanelProps> = ({
   const startAction = (action: PendingAction) => {
     setPending(action);
     setNote('');
-    setNotice(null);
+    setActionError(null);
   };
 
   const submit = async () => {
     if (!pending) return;
     const { reportId, kind } = pending;
     setBusyId(reportId);
-    setNotice(null);
-    let doneMessage: string | null = null;
+    setActionError(null);
+    let done = false;
     try {
       if (kind === 'unlink') {
         if (onUnlink) {
@@ -117,17 +117,17 @@ export const LinkedReportsPanel: React.FC<LinkedReportsPanelProps> = ({
       }
       setPending(null);
       setNote('');
-      doneMessage = t(kind === 'unlink' ? 'incidents.linked.unlinkDone' : 'incidents.linked.confirmDone');
-      setNotice({ kind: 'ok', text: doneMessage });
+      done = true;
+      showToast(t(kind === 'unlink' ? 'incidents.linked.unlinkDone' : 'incidents.linked.confirmDone'));
     } catch (err) {
       // 400 = báo cáo đã được tách / xác nhận ở nơi khác → tải lại cho khớp.
-      setNotice({ kind: 'error', text: getApiErrorMessage(err, t('incidents.linked.actionFailed')) });
+      setActionError(getApiErrorMessage(err, t('incidents.linked.actionFailed')));
     } finally {
       setBusyId(null);
     }
     const list = await load();
     // Xử lý xong báo cáo cuối cùng → không để Operator kẹt ở danh sách trống.
-    if (doneMessage && list && !list.some((r) => r.status === 'Linked')) onAllHandled?.(doneMessage);
+    if (done && list && !list.some((r) => r.status === 'Linked')) onAllHandled?.();
   };
 
   const activeCount = reports.filter((r) => r.status === 'Linked').length;
@@ -157,19 +157,10 @@ export const LinkedReportsPanel: React.FC<LinkedReportsPanelProps> = ({
         </p>
       )}
 
-      {notice && (
-        <p
-          role={notice.kind === 'error' ? 'alert' : 'status'}
-          className={`flex items-start gap-1.5 rounded-lg border px-3 py-2 text-xs ${
-            notice.kind === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-          }`}
-        >
-          {notice.kind === 'error' ? (
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
-          ) : (
-            <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-px" />
-          )}
-          {notice.text}
+      {actionError && (
+        <p role="alert" className="flex items-start gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+          {actionError}
         </p>
       )}
 

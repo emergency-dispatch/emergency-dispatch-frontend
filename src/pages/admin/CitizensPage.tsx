@@ -4,6 +4,7 @@ import { AccountActionDialog } from '../../components/admin/accounts/AccountActi
 import { ACCOUNT_STATUSES } from '../../components/admin/accounts/accountMeta';
 import { CitizensTable } from '../../components/admin/citizens/CitizensTable';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { citizenAdminService } from '../../services/admin/citizenAdminService';
@@ -89,7 +90,8 @@ const CitizensPage: React.FC = () => {
           onCancel={() => setTarget(null)}
           onDone={() => {
             const { citizen, mode } = target;
-            setNotice({ kind: 'success', message: t(`admin.users.done.${mode}`, { name: citizen.fullName }) });
+            setNotice(null);
+            showToast(t(`admin.users.done.${mode}`, { name: citizen.fullName }));
             setTarget(null);
             query.reload();
           }}

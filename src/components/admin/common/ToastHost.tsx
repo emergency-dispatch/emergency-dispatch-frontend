@@ -4,6 +4,7 @@ import { clearToasts, dismissToast, useToasts, type ToastItem } from './toastSto
 import { useTranslation } from '../../../i18n';
 
 const TOAST_MS = 4000;
+const LONG_TOAST_MS = 8000;
 
 const KIND_META = {
   success: { icon: CircleCheck, className: 'border-emerald-200', iconClassName: 'text-emerald-600' },
@@ -18,9 +19,9 @@ const Toast: React.FC<{ toast: ToastItem }> = ({ toast }) => {
 
   useEffect(() => {
     if (paused) return;
-    const timer = setTimeout(() => dismissToast(toast.id), TOAST_MS);
+    const timer = setTimeout(() => dismissToast(toast.id), toast.long ? LONG_TOAST_MS : TOAST_MS);
     return () => clearTimeout(timer);
-  }, [paused, toast.id]);
+  }, [paused, toast.id, toast.long]);
 
   return (
     <div
@@ -45,7 +46,8 @@ const Toast: React.FC<{ toast: ToastItem }> = ({ toast }) => {
 };
 
 /**
- * Nơi hiện toast báo thành công (gọi `showToast`), góc trên phải dưới Topbar — nằm trên drawer / hộp xác nhận của Admin.
+ * Nơi hiện toast báo thành công (gọi `showToast`), góc trên phải dưới Topbar — nằm trên drawer, hộp xác nhận và modal tin
+ * báo mới của Operator (z-[9999]). Dùng chung Admin + Operator.
  * Lỗi vẫn dùng `Notice` trong trang để không tự mất. Gắn một lần ở layout.
  */
 export const ToastHost: React.FC = () => {
@@ -57,7 +59,7 @@ export const ToastHost: React.FC = () => {
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed top-20 right-4 z-[1600] w-[min(24rem,calc(100vw-2rem))] space-y-2"
+      className="pointer-events-none fixed top-20 right-4 z-[10040] w-[min(24rem,calc(100vw-2rem))] space-y-2"
     >
       {toasts.map((toast) => (
         <Toast key={toast.id} toast={toast} />

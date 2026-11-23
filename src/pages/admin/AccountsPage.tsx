@@ -6,6 +6,7 @@ import { AccountActionDialog } from '../../components/admin/accounts/AccountActi
 import { TransferStationDialog } from '../../components/admin/accounts/TransferStationDialog';
 import { ACCOUNT_STATUSES, INTERNAL_ROLES } from '../../components/admin/accounts/accountMeta';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { accountAdminService } from '../../services/admin/accountAdminService';
@@ -124,12 +125,14 @@ const AccountsPage: React.FC = () => {
           initialAccount={formAccount === 'new' ? null : formAccount}
           onClose={() => setFormAccount(null)}
           onSaved={(saved) => {
-            setNotice({
-              kind: 'success',
-              message: t(formAccount === 'new' ? 'admin.users.accounts.created' : 'admin.users.accounts.updated', {
+            setNotice(null);
+            showToast(
+              t(formAccount === 'new' ? 'admin.users.accounts.created' : 'admin.users.accounts.updated', {
                 name: saved.fullName,
               }),
-            });
+              // Câu tạo tài khoản kèm hướng dẫn gửi mật khẩu → hiện lâu hơn.
+              { long: formAccount === 'new' }
+            );
             setFormAccount(null);
             query.reload();
           }}
@@ -141,12 +144,12 @@ const AccountsPage: React.FC = () => {
           account={transferAccount}
           onCancel={() => setTransferAccount(null)}
           onDone={(stationName) => {
-            setNotice({
-              kind: 'success',
-              message: stationName
+            setNotice(null);
+            showToast(
+              stationName
                 ? t('admin.users.accounts.transferred', { name: transferAccount.fullName, station: stationName })
-                : t('admin.users.accounts.removedFromStation', { name: transferAccount.fullName }),
-            });
+                : t('admin.users.accounts.removedFromStation', { name: transferAccount.fullName })
+            );
             setTransferAccount(null);
             query.reload();
           }}
@@ -159,10 +162,8 @@ const AccountsPage: React.FC = () => {
           mode={actionTarget.mode}
           onCancel={() => setActionTarget(null)}
           onDone={() => {
-            setNotice({
-              kind: 'success',
-              message: t(`admin.users.done.${actionTarget.mode}`, { name: actionTarget.account.fullName }),
-            });
+            setNotice(null);
+            showToast(t(`admin.users.done.${actionTarget.mode}`, { name: actionTarget.account.fullName }));
             setActionTarget(null);
             query.reload();
           }}

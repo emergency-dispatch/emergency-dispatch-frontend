@@ -3,6 +3,7 @@ import { Plus, Search } from 'lucide-react';
 import { VehicleFormDrawer } from '../../components/admin/vehicles/VehicleFormDrawer';
 import { VehiclesTable } from '../../components/admin/vehicles/VehiclesTable';
 import { ConfirmModal, Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { stationAdminService } from '../../services/admin/stationAdminService';
@@ -92,10 +93,8 @@ const VehiclesPage: React.FC = () => {
     setPendingId(vehicle.id);
     try {
       await vehicleAdminService.setStatus(vehicle.id, next);
-      setNotice({
-        kind: 'success',
-        message: t('admin.vehicles.statusChanged', { plate: vehicle.plateNumber, status: t(`enums.unitStatus.${next}`) }),
-      });
+      setNotice(null);
+      showToast(t('admin.vehicles.statusChanged', { plate: vehicle.plateNumber, status: t(`enums.unitStatus.${next}`) }));
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     } finally {
@@ -110,7 +109,8 @@ const VehiclesPage: React.FC = () => {
     setPendingId(vehicle.id);
     try {
       await vehicleAdminService.unstick(vehicle.id);
-      setNotice({ kind: 'success', message: t('admin.vehicles.unstickDone', { plate: vehicle.plateNumber }) });
+      setNotice(null);
+      showToast(t('admin.vehicles.unstickDone', { plate: vehicle.plateNumber }));
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     } finally {
@@ -125,7 +125,8 @@ const VehiclesPage: React.FC = () => {
     setDeleting(true);
     try {
       await vehicleAdminService.remove(deletingVehicle.id);
-      setNotice({ kind: 'success', message: t('admin.vehicles.deleted', { plate: deletingVehicle.plateNumber }) });
+      setNotice(null);
+      showToast(t('admin.vehicles.deleted', { plate: deletingVehicle.plateNumber }));
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     } finally {
@@ -230,12 +231,12 @@ const VehiclesPage: React.FC = () => {
           unitTypesError={unitTypes.error}
           onClose={() => setFormVehicle(null)}
           onSaved={(saved) => {
-            setNotice({
-              kind: 'success',
-              message: t(formVehicle === 'new' ? 'admin.vehicles.added' : 'admin.vehicles.updated', {
+            setNotice(null);
+            showToast(
+              t(formVehicle === 'new' ? 'admin.vehicles.added' : 'admin.vehicles.updated', {
                 plate: saved.plateNumber,
-              }),
-            });
+              })
+            );
             setFormVehicle(null);
             query.reload();
           }}

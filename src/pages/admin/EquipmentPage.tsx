@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { EquipmentStationMatrix } from '../../components/admin/equipment/EquipmentStationMatrix';
@@ -492,12 +493,12 @@ const EquipmentPage: React.FC = () => {
             upsert(saved);
             if (keepOpen) return;
             setEditing(undefined);
-            setNotice({
-              kind: 'success',
-              message: created
+            setNotice(null);
+            showToast(
+              created
                 ? t('admin.equipment.created', { name: saved.name, station: stationName(saved) })
-                : t('vehicles.equipment.notices.updated', { name: saved.name }),
-            });
+                : t('vehicles.equipment.notices.updated', { name: saved.name })
+            );
           }}
           onGone={handleGone}
         />
@@ -510,13 +511,12 @@ const EquipmentPage: React.FC = () => {
           onDone={(updated) => {
             upsert(updated);
             setStatusTarget(null);
-            setNotice({
-              kind: 'success',
-              message:
-                updated.status === 'Maintenance'
-                  ? t('vehicles.equipment.notices.maintenance', { name: updated.name })
-                  : t('vehicles.equipment.notices.available', { name: updated.name }),
-            });
+            setNotice(null);
+            showToast(
+              updated.status === 'Maintenance'
+                ? t('vehicles.equipment.notices.maintenance', { name: updated.name })
+                : t('vehicles.equipment.notices.available', { name: updated.name })
+            );
           }}
           onGone={handleGone}
         />
@@ -534,7 +534,8 @@ const EquipmentPage: React.FC = () => {
           onDeleted={(deleted) => {
             removeLocal(deleted.id);
             setDeleteTarget(null);
-            setNotice({ kind: 'success', message: t('vehicles.equipment.notices.deleted', { name: deleted.name }) });
+            setNotice(null);
+            showToast(t('vehicles.equipment.notices.deleted', { name: deleted.name }));
           }}
           onGone={handleGone}
         />

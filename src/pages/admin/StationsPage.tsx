@@ -4,6 +4,7 @@ import { DeleteStationDialog } from '../../components/admin/stations/DeleteStati
 import { StationFormDrawer } from '../../components/admin/stations/StationFormDrawer';
 import { StationsTable } from '../../components/admin/stations/StationsTable';
 import { Notice, Pagination, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { inputClass } from '../../components/admin/common/styles';
 import { useDebouncedValue, useInitialQueryParams, useServiceQuery } from '../../components/admin/common/hooks';
 import { stationAdminService, type StationStatusFilter } from '../../services/admin/stationAdminService';
@@ -92,10 +93,8 @@ const StationsPage: React.FC = () => {
           initialStation={formStation === 'new' ? null : formStation}
           onClose={() => setFormStation(null)}
           onSaved={(saved) => {
-            setNotice({
-              kind: 'success',
-              message: t(formStation === 'new' ? 'admin.stations.added' : 'admin.stations.updated', { name: saved.name }),
-            });
+            setNotice(null);
+            showToast(t(formStation === 'new' ? 'admin.stations.added' : 'admin.stations.updated', { name: saved.name }));
             setFormStation(null);
             query.reload();
           }}
@@ -111,10 +110,8 @@ const StationsPage: React.FC = () => {
               units > 0 && t('admin.stations.deletedUnits', { count: units }),
               staff > 0 && t('admin.stations.deletedStaff', { count: staff }),
             ].filter(Boolean);
-            setNotice({
-              kind: 'success',
-              message: [t('admin.stations.deleted', { name: deletingStation.name }), ...extras].join(' '),
-            });
+            setNotice(null);
+            showToast([t('admin.stations.deleted', { name: deletingStation.name }), ...extras].join(' '), { long: true });
             setDeletingStation(null);
             query.reload();
           }}

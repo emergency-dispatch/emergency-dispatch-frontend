@@ -134,7 +134,6 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   // Tab nội dung: thẩm định (media + AI), báo cáo trùng đã gom (BR-07) hoặc lịch sử xử lý (audit trail).
   const [tab, setTab] = useState<'review' | 'linked' | 'history'>('review');
   // Đã xử lý hết báo cáo gộp → quay về tab Thẩm định kèm thông báo thành công.
-  const [linkedDoneMessage, setLinkedDoneMessage] = useState<string | null>(null);
   const rejecting = mode === 'reject';
   const [rejectReason, setRejectReason] = useState('');
   const [rejectCode, setRejectCode] = useState<OperatorCancellationCode>('FalseReport');
@@ -167,7 +166,6 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     setOverrideReason('');
     setMode('review');
     setTab('review');
-    setLinkedDoneMessage(null);
     setRejectReason('');
     setRejectCode('FalseReport');
     setTransferStationId('');
@@ -398,10 +396,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
               key={key}
               role="tab"
               aria-selected={tab === key}
-              onClick={() => {
-                setTab(key);
-                setLinkedDoneMessage(null);
-              }}
+              onClick={() => setTab(key)}
               className={`px-3 py-2 -mb-px border-b-2 text-sm font-semibold transition-colors ${
                 tab === key ? 'border-red-600 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
@@ -410,23 +405,6 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
             </button>
           ))}
         </div>
-
-        {linkedDoneMessage && tab === 'review' && (
-          <div
-            role="status"
-            className="shrink-0 mx-5 mt-3 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700"
-          >
-            <CircleCheck className="w-3.5 h-3.5 shrink-0 mt-px" />
-            <span className="flex-1">{linkedDoneMessage}</span>
-            <button
-              onClick={() => setLinkedDoneMessage(null)}
-              aria-label={t('common.close')}
-              className="shrink-0 text-emerald-500 hover:text-emerald-700"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
 
         {/* §31.E: vì sao ca này tới tay Operator (AI chuyển ca / AI chưa xong / AI đã điều). */}
         {tab === 'review' && <AutoDispatchBanner incident={incident} className="shrink-0 mx-5 mt-3" />}
@@ -444,10 +422,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 linkedReportCount={incident.linkedReportCount}
                 readOnly={lockedByOther}
                 onUnlink={onUnlinkReport}
-                onAllHandled={(message) => {
-                  setTab('review');
-                  setLinkedDoneMessage(message);
-                }}
+                onAllHandled={() => setTab('review')}
               />
             </div>
           ) : (

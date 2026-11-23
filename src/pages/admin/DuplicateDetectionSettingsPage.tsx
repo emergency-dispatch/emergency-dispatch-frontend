@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NumberSettingField, SettingsForm } from '../../components/admin/settings/SettingsForm';
 import { sameSettings, toNumber } from '../../components/admin/settings/settingsDraft';
 import { ConfirmModal, Notice, type NoticeState } from '../../components/admin/common/ui';
+import { showToast } from '../../components/admin/common/toastStore';
 import { useServiceQuery, useUnsavedChangesGuard } from '../../components/admin/common/hooks';
 import {
   DUPLICATE_DETECTION_LIMITS,
@@ -20,8 +21,6 @@ import { dateLocale, useTranslation } from '../../i18n';
 const DuplicateDetectionSettingsPage: React.FC = () => {
   const { t } = useTranslation();
   const query = useServiceQuery(() => adminSettingsService.getDuplicateDetection(), 'duplicate-detection-settings');
-  // Thông báo "đã lưu" giữ ở cấp trang vì form được dựng lại sau khi lưu.
-  const [flash, setFlash] = useState<NoticeState>(null);
 
   if (query.error && !query.data) {
     return (
@@ -36,9 +35,8 @@ const DuplicateDetectionSettingsPage: React.FC = () => {
     <DuplicateDetectionForm
       key={query.data.updatedAt ?? 'default'}
       record={query.data}
-      initialNotice={flash}
       onSaved={(message) => {
-        setFlash({ kind: 'success', message });
+        showToast(message);
         query.reload();
       }}
     />
@@ -66,13 +64,12 @@ const toSettings = (d: DuplicateDetectionDraft): DuplicateDetectionSettings => (
 
 const DuplicateDetectionForm: React.FC<{
   record: SettingsRecord<DuplicateDetectionSettings>;
-  initialNotice: NoticeState;
   onSaved: (message: string) => void;
-}> = ({ record, initialNotice, onSaved }) => {
+}> = ({ record, onSaved }) => {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<DuplicateDetectionDraft>(() => toDraft(record.values));
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState<NoticeState>(initialNotice);
+  const [notice, setNotice] = useState<NoticeState>(null);
   const [confirmDisable, setConfirmDisable] = useState(false);
 
   const values = toSettings(draft);
@@ -109,7 +106,8 @@ const DuplicateDetectionForm: React.FC<{
     try {
       const defaults = await adminSettingsService.getDefaults();
       setDraft(toDraft(defaults.duplicateDetection));
-      setNotice({ kind: 'success', message: t('admin.common.settings.defaultsFilled') });
+      setNotice(null);
+      showToast(t('admin.common.settings.defaultsFilled'), { kind: 'info' });
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     }

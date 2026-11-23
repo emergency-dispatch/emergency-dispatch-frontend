@@ -28,6 +28,7 @@ import { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import type { DispatchAlgorithm, DispatchCandidate, DispatchTeamCandidate } from '../../../types/vehicle';
 import type { FieldRequestDto } from '../../../types/fieldRequest';
+import { showToast } from '../../admin/common/toastStore';
 import { useTranslation } from '../../../i18n';
 import { AutoDispatchNotice } from '../incidents/AutoDispatchInfo';
 import { IncidentCode } from '../incidents/IncidentCode';
@@ -89,7 +90,6 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   const [linkedOpen, setLinkedOpen] = useState(false);
   // §21.1: hộp thoại đổi mức độ + câu backend trả sau khi đổi (có thể nhắc rút bớt xe).
   const [severityOpen, setSeverityOpen] = useState(false);
-  const [severityNotice, setSeverityNotice] = useState<string | null>(null);
   // §21.4: hộp thoại thông tin người báo bổ sung (nút chỉ hiện khi đã có bổ sung).
   const [supplementsOpen, setSupplementsOpen] = useState(false);
   const supplements = useIncidentSupplements(
@@ -108,7 +108,6 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     setHistoryOpen(false);
     setLinkedOpen(false);
     setSeverityOpen(false);
-    setSeverityNotice(null);
     setSupplementsOpen(false);
     setOptionByTeam({});
   }, [selectedIncidentId]);
@@ -196,7 +195,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
       setRequestError({ requestId: fieldRequest.id, message: res.message ?? t('context.assignFailed') });
       return;
     }
-    setSeverityNotice(t('liveMap.fieldRequests.served'));
+    showToast(t('liveMap.fieldRequests.served'));
     onExitFieldRequest?.();
   };
   const assignOptions: AssignOptions | undefined =
@@ -327,7 +326,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
           }
           onDone={(message) => {
             setSeverityOpen(false);
-            setSeverityNotice(message || null);
+            if (message) showToast(message);
           }}
         />
       )}
@@ -357,7 +356,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
               )}
             </div>
             <p className="text-sm font-bold text-slate-900 truncate leading-snug">{selectedIncident.title}</p>
-            <p className="text-[10px] text-slate-500 truncate mt-0.5">
+            <p className="text-[10px] leading-relaxed text-slate-500 break-words mt-0.5">
               {selectedIncident.code && (
                 <>
                   <IncidentCode code={selectedIncident.code} className="font-semibold text-slate-600" />
@@ -403,22 +402,6 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                 </button>
               )}
             </div>
-            {severityNotice && (
-              <div
-                role="status"
-                className="mt-2 flex items-start gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-700"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-px" />
-                <span className="flex-1">{severityNotice}</span>
-                <button
-                  onClick={() => setSeverityNotice(null)}
-                  aria-label={t('common.close')}
-                  className="shrink-0 text-emerald-500 hover:text-emerald-700"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            )}
           </>
         ) : (
           <>
