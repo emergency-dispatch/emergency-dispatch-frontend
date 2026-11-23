@@ -25,7 +25,16 @@ beforeEach(() => {
 });
 
 describe('validateDispatchSettings', () => {
-  const ok: DispatchSettings = { weights: { distance: 0.5, stationLoad: 0.3, activeMissions: 0.2 }, radiusStepsKm: [3, 5, 10], recoveryMinutes: 15 };
+  const ok: DispatchSettings = {
+    weights: { distance: 0.5, stationLoad: 0.3, activeMissions: 0.2 },
+    radiusStepsKm: [3, 5, 10],
+    recoveryMinutes: 15,
+    autoExpireHours: 24,
+    autoDispatchEnabled: false,
+    autoDispatchMinConfidence: 0.9,
+    autoDispatchDuplicateRadiusMeters: 500,
+    autoDispatchDuplicateWindowMinutes: 30,
+  };
 
   it('hợp lệ → không lỗi', () => {
     expect(validateDispatchSettings(ok, 30)).toEqual({});
@@ -63,6 +72,7 @@ describe('validateEscalationSettings', () => {
     nightEnd: '06:00',
     radiusMultiplier: 2,
     maxRadiusKm: 30,
+    fieldRequestThresholdMinutes: 5,
   };
 
   it('hợp lệ', () => {
@@ -90,7 +100,7 @@ describe('validateEscalationSettings', () => {
 });
 
 describe('validateServiceArea', () => {
-  const ok: ServiceAreaSettings = { enabled: true, name: 'SHTP', centerLat: 10.8, centerLng: 106.8, radiusKm: 5 };
+  const ok: ServiceAreaSettings = { enabled: true, rejectOutside: false, name: 'SHTP', centerLat: 10.8, centerLng: 106.8, radiusKm: 5 };
 
   it('hợp lệ', () => {
     expect(validateServiceArea(ok)).toEqual({});
@@ -215,15 +225,27 @@ describe('geocodeService', () => {
     expect(fetchMock.mock.calls[0][0]).toContain('access_token=test-mapbox-token');
   });
 
-  it('searchAddress fallback sang Nominatim khi Mapbox rỗng / lỗi', async () => {
+  it('searchAddress khi đang gõ (mặc định) KHÔNG gọi Nominatim khi Mapbox rỗng / lỗi (tuân thủ OSM)', async () => {
+    fetchMock.mockReturnValueOnce(json({ features: [] }));
+    const res = await searchAddress('x', new AbortController().signal);
+    expect(res).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).not.toContain('nominatim.openstreetmap.org');
+
+    fetchMock.mockReturnValueOnce(json({}, false, 500));
+    const resErr = await searchAddress('x', new AbortController().signal);
+    expect(resErr).toEqual([]);
+    expect(fetchMock.mock.calls[1][0]).not.toContain('nominatim.openstreetmap.org');
+  });
+
+  it('searchAddress khi người dân bấm nút tìm (allowNominatim = true) mới fallback sang Nominatim', async () => {
     fetchMock
       .mockReturnValueOnce(json({ features: [] }))
       .mockReturnValueOnce(json([{ display_name: 'OSM', lat: '10.1', lon: '106.2' }]));
-    expect(await searchAddress('x', new AbortController().signal)).toEqual([{ label: 'OSM', lat: 10.1, lng: 106.2 }]);
-
-    fetchMock.mockReturnValueOnce(json({}, false, 500)).mockReturnValueOnce(json([]));
-    expect(await searchAddress('x', new AbortController().signal)).toEqual([]);
-    expect(fetchMock.mock.calls[3][0]).toContain('nominatim.openstreetmap.org');
+    expect(await searchAddress('x', new AbortController().signal, { allowNominatim: true })).toEqual([
+      { label: 'OSM', lat: 10.1, lng: 106.2 },
+    ]);
+    expect(fetchMock.mock.calls[1][0]).toContain('nominatim.openstreetmap.org');
   });
 
   it('searchAddress huỷ → ném lỗi, không fallback', async () => {
@@ -234,45 +256,42 @@ describe('geocodeService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('searchAddress Nominatim lỗi → ném lỗi', async () => {
+  it('searchAddress Nominatim lỗi khi bấm tìm → ném lỗi', async () => {
     fetchMock.mockReturnValueOnce(json({ features: [] })).mockReturnValueOnce(json([], false, 503));
-    await expect(searchAddress('x', new AbortController().signal)).rejects.toThrow('Nominatim 503');
+    await expect(searchAddress('x', new AbortController().signal, { allowNominatim: true })).rejects.toThrow('Nominatim 503');
   });
 
   describe('searchAddressInArea', () => {
     const area = { lat: 10.84, lng: 106.8, radiusKm: 3 };
 
-    it('gộp Mapbox + OSM, bỏ trùng tên, lọc ngoài vùng', async () => {
+    it('khi đang gõ chỉ dùng Mapbox Search Box, không gọi Nominatim (tuân thủ OSM)', async () => {
       fetchMock.mockImplementation((url: string) =>
-        url.includes('searchbox')
-          ? json({
-              features: [
-                { geometry: { coordinates: [106.801, 10.841] }, properties: { feature_type: 'poi', name: 'ĐH FPT', full_address: 'Lô E2a' } },
-                { geometry: { coordinates: [106.802, 10.842] }, properties: { feature_type: 'street', place_formatted: 'Đường D1, Thủ Đức' } },
-                { geometry: { coordinates: [107.5, 11.5] }, properties: { name: 'Xa quá' } },
-              ],
-            })
-          : json([
-              { display_name: 'đường d1, khác', lat: '10.84', lon: '106.8' },
-              { display_name: 'Công viên', lat: '10.843', lon: '106.803' },
-            ]),
+        json({
+          features: [
+            { geometry: { coordinates: [106.801, 10.841] }, properties: { feature_type: 'poi', name: 'ĐH FPT', full_address: 'Lô E2a' } },
+            { geometry: { coordinates: [106.802, 10.842] }, properties: { feature_type: 'street', place_formatted: 'Đường D1, Thủ Đức' } },
+            { geometry: { coordinates: [107.5, 11.5] }, properties: { name: 'Xa quá' } },
+          ],
+        }),
       );
       const res = await searchAddressInArea('x', area, new AbortController().signal);
-      expect(res.map((r) => r.label)).toEqual(['ĐH FPT, Lô E2a', 'Đường D1, Thủ Đức', 'Công viên']);
-      const osmUrl = fetchMock.mock.calls.find((c) => String(c[0]).includes('nominatim'))![0];
-      expect(osmUrl).toContain('bounded=1');
+      expect(res.map((r) => r.label)).toEqual(['ĐH FPT, Lô E2a', 'Đường D1, Thủ Đức']);
+      // Tuyệt đối không gọi Nominatim khi đang gõ
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('nominatim'))).toBe(false);
     });
 
-    it('một nguồn lỗi vẫn dùng nguồn còn lại', async () => {
+    it('khi bấm tìm (allowNominatim = true) mới fallback sang Nominatim nếu Mapbox lỗi', async () => {
       fetchMock.mockImplementation((url: string) =>
         url.includes('searchbox') ? Promise.reject(new Error('down')) : json([{ display_name: 'A', lat: '10.84', lon: '106.8' }]),
       );
-      expect((await searchAddressInArea('x', area, new AbortController().signal)).map((r) => r.label)).toEqual(['A']);
+      expect((await searchAddressInArea('x', area, new AbortController().signal, { allowNominatim: true })).map((r) => r.label)).toEqual(['A']);
     });
 
-    it('cả hai nguồn lỗi → ném lỗi', async () => {
+    it('Mapbox lỗi khi đang gõ → trả về mảng rỗng, không gọi Nominatim', async () => {
       fetchMock.mockImplementation(() => json({}, false, 500));
-      await expect(searchAddressInArea('x', area, new AbortController().signal)).rejects.toThrow('Mapbox Search Box 500');
+      const res = await searchAddressInArea('x', area, new AbortController().signal);
+      expect(res).toEqual([]);
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('nominatim'))).toBe(false);
     });
   });
 });
