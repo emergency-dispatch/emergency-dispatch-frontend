@@ -47,7 +47,6 @@ export const citizenReportsVi = {
   cadStationDefault: 'Trạm CAD',
   trackingModalTitle: 'Theo dõi lực lượng ứng cứu Realtime',
   trackingIncidentCode: 'Mã sự cố:',
-  viewFullRoute: 'Xem toàn lộ trình',
   followingVehicle: 'Đang bám theo xe',
   followVehicle: 'Bám theo xe',
   responseStatusTitle: 'TRẠNG THÁI ỨNG CỨU:',
@@ -57,6 +56,6 @@ export const citizenReportsVi = {
   approximateNote: '(ước lượng)',
   rescueVehicleTitle: 'Phương Tiện Ứng Cứu',
   incidentLocationTitle: 'Điểm Báo Cáo Sự Cố',
-  dispatchChannelTitle: 'Kênh điều phối 114 / 115 kết nối',
+  dispatchChannelTitle: 'Đội cứu hộ đang đến',
   dispatchChannelDesc: 'Lực lượng cứu hộ đang di chuyển theo chỉ dẫn giao thông khẩn cấp. Vui lòng giữ thông suốt số điện thoại đăng ký.',
 } as const;

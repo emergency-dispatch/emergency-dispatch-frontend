@@ -25,7 +25,16 @@ beforeEach(() => {
 });
 
 describe('validateDispatchSettings', () => {
-  const ok: DispatchSettings = { weights: { distance: 0.5, stationLoad: 0.3, activeMissions: 0.2 }, radiusStepsKm: [3, 5, 10], recoveryMinutes: 15 };
+  const ok: DispatchSettings = {
+    weights: { distance: 0.5, stationLoad: 0.3, activeMissions: 0.2 },
+    radiusStepsKm: [3, 5, 10],
+    recoveryMinutes: 15,
+    autoExpireHours: 24,
+    autoDispatchEnabled: false,
+    autoDispatchMinConfidence: 0.9,
+    autoDispatchDuplicateRadiusMeters: 500,
+    autoDispatchDuplicateWindowMinutes: 30,
+  };
 
   it('hợp lệ → không lỗi', () => {
     expect(validateDispatchSettings(ok, 30)).toEqual({});
@@ -63,6 +72,7 @@ describe('validateEscalationSettings', () => {
     nightEnd: '06:00',
     radiusMultiplier: 2,
     maxRadiusKm: 30,
+    fieldRequestThresholdMinutes: 5,
   };
 
   it('hợp lệ', () => {
@@ -90,7 +100,7 @@ describe('validateEscalationSettings', () => {
 });
 
 describe('validateServiceArea', () => {
-  const ok: ServiceAreaSettings = { enabled: true, name: 'SHTP', centerLat: 10.8, centerLng: 106.8, radiusKm: 5 };
+  const ok: ServiceAreaSettings = { enabled: true, rejectOutside: true, name: 'SHTP', centerLat: 10.8, centerLng: 106.8, radiusKm: 5 };
 
   it('hợp lệ', () => {
     expect(validateServiceArea(ok)).toEqual({});

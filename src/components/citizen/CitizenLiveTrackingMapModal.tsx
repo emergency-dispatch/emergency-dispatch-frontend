@@ -14,7 +14,6 @@ import {
   RefreshCw,
   CheckCircle2,
   Shield,
-  Gauge,
   Radio,
   PlusCircle,
 } from 'lucide-react';
@@ -101,7 +100,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
         isPollingStoppedRef.current = true;
         setErrorMsg(
           err?.response?.data?.message ||
-            'Bạn chưa có quyền theo dõi trực tiếp sự cố gốc này (Backend chưa phân quyền cho tài khoản báo cáo trùng).'
+          'Bạn chưa có quyền theo dõi trực tiếp sự cố gốc này (Backend chưa phân quyền cho tài khoản báo cáo trùng).'
         );
       } else if (err?.response?.status === 401) {
         isPollingStoppedRef.current = true;
@@ -190,7 +189,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
 
     return () => {
       if (isSubscribed) {
-        trackingHubService.invoke('UnsubscribeIncident', incident.id).catch(() => {});
+        trackingHubService.invoke('UnsubscribeIncident', incident.id).catch(() => { });
       }
       unsubscribeLocation();
       unsubscribeAssignment();
@@ -276,7 +275,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           if (!st.lat || !st.lng) return;
           const isAssigningStation = Boolean(
             trackingData?.stationName &&
-              st.name.toLowerCase().includes(trackingData.stationName.toLowerCase())
+            st.name.toLowerCase().includes(trackingData.stationName.toLowerCase())
           );
 
           const stEl = document.createElement('div');
@@ -519,7 +518,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-0 sm:p-4 lg:p-6 bg-slate-950/50 backdrop-blur-sm animate-fadeIn">
       <div className="relative w-full max-w-6xl xl:max-w-7xl h-full sm:h-[90vh] max-h-[100dvh] sm:max-h-[920px] rounded-none sm:rounded-3xl bg-white border-0 sm:border border-slate-200 shadow-2xl flex flex-col overflow-hidden text-slate-900 transition-all">
-        
+
         {/* Top Header - ResQ CAD Web Style */}
         <div className="px-4 py-3 sm:px-6 sm:py-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -542,7 +541,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
               </div>
               <p className="text-xs text-slate-500 font-medium line-clamp-1 mt-0.5">
                 {t('citizen.reports.trackingIncidentCode')}{' '}
-                <span className="text-red-600 font-bold font-mono">#INC-{incident.id.substring(0, 8).toUpperCase()}</span>
+                <span className="text-red-600 font-bold font-mono">{incident.code || `#INC-${incident.id.substring(0, 8).toUpperCase()}`}</span>
                 {incident.title ? ` · ${incident.title}` : ''}
               </p>
             </div>
@@ -584,21 +583,13 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
 
         {/* Content Body: Map + Info Sidebar */}
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row relative overflow-hidden">
-          
+
           {/* Map View Area */}
           <div className="relative h-[320px] sm:h-[400px] lg:h-full w-full bg-slate-100 shrink-0 lg:shrink lg:flex-1 overflow-hidden">
             <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
             {/* Floating Top Controls inside Map */}
             <div className="absolute top-4 left-4 z-10 flex items-center gap-2.5 pointer-events-auto">
-              <button
-                type="button"
-                onClick={fitRouteBounds}
-                className="px-3.5 py-2 rounded-xl bg-white/95 backdrop-blur-md hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200/90 text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer active:scale-95"
-              >
-                <Maximize2 className="w-3.5 h-3.5 text-blue-600" />
-                <span>{t('citizen.reports.viewFullRoute')}</span>
-              </button>
 
               {liveVehicle && (
                 <button
@@ -613,94 +604,22 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
                       });
                     }
                   }}
-                  className={`px-3.5 py-2 rounded-xl backdrop-blur-md text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer active:scale-95 ${
-                    isFollowingVehicle
-                      ? 'bg-blue-600 text-white border border-blue-500 shadow-blue-500/20'
-                      : 'bg-white/95 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200/90'
-                  }`}
+                  className={`px-3.5 py-2 rounded-xl backdrop-blur-md text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer active:scale-95 ${isFollowingVehicle
+                    ? 'bg-blue-600 text-white border border-blue-500 shadow-blue-500/20'
+                    : 'bg-white/95 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200/90'
+                    }`}
                 >
                   <Navigation className={`w-3.5 h-3.5 ${isFollowingVehicle ? 'text-white' : 'text-blue-600'}`} />
                   <span>{isFollowingVehicle ? t('citizen.reports.followingVehicle') : t('citizen.reports.followVehicle')}</span>
                 </button>
               )}
             </div>
-
-            {/* Floating Live Telemetry Overlay over Map */}
-            {trackingData && (
-              <div className="absolute bottom-4 left-4 right-4 sm:right-auto z-10 sm:max-w-lg w-auto pointer-events-auto">
-                <div className="p-4 sm:p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl text-slate-900 space-y-3.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        {t('citizen.reports.responseStatusTitle')}
-                      </span>
-                    </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
-                        isOnScene
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : isEnRoute
-                            ? 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${isOnScene ? 'bg-emerald-500' : isEnRoute ? 'bg-blue-500' : 'bg-amber-500'}`} />
-                      <span>
-                        {isOnScene
-                          ? t('citizen.reports.statusOnScene')
-                          : dispatchStatus === 'EnRoute'
-                            ? t('citizen.reports.statusEnRoute')
-                            : dispatchStatus === 'Accepted'
-                              ? t('citizen.reports.statusMissionAccepted')
-                              : t('citizen.reports.statusDispatching')}
-                      </span>
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2.5 sm:gap-3 pt-3 border-t border-slate-100 text-center">
-                    <div className="p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
-                      <div className="text-[11px] font-medium text-slate-500 flex items-center justify-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-amber-600" />
-                        <span>{t('citizen.reports.etaTitle').replace(':', '')}</span>
-                      </div>
-                      <div className="text-lg sm:text-2xl font-black text-amber-600 mt-1">
-                        ~{dynamicEtaMinutes} <span className="text-xs font-bold text-amber-700">{t('citizen.reports.minutes')}</span>
-                      </div>
-                    </div>
-
-                    <div className="p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
-                      <div className="text-[11px] font-medium text-slate-500 flex items-center justify-center gap-1">
-                        <Navigation className="w-3.5 h-3.5 text-blue-600" />
-                        <span>{t('citizen.reports.distanceTitle').replace(':', '')}</span>
-                      </div>
-                      <div className="text-lg sm:text-2xl font-black text-blue-600 mt-1">
-                        {dynamicDistKm !== null ? dynamicDistKm.toFixed(1) : (trackingData.distanceKm ? trackingData.distanceKm.toFixed(1) : '1.2')} <span className="text-xs font-bold text-blue-700">km</span>
-                        {trackingData.isApproximateRoute && (
-                          <span className="block text-[10px] font-medium text-amber-600">{t('citizen.reports.approximateNote')}</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
-                      <div className="text-[11px] font-medium text-slate-500 flex items-center justify-center gap-1">
-                        <Gauge className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>{t('citizen.reports.vehicleSpeedTitle')}</span>
-                      </div>
-                      <div className="text-lg sm:text-2xl font-black text-emerald-600 mt-1">
-                        {liveVehicle?.speedKmh || (isEnRoute ? 35 : 0)} <span className="text-xs font-bold text-emerald-700">km/h</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Right Detail Panel */}
           <div className="w-full lg:w-[400px] xl:w-[420px] shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-slate-50/70 p-5 sm:p-6 flex flex-col justify-between overflow-y-auto space-y-5">
             <div className="space-y-4">
-              
+
               {/* Unit Info Card */}
               <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3.5">
                 <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
@@ -757,16 +676,73 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
                 </p>
               </div>
 
-              {/* Instruction banner */}
-              <div className="p-4 rounded-2xl bg-blue-50/80 border border-blue-200/90 text-xs text-blue-900 space-y-2">
-                <div className="font-bold flex items-center gap-2 text-blue-800 text-xs sm:text-sm">
-                  <Radio className="w-4 h-4 text-blue-600 animate-pulse" />
-                  <span>{t('citizen.reports.dispatchChannelTitle')}</span>
+              {/* Live Telemetry & Dispatch Status Card */}
+              {trackingData && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs text-slate-900 space-y-3.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        {t('citizen.reports.responseStatusTitle')}
+                      </span>
+                    </div>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${isOnScene
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : isEnRoute
+                          ? 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${isOnScene ? 'bg-emerald-500' : isEnRoute ? 'bg-blue-500' : 'bg-amber-500'}`} />
+                      <span>
+                        {isOnScene
+                          ? t('citizen.reports.statusOnScene')
+                          : dispatchStatus === 'EnRoute'
+                            ? t('citizen.reports.statusEnRoute')
+                            : dispatchStatus === 'Accepted'
+                              ? t('citizen.reports.statusMissionAccepted')
+                              : t('citizen.reports.statusDispatching')}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-slate-100 text-center">
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
+                      <div className="text-[11px] font-medium text-slate-500 flex items-center justify-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-amber-600" />
+                        <span>{t('citizen.reports.etaTitle').replace(':', '')}</span>
+                      </div>
+                      <div className="text-lg sm:text-xl font-black text-amber-600 mt-1">
+                        ~{dynamicEtaMinutes} <span className="text-xs font-bold text-amber-700">{t('citizen.reports.minutes')}</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
+                      <div className="text-[11px] font-medium text-slate-500 flex items-center justify-center gap-1">
+                        <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                        <span>{t('citizen.reports.distanceTitle').replace(':', '')}</span>
+                      </div>
+                      <div className="text-lg sm:text-xl font-black text-blue-600 mt-1">
+                        {dynamicDistKm !== null ? dynamicDistKm.toFixed(1) : (trackingData.distanceKm ? trackingData.distanceKm.toFixed(1) : '1.2')} <span className="text-xs font-bold text-blue-700">km</span>
+                        {trackingData.isApproximateRoute && (
+                          <span className="block text-[10px] font-medium text-amber-600">{t('citizen.reports.approximateNote')}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-200/90 text-xs text-blue-900 space-y-1">
+                    <div className="font-bold flex items-center gap-2 text-blue-800">
+                      <Radio className="w-3.5 h-3.5 text-blue-600 animate-pulse shrink-0" />
+                      <span>{t('citizen.reports.dispatchChannelTitle')}</span>
+                    </div>
+                    <p className="text-blue-700 leading-relaxed text-[11px]">
+                      {t('citizen.reports.dispatchChannelDesc')}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-blue-700 leading-relaxed text-xs">
-                  {t('citizen.reports.dispatchChannelDesc')}
-                </p>
-              </div>
+              )}
             </div>
 
             {/* Bottom Actions */}

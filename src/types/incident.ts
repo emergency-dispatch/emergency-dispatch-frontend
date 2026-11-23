@@ -638,6 +638,8 @@ export interface MyReportUnitDto {
 
 export interface MyReportDto {
   id: string;
+  /** §38: mã hiển thị SC-yyMMdd-NNNN. */
+  code?: string;
   title: string;
   description: string;
   locationAddress: string;
@@ -648,6 +650,10 @@ export interface MyReportDto {
   resolutionSummary?: string;
   cancellationReason?: string;
   linkedToIncidentId?: string | null;
+  linkedToIncidentCode?: string | null;
+  linkedToIncidentTitle?: string | null;
+  linkedToIncidentAddress?: string | null;
+  linkedToIncidentStatus?: BackendIncidentStatus | null;
   reportedEventType?: BackendEventType | null;
   mediaUrls: string[];
   reportedAt: string;
