@@ -14,7 +14,7 @@ import { CONFIRMABLE_CATEGORIES, INCIDENT_CATEGORY_META, SEVERITY_LEVEL_META } f
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { mapboxService } from '../../../services/mapboxService';
 import { AddressSearchField } from '../../admin/stations/AddressSearchField';
-import { searchAddressInArea } from '../../../services/admin/geocodeService';
+import { searchAddressInArea, searchOpenStreetMapInArea } from '../../../services/admin/geocodeService';
 import { distanceOutsideAreaKm, resolveServiceArea } from '../../../utils/serviceArea';
 import { mediaService } from '../../../services/mediaService';
 import { validatedInputClass, labelClass } from '../../admin/common/styles';
@@ -326,6 +326,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
               }}
               maxLength={ADDRESS_MAX_LENGTH}
               search={(query, signal) => searchAddressInArea(query, area, signal)}
+              searchMore={(query, signal) => searchOpenStreetMapInArea(query, area, signal)}
               // Đã giới hạn trong khu vực → tên ngắn (VD "FPT") vẫn ra đúng.
               minQueryLength={2}
               placeholder={resolvingAddress ? t('liveMap.create.resolvingAddress') : t('liveMap.create.addressPlaceholder')}

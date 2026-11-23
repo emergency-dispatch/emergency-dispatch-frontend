@@ -63,6 +63,8 @@ export const adminStationsEn: Messages<typeof adminStationsVi> = {
     placeholder: 'Type an address to find it on the map...',
     noResults: 'No matching address — pick a location on the map.',
     failed: 'Address lookup is unavailable right now — pick a location on the map.',
+    more: 'Search more on OpenStreetMap',
+    moreFailed: 'OpenStreetMap did not respond. Click to try again',
   },
   headOperator: {
     label: 'Head operator',

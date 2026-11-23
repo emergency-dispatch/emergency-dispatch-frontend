@@ -190,7 +190,9 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                   })}
                   assigned={activeVehicleIds.flatMap((id) => {
                     const v = vehiclesById.get(id);
-                    return v ? [{ vehicleId: v.id, lat: v.lat, lng: v.lng, type: v.type, status: v.status }] : [];
+                    return v
+                      ? [{ vehicleId: v.id, lat: v.lat, lng: v.lng, type: v.type, status: v.status, stationId: v.stationId, heading: v.heading }]
+                      : [];
                   })}
                   stations={stations}
                   highlightedVehicleId={highlightedVehicleId}

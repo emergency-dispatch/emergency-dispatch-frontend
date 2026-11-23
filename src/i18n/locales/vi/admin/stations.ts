@@ -60,6 +60,8 @@ export const adminStationsVi = {
     placeholder: 'Gõ địa chỉ để tìm trên bản đồ...',
     noResults: 'Không tìm thấy địa chỉ phù hợp — chọn vị trí trên bản đồ.',
     failed: 'Không tra cứu được địa chỉ lúc này — chọn vị trí trên bản đồ.',
+    more: 'Tìm thêm trên OpenStreetMap',
+    moreFailed: 'OpenStreetMap không phản hồi. Bấm để thử lại',
   },
   headOperator: {
     label: 'Operator phụ trách trạm',

@@ -30,24 +30,38 @@ async function searchNominatim(query: string, signal: AbortSignal): Promise<Addr
   return data.map((d) => ({ label: d.display_name, lat: Number(d.lat), lng: Number(d.lon) }));
 }
 
-/** Tìm tọa độ theo địa chỉ (forward geocoding): thử Mapbox, lỗi / không có kết quả thì dùng OpenStreetMap. */
-export async function searchAddress(query: string, signal: AbortSignal): Promise<AddressSuggestion[]> {
+/**
+ * Tìm tọa độ theo địa chỉ (forward geocoding) bằng Mapbox.
+ * §43: quy định Nominatim (OpenStreetMap) cấm dùng làm gợi ý khi đang gõ → Admin truyền `fallbackToNominatim: false`
+ * (Mapbox lỗi thì báo lỗi); muốn tìm thêm thì người dùng bấm nút, gọi `searchOpenStreetMap`.
+ * Mặc định vẫn `true` vì form SOS của Citizen (SosModal) dùng chung hàm này, chưa được đổi hành vi.
+ */
+export async function searchAddress(
+  query: string,
+  signal: AbortSignal,
+  { fallbackToNominatim = true }: { fallbackToNominatim?: boolean } = {}
+): Promise<AddressSuggestion[]> {
   const isMapboxDisabled =
     typeof window !== 'undefined' && sessionStorage.getItem('resq_mapbox_geocode_disabled') === 'true';
 
   if (MAPBOX_ACCESS_TOKEN && !MAPBOX_ACCESS_TOKEN.includes('dummy') && !isMapboxDisabled) {
     try {
       const results = await searchMapbox(query, signal);
-      if (results.length > 0) return results;
+      if (results.length > 0 || !fallbackToNominatim) return results;
     } catch (err: any) {
       if (signal.aborted) throw err;
       if (err?.message?.includes('401') || err?.message?.includes('403')) {
         try { sessionStorage.setItem('resq_mapbox_geocode_disabled', 'true'); } catch {}
       }
+      if (!fallbackToNominatim) throw err;
     }
   }
+  if (!fallbackToNominatim) throw new Error('Mapbox geocoding unavailable');
   return searchNominatim(query, signal);
 }
+
+/** Tìm toàn quốc trên OpenStreetMap — chỉ gọi khi người dùng chủ động bấm, mỗi lần bấm một yêu cầu (§43). */
+export const searchOpenStreetMap = searchNominatim;
 
 /** Vùng tìm kiếm: tâm + bán kính (khu vực phục vụ). */
 export interface SearchArea {
@@ -109,24 +123,30 @@ function insideArea(s: AddressSuggestion, area: SearchArea): boolean {
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) <= area.radiusKm;
 }
 
-/**
- * Tìm địa chỉ / địa điểm **chỉ trong vùng** (Operator tạo sự cố): gọi song song Mapbox Search Box và OpenStreetMap,
- * gộp kết quả (Mapbox trước), bỏ trùng theo tên. Một nguồn lỗi vẫn dùng nguồn còn lại; cả hai lỗi mới báo lỗi.
- */
-export async function searchAddressInArea(query: string, area: SearchArea, signal: AbortSignal): Promise<AddressSuggestion[]> {
-  const sources = [searchNominatimInArea(query, area, signal)];
-  if (MAPBOX_ACCESS_TOKEN && !MAPBOX_ACCESS_TOKEN.includes('dummy')) sources.unshift(searchMapboxPlaces(query, area, signal));
-  const settled = await Promise.allSettled(sources);
-  if (settled.every((r) => r.status === 'rejected')) throw (settled[0] as PromiseRejectedResult).reason;
-
+/** Bỏ kết quả ngoài vùng và trùng tên. */
+function keepInsideArea(items: AddressSuggestion[], area: SearchArea): AddressSuggestion[] {
   const seen = new Set<string>();
-  return settled
-    .flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
-    .filter((s) => {
-      const key = normalizeLabel(s.label);
-      if (!s.label || seen.has(key) || !insideArea(s, area)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, LIMIT + 2);
+  return items.filter((s) => {
+    const key = normalizeLabel(s.label);
+    if (!s.label || seen.has(key) || !insideArea(s, area)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Tìm địa chỉ / địa điểm **chỉ trong vùng** khi Operator đang gõ (tạo sự cố): chỉ Mapbox Search Box (§43). */
+export async function searchAddressInArea(query: string, area: SearchArea, signal: AbortSignal): Promise<AddressSuggestion[]> {
+  if (!MAPBOX_ACCESS_TOKEN || MAPBOX_ACCESS_TOKEN.includes('dummy')) throw new Error('Mapbox Search Box unavailable');
+  return keepInsideArea(await searchMapboxPlaces(query, area, signal), area);
+}
+
+/** Tìm thêm trong vùng trên OpenStreetMap — chỉ gọi khi Operator chủ động bấm, mỗi lần bấm một yêu cầu (§43). */
+export async function searchOpenStreetMapInArea(query: string, area: SearchArea, signal: AbortSignal): Promise<AddressSuggestion[]> {
+  return keepInsideArea(await searchNominatimInArea(query, area, signal), area);
+}
+
+/** Nối kết quả tìm thêm vào sau danh sách đang có, bỏ địa điểm trùng tên. */
+export function mergeSuggestions(current: AddressSuggestion[], extra: AddressSuggestion[]): AddressSuggestion[] {
+  const seen = new Set(current.map((s) => normalizeLabel(s.label)));
+  return [...current, ...extra.filter((s) => !seen.has(normalizeLabel(s.label)))];
 }
