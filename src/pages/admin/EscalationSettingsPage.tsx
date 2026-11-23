@@ -6,6 +6,7 @@ import { DispatchSettingsSection } from '../../components/admin/settings/Dispatc
 import { escalationSeverityMeta, severityLabel } from '../../components/admin/escalation/escalationMeta';
 import { ConfirmModal, Notice, type NoticeState } from '../../components/admin/common/ui';
 import { iconButtonClass, thClass } from '../../components/admin/common/styles';
+import { showToast } from '../../components/admin/common/toastStore';
 import { useServiceQuery } from '../../components/admin/common/hooks';
 import { escalationService } from '../../services/admin/escalationService';
 import { getApiErrorMessage } from '../../services/apiClient';
@@ -36,7 +37,9 @@ const EscalationSettingsPage: React.FC = () => {
   const run = async (key: string, action: () => Promise<string>) => {
     setPending(key);
     try {
-      setNotice({ kind: 'success', message: await action() });
+      const message = await action();
+      setNotice(null);
+      showToast(message);
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     } finally {
@@ -318,7 +321,8 @@ const EscalationSettingsPage: React.FC = () => {
           initialRule={formRule === 'new' ? null : formRule}
           onClose={() => setFormRule(null)}
           onSaved={() => {
-            setNotice({ kind: 'success', message: formRule === 'new' ? t('admin.settings.escalation.rules.added') : t('admin.settings.escalation.rules.updated') });
+            setNotice(null);
+            showToast(t(formRule === 'new' ? 'admin.settings.escalation.rules.added' : 'admin.settings.escalation.rules.updated'));
             setFormRule(null);
             rules.reload();
           }}

@@ -68,6 +68,10 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
       aiTypeMismatch: 'AI type differs',
       belowThreshold: 'Below threshold {{confidence}}% < {{threshold}}%',
       operatorHandling: 'Opened before AI finished',
+      ensembleNoMajority: 'No agreement among 3 AIs',
+      ensembleUnavailable: 'Supporting AI votes missing',
+      ensembleNoPhoto: 'No photo to vote on',
+      other: 'Handed over by AI',
       skipped: 'AI skipped',
       undecided: 'AI has not dispatched',
     },
@@ -431,6 +435,20 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
   typePicker: {
     label: 'Detailed type',
     hint: 'Determines the dispatch plan (vehicle types, standard count).',
+  },
+  aiVotes: {
+    title: '3-AI vote',
+    tally: '{{agree}}/{{total}} agree',
+    summary: '3-AI vote: {{agree}}/{{total}} agree.',
+    none: 'No incident',
+    upgrade: 'The highest level among the agreeing AIs is {{to}}, above the {{from}} given by TriageVL. When auto-dispatching, AI uses the higher level.',
+    status: {
+      reference: 'Main AI',
+      agree: 'Agrees',
+      belowThreshold: 'Same type, below threshold',
+      differentType: 'Different type',
+      unavailable: 'Unavailable',
+    },
   },
   autoDispatch: {
     badgeDispatched: 'AI auto-dispatch · {{confidence}}%',

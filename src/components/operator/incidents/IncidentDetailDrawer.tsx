@@ -55,6 +55,7 @@ import { dateLocale, useTranslation } from '../../../i18n';
 import { IncidentTypePicker } from './IncidentTypePicker';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { AutoDispatchBanner } from './AutoDispatchInfo';
+import { AiVotesPanel } from './AiVotesPanel';
 import { IncidentCode } from './IncidentCode';
 
 const CONFIRMABLE_LEVELS: SeverityLevel[] = [1, 2, 3];
@@ -658,6 +659,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                     )}
                   </div>
                 )}
+                {!incident.aiPending && <AiVotesPanel votes={incident.aiVotes} />}
                 {incident.aiSummary && (
                   <div className="border-t border-slate-200 pt-3">
                     <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line break-words">

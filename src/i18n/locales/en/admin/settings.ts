@@ -52,6 +52,14 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
       enable: 'Enable AI auto-dispatch',
       enableHint:
         'When off, every incident waits for Operator review. Skipped cases (suspected duplicate, no vehicles…) still enter the queue with the reason.',
+      mode: 'How AI decides',
+      modeDefault: 'default',
+      modes: { Ensemble: '3-AI vote', Single: 'TriageVL only' },
+      modeHints: {
+        Ensemble:
+          'TriageVL reaches the threshold and at least one of ResNet-50 / YOLO11n recognizes the same incident type, also at the threshold. The level is the highest among the agreeing AIs, so the incident may be upgraded. Incidents without a photo go to an Operator.',
+        Single: 'TriageVL reaching the threshold is enough; no other AI is asked.',
+      },
       confidence: 'Minimum confidence',
       confidenceHint: 'From {{min}}% to {{max}}%. Below the threshold, the case waits for an Operator.',
       duplicateRadius: 'Suspected-duplicate radius',

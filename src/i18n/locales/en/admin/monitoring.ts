@@ -198,6 +198,7 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       after: 'After',
       noChanges: 'No field values changed.',
     },
+    vote: { unavailable: 'unavailable', none: 'No incident', counted: 'counted' },
     yes: 'Yes',
     no: 'No',
     trafficJamAction: {
@@ -344,6 +345,7 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       note: 'Note',
       statusNote: 'Maintenance reason',
       autoDispatchEnabled: 'AI auto-dispatch enabled',
+      autoDispatchMode: 'Auto-dispatch decision mode',
       autoDispatchMinConfidence: 'Auto-dispatch confidence threshold',
       autoDispatchDuplicateRadiusMeters: 'Auto-dispatch duplicate radius (m)',
       autoDispatchDuplicateWindowMinutes: 'Auto-dispatch duplicate window (min)',

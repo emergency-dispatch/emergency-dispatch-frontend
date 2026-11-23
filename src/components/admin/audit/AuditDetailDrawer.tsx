@@ -97,7 +97,7 @@ export const AuditDetailDrawer: React.FC<AuditDetailDrawerProps> = ({ entry, onC
                           <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         </>
                       )}
-                      <span className="font-semibold text-slate-900">{c.to ?? '—'}</span>
+                      <span className="font-semibold text-slate-900 whitespace-pre-line">{c.to ?? '—'}</span>
                     </div>
                   </li>
                 ))}

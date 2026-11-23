@@ -196,6 +196,7 @@ export const adminMonitoringVi = {
       after: 'Sau',
       noChanges: 'Không có trường nào thay đổi giá trị.',
     },
+    vote: { unavailable: 'không khả dụng', none: 'Không có sự cố', counted: 'được tính' },
     yes: 'Có',
     no: 'Không',
     trafficJamAction: {
@@ -344,6 +345,7 @@ export const adminMonitoringVi = {
       note: 'Ghi chú',
       statusNote: 'Lý do bảo trì',
       autoDispatchEnabled: 'Bật AI tự điều phối',
+      autoDispatchMode: 'Cách AI quyết định tự điều phối',
       autoDispatchMinConfidence: 'Ngưỡng tin cậy tự điều phối',
       autoDispatchDuplicateRadiusMeters: 'Bán kính nghi trùng khi tự điều phối (m)',
       autoDispatchDuplicateWindowMinutes: 'Khung thời gian nghi trùng khi tự điều phối (phút)',

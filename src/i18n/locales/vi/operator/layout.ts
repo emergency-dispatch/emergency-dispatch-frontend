@@ -97,6 +97,11 @@ export const layoutVi = {
       belowThreshold: 'Độ tin cậy {{confidence}}% thấp hơn ngưỡng tự điều phối {{threshold}}%.',
       operatorHandling: '{{name}} đã mở ca trước khi AI phân tích xong, nên AI không tự điều phối.',
       operatorHandlingNoName: 'Ca đang được Điều phối viên giữ lúc AI phân tích xong, nên AI không tự điều phối.',
+      ensembleNoMajority:
+        'Không AI phụ nào (ResNet-50, YOLO11n) nhận diện cùng loại sự cố với TriageVL ở độ tin cậy đạt ngưỡng.',
+      ensembleUnavailable: 'Hai AI phụ (ResNet-50, YOLO11n) không chạy được, nên không đủ phiếu để tự điều phối.',
+      ensembleNoPhoto: 'Sự cố không có ảnh để các AI phụ bỏ phiếu.',
+      other: 'Ca không đủ điều kiện để AI tự điều phối — hãy xử lý thủ công.',
       skipped: 'AI đã thử điều phối nhưng bỏ qua ca này.',
       undecided: 'AI đã phân tích xong nhưng chưa tự điều phối được — hãy xử lý thủ công.',
     },

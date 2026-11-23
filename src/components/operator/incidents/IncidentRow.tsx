@@ -120,16 +120,19 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
           <AutoDispatchBadge incident={incident} />
           {handoverReason && !REASONS_WITH_OWN_CHIP.has(handoverReason) && (
             <span
-              title={t(
-                `layout.incomingIncident.reasons.${
-                  handoverReason === 'operatorHandling' && !activeLock ? 'operatorHandlingNoName' : handoverReason
-                }`,
-                {
-                  confidence: incident.confidenceScore,
-                  threshold: threshold ?? 0,
-                  name: activeLock?.operatorName ?? t('layout.incomingIncident.anotherOperator'),
-                }
-              )}
+              title={
+                (handoverReason === 'other' && incident.autoDispatchNotEligibleNote) ||
+                t(
+                  `layout.incomingIncident.reasons.${
+                    handoverReason === 'operatorHandling' && !activeLock ? 'operatorHandlingNoName' : handoverReason
+                  }`,
+                  {
+                    confidence: incident.confidenceScore,
+                    threshold: threshold ?? 0,
+                    name: activeLock?.operatorName ?? t('layout.incomingIncident.anotherOperator'),
+                  }
+                )
+              }
               className="inline-flex items-center gap-1 px-1.5 py-px rounded border border-amber-300 bg-amber-50 text-[10px] font-bold text-amber-800 shrink-0"
             >
               <BotOff className="w-3 h-3" />

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NumberSettingField, SettingsForm } from '../settings/SettingsForm';
 import { draftToEscalation, escalationToDraft, sameSettings, type EscalationDraft } from '../settings/settingsDraft';
 import { Notice, type NoticeState } from '../common/ui';
+import { showToast } from '../common/toastStore';
 import { inputClass, labelClass } from '../common/styles';
 import { useServiceQuery, useUnsavedChangesGuard } from '../common/hooks';
 import {
@@ -43,8 +44,6 @@ export const EscalationSettingsSection: React.FC<{ reloadKey?: number; onSaved?:
     ]);
     return { escalation, dispatch };
   }, `escalation-settings|${reloadKey}`);
-  // Thông báo "đã lưu" giữ ở đây vì form được dựng lại sau khi lưu.
-  const [flash, setFlash] = useState<NoticeState>(null);
 
   if (query.error && !query.data) return <Notice notice={{ kind: 'error', message: query.error }} />;
   if (!query.data) return <div className="text-sm text-slate-400">{t('admin.common.settings.loading')}</div>;
@@ -54,9 +53,8 @@ export const EscalationSettingsSection: React.FC<{ reloadKey?: number; onSaved?:
       key={query.data.escalation.updatedAt ?? 'default'}
       record={query.data.escalation}
       dispatchStepsKm={query.data.dispatch.values.radiusStepsKm}
-      initialNotice={flash}
       onSaved={(message) => {
-        setFlash({ kind: 'success', message });
+        showToast(message);
         query.reload();
         onSaved?.();
       }}
@@ -67,13 +65,12 @@ export const EscalationSettingsSection: React.FC<{ reloadKey?: number; onSaved?:
 const EscalationForm: React.FC<{
   record: SettingsRecord<EscalationSettings>;
   dispatchStepsKm: number[];
-  initialNotice: NoticeState;
   onSaved: (message: string) => void;
-}> = ({ record, dispatchStepsKm, initialNotice, onSaved }) => {
+}> = ({ record, dispatchStepsKm, onSaved }) => {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<EscalationDraft>(() => escalationToDraft(record.values));
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState<NoticeState>(initialNotice);
+  const [notice, setNotice] = useState<NoticeState>(null);
 
   const values = draftToEscalation(draft);
   const errors = validateEscalationSettings(values, dispatchStepsKm);
@@ -100,7 +97,8 @@ const EscalationForm: React.FC<{
     try {
       const defaults = await adminSettingsService.getDefaults();
       setDraft(escalationToDraft(defaults.escalation));
-      setNotice({ kind: 'success', message: t('admin.common.settings.defaultsFilled') });
+      setNotice(null);
+      showToast(t('admin.common.settings.defaultsFilled'), 'info');
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
     }

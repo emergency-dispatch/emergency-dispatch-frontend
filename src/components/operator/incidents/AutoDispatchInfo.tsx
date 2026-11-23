@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bot, BotOff, ExternalLink, Loader2 } from 'lucide-react';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import type { Incident } from '../../../types/incident';
+import { aiVoteTally } from '../../../types/aiVote';
 import { autoDispatchVerdict, type HandoverReason } from './autoDispatchVerdict';
 import { useTranslation } from '../../../i18n';
 
@@ -167,14 +168,15 @@ export const HandoverReasonBox: React.FC<HandoverReasonBoxProps> = ({
       : incident.lock?.operatorName || t('layout.incomingIncident.anotherOperator');
   // §35: lý do "đang giữ ca" do backend lưu có thể đến sau khi khóa đã nhả → không biết ai giữ.
   const reasonKey = reason === 'operatorHandling' && !incident.lock ? 'operatorHandlingNoName' : reason;
-  const text =
-    reason === 'skipped' && incident.autoDispatch?.note
-      ? incident.autoDispatch.note
-      : t(`layout.incomingIncident.reasons.${reasonKey}`, {
-          confidence: incident.confidenceScore,
-          threshold: threshold ?? 0,
-          name: lockName,
-        });
+  const backendNote =
+    reason === 'skipped' ? incident.autoDispatch?.note : reason === 'other' ? incident.autoDispatchNotEligibleNote : null;
+  const text = backendNote
+    ? backendNote
+    : t(`layout.incomingIncident.reasons.${reasonKey}`, {
+        confidence: incident.confidenceScore,
+        threshold: threshold ?? 0,
+        name: lockName,
+      });
   // Thanh % chỉ có nghĩa khi lý do nằm ở độ tin cậy.
   const showBar = threshold !== null && (reason === 'belowThreshold' || reason === 'confidenceNotMeasured');
   return (
@@ -202,8 +204,14 @@ export const HandoverReasonBox: React.FC<HandoverReasonBoxProps> = ({
  * §31.E: khối giải thích trong drawer thẩm định / panel ca: kết quả AI tự điều phối, lý do (autoDispatchNote) và cờ
  * "Nghi trùng với sự cố …" — bấm để mở sự cố kia trên Live Map (sự cố đó đã được điều xe).
  */
-export const AutoDispatchNotice: React.FC<{ incident: Incident; className?: string }> = ({
+export const AutoDispatchNotice: React.FC<{
+  incident: Incident;
+  /** Dòng "3 AI bỏ phiếu: 2/3 đồng ý" — nơi không có chỗ cho bảng phiếu (panel ca Live Map). */
+  showTally?: boolean;
+  className?: string;
+}> = ({
   incident,
+  showTally = false,
   className = '',
 }) => {
   const { t } = useTranslation();
@@ -231,6 +239,9 @@ export const AutoDispatchNotice: React.FC<{ incident: Incident; className?: stri
           : t('incidents.autoDispatch.skippedTitle')}
       </p>
       {auto.note && <p className="leading-relaxed">{auto.note}</p>}
+      {showTally && incident.aiVotes && (
+        <p className="font-semibold">{t('incidents.aiVotes.summary', aiVoteTally(incident.aiVotes))}</p>
+      )}
       {/* AI đã điều: cho thấy độ tin cậy vượt ngưỡng bao nhiêu (ngưỡng hiện tại của Admin). */}
       {dispatched && autoDispatchSettings && (
         <ConfidenceThresholdBar

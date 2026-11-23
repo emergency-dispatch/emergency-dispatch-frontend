@@ -6,6 +6,13 @@ import i18n from '../../i18n';
 // và mỗi lượt quét leo thang, nên Admin lưu là có tác dụng ngay.
 // Lưu ý: PUT ghi đè CẢ object — trường nào FE không gửi sẽ bị backend đặt về mặc định, nên interface phải đủ trường.
 
+/**
+ * §42 — cách AI quyết định tự điều phối. Ensemble (mặc định) = 3 AI bỏ phiếu: TriageVL đạt ngưỡng và ít nhất một trong
+ * ResNet-50 / YOLO11n cùng loại, cũng đạt ngưỡng. Single = chỉ TriageVL.
+ */
+export const AUTO_DISPATCH_MODES = ['Ensemble', 'Single'] as const;
+export type AutoDispatchMode = (typeof AUTO_DISPATCH_MODES)[number];
+
 /** Tham số gợi ý điều phối (FR-OP-04) — chỉnh cho thí nghiệm RQ2 mà không cần sửa code. */
 export interface DispatchSettings {
   weights: { distance: number; stationLoad: number; activeMissions: number };
@@ -20,6 +27,8 @@ export interface DispatchSettings {
   autoDispatchEnabled: boolean;
   /** Ngưỡng độ tin cậy tối thiểu, dạng 0.5–1 (mặc định 0.90). */
   autoDispatchMinConfidence: number;
+  /** Backend ghi đè cả object: thiếu trường này thì tự về Ensemble. */
+  autoDispatchMode: AutoDispatchMode;
   /** Đã có sự cố được điều xe trong bán kính này (m, không xét loại) → nghi trùng, chuyển Operator. */
   autoDispatchDuplicateRadiusMeters: number;
   /** Khung thời gian (phút) xét nghi trùng. */
@@ -38,6 +47,7 @@ export const AUTO_DISPATCH_LIMITS = {
 export const AUTO_DISPATCH_DEFAULTS = {
   autoDispatchEnabled: false,
   autoDispatchMinConfidence: 0.9,
+  autoDispatchMode: 'Ensemble',
   autoDispatchDuplicateRadiusMeters: 500,
   autoDispatchDuplicateWindowMinutes: 30,
 } as const;

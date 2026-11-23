@@ -366,7 +366,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
               )}
               {selectedIncident.area}
             </p>
-            <AutoDispatchNotice incident={selectedIncident} className="mt-2" />
+            <AutoDispatchNotice incident={selectedIncident} showTally className="mt-2" />
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               <button
                 onClick={() => setHistoryOpen(true)}

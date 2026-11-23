@@ -41,6 +41,7 @@ import {
   type TrafficJamReport,
   type AutoDispatchEventDto,
 } from '../types/incident';
+import { aiVoteTally } from '../types/aiVote';
 import type { BackendDispatchStatus, DispatchAssignmentResponseDto } from '../types/dispatch';
 import type { RescueUnitResponseDto, RescueUnitType } from '../types/rescueUnit';
 import type { IncidentTypeDto, RescueUnitTypeDto } from '../types/typeCatalog';
@@ -954,11 +955,17 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 dispatched ? 'layout.operatorAlerts.autoDispatchedTitle' : 'layout.operatorAlerts.autoDispatchSkippedTitle'
               ),
               message: dispatched
-                ? i18n.t('layout.operatorAlerts.autoDispatchedMessage', {
-                    incident: title,
-                    plates: evt.plates ?? '',
-                    confidence: Math.round((evt.confidence ?? 0) * 100),
-                  })
+                ? [
+                    i18n.t('layout.operatorAlerts.autoDispatchedMessage', {
+                      incident: title,
+                      plates: evt.plates ?? '',
+                      confidence: Math.round((evt.confidence ?? 0) * 100),
+                    }),
+                    // §42: chế độ 3 AI bỏ phiếu.
+                    evt.votes?.length ? i18n.t('incidents.aiVotes.summary', aiVoteTally(evt.votes)) : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')
                 : i18n.t('layout.operatorAlerts.autoDispatchSkippedMessage', { incident: title, note: evt.note ?? '' }),
             },
             // Cả hai tự đóng: ca bị bỏ qua đã bật modal "AI chuyển cho bạn" (IncomingIncidentToasts) kèm lý do.

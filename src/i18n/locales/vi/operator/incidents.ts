@@ -65,6 +65,10 @@ export const incidentsVi = {
       aiTypeMismatch: 'AI khác loại ghi nhận',
       belowThreshold: 'Dưới ngưỡng {{confidence}}% < {{threshold}}%',
       operatorHandling: 'Đã mở trước khi AI xong',
+      ensembleNoMajority: '3 AI không đồng thuận',
+      ensembleUnavailable: 'Thiếu phiếu AI phụ',
+      ensembleNoPhoto: 'Không có ảnh để bỏ phiếu',
+      other: 'AI chuyển cho bạn',
       skipped: 'AI bỏ qua',
       undecided: 'AI chưa điều phối',
     },
@@ -433,6 +437,20 @@ export const incidentsVi = {
     hint: 'Quyết định kế hoạch điều xe (loại xe, số xe chuẩn).',
   },
   // §31.E: AI tự điều phối.
+  aiVotes: {
+    title: '3 AI bỏ phiếu',
+    tally: '{{agree}}/{{total}} đồng ý',
+    summary: '3 AI bỏ phiếu: {{agree}}/{{total}} đồng ý.',
+    none: 'Không có sự cố',
+    upgrade: 'Cấp cao nhất trong các AI đồng ý là {{to}}, cao hơn {{from}} của TriageVL. Khi tự điều xe, AI dùng cấp cao hơn.',
+    status: {
+      reference: 'AI chính',
+      agree: 'Đồng ý',
+      belowThreshold: 'Cùng loại, dưới ngưỡng',
+      differentType: 'Khác loại',
+      unavailable: 'Không khả dụng',
+    },
+  },
   autoDispatch: {
     badgeDispatched: 'AI tự điều phối · {{confidence}}%',
     badgeSkipped: 'AI bỏ qua',

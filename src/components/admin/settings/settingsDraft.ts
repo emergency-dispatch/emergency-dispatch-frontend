@@ -1,5 +1,6 @@
 import {
   AUTO_DISPATCH_DEFAULTS,
+  type AutoDispatchMode,
   type DispatchSettings,
   type EscalationSettings,
 } from '../../../services/admin/adminSettingsService';
@@ -16,6 +17,7 @@ export interface DispatchDraft {
   recoveryMinutes: string;
   autoExpireHours: string;
   autoDispatchEnabled: boolean;
+  autoDispatchMode: AutoDispatchMode;
   /** Ngưỡng tin cậy theo % (backend lưu 0.5–1) cho Admin dễ đọc. */
   autoDispatchMinConfidencePercent: string;
   autoDispatchDuplicateRadiusMeters: string;
@@ -34,6 +36,7 @@ export const dispatchToDraft = (s: DispatchSettings): DispatchDraft => ({
   autoExpireHours: String(s.autoExpireHours),
   // Backend cũ chưa có các trường này → dùng mặc định của DispatchSettingsDto.
   autoDispatchEnabled: s.autoDispatchEnabled ?? AUTO_DISPATCH_DEFAULTS.autoDispatchEnabled,
+  autoDispatchMode: s.autoDispatchMode ?? AUTO_DISPATCH_DEFAULTS.autoDispatchMode,
   autoDispatchMinConfidencePercent: String(
     round((s.autoDispatchMinConfidence ?? AUTO_DISPATCH_DEFAULTS.autoDispatchMinConfidence) * 100, 2)
   ),
@@ -54,8 +57,9 @@ export const draftToDispatch = (d: DispatchDraft): DispatchSettings => ({
   radiusStepsKm: d.radiusStepsKm.map(toNumber),
   recoveryMinutes: toNumber(d.recoveryMinutes),
   autoExpireHours: toNumber(d.autoExpireHours),
-  // PUT ghi đè cả object: thiếu các trường này thì backend tắt tự điều phối và đặt lại ngưỡng.
+  // PUT ghi đè cả object: thiếu các trường này thì backend tắt tự điều phối, đặt lại ngưỡng và cách AI quyết định.
   autoDispatchEnabled: d.autoDispatchEnabled,
+  autoDispatchMode: d.autoDispatchMode,
   autoDispatchMinConfidence: round(toNumber(d.autoDispatchMinConfidencePercent) / 100, 4),
   autoDispatchDuplicateRadiusMeters: toNumber(d.autoDispatchDuplicateRadiusMeters),
   autoDispatchDuplicateWindowMinutes: toNumber(d.autoDispatchDuplicateWindowMinutes),

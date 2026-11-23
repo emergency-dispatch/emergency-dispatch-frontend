@@ -100,6 +100,11 @@ export const layoutEn: Messages<typeof layoutVi> = {
       belowThreshold: 'Confidence {{confidence}}% is below the auto-dispatch threshold of {{threshold}}%.',
       operatorHandling: '{{name}} opened the case before AI finished, so AI did not dispatch it.',
       operatorHandlingNoName: 'A dispatcher was holding the case when AI finished, so AI did not dispatch it.',
+      ensembleNoMajority:
+        'Neither supporting AI (ResNet-50, YOLO11n) recognized the same incident type as TriageVL with enough confidence.',
+      ensembleUnavailable: 'The two supporting AIs (ResNet-50, YOLO11n) could not run, so there were not enough votes to dispatch.',
+      ensembleNoPhoto: 'The incident has no photo for the supporting AIs to vote on.',
+      other: 'The case does not qualify for AI auto-dispatch — please handle it manually.',
       skipped: 'AI tried to dispatch but skipped this case.',
       undecided: 'AI finished analysing but has not dispatched — please handle it manually.',
     },

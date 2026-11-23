@@ -51,6 +51,14 @@ export const adminSettingsVi = {
       enable: 'Bật AI tự điều phối',
       enableHint:
         'Khi tắt, mọi sự cố đều chờ Operator duyệt. Ca bị bỏ qua (nghi trùng, hết xe…) vẫn vào hàng đợi kèm lý do.',
+      mode: 'Cách AI quyết định',
+      modeDefault: 'mặc định',
+      modes: { Ensemble: '3 AI bỏ phiếu', Single: 'Chỉ TriageVL' },
+      modeHints: {
+        Ensemble:
+          'TriageVL đạt ngưỡng và ít nhất một trong ResNet-50 / YOLO11n nhận diện cùng loại sự cố, cũng đạt ngưỡng. Cấp độ lấy mức cao nhất trong các AI đồng ý, nên sự cố có thể được nâng cấp. Sự cố không có ảnh thì chuyển Operator.',
+        Single: 'Chỉ cần TriageVL đạt ngưỡng, không hỏi thêm AI khác.',
+      },
       confidence: 'Ngưỡng độ tin cậy tối thiểu',
       confidenceHint: 'Từ {{min}}% đến {{max}}%. Thấp hơn ngưỡng thì chờ Operator.',
       duplicateRadius: 'Bán kính nghi trùng',
