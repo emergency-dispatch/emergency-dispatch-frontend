@@ -1453,6 +1453,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
           isOpen={showSupplementModal}
           onClose={() => setShowSupplementModal(false)}
           incidentId={createdIncident.id}
+          incidentCode={createdIncident.code}
           incidentTitle={createdIncident.title}
           isLinked={Boolean(createdIncident.linkedTo || createdIncident.status === 'Linked')}
         />

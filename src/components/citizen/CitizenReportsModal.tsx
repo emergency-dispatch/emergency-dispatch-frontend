@@ -600,6 +600,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
           isOpen={Boolean(supplementTargetIncident)}
           onClose={() => setSupplementTargetIncident(null)}
           incidentId={supplementTargetIncident.id}
+          incidentCode={supplementTargetIncident.code}
           incidentTitle={supplementTargetIncident.title}
           isLinked={supplementTargetIncident.status === 'Linked'}
           onSuccess={fetchReports}
