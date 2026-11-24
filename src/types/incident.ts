@@ -463,6 +463,8 @@ export interface IncidentResponseDto {
   linkedTo?: LinkedToIncidentDto;
   /** Token dùng để người báo vãng lai (khách) hủy, tách hoặc bổ sung thông tin */
   guestCancellationToken?: string;
+  /** True khi Citizen xem sự cố gốc với tư cách người báo trùng đã được Operator xác nhận (đã che thông tin cá nhân người báo gốc). */
+  viewedAsDuplicateReporter?: boolean;
 }
 
 /**

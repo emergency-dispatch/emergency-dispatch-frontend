@@ -1,8 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { LocateFixed, MapPin, Loader2, Shield } from 'lucide-react';
-import { MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE, mapboxService } from '../../services/mapboxService';
+import { LocateFixed, MapPin, Loader2, Shield, Maximize2, Minimize2, Layers } from 'lucide-react';
+import {
+  MAPBOX_ACCESS_TOKEN,
+  applyStaffMapLayerMode,
+  createStaffBaseMapStyle,
+  mapboxService,
+} from '../../services/mapboxService';
 import { liveMapService, type ServiceAreaDto } from '../../services/liveMapService';
 import { glowStationMarkerHtml, pickPinMarkerHtml } from '../operator/livemap/glowMarkers';
 import { serviceAreaToFeatureCollection } from '../operator/livemap/MapServiceAreaLayer';
@@ -45,6 +50,15 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
   const [isLocating, setIsLocating] = useState(false);
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
   const [stationCount, setStationCount] = useState<number>(0);
+  const [mapLayerMode, setMapLayerMode] = useState<'satellite' | 'streets' | 'dark'>('satellite');
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleChangeLayer = (nextMode: 'satellite' | 'streets' | 'dark') => {
+    setMapLayerMode(nextMode);
+    if (mapRef.current) {
+      applyStaffMapLayerMode(mapRef.current, nextMode);
+    }
+  };
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -53,7 +67,7 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: MAPBOX_STYLE,
+      style: createStaffBaseMapStyle('satellite'),
       center: [longitude, latitude],
       zoom: 15,
       attributionControl: false,
@@ -259,12 +273,27 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
     );
   };
 
+  useEffect(() => {
+    const t = setTimeout(() => mapRef.current?.resize(), 80);
+    return () => clearTimeout(t);
+  }, [isExpanded]);
+
   return (
-    <div className="relative rounded-xl overflow-hidden border border-slate-300 shadow-xs h-full w-full min-h-[280px]">
-      <div ref={mapContainerRef} style={{ width: '100%', height }} className={height === '100%' ? 'h-full w-full' : ''} />
+    <div
+      className={
+        isExpanded
+          ? 'fixed inset-3 sm:inset-6 z-[10050] rounded-2xl overflow-hidden border border-slate-300 shadow-2xl bg-slate-950'
+          : 'relative rounded-xl overflow-hidden border border-slate-300 shadow-xs h-full w-full min-h-[280px]'
+      }
+    >
+      <div
+        ref={mapContainerRef}
+        style={{ width: '100%', height: isExpanded ? '100%' : height }}
+        className={isExpanded || height === '100%' ? 'h-full w-full' : ''}
+      />
 
       {/* Floating Controls */}
-      <div className="absolute top-2.5 left-2.5 flex items-center gap-2 z-10">
+      <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1.5 z-10 max-w-[calc(100%-64px)]">
         <button
           type="button"
           onClick={handleLocateMe}
@@ -281,6 +310,40 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
               ? (i18n.language === 'en' ? 'Locating GPS...' : 'Đang định vị GPS...')
               : (i18n.language === 'en' ? 'Locate My Position' : 'Định vị vị trí của tôi')}
           </span>
+        </button>
+
+        <div className="flex items-center gap-0.5 bg-slate-900/90 backdrop-blur-xs border border-slate-700/80 p-0.5 rounded-lg shadow-md">
+          {(
+            [
+              { id: 'satellite', label: i18n.language === 'en' ? 'Sat' : 'Vệ tinh' },
+              { id: 'streets', label: i18n.language === 'en' ? 'Street' : 'Đường phố' },
+              { id: 'dark', label: 'CAD' },
+            ] as const
+          ).map((mode) => (
+            <button
+              key={mode.id}
+              type="button"
+              onClick={() => handleChangeLayer(mode.id)}
+              className={`px-2 py-1 rounded-md text-[10px] font-mono font-bold transition-colors cursor-pointer flex items-center gap-1 ${
+                mapLayerMode === mode.id
+                  ? 'bg-red-600 text-white'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              {mode.id === 'satellite' && <Layers className="w-3 h-3" />}
+              <span>{mode.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsExpanded((v) => !v)}
+          className="p-1.5 rounded-lg bg-white/95 hover:bg-white text-slate-800 border border-slate-200 shadow-md transition-colors cursor-pointer"
+          title={isExpanded ? 'Thu nhỏ bản đồ' : 'Phóng to bản đồ'}
+          aria-label={isExpanded ? 'Thu nhỏ bản đồ' : 'Phóng to bản đồ'}
+        >
+          {isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
         </button>
 
         {isReverseGeocoding && (

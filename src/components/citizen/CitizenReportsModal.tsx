@@ -43,8 +43,13 @@ interface CitizenReportsModalProps {
 
 const isDuplicateCancellation = (reason?: string | number | null) => {
   const r = String(reason ?? '').toLowerCase();
-  return r.includes('duplicate') || r === '1';
+  return r.includes('duplicate') || r.includes('trùng') || r === '1';
 };
+
+const isConfirmedDuplicateReport = (incident: IncidentResponseDto) =>
+  incident.status === 'Cancelled' &&
+  isDuplicateCancellation(incident.cancellationReason) &&
+  Boolean(incident.linkedToIncidentId);
 
 export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
   isOpen,
@@ -236,7 +241,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold font-mono bg-indigo-50 text-indigo-700 border border-indigo-200">
             <Link2 className="w-3.5 h-3.5 text-indigo-600" />
-            <span>{t('citizen.reports.status.linked', 'Đã gộp vào sự cố đang xử lý')}</span>
+            <span>Đang đối soát nhóm sự cố</span>
           </span>
         );
       default:
@@ -273,6 +278,37 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
 
   const handleOpenTracking = (incident: IncidentResponseDto) => {
     setTrackingIncident(incident);
+  };
+
+  const handleOpenConfirmedDuplicateOriginal = async (report: IncidentResponseDto) => {
+    const parentId = report.linkedToIncidentId;
+    if (!parentId) return;
+    try {
+      const res = await incidentService.getById(parentId);
+      if (res?.success && res.data) {
+        setTrackingIncident({
+          ...res.data,
+          viewedAsDuplicateReporter: true,
+        });
+        return;
+      }
+    } catch {
+      // Fallback sang thông tin tóm tắt đã có nếu gọi chi tiết tạm lỗi mạng
+    }
+    setTrackingIncident({
+      ...report,
+      id: parentId,
+      code: report.linkedTo?.code,
+      title: report.linkedTo?.title || 'Sự cố gốc đang xử lý',
+      locationAddress: report.linkedTo?.locationAddress || report.locationAddress,
+      status: report.linkedTo?.status || 'Verified',
+      viewedAsDuplicateReporter: true,
+      reporterName: undefined,
+      reporterPhone: undefined,
+      mediaItems: [],
+      operatorNotes: undefined,
+      reporterMedicalProfile: null,
+    });
   };
 
   const handleCloseTracking = () => {
@@ -465,46 +501,41 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                     </div>
                   )}
 
-                  {/* Linked to original incident banner (BR-07) */}
-                  {(incident.status === 'Linked' ||
-                    (incident.status === 'Cancelled' && isDuplicateCancellation(incident.cancellationReason))) && (
-                    <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200 text-xs space-y-2">
+                  {/* Linked / Confirmed duplicate notice (BR-07) */}
+                  {isConfirmedDuplicateReport(incident) ? (
+                    <div className="p-3 rounded-xl bg-indigo-50/80 border border-indigo-200 text-xs space-y-2">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-1.5 text-indigo-900 font-bold">
                           <Link2 className="w-4 h-4 text-indigo-600 shrink-0" />
                           <span>
-                            {incident.linkedTo?.title
-                              ? `${incident.status === 'Linked' ? t('citizen.reports.linkedIncidentNotice', 'Báo cáo này đã được gộp vào sự cố đang xử lý.') : 'Báo cáo đã đóng do trùng với sự cố đang xử lý.'} (${incident.linkedTo.title})`
-                              : incident.status === 'Linked'
-                              ? t('citizen.reports.linkedIncidentNotice', 'Báo cáo này đã được gộp vào sự cố đang xử lý.')
-                              : 'Báo cáo đã đóng do trùng với sự cố đang xử lý.'}
+                            {incident.linkedTo?.code || incident.linkedTo?.title
+                              ? `Báo cáo của bạn trùng với sự cố ${incident.linkedTo?.code || `#INC-${incident.linkedToIncidentId!.substring(0, 8).toUpperCase()}`}${incident.linkedTo?.title ? ` (${incident.linkedTo.title})` : ''} đang được xử lý.`
+                              : 'Báo cáo của bạn trùng với sự cố đang được xử lý.'}
                           </span>
                         </div>
-                        {incident.linkedToIncidentId && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleOpenTracking({
-                                ...incident,
-                                id: incident.linkedToIncidentId!,
-                                code: incident.linkedTo?.code,
-                                title: incident.linkedTo?.title || 'Sự cố gốc',
-                                locationAddress: incident.linkedTo?.locationAddress || incident.locationAddress,
-                                status: incident.linkedTo?.status || incident.status,
-                              })
-                            }
-                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] font-mono transition-colors cursor-pointer flex items-center gap-1"
-                          >
-                            <Navigation className="w-3 h-3" />
-                            <span>
-                              {t('citizen.reports.viewOriginalIncident', 'Xem sự cố gốc')} (
-                              {incident.linkedTo?.code || `#INC-${incident.linkedToIncidentId.substring(0, 8).toUpperCase()}`})
-                            </span>
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenConfirmedDuplicateOriginal(incident)}
+                          className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] font-mono transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                          <Navigation className="w-3 h-3" />
+                          <span>
+                            Xem chi tiết &amp; Theo dõi (
+                            {incident.linkedTo?.code || `#INC-${incident.linkedToIncidentId!.substring(0, 8).toUpperCase()}`})
+                          </span>
+                        </button>
                       </div>
                     </div>
-                  )}
+                  ) : incident.status === 'Linked' ? (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                      <div className="flex items-center gap-1.5 text-slate-700 font-medium">
+                        <Clock className="w-4 h-4 text-indigo-500 shrink-0" />
+                        <span>
+                          Trung tâm đang đối soát báo cáo này với các sự cố lân cận. Bạn có thể chọn &ldquo;Đây là sự cố khác&rdquo; nếu không trùng hiện trường.
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
 
                   {/* Item Actions */}
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-end flex-wrap gap-2">
