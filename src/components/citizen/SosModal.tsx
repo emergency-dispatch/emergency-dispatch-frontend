@@ -38,7 +38,7 @@ import { liveMapService, ServiceAreaDto } from '../../services/liveMapService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import { MapboxLocationPicker } from '../common/MapboxLocationPicker';
 import { mapboxService } from '../../services/mapboxService';
-import { searchAddress, type AddressSuggestion } from '../../services/admin/geocodeService';
+import { searchCitizenAddress, type AddressSuggestion } from '../../services/admin/geocodeService';
 import { UserRole } from '../../types/auth';
 import type { CreateIncidentDto, IncidentResponseDto } from '../../types/incident';
 import { CitizenPhoneModal } from './CitizenPhoneModal';
@@ -375,7 +375,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     const controller = new AbortController();
     const timer = setTimeout(() => {
       setIsSearchingSuggestions(true);
-      searchAddress(locationAddress.trim(), controller.signal)
+      searchCitizenAddress(locationAddress.trim(), controller.signal, { allowNominatim: false })
         .then((items) => {
           setAddressSuggestions(items);
           setShowSuggestions(items.length > 0);
@@ -386,7 +386,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
         .finally(() => {
           if (!controller.signal.aborted) setIsSearchingSuggestions(false);
         });
-    }, 300);
+    }, 350);
 
     return () => {
       clearTimeout(timer);
@@ -411,6 +411,16 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     setIsSearchingLocation(true);
     setShowSuggestions(false);
     try {
+      const controller = new AbortController();
+      const hits = await searchCitizenAddress(locationAddress.trim(), controller.signal).catch(() => []);
+      if (hits.length > 0) {
+        setLatitude(hits[0].lat);
+        setLongitude(hits[0].lng);
+        setLocationAddress(hits[0].label);
+        setGpsStatus('locked');
+        isAddressManuallyEditedRef.current = false;
+        return;
+      }
       const res = await mapboxService.forwardGeocode(locationAddress);
       if (res) {
         setLatitude(res.lat);
@@ -1266,7 +1276,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 <p className="text-sm text-slate-600">
                   {t('citizen.sos.incidentCode')}{' '}
                   <strong className="text-red-600 font-mono text-base">
-                    INC-{createdIncident.id.substring(0, 8).toUpperCase()}
+                    {createdIncident.code || `INC-${createdIncident.id.substring(0, 8).toUpperCase()}`}
                   </strong>{' '}
                   — {t('citizen.sos.statusLabel')}{' '}
                   <strong className="text-slate-900 font-mono">
@@ -1280,42 +1290,11 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-left space-y-3 font-mono text-xs w-full max-w-xl mx-auto shadow-xs">
                   <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm">
                     <Link2 className="w-4 h-4 shrink-0 text-indigo-600" />
-                    <span>{t('citizen.sos.linkedAlertTitle', 'Sự cố này đã được báo')}</span>
+                    <span>Đã tiếp nhận &amp; đang đối soát sự cố lân cận</span>
                   </div>
                   <p className="text-slate-600 text-xs font-sans leading-relaxed">
-                    {t(
-                      'citizen.sos.linkedAlertDesc',
-                      'Hệ thống nhận diện báo cáo của bạn trùng với sự cố đang được điều phối gần đó.'
-                    )}
+                    Hệ thống ghi nhận có sự cố gần vị trí của bạn và đang chuyển điều phối viên đối soát. Nếu đây là sự cố khác hoàn toàn, vui lòng chọn &ldquo;Đây là sự cố khác&rdquo;.
                   </p>
-
-                  <div className="p-3.5 rounded-xl bg-white border border-indigo-100 space-y-2">
-                    <div className="font-bold text-slate-900 text-xs flex items-center justify-between">
-                      <span>{createdIncident.linkedTo.title || 'Sự cố đang xử lý'}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold">
-                        ĐÃ GỘP
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-1.5 text-slate-600">
-                      <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
-                      <span className="text-[11px] leading-relaxed">{createdIncident.linkedTo.locationAddress}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
-                      <span className="text-slate-500">{t('citizen.sos.linkedDistance', 'Cách hiện trường:')}</span>
-                      <span className="font-bold text-indigo-700">
-                        ~{Math.round(createdIncident.linkedTo.distanceMeters)} m
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">{t('citizen.sos.linkedVehicles', 'Xe cứu hộ đang tới:')}</span>
-                      <span className="font-bold text-slate-800">
-                        {createdIncident.linkedTo.assignedUnitPlates &&
-                        createdIncident.linkedTo.assignedUnitPlates.length > 0
-                          ? createdIncident.linkedTo.assignedUnitPlates.join(', ')
-                          : t('citizen.sos.linkedNoUnitsYet', 'Đang điều phối xe')}
-                      </span>
-                    </div>
-                  </div>
 
                   {unlinkSuccessMsg ? (
                     <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">

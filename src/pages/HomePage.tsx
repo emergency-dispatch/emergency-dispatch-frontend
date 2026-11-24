@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { HeroSection } from '../components/landing/HeroSection';
@@ -9,10 +9,21 @@ import { RoleSolutionsSection } from '../components/landing/RoleSolutionsSection
 import { HotlineBannerSection } from '../components/landing/HotlineBannerSection';
 import { Footer } from '../components/layout/Footer';
 import { PhoneCall, ShieldAlert } from 'lucide-react';
-import { SosModal, CitizenReportsModal, CitizenPhoneModal } from '../components/citizen';
+import {
+  SosModal,
+  CitizenReportsModal,
+  CitizenPhoneModal,
+  CitizenLiveTrackingMapModal,
+  CitizenRescueAlertModal,
+  playCitizenRescueChime,
+} from '../components/citizen';
+import type { CitizenRescueAlertPayload } from '../components/citizen/CitizenRescueAlertModal';
 import { BackToTop } from '../components/common/BackToTop';
 import { useAuth } from '../hooks/useAuth';
 import { UserRole } from '../types/auth';
+import type { IncidentResponseDto } from '../types/incident';
+import { incidentService } from '../services/incidentService';
+import { incidentHubService, HubEvents } from '../services/realtime/incidentHubService';
 import { mapboxService } from '../services/mapboxService';
 import { useTranslation } from '../i18n';
 
@@ -23,6 +34,22 @@ export const HomePage: React.FC = () => {
   const [sosModalOpen, setSosModalOpen] = useState(false);
   const [reportsModalOpen, setReportsModalOpen] = useState(false);
   const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+  const [rescueAlert, setRescueAlert] = useState<CitizenRescueAlertPayload | null>(null);
+  const [alertTrackingIncident, setAlertTrackingIncident] = useState<IncidentResponseDto | null>(null);
+  const handledAlertKeysRef = useRef<Set<string>>(new Set());
+
+  const handleOpenTrackFromAlert = useCallback(async (incidentId: string) => {
+    try {
+      const res = await incidentService.getById(incidentId);
+      if (res?.success && res.data) {
+        setAlertTrackingIncident(res.data);
+        return;
+      }
+    } catch {
+      // Fallback sang mở lịch sử báo cáo nếu không tải trực tiếp được
+    }
+    setReportsModalOpen(true);
+  }, []);
 
   const handleOpenSos = () => {
     if (!isAuthenticated) {
@@ -38,6 +65,80 @@ export const HomePage: React.FC = () => {
   const isCitizen = !user?.role || roleClean === 'citizen' || user?.role === UserRole.Citizen;
   const hasNoPhone = !user?.phoneNumber || user.phoneNumber.trim() === '';
   const isCitizenWithoutPhone = Boolean((isAuthenticated || !!user) && isCitizen && hasNoPhone);
+
+  // Lắng nghe thông báo khẩn của Citizen (nhận lệnh / xác nhận trùng) -> pop-up giữa màn hình kèm chuông báo
+  useEffect(() => {
+    if (!isAuthenticated || !isCitizen) return;
+    incidentHubService.start().catch(() => {});
+
+    const triggerAlert = (payload: CitizenRescueAlertPayload) => {
+      if (handledAlertKeysRef.current.has(payload.id)) return;
+      handledAlertKeysRef.current.add(payload.id);
+      playCitizenRescueChime();
+      setRescueAlert(payload);
+    };
+
+    const unsubNotif = incidentHubService.on<any>(HubEvents.ReceiveNotification, (notif) => {
+      if (!notif) return;
+      const msg = String(notif.message || '');
+      const title = String(notif.title || '');
+      const text = `${title} ${msg}`.toLowerCase();
+      let parsedData: { parentIncidentId?: string; reportId?: string; plateNumber?: string; stationName?: string } = {};
+      if (notif.dataJson) {
+        try {
+          parsedData = JSON.parse(notif.dataJson);
+        } catch {
+          // ignore
+        }
+      }
+
+      const isDuplicateConfirmed =
+        text.includes('trùng với sự cố') || text.includes('duplicate');
+      const isTeamAccepted =
+        notif.type === 'JobAssigned' ||
+        text.includes('nhận lệnh') ||
+        text.includes('accepted') ||
+        text.includes('đang đến') ||
+        text.includes('đã giao đội');
+
+      if (!isDuplicateConfirmed && !isTeamAccepted) return;
+
+      const targetIncidentId = parsedData.parentIncidentId || notif.incidentId || null;
+      triggerAlert({
+        id: `notif-${notif.id}`,
+        kind: isDuplicateConfirmed ? 'duplicate_confirmed' : 'accepted',
+        title: notif.title || (isDuplicateConfirmed ? 'Xác nhận báo cáo trùng' : 'Đội cứu hộ đã tiếp nhận'),
+        message: notif.message || 'Yêu cầu cứu hộ của bạn đã được cập nhật tiến độ xử lý.',
+        incidentId: targetIncidentId,
+        plateNumber: parsedData.plateNumber || null,
+        stationName: parsedData.stationName || null,
+      });
+    });
+
+    const unsubAssign = incidentHubService.on<any>(HubEvents.ReceiveAssignmentStatus, (evt) => {
+      if (!evt) return;
+      const st = String(evt.status || evt.Status || '');
+      if (st !== 'Accepted' && st !== 'EnRoute') return;
+      const incId = evt.incidentId || evt.IncidentId;
+      triggerAlert({
+        id: `assign-${incId}-${st}`,
+        kind: 'accepted',
+        title: st === 'EnRoute' ? 'Xe cứu hộ đang xuất phát tới!' : 'Đội cứu hộ đã nhận lệnh!',
+        message:
+          st === 'EnRoute'
+            ? 'Đội cứu hộ đang di chuyển tới hiện trường theo lộ trình GPS thời gian thực.'
+            : 'Yêu cầu cứu hộ đã được đội trực chiến tiếp nhận và chuẩn bị xuất phát.',
+        incidentId: incId || null,
+        plateNumber: evt.plateNumber || evt.PlateNumber || null,
+        stationName: evt.stationName || evt.StationName || null,
+      });
+    });
+
+    return () => {
+      unsubNotif();
+      unsubAssign();
+    };
+  }, [isAuthenticated, isCitizen]);
 
   // Yêu cầu lấy vị trí ngay lập tức khi mở web nếu người dùng là Citizen (hoặc vãng lai)
   useEffect(() => {
@@ -167,6 +268,21 @@ export const HomePage: React.FC = () => {
         isOpen={phoneModalOpen}
         onClose={() => setPhoneModalOpen(false)}
       />
+
+      {/* Citizen Center Rescue Alert Modal + Chime */}
+      <CitizenRescueAlertModal
+        alert={rescueAlert}
+        onTrack={handleOpenTrackFromAlert}
+        onDismiss={() => setRescueAlert(null)}
+      />
+
+      {/* Live Tracking opened directly from Alert CTA */}
+      {alertTrackingIncident && (
+        <CitizenLiveTrackingMapModal
+          incident={alertTrackingIncident}
+          onClose={() => setAlertTrackingIncident(null)}
+        />
+      )}
 
       {/* Floating Back to Top Button */}
       <BackToTop />

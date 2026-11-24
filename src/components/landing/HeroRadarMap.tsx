@@ -8,6 +8,8 @@ import {
   AlertTriangle,
   Plus,
   Minus,
+  Maximize2,
+  Minimize2,
   LocateFixed,
   Building2,
   Clock,
@@ -17,8 +19,8 @@ import {
 } from 'lucide-react';
 import {
   MAPBOX_ACCESS_TOKEN,
-  MAPBOX_DARK_STYLE,
-  MAPBOX_REALISTIC_STYLE,
+  applyStaffMapLayerMode,
+  createStaffBaseMapStyle,
   mapboxService,
 } from '../../services/mapboxService';
 import { incidentService, type CitizenTrackingDto } from '../../services/incidentService';
@@ -102,7 +104,8 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   const { user } = useAuth();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const [radarLayer, setRadarLayer] = useState<'satellite' | 'dark'>('satellite');
+  const [radarLayer, setRadarLayer] = useState<'satellite' | 'streets' | 'dark'>('satellite');
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Real entities state
   const [stations, setStations] = useState<Station[]>([]);
@@ -113,6 +116,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   const [trackingRefreshTick, setTrackingRefreshTick] = useState(0);
   const [isCheckingIncident, setIsCheckingIncident] = useState<boolean>(() => Boolean(user));
   const checkedUserKeyRef = useRef<string | null>(null);
+  const lastSignalRAtRef = useRef<number>(0);
+  const liveVehicleRef = useRef(liveVehicle);
+  liveVehicleRef.current = liveVehicle;
   const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(() => getCachedServiceArea());
   const serviceAreaRef = useRef<ServiceAreaDto | null>(serviceArea);
   serviceAreaRef.current = serviceArea;
@@ -365,6 +371,18 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         .then((res) => {
           if (cancelled || !res.data) return;
           setTrackingData(res.data);
+          if (res.data.vehicleLat && res.data.vehicleLng) {
+            const now = Date.now();
+            // Đồng bộ từ polling nếu SignalR chưa push tọa độ mới hơn trong 2.5s qua
+            if (!lastSignalRAtRef.current || now - lastSignalRAtRef.current > 2500) {
+              setLiveVehicle((prev) => ({
+                lat: res.data.vehicleLat!,
+                lng: res.data.vehicleLng!,
+                speedKmh: prev?.speedKmh,
+                heading: prev?.heading,
+              }));
+            }
+          }
           if (res.data.routeTrajectory && res.data.routeTrajectory.length >= 2) {
             const coords: [number, number][] = res.data.routeTrajectory.map((pt) => [
               pt.longitude,
@@ -453,14 +471,24 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     };
   }, [fetchRealEntities, checkCitizenReportedIncident]);
 
-  // SignalR Realtime Listeners
+  // SignalR Realtime Listeners (chỉ re-subscribe khi reportedIncident.id đổi, không bị reset bởi polling route)
+  const reportedIncidentRef = useRef(reportedIncident);
+  reportedIncidentRef.current = reportedIncident;
+  const trackingDataRef = useRef(trackingData);
+  trackingDataRef.current = trackingData;
+  const updateRouteTrajectoryRef = useRef(updateRouteTrajectory);
+  updateRouteTrajectoryRef.current = updateRouteTrajectory;
+  const checkCitizenReportedIncidentRef = useRef(checkCitizenReportedIncident);
+  checkCitizenReportedIncidentRef.current = checkCitizenReportedIncident;
+
   useEffect(() => {
+    const incidentId = reportedIncident?.id;
     let isSubscribed = false;
     const setupSignalR = async () => {
       try {
         await trackingHubService.start();
-        if (reportedIncident?.id) {
-          await trackingHubService.invoke('SubscribeIncident', reportedIncident.id);
+        if (incidentId) {
+          await trackingHubService.invoke('SubscribeIncident', incidentId);
           isSubscribed = true;
         }
       } catch {
@@ -469,6 +497,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
       try {
         await incidentHubService.start();
+        if (incidentId) {
+          await incidentHubService.invoke('SubscribeIncident', incidentId);
+        }
       } catch {
         // Fallback to polling
       }
@@ -476,13 +507,29 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
     setupSignalR();
 
+    const unsubTrackingReconnected = trackingHubService.onReconnected(() => {
+      if (incidentId) {
+        trackingHubService.invoke('SubscribeIncident', incidentId).catch(() => {});
+      }
+      setTrackingRefreshTick((n) => n + 1);
+    });
+    const unsubIncidentReconnected = incidentHubService.onReconnected(() => {
+      if (incidentId) {
+        incidentHubService.invoke('SubscribeIncident', incidentId).catch(() => {});
+      }
+      checkCitizenReportedIncidentRef.current();
+      setTrackingRefreshTick((n) => n + 1);
+    });
+
     // Listen to real-time rescue unit locations
     const unsubLocation = trackingHubService.on(
       HubEvents.ReceiveRescueUnitLocation,
       (msg: any) => {
         if (!msg) return;
+        const inc = reportedIncidentRef.current;
+        const track = trackingDataRef.current;
         const targetIncId = msg.incidentId || msg.IncidentId;
-        if (targetIncId && reportedIncident?.id && targetIncId.toLowerCase() !== reportedIncident.id.toLowerCase()) {
+        if (targetIncId && inc?.id && targetIncId.toLowerCase() !== inc.id.toLowerCase()) {
           return;
         }
 
@@ -490,30 +537,47 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         const lat = msg.latitude ?? msg.Latitude;
         const lng = msg.longitude ?? msg.Longitude;
         const speedKmh = msg.speedKmh ?? msg.SpeedKmh;
-        const heading = msg.headingDegrees ?? msg.HeadingDegrees;
+        const rawHeading = msg.headingDegrees ?? msg.HeadingDegrees;
 
         if (unitId && typeof lat === 'number' && typeof lng === 'number') {
+          lastSignalRAtRef.current = Date.now();
+          const prev = liveVehicleRef.current;
+          const moved = prev && Math.hypot(lat - prev.lat, lng - prev.lng) > 0.00002;
+          let heading = typeof rawHeading === 'number' && rawHeading > 0 ? rawHeading : prev?.heading;
+          if ((typeof rawHeading !== 'number' || rawHeading === 0) && moved && prev) {
+            const toRad = (d: number) => (d * Math.PI) / 180;
+            const dLon = toRad(lng - prev.lng);
+            const y = Math.sin(dLon) * Math.cos(toRad(lat));
+            const x =
+              Math.cos(toRad(prev.lat)) * Math.sin(toRad(lat)) -
+              Math.sin(toRad(prev.lat)) * Math.cos(toRad(lat)) * Math.cos(dLon);
+            heading = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+          }
+
           const marker = unitMarkersRef.current.get(unitId);
           if (marker) {
             marker.setLngLat([lng, lat]);
+            if (typeof heading === 'number') {
+              marker.setRotation(heading);
+            }
           }
 
-          if (trackingData?.rescueUnitId === unitId || (targetIncId && reportedIncident?.id)) {
+          if (track?.rescueUnitId === unitId || (targetIncId && inc?.id)) {
             setLiveVehicle({
               lat,
               lng,
-              speedKmh: typeof speedKmh === 'number' ? Math.round(speedKmh) : undefined,
-              heading: typeof heading === 'number' ? heading : undefined,
+              speedKmh: typeof speedKmh === 'number' ? Math.round(speedKmh) : prev?.speedKmh,
+              heading,
             });
             // Giữ nguyên tuyến đường nhiều điểm từ backend nếu đã có; chỉ nối 2 điểm khi chưa có trajectory
             if (
-              (!trackingData?.routeTrajectory || trackingData.routeTrajectory.length < 2) &&
-              reportedIncident?.latitude &&
-              reportedIncident?.longitude
+              (!track?.routeTrajectory || track.routeTrajectory.length < 2) &&
+              inc?.latitude &&
+              inc?.longitude
             ) {
-              updateRouteTrajectory([
+              updateRouteTrajectoryRef.current([
                 [lng, lat],
-                [reportedIncident.longitude, reportedIncident.latitude],
+                [inc.longitude, inc.latitude],
               ]);
             }
           }
@@ -526,7 +590,8 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       HubEvents.ReceiveIncidentUpdate,
       (updated: any) => {
         if (!updated) return;
-        if (reportedIncident?.id && updated.id === reportedIncident.id) {
+        const inc = reportedIncidentRef.current;
+        if (inc?.id && updated.id === inc.id) {
           setReportedIncident((prev) => (prev ? { ...prev, ...updated } : updated));
         }
       }
@@ -536,9 +601,10 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       HubEvents.ReceiveIncidentStatus,
       (statusUpdate: any) => {
         if (!statusUpdate) return;
-        if (reportedIncident?.id && (statusUpdate.incidentId === reportedIncident.id || statusUpdate.id === reportedIncident.id)) {
+        const inc = reportedIncidentRef.current;
+        if (inc?.id && (statusUpdate.incidentId === inc.id || statusUpdate.id === inc.id)) {
           setReportedIncident((prev) => (prev ? { ...prev, status: statusUpdate.status || statusUpdate.Status || prev.status } : null));
-          checkCitizenReportedIncident();
+          checkCitizenReportedIncidentRef.current();
         }
       }
     );
@@ -547,9 +613,10 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       HubEvents.ReceiveAssignmentStatus,
       (assignUpdate: any) => {
         if (!assignUpdate) return;
-        if (reportedIncident?.id && (assignUpdate.incidentId === reportedIncident.id || assignUpdate.IncidentId === reportedIncident.id)) {
+        const inc = reportedIncidentRef.current;
+        if (inc?.id && (assignUpdate.incidentId === inc.id || assignUpdate.IncidentId === inc.id)) {
           setTrackingRefreshTick((n) => n + 1);
-          checkCitizenReportedIncident();
+          checkCitizenReportedIncidentRef.current();
         }
       }
     );
@@ -566,16 +633,19 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     );
 
     return () => {
-      if (isSubscribed && reportedIncident?.id) {
-        trackingHubService.invoke('UnsubscribeIncident', reportedIncident.id).catch(() => {});
+      if (isSubscribed && incidentId) {
+        trackingHubService.invoke('UnsubscribeIncident', incidentId).catch(() => {});
+        incidentHubService.invoke('UnsubscribeIncident', incidentId).catch(() => {});
       }
+      unsubTrackingReconnected();
+      unsubIncidentReconnected();
       unsubLocation();
       unsubIncident();
       unsubIncidentStatus();
       unsubAssignment();
       unsubSettings();
     };
-  }, [reportedIncident?.id, reportedIncident?.latitude, reportedIncident?.longitude, trackingData?.rescueUnitId, trackingData?.routeTrajectory, updateRouteTrajectory, checkCitizenReportedIncident]);
+  }, [reportedIncident?.id]);
 
   // Determine user GPS / cached location
   useEffect(() => {
@@ -635,7 +705,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: MAPBOX_REALISTIC_STYLE,
+      style: createStaffBaseMapStyle('satellite'),
       center: DEFAULT_MAP_CENTER,
       zoom: 14.5,
       attributionControl: false,
@@ -978,13 +1048,29 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     }
   }, [reportedIncident, i18n.language]);
 
-  const handleSetRadarLayer = (nextMode: 'satellite' | 'dark') => {
+  const handleSetRadarLayer = (nextMode: 'satellite' | 'streets' | 'dark') => {
     if (nextMode === radarLayer) return;
     setRadarLayer(nextMode);
     if (mapRef.current) {
-      mapRef.current.setStyle(nextMode === 'satellite' ? MAPBOX_REALISTIC_STYLE : MAPBOX_DARK_STYLE);
+      applyStaffMapLayerMode(mapRef.current, nextMode);
     }
   };
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('resq_hero_map_fullscreen', { detail: isExpanded }));
+    document.body.style.overflow = isExpanded ? 'hidden' : '';
+    const timer = setTimeout(() => mapRef.current?.resize(), 120);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [isExpanded]);
+
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = '';
+      window.dispatchEvent(new CustomEvent('resq_hero_map_fullscreen', { detail: false }));
+    };
+  }, []);
 
   const handleZoomIn = () => mapRef.current?.zoomIn({ duration: 300 });
   const handleZoomOut = () => mapRef.current?.zoomOut({ duration: 300 });
@@ -1062,19 +1148,15 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   };
 
   return (
-    <div className="relative flex-1 min-h-[160px] rounded-xl bg-slate-950 border border-slate-800 overflow-hidden">
+    <div
+      className={`transition-all duration-300 ${
+        isExpanded
+          ? 'fixed inset-0 z-[9995] rounded-none bg-slate-950 border-0 shadow-none overflow-hidden'
+          : 'relative flex-1 min-h-[160px] rounded-xl bg-slate-950 border border-slate-800 overflow-hidden'
+      }`}
+    >
       {/* Real Interactive Mapbox CAD Canvas */}
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
-
-      {/* Rotating Radar Sweep Line Overlay */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
-        <div className="w-[550px] h-[550px] rounded-full border border-red-500/20 flex items-center justify-center">
-          <div className="w-[380px] h-[380px] rounded-full border border-red-500/30 flex items-center justify-center">
-            <div className="w-[200px] h-[200px] rounded-full border border-red-500/40" />
-          </div>
-        </div>
-        <div className="absolute w-[550px] h-[550px] rounded-full animate-radar-sweep bg-gradient-to-tr from-red-500/10 via-transparent to-transparent origin-center" />
-      </div>
 
       {/* Grid Pattern Overlay */}
       <div className="absolute inset-0 pointer-events-none cad-radar-grid opacity-30" />
@@ -1243,17 +1325,19 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             <div className="flex items-center justify-between gap-1.5 mb-1">
               <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-red-600 flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                <span>ĐỊNH VỊ GPS</span>
+                <span>{i18n.language === 'en' ? 'GPS LOCATION' : 'ĐỊNH VỊ GPS'}</span>
               </span>
               <span className="px-1.5 py-0.5 rounded bg-red-100 border border-red-200 text-red-700 text-[9px] sm:text-[10px] font-bold font-mono-data">
-                LỖI VỊ TRÍ
+                {i18n.language === 'en' ? 'LOCATION ERROR' : 'LỖI VỊ TRÍ'}
               </span>
             </div>
             <p className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
-              Không lấy được vị trí
+              {i18n.language === 'en' ? 'Unable to get location' : 'Không lấy được vị trí'}
             </p>
             <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
-              Vui lòng bật định vị GPS hoặc cấp quyền truy cập vị trí trên trình duyệt.
+              {i18n.language === 'en'
+                ? 'Please enable GPS or grant location access permission in your browser.'
+                : 'Vui lòng bật định vị GPS hoặc cấp quyền truy cập vị trí trên trình duyệt.'}
             </p>
           </div>
         ) : locationStatus === 'locating' ? (
@@ -1261,7 +1345,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             <div className="flex items-center justify-between gap-1.5 mb-1">
               <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-amber-600 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                <span>ĐỊNH VỊ GPS</span>
+                <span>{i18n.language === 'en' ? 'GPS LOCATION' : 'ĐỊNH VỊ GPS'}</span>
               </span>
               <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[9px] sm:text-[10px] font-bold font-mono-data animate-pulse">
                 {i18n.language === 'en' ? 'SCANNING GPS...' : 'ĐANG DÒ GPS...'}
@@ -1303,8 +1387,8 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         )}
       </div>
 
-      {/* Floating Map Style Switcher Segmented Pills */}
-      <div className="absolute top-2.5 right-2.5 z-30 pointer-events-auto">
+      {/* Floating Map Style Switcher Segmented Pills + Expand */}
+      <div className="absolute top-2.5 right-2.5 z-30 pointer-events-auto flex items-center gap-1.5">
         <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-1 rounded-xl shadow-xl">
           <button
             type="button"
@@ -1321,6 +1405,18 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           </button>
           <button
             type="button"
+            onClick={() => handleSetRadarLayer('streets')}
+            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              radarLayer === 'streets'
+                ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+            }`}
+            title={i18n.language === 'en' ? 'Street names map' : 'Bản đồ tên đường'}
+          >
+            <span>{i18n.language === 'en' ? 'STREETS' : 'ĐƯỜNG PHỐ'}</span>
+          </button>
+          <button
+            type="button"
             onClick={() => handleSetRadarLayer('dark')}
             className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               radarLayer === 'dark'
@@ -1332,6 +1428,16 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             <span>{i18n.language === 'en' ? 'DARK CAD' : 'CAD TỐI'}</span>
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsExpanded((v) => !v)}
+          className="w-8 h-8 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 backdrop-blur-md flex items-center justify-center shadow-xl transition-all active:scale-95 cursor-pointer"
+          title={isExpanded ? 'Thu nhỏ bản đồ' : 'Phóng to bản đồ'}
+          aria-label={isExpanded ? 'Thu nhỏ bản đồ' : 'Phóng to bản đồ'}
+        >
+          {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+        </button>
       </div>
 
       {/* Floating Controls: My Location + Zoom In / Out */}

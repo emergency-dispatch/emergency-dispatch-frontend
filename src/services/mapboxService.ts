@@ -357,7 +357,27 @@ export const mapboxService = {
       }
     }
 
-    // 3. Fallback: OpenStreetMap Nominatim chuẩn tiếng Việt (Không truyền custom User-Agent trong browser)
+    // 3. Fallback: Photon OSM (CORS thân thiện trên Vercel, hỗ trợ tốt địa danh/tòa nhà lẫn đường)
+    try {
+      const phUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&lat=10.8441&lon=106.8089&limit=3`;
+      const res = await fetch(phUrl);
+      if (res.ok) {
+        const data = await res.json();
+        const vnFeat = (data?.features || []).find(
+          (f: any) => !f?.properties?.countrycode || String(f.properties.countrycode).toUpperCase() === 'VN'
+        );
+        if (vnFeat?.geometry?.coordinates?.length >= 2) {
+          const p = vnFeat.properties || {};
+          const [lng, lat] = vnFeat.geometry.coordinates;
+          const label = [p.name, p.street, p.district || p.county, p.city || p.state].filter(Boolean).join(', ');
+          return { lat, lng, address: label || trimmed };
+        }
+      }
+    } catch {
+      // Fallback to Nominatim below
+    }
+
+    // 4. Fallback: OpenStreetMap Nominatim chuẩn tiếng Việt (Không truyền custom User-Agent trong browser)
     try {
       const osmUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmed)}&format=json&countrycodes=vn&limit=1&accept-language=vi`;
       const res = await fetch(osmUrl);
