@@ -241,7 +241,11 @@ let isMapboxGeocodeDisabled =
   typeof window !== 'undefined' &&
   import.meta.env.MODE !== 'test' &&
   sessionStorage.getItem('resq_mapbox_geocode_disabled') === 'true';
+let isMapboxDirectionsDisabled = false;
 const geocodeCache = new Map<string, string>();
+const drivingRouteCache = new Map<string, { coords: [number, number][]; ts: number }>();
+const drivingRoutePending = new Map<string, Promise<[number, number][]>>();
+const DRIVING_ROUTE_CACHE_TTL_MS = 60_000;
 
 export const mapboxService = {
   /**
@@ -396,6 +400,107 @@ export const mapboxService = {
     }
 
     return null;
+  },
+
+  /**
+   * Lấy tuyến đường bộ thực tế ([lng, lat][]) qua Mapbox Directions, dự phòng OSRM.
+   * Không tự bịa đường thẳng nếu cả 2 nguồn lỗi.
+   */
+  async getDrivingRoute(
+    fromLat: number,
+    fromLng: number,
+    toLat: number,
+    toLng: number
+  ): Promise<[number, number][]> {
+    if (!fromLat || !fromLng || !toLat || !toLng) return [];
+    if (Math.abs(fromLat - toLat) < 0.0002 && Math.abs(fromLng - toLng) < 0.0002) return [];
+
+    const cacheKey = `${fromLat.toFixed(4)},${fromLng.toFixed(4)}->${toLat.toFixed(4)},${toLng.toFixed(4)}`;
+    const cached = drivingRouteCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < DRIVING_ROUTE_CACHE_TTL_MS) {
+      return cached.coords;
+    }
+
+    const pending = drivingRoutePending.get(cacheKey);
+    if (pending) return pending;
+
+    const req = (async (): Promise<[number, number][]> => {
+      if (MAPBOX_ACCESS_TOKEN && !MAPBOX_ACCESS_TOKEN.includes('dummy') && !isMapboxDirectionsDisabled) {
+        try {
+          const url =
+            `https://api.mapbox.com/directions/v5/mapbox/driving/${fromLng},${fromLat};${toLng},${toLat}` +
+            `?geometries=geojson&overview=full&access_token=${MAPBOX_ACCESS_TOKEN}`;
+          const res = await fetch(url);
+          if (res.status === 401 || res.status === 403) {
+            isMapboxDirectionsDisabled = true;
+          } else if (res.ok) {
+            const data = await res.json();
+            const coords = data?.routes?.[0]?.geometry?.coordinates;
+            if (Array.isArray(coords) && coords.length >= 2) {
+              drivingRouteCache.set(cacheKey, { coords, ts: Date.now() });
+              return coords;
+            }
+          }
+        } catch {
+          // Fallback to OSRM below
+        }
+      }
+
+      try {
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+        const res = await fetch(osrmUrl);
+        if (res.ok) {
+          const data = await res.json();
+          const coords = data?.routes?.[0]?.geometry?.coordinates;
+          if (Array.isArray(coords) && coords.length >= 2) {
+            drivingRouteCache.set(cacheKey, { coords, ts: Date.now() });
+            return coords;
+          }
+        }
+      } catch {
+        // Return empty when routing APIs fail
+      }
+      return [];
+    })().finally(() => {
+      drivingRoutePending.delete(cacheKey);
+    });
+
+    drivingRoutePending.set(cacheKey, req);
+    return req;
+  },
+
+  /**
+   * Chuẩn hóa lộ trình đường bộ cho bản đồ Citizen: chỉ ẩn khi đã hoàn thành/hủy,
+   * ưu tiên trajectory chuẩn từ backend và tự gọi chỉ đường khi backend trả rỗng hoặc đường ước lượng.
+   */
+  async resolveRoadRouteCoords(params: {
+    incidentStatus?: string;
+    dispatchStatus?: string;
+    routeTrajectory?: Array<{ latitude: number; longitude: number }>;
+    isApproximateRoute?: boolean;
+    vehicleLat?: number | null;
+    vehicleLng?: number | null;
+    incidentLat?: number | null;
+    incidentLng?: number | null;
+  }): Promise<[number, number][]> {
+    if (
+      params.incidentStatus === 'Completed' ||
+      params.incidentStatus === 'Cancelled' ||
+      params.dispatchStatus === 'Completed' ||
+      params.dispatchStatus === 'Cancelled'
+    ) {
+      return [];
+    }
+
+    if (!params.isApproximateRoute && params.routeTrajectory && params.routeTrajectory.length >= 2) {
+      return params.routeTrajectory.map((pt) => [pt.longitude, pt.latitude]);
+    }
+
+    if (params.vehicleLat && params.vehicleLng && params.incidentLat && params.incidentLng) {
+      return this.getDrivingRoute(params.vehicleLat, params.vehicleLng, params.incidentLat, params.incidentLng);
+    }
+
+    return [];
   },
 };
 

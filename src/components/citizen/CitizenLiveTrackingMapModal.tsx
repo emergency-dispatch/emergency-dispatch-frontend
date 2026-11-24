@@ -16,13 +16,12 @@ import {
   Radio,
   PlusCircle,
   Shield,
-  FileText,
-  Sparkles,
 } from 'lucide-react';
 import {
   MAPBOX_ACCESS_TOKEN,
   applyStaffMapLayerMode,
   createStaffBaseMapStyle,
+  mapboxService,
 } from '../../services/mapboxService';
 import { incidentService, type CitizenTrackingDto } from '../../services/incidentService';
 import {
@@ -36,12 +35,12 @@ import {
   vehicle3dMarkerHtml,
   glowIncidentMarkerHtml,
 } from '../operator/livemap/glowMarkers';
-import { formatCitizenIncidentStatus, getIncidentVisualMeta } from '../../utils/incidentFormat';
 import type { IncidentResponseDto, IncidentCategory, SeverityLevel } from '../../types/incident';
 import type { DispatchVehicleType, VehicleStatus } from '../../types/vehicle';
 import { haversineDistanceKm } from '../../utils/serviceArea';
 import { useTranslation } from '../../i18n';
 import { CitizenSupplementModal } from './CitizenSupplementModal';
+import { useMapExpandAnimation } from '../../hooks/useMapExpandAnimation';
 
 function computeBearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
@@ -102,7 +101,13 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
   const isFollowingRef = useRef(isFollowingVehicle);
   isFollowingRef.current = isFollowingVehicle;
   const [mapLayerMode, setMapLayerMode] = useState<'satellite' | 'streets' | 'dark'>('satellite');
-  const [isMapExpanded, setIsMapExpanded] = useState<boolean>(false);
+  const {
+    slotRef: mapSlotRef,
+    isExpanded: isMapExpanded,
+    isFixedLayer: isMapFixedLayer,
+    boxStyle: mapExpandStyle,
+    toggleExpanded: toggleMapExpanded,
+  } = useMapExpandAnimation(() => mapRef.current?.resize(), { collapsedRadius: '0px' });
   const [showSupplementModal, setShowSupplementModal] = useState<boolean>(false);
   const isPollingStoppedRef = useRef<boolean>(false);
 
@@ -112,11 +117,6 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
       applyStaffMapLayerMode(mapRef.current, mode);
     }
   };
-
-  useEffect(() => {
-    const t = setTimeout(() => mapRef.current?.resize(), 80);
-    return () => clearTimeout(t);
-  }, [isMapExpanded]);
 
   // Fetch initial tracking data + latest redacted incident status
   const fetchTracking = useCallback(async (isSilent = false) => {
@@ -171,7 +171,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           isPollingStoppedRef.current = true;
           setErrorMsg(
             err?.response?.data?.message ||
-              'Bạn chưa có quyền theo dõi sự cố gốc này cho đến khi điều phối viên xác nhận trùng.'
+            'Bạn chưa có quyền theo dõi sự cố gốc này cho đến khi điều phối viên xác nhận trùng.'
           );
         } else if (err?.response?.status === 401) {
           isPollingStoppedRef.current = true;
@@ -222,11 +222,11 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
     subscribeIncident();
 
     const unsubTrackingReconnected = trackingHubService.onReconnected(() => {
-      trackingHubService.invoke('SubscribeIncident', incident.id).catch(() => {});
+      trackingHubService.invoke('SubscribeIncident', incident.id).catch(() => { });
       fetchTracking(true);
     });
     const unsubIncidentReconnected = incidentHubService.onReconnected(() => {
-      incidentHubService.invoke('SubscribeIncident', incident.id).catch(() => {});
+      incidentHubService.invoke('SubscribeIncident', incident.id).catch(() => { });
       fetchTracking(true);
     });
 
@@ -251,8 +251,8 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           typeof rawHeading === 'number' && rawHeading > 0
             ? rawHeading
             : moved
-            ? computeBearingDeg(prev!.lat, prev!.lng, lat, lng)
-            : prev?.heading ?? 0;
+              ? computeBearingDeg(prev!.lat, prev!.lng, lat, lng)
+              : prev?.heading ?? 0;
 
         setLiveVehicle({ lat, lng, heading, speedKmh: Math.round(speed), at: Date.now() });
 
@@ -297,8 +297,8 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
 
     return () => {
       if (isSubscribed) {
-        trackingHubService.invoke('UnsubscribeIncident', incident.id).catch(() => {});
-        incidentHubService.invoke('UnsubscribeIncident', incident.id).catch(() => {});
+        trackingHubService.invoke('UnsubscribeIncident', incident.id).catch(() => { });
+        incidentHubService.invoke('UnsubscribeIncident', incident.id).catch(() => { });
       }
       unsubTrackingReconnected();
       unsubIncidentReconnected();
@@ -515,96 +515,79 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
     }
   }, [mapLoaded, liveVehicle, trackingData]);
 
-  // Draw Route Polyline
+  // Draw Route Polyline (luôn vẽ tuyến đường bộ thực tế; chỉ xóa tuyến khi đã hoàn thành / hủy)
+  const hasFittedRouteRef = useRef(false);
+  useEffect(() => {
+    hasFittedRouteRef.current = false;
+  }, [incident.id]);
+
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return;
     const map = mapRef.current;
+    let cancelled = false;
 
-    const coords: [number, number][] = [];
-    if (trackingData?.routeTrajectory && trackingData.routeTrajectory.length > 0) {
-      trackingData.routeTrajectory.forEach((p) => {
-        coords.push([p.longitude, p.latitude]);
-      });
-    } else if (trackingData?.vehicleLng && trackingData?.vehicleLat && incident.longitude && incident.latitude) {
-      coords.push([trackingData.vehicleLng, trackingData.vehicleLat]);
-      coords.push([incident.longitude, incident.latitude]);
-    }
+    const sourceId = 'citizen-dispatch-route-source';
+    const lineGlowId = 'citizen-dispatch-route-glow';
+    const lineId = 'citizen-dispatch-route-line';
 
-    if (coords.length >= 2) {
+    const renderRoute = (coords: [number, number][]) => {
+      if (cancelled || !mapRef.current) return;
       const geojson: any = {
         type: 'Feature',
         properties: {},
         geometry: {
           type: 'LineString',
-          coordinates: coords,
+          coordinates: coords.length >= 2 ? coords : [],
         },
       };
 
-      const sourceId = 'citizen-dispatch-route-source';
-      const lineGlowId = 'citizen-dispatch-route-glow';
-      const lineId = 'citizen-dispatch-route-line';
-
       const existingSource = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
-      const isApprox = !!trackingData?.isApproximateRoute;
-
       if (existingSource) {
         existingSource.setData(geojson);
         if (map.getLayer(lineId)) {
-          if (isApprox) {
-            map.setPaintProperty(lineId, 'line-dasharray', [2, 2]);
-          } else {
-            // Reset to solid line in Mapbox GL
-            map.setPaintProperty(lineId, 'line-dasharray', [1, 0]);
-          }
+          map.setPaintProperty(lineId, 'line-dasharray', [1, 0]);
         }
-      } else {
-        map.addSource(sourceId, {
-          type: 'geojson',
-          data: geojson,
-        });
-
-        // Glow effect layer
+      } else if (coords.length >= 2) {
+        map.addSource(sourceId, { type: 'geojson', data: geojson });
         map.addLayer({
           id: lineGlowId,
           type: 'line',
           source: sourceId,
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': '#38BDF8',
-            'line-width': 8,
-            'line-opacity': 0.35,
-            'line-blur': 3,
-          },
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: { 'line-color': '#38BDF8', 'line-width': 8, 'line-opacity': 0.35, 'line-blur': 3 },
         });
-
-        // Main trajectory line - solid road route by default, dashed when approximate
-        const mainLinePaint: any = {
-          'line-color': '#0284C7',
-          'line-width': 4.5,
-          'line-opacity': 0.95,
-        };
-        if (isApprox) {
-          mainLinePaint['line-dasharray'] = [2, 2];
-        }
-
         map.addLayer({
           id: lineId,
           type: 'line',
           source: sourceId,
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: mainLinePaint,
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: { 'line-color': '#0284C7', 'line-width': 4.5, 'line-opacity': 0.95 },
         });
       }
 
-      fitRouteBounds();
-    }
-  }, [mapLoaded, trackingData, incident, fitRouteBounds]);
+      if (coords.length >= 2 && !hasFittedRouteRef.current) {
+        hasFittedRouteRef.current = true;
+        fitRouteBounds();
+      }
+    };
+
+    void mapboxService
+      .resolveRoadRouteCoords({
+        incidentStatus: liveIncident.status,
+        dispatchStatus: trackingData?.dispatchStatus,
+        routeTrajectory: trackingData?.routeTrajectory,
+        isApproximateRoute: trackingData?.isApproximateRoute,
+        vehicleLat: liveVehicle?.lat ?? trackingData?.vehicleLat,
+        vehicleLng: liveVehicle?.lng ?? trackingData?.vehicleLng,
+        incidentLat: liveIncident.latitude,
+        incidentLng: liveIncident.longitude,
+      })
+      .then(renderRoute);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mapLoaded, trackingData, liveIncident, liveVehicle?.lat, liveVehicle?.lng, fitRouteBounds]);
 
   const dispatchStatus = trackingData?.dispatchStatus;
   const isEnRoute = dispatchStatus === 'EnRoute' || dispatchStatus === 'Dispatched' || dispatchStatus === 'Accepted';
@@ -701,150 +684,103 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
 
           {/* Map View Area */}
           <div
-            className={
-              isMapExpanded
-                ? 'fixed inset-0 z-[10050] rounded-none bg-slate-900 border-0 shadow-none overflow-hidden'
-                : 'relative h-[320px] sm:h-[400px] lg:h-full w-full bg-slate-100 shrink-0 lg:shrink lg:flex-1 overflow-hidden'
-            }
+            ref={mapSlotRef}
+            className="relative h-[320px] sm:h-[400px] lg:h-full w-full shrink-0 lg:shrink lg:flex-1"
           >
-            <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+            <div
+              style={mapExpandStyle}
+              className={
+                isMapFixedLayer
+                  ? 'fixed inset-0 z-[10050] rounded-none bg-slate-900 border-0 shadow-none overflow-hidden'
+                  : 'relative w-full h-full bg-slate-100 overflow-hidden'
+              }
+            >
+              <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
-            {/* Floating Top Controls inside Map */}
-            <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-2 pointer-events-auto max-w-[calc(100%-64px)]">
-              <div className="flex items-center gap-0.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-1 rounded-xl shadow-md">
-                {(
-                  [
-                    { id: 'satellite', label: 'Vệ tinh' },
-                    { id: 'streets', label: 'Đường phố' },
-                    { id: 'dark', label: 'CAD Tối' },
-                  ] as const
-                ).map((mode) => (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    onClick={() => handleChangeMapLayer(mode.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                      mapLayerMode === mode.id
+              {/* Floating Top Controls inside Map */}
+              <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-2 pointer-events-auto max-w-[calc(100%-64px)]">
+                <div className="flex items-center gap-0.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-1 rounded-xl shadow-md">
+                  {(
+                    [
+                      { id: 'satellite', label: 'Vệ tinh' },
+                      { id: 'streets', label: 'Đường phố' },
+                      { id: 'dark', label: 'CAD Tối' },
+                    ] as const
+                  ).map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => handleChangeMapLayer(mode.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1 ${mapLayerMode === mode.id
                         ? 'bg-red-600 text-white shadow-xs'
                         : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                    }`}
-                  >
-                    {mode.id === 'satellite' && <Layers className="w-3 h-3" />}
-                    <span>{mode.label}</span>
-                  </button>
-                ))}
-              </div>
+                        }`}
+                    >
+                      {mode.id === 'satellite' && <Layers className="w-3 h-3" />}
+                      <span>{mode.label}</span>
+                    </button>
+                  ))}
+                </div>
 
-              <button
-                type="button"
-                onClick={() => setIsMapExpanded((v) => !v)}
-                className="px-2.5 py-1.5 rounded-xl bg-white/95 hover:bg-white text-slate-800 border border-slate-200 shadow-md text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
-                title={isMapExpanded ? 'Thu gọn bản đồ' : 'Phóng to bản đồ'}
-              >
-                {isMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">{isMapExpanded ? 'Thu nhỏ' : 'Mở rộng'}</span>
-              </button>
-
-              {liveVehicle && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsFollowingVehicle((v) => !v);
-                    if (mapRef.current) {
-                      mapRef.current.easeTo({
-                        center: [liveVehicle.lng, liveVehicle.lat],
-                        zoom: 16,
-                        duration: 800,
-                      });
-                    }
-                  }}
-                  className={`px-3 py-1.5 rounded-xl backdrop-blur-md text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer active:scale-95 ${
-                    isFollowingVehicle
+                  onClick={toggleMapExpanded}
+                  className="px-2.5 py-1.5 rounded-xl bg-white/95 hover:bg-white text-slate-800 border border-slate-200 shadow-md text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+                  title={isMapExpanded ? 'Thu gọn bản đồ' : 'Phóng to bản đồ'}
+                >
+                  {isMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">{isMapExpanded ? 'Thu nhỏ' : 'Mở rộng'}</span>
+                </button>
+
+                {liveVehicle && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsFollowingVehicle((v) => !v);
+                      if (mapRef.current) {
+                        mapRef.current.easeTo({
+                          center: [liveVehicle.lng, liveVehicle.lat],
+                          zoom: 16,
+                          duration: 800,
+                        });
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-xl backdrop-blur-md text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer active:scale-95 ${isFollowingVehicle
                       ? 'bg-blue-600 text-white border border-blue-500 shadow-blue-500/20'
                       : 'bg-white/95 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200/90'
-                  }`}
-                >
-                  <Navigation className={`w-3.5 h-3.5 ${isFollowingVehicle ? 'text-white' : 'text-blue-600'}`} />
-                  <span>{isFollowingVehicle ? t('citizen.reports.followingVehicle') : t('citizen.reports.followVehicle')}</span>
-                </button>
-              )}
-            </div>
+                      }`}
+                  >
+                    <Navigation className={`w-3.5 h-3.5 ${isFollowingVehicle ? 'text-white' : 'text-blue-600'}`} />
+                    <span>{isFollowingVehicle ? t('citizen.reports.followingVehicle') : t('citizen.reports.followVehicle')}</span>
+                  </button>
+                )}
+              </div>
 
-            {/* Bottom-right quick zoom controls */}
-            <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-1.5 pointer-events-auto">
-              <button
-                type="button"
-                onClick={() => mapRef.current?.zoomIn({ duration: 250 })}
-                className="w-8 h-8 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 flex items-center justify-center shadow-md cursor-pointer"
-                aria-label="Phóng to bản đồ"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => mapRef.current?.zoomOut({ duration: 250 })}
-                className="w-8 h-8 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 flex items-center justify-center shadow-md cursor-pointer"
-                aria-label="Thu nhỏ bản đồ"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
+              {/* Bottom-right quick zoom controls */}
+              <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-1.5 pointer-events-auto">
+                <button
+                  type="button"
+                  onClick={() => mapRef.current?.zoomIn({ duration: 250 })}
+                  className="w-8 h-8 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 flex items-center justify-center shadow-md cursor-pointer"
+                  aria-label="Phóng to bản đồ"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => mapRef.current?.zoomOut({ duration: 250 })}
+                  className="w-8 h-8 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 flex items-center justify-center shadow-md cursor-pointer"
+                  aria-label="Thu nhỏ bản đồ"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Right Detail Panel */}
           <div className="w-full lg:w-[400px] xl:w-[420px] shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-slate-50/70 p-5 sm:p-6 flex flex-col justify-between overflow-y-auto space-y-5">
             <div className="space-y-4">
-              {/* Redacted Incident Summary Card (Code, Description, Address, Status, Severity, AI Summary) */}
-              {(() => {
-                const visual = getIncidentVisualMeta(liveIncident);
-                const sevText =
-                  liveIncident.severity === 'Level3'
-                    ? 'Cấp 3 • Nghiêm trọng'
-                    : liveIncident.severity === 'Level2'
-                    ? 'Cấp 2 • Cao'
-                    : liveIncident.severity === 'Level1'
-                    ? 'Cấp 1 • Thấp'
-                    : 'Đang phân loại';
-                return (
-                  <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-2.5">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-900">
-                        <FileText className="w-3.5 h-3.5 text-red-600" />
-                        <span>Chi tiết sự cố</span>
-                      </span>
-                      <span className="font-mono text-[11px] font-bold text-red-600">
-                        {liveIncident.code || `#INC-${liveIncident.id.slice(0, 8).toUpperCase()}`}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-bold">
-                      <span className={`px-2 py-0.5 rounded border ${visual.badgeClass}`}>
-                        {visual.icon} {visual.label}
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                        {formatCitizenIncidentStatus(liveIncident.status)}
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                        {sevText}
-                      </span>
-                    </div>
-                    {liveIncident.description && (
-                      <p className="text-xs text-slate-700 leading-relaxed">{liveIncident.description}</p>
-                    )}
-                    {liveIncident.aiClassification?.summary && (
-                      <div className="p-2.5 rounded-xl bg-purple-50/70 border border-purple-200 text-[11px] text-purple-900 flex items-start gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0 mt-0.5" />
-                        <span>{liveIncident.aiClassification.summary}</span>
-                      </div>
-                    )}
-                    {isDuplicateReporterView && (
-                      <p className="text-[10px] text-slate-500 italic">
-                        Thông tin cá nhân và hình ảnh của người báo gốc được bảo mật ẩn.
-                      </p>
-                    )}
-                  </div>
-                );
-              })()}
-
               {/* Unit Info Card */}
               <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3.5">
                 <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
@@ -1000,6 +936,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           isOpen={showSupplementModal}
           onClose={() => setShowSupplementModal(false)}
           incidentId={incident.id}
+          incidentCode={liveIncident.code || trackingData?.incidentCode}
           incidentTitle={liveIncident.title}
           isLinked={liveIncident.status === 'Linked'}
         />

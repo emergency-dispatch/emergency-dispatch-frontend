@@ -177,4 +177,63 @@ describe('mapboxService', () => {
       await expect(mapboxService.forwardGeocode('không tồn tại')).resolves.toBeNull();
     });
   });
+
+  describe('resolveRoadRouteCoords', () => {
+    it('xóa tuyến khi đã hoàn thành / hủy', async () => {
+      await expect(
+        mapboxService.resolveRoadRouteCoords({
+          incidentStatus: 'Completed',
+          dispatchStatus: 'Completed',
+          routeTrajectory: [{ latitude: 10.8, longitude: 106.7 }, { latitude: 10.84, longitude: 106.8 }],
+          vehicleLat: 10.8,
+          vehicleLng: 106.7,
+          incidentLat: 10.84,
+          incidentLng: 106.8,
+        }),
+      ).resolves.toEqual([]);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('dùng thẳng routeTrajectory chuẩn từ backend', async () => {
+      await expect(
+        mapboxService.resolveRoadRouteCoords({
+          incidentStatus: 'InProgress',
+          dispatchStatus: 'EnRoute',
+          isApproximateRoute: false,
+          routeTrajectory: [{ latitude: 10.8, longitude: 106.7 }, { latitude: 10.84, longitude: 106.8 }],
+        }),
+      ).resolves.toEqual([[106.7, 10.8], [106.8, 10.84]]);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('OnScene nhưng xe còn xa / đường ước lượng → gọi chỉ đường bộ chuẩn, không nối thẳng', async () => {
+      const road = [[106.71, 10.8], [106.75, 10.82], [106.8, 10.84]];
+      fetchMock.mockReturnValueOnce(json({ routes: [{ geometry: { coordinates: road } }] }));
+      await expect(
+        mapboxService.resolveRoadRouteCoords({
+          incidentStatus: 'InProgress',
+          dispatchStatus: 'OnScene',
+          routeTrajectory: [],
+          vehicleLat: 10.801,
+          vehicleLng: 106.711,
+          incidentLat: 10.841,
+          incidentLng: 106.801,
+        }),
+      ).resolves.toEqual(road);
+
+      fetchMock.mockReturnValue(json({}, false, 500));
+      await expect(
+        mapboxService.resolveRoadRouteCoords({
+          incidentStatus: 'InProgress',
+          dispatchStatus: 'EnRoute',
+          isApproximateRoute: true,
+          routeTrajectory: [{ latitude: 10.8, longitude: 106.7 }, { latitude: 10.85, longitude: 106.85 }],
+          vehicleLat: 10.802,
+          vehicleLng: 106.712,
+          incidentLat: 10.852,
+          incidentLng: 106.852,
+        }),
+      ).resolves.toEqual([]);
+    });
+  });
 });

@@ -41,6 +41,7 @@ import type { RescueUnitResponseDto } from '../../types/rescueUnit';
 import type { DispatchVehicleType, Station, VehicleStatus } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
 import { useAuth } from '../../hooks/useAuth';
+import { useMapExpandAnimation } from '../../hooks/useMapExpandAnimation';
 import { UserRole } from '../../types/auth';
 import { serviceAreaToFeatureCollection } from '../operator/livemap/MapServiceAreaLayer';
 import { getCachedServiceArea, haversineDistanceKm, normalizeServiceArea } from '../../utils/serviceArea';
@@ -105,7 +106,13 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [radarLayer, setRadarLayer] = useState<'satellite' | 'streets' | 'dark'>('satellite');
-  const [isExpanded, setIsExpanded] = useState(false);
+  const {
+    slotRef,
+    isExpanded,
+    isFixedLayer,
+    boxStyle,
+    toggleExpanded,
+  } = useMapExpandAnimation(() => mapRef.current?.resize(), { collapsedRadius: '12px' });
 
   // Real entities state
   const [stations, setStations] = useState<Station[]>([]);
@@ -194,7 +201,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   }, []);
 
   // Tactical route updater on Mapbox canvas
+  const activeRouteCoordsRef = useRef<[number, number][]>([]);
   const updateRouteTrajectory = useCallback((coords: [number, number][]) => {
+    activeRouteCoordsRef.current = coords;
     const map = mapRef.current;
     if (!map) return;
     try {
@@ -383,23 +392,22 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
               }));
             }
           }
-          if (res.data.routeTrajectory && res.data.routeTrajectory.length >= 2) {
-            const coords: [number, number][] = res.data.routeTrajectory.map((pt) => [
-              pt.longitude,
-              pt.latitude,
-            ]);
-            updateRouteTrajectory(coords);
-          } else if (
-            res.data.vehicleLat &&
-            res.data.vehicleLng &&
-            reportedIncident.latitude &&
-            reportedIncident.longitude
-          ) {
-            updateRouteTrajectory([
-              [res.data.vehicleLng, res.data.vehicleLat],
-              [reportedIncident.longitude, reportedIncident.latitude],
-            ]);
-          }
+          const vLat = liveVehicleRef.current?.lat ?? res.data.vehicleLat;
+          const vLng = liveVehicleRef.current?.lng ?? res.data.vehicleLng;
+          void mapboxService
+            .resolveRoadRouteCoords({
+              incidentStatus: reportedIncident.status,
+              dispatchStatus: res.data.dispatchStatus,
+              routeTrajectory: res.data.routeTrajectory,
+              isApproximateRoute: res.data.isApproximateRoute,
+              vehicleLat: vLat,
+              vehicleLng: vLng,
+              incidentLat: reportedIncident.latitude,
+              incidentLng: reportedIncident.longitude,
+            })
+            .then((coords) => {
+              if (!cancelled) updateRouteTrajectory(coords);
+            });
 
           if (
             hasFittedTrackingBoundsRef.current !== reportedIncident.id &&
@@ -569,16 +577,19 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
               speedKmh: typeof speedKmh === 'number' ? Math.round(speedKmh) : prev?.speedKmh,
               heading,
             });
-            // Giữ nguyên tuyến đường nhiều điểm từ backend nếu đã có; chỉ nối 2 điểm khi chưa có trajectory
+            // Chỉ gọi chỉ đường bộ thật khi chưa có tuyến đường chuẩn; không tự nối đường thẳng 2 điểm
             if (
-              (!track?.routeTrajectory || track.routeTrajectory.length < 2) &&
+              (inc?.status === 'Dispatched' || inc?.status === 'InProgress') &&
+              track?.dispatchStatus !== 'Completed' &&
               inc?.latitude &&
-              inc?.longitude
+              inc?.longitude &&
+              (activeRouteCoordsRef.current.length < 2 || track?.isApproximateRoute || !track?.routeTrajectory?.length)
             ) {
-              updateRouteTrajectoryRef.current([
-                [lng, lat],
-                [inc.longitude, inc.latitude],
-              ]);
+              void mapboxService.getDrivingRoute(lat, lng, inc.latitude, inc.longitude).then((coords) => {
+                if (coords.length >= 2 && reportedIncidentRef.current?.id === inc.id) {
+                  updateRouteTrajectoryRef.current(coords);
+                }
+              });
             }
           }
         }
@@ -727,11 +738,24 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           return;
         }
         if (!map.getSource('tactical-routes')) {
+          const initialCoords = activeRouteCoordsRef.current;
           map.addSource('tactical-routes', {
             type: 'geojson',
             data: {
               type: 'FeatureCollection',
-              features: [],
+              features:
+                initialCoords.length >= 2
+                  ? [
+                      {
+                        type: 'Feature',
+                        properties: { color: '#3B82F6' },
+                        geometry: {
+                          type: 'LineString',
+                          coordinates: initialCoords,
+                        },
+                      },
+                    ]
+                  : [],
             },
           });
 
@@ -1009,7 +1033,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         ${photoHtml}
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 3px;">
           <span style="font-size: 11px; font-weight: 800; color: #DC2626;">${visual.icon} ${visual.label}</span>
-          <span style="font-size: 10px; font-family: monospace; color: #64748B;">#${reportedIncident.id.slice(0, 6).toUpperCase()}</span>
+          <span style="font-size: 10px; font-family: monospace; color: #64748B;">${reportedIncident.code || trackingData?.incidentCode || `#${reportedIncident.id.slice(0, 6).toUpperCase()}`}</span>
         </div>
         <div style="font-size: 11px; font-weight: 700; color: #0F172A;">${displayTitle}</div>
         <div style="font-size: 10px; color: #64748B; margin-top: 2px;">📍 ${reportedIncident.locationAddress}</div>
@@ -1057,13 +1081,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   };
 
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('resq_hero_map_fullscreen', { detail: isExpanded }));
-    document.body.style.overflow = isExpanded ? 'hidden' : '';
-    const timer = setTimeout(() => mapRef.current?.resize(), 120);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [isExpanded]);
+    window.dispatchEvent(new CustomEvent('resq_hero_map_fullscreen', { detail: isFixedLayer }));
+    document.body.style.overflow = isFixedLayer ? 'hidden' : '';
+  }, [isFixedLayer]);
 
   useEffect(() => {
     return () => {
@@ -1148,13 +1168,15 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   };
 
   return (
-    <div
-      className={`transition-all duration-300 ${
-        isExpanded
-          ? 'fixed inset-0 z-[9995] rounded-none bg-slate-950 border-0 shadow-none overflow-hidden'
-          : 'relative flex-1 min-h-[160px] rounded-xl bg-slate-950 border border-slate-800 overflow-hidden'
-      }`}
-    >
+    <div ref={slotRef} className="relative flex-1 min-h-[160px]">
+      <div
+        style={boxStyle}
+        className={
+          isFixedLayer
+            ? 'fixed inset-0 z-[10050] rounded-none bg-slate-950 border-0 shadow-none overflow-hidden'
+            : 'relative w-full h-full rounded-xl bg-slate-950 border border-slate-800 overflow-hidden'
+        }
+      >
       {/* Real Interactive Mapbox CAD Canvas */}
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
@@ -1230,7 +1252,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
                       {displayTitle}
                     </p>
                     <span className="text-[9px] font-mono text-slate-400 shrink-0">
-                      #{reportedIncident.id.slice(0, 6).toUpperCase()}
+                      {reportedIncident.code || trackingData?.incidentCode || `#${reportedIncident.id.slice(0, 6).toUpperCase()}`}
                     </span>
                   </div>
                   {cleanAiSummary ? (
@@ -1431,7 +1453,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
         <button
           type="button"
-          onClick={() => setIsExpanded((v) => !v)}
+          onClick={toggleExpanded}
           className="w-8 h-8 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 backdrop-blur-md flex items-center justify-center shadow-xl transition-all active:scale-95 cursor-pointer"
           title={isExpanded ? 'Thu nhỏ bản đồ' : 'Phóng to bản đồ'}
           aria-label={isExpanded ? 'Thu nhỏ bản đồ' : 'Phóng to bản đồ'}
@@ -1475,6 +1497,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         >
           <Minus className="w-4 h-4" />
         </button>
+      </div>
       </div>
     </div>
   );
