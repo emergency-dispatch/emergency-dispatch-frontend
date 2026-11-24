@@ -703,7 +703,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
           <div
             className={
               isMapExpanded
-                ? 'fixed inset-2 sm:inset-4 z-[10050] rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden'
+                ? 'fixed inset-0 z-[10050] rounded-none bg-slate-900 border-0 shadow-none overflow-hidden'
                 : 'relative h-[320px] sm:h-[400px] lg:h-full w-full bg-slate-100 shrink-0 lg:shrink lg:flex-1 overflow-hidden'
             }
           >

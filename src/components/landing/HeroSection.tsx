@@ -25,6 +25,15 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
   const { user } = useAuth();
   const { isCooldown, cooldownLabel } = useSosCooldown(user?.id);
   const [etaTime, setEtaTime] = useState(135); // seconds
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      setIsMapExpanded(Boolean((e as CustomEvent<boolean>).detail));
+    };
+    window.addEventListener('resq_hero_map_fullscreen', handler);
+    return () => window.removeEventListener('resq_hero_map_fullscreen', handler);
+  }, []);
 
   // ETA countdown simulator
   useEffect(() => {
@@ -45,7 +54,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
       {/* Subtle Warm Glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-red-100/50 rounded-full blur-[100px] pointer-events-none"></div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full flex-1 flex flex-col justify-between">
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative ${isMapExpanded ? 'z-[9990]' : 'z-10'} w-full flex-1 flex flex-col justify-between`}>
 
         {/* 1. Headline */}
         <div className="text-center pt-1 pb-1 shrink-0">

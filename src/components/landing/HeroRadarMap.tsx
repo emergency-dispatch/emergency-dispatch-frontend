@@ -1057,9 +1057,20 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => mapRef.current?.resize(), 80);
-    return () => clearTimeout(timer);
+    window.dispatchEvent(new CustomEvent('resq_hero_map_fullscreen', { detail: isExpanded }));
+    document.body.style.overflow = isExpanded ? 'hidden' : '';
+    const timer = setTimeout(() => mapRef.current?.resize(), 120);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [isExpanded]);
+
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = '';
+      window.dispatchEvent(new CustomEvent('resq_hero_map_fullscreen', { detail: false }));
+    };
+  }, []);
 
   const handleZoomIn = () => mapRef.current?.zoomIn({ duration: 300 });
   const handleZoomOut = () => mapRef.current?.zoomOut({ duration: 300 });
@@ -1138,24 +1149,14 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
   return (
     <div
-      className={
+      className={`transition-all duration-300 ${
         isExpanded
-          ? 'fixed inset-3 sm:inset-6 z-[9995] rounded-2xl bg-slate-950 border border-slate-700 shadow-2xl overflow-hidden'
+          ? 'fixed inset-0 z-[9995] rounded-none bg-slate-950 border-0 shadow-none overflow-hidden'
           : 'relative flex-1 min-h-[160px] rounded-xl bg-slate-950 border border-slate-800 overflow-hidden'
-      }
+      }`}
     >
       {/* Real Interactive Mapbox CAD Canvas */}
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
-
-      {/* Rotating Radar Sweep Line Overlay */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
-        <div className="w-[550px] h-[550px] rounded-full border border-red-500/20 flex items-center justify-center">
-          <div className="w-[380px] h-[380px] rounded-full border border-red-500/30 flex items-center justify-center">
-            <div className="w-[200px] h-[200px] rounded-full border border-red-500/40" />
-          </div>
-        </div>
-        <div className="absolute w-[550px] h-[550px] rounded-full animate-radar-sweep bg-gradient-to-tr from-red-500/10 via-transparent to-transparent origin-center" />
-      </div>
 
       {/* Grid Pattern Overlay */}
       <div className="absolute inset-0 pointer-events-none cad-radar-grid opacity-30" />
@@ -1324,17 +1325,19 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             <div className="flex items-center justify-between gap-1.5 mb-1">
               <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-red-600 flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                <span>ĐỊNH VỊ GPS</span>
+                <span>{i18n.language === 'en' ? 'GPS LOCATION' : 'ĐỊNH VỊ GPS'}</span>
               </span>
               <span className="px-1.5 py-0.5 rounded bg-red-100 border border-red-200 text-red-700 text-[9px] sm:text-[10px] font-bold font-mono-data">
-                LỖI VỊ TRÍ
+                {i18n.language === 'en' ? 'LOCATION ERROR' : 'LỖI VỊ TRÍ'}
               </span>
             </div>
             <p className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
-              Không lấy được vị trí
+              {i18n.language === 'en' ? 'Unable to get location' : 'Không lấy được vị trí'}
             </p>
             <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
-              Vui lòng bật định vị GPS hoặc cấp quyền truy cập vị trí trên trình duyệt.
+              {i18n.language === 'en'
+                ? 'Please enable GPS or grant location access permission in your browser.'
+                : 'Vui lòng bật định vị GPS hoặc cấp quyền truy cập vị trí trên trình duyệt.'}
             </p>
           </div>
         ) : locationStatus === 'locating' ? (
@@ -1342,7 +1345,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             <div className="flex items-center justify-between gap-1.5 mb-1">
               <span className="text-[10px] sm:text-[11px] font-mono-data font-bold text-amber-600 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                <span>ĐỊNH VỊ GPS</span>
+                <span>{i18n.language === 'en' ? 'GPS LOCATION' : 'ĐỊNH VỊ GPS'}</span>
               </span>
               <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[9px] sm:text-[10px] font-bold font-mono-data animate-pulse">
                 {i18n.language === 'en' ? 'SCANNING GPS...' : 'ĐANG DÒ GPS...'}

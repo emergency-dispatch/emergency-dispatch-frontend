@@ -1276,7 +1276,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 <p className="text-sm text-slate-600">
                   {t('citizen.sos.incidentCode')}{' '}
                   <strong className="text-red-600 font-mono text-base">
-                    INC-{createdIncident.id.substring(0, 8).toUpperCase()}
+                    {createdIncident.code || `INC-${createdIncident.id.substring(0, 8).toUpperCase()}`}
                   </strong>{' '}
                   — {t('citizen.sos.statusLabel')}{' '}
                   <strong className="text-slate-900 font-mono">

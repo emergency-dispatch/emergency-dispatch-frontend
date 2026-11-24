@@ -282,7 +282,7 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
     <div
       className={
         isExpanded
-          ? 'fixed inset-3 sm:inset-6 z-[10050] rounded-2xl overflow-hidden border border-slate-300 shadow-2xl bg-slate-950'
+          ? 'fixed inset-0 z-[10050] rounded-none overflow-hidden border-0 shadow-none bg-slate-950'
           : 'relative rounded-xl overflow-hidden border border-slate-300 shadow-xs h-full w-full min-h-[280px]'
       }
     >

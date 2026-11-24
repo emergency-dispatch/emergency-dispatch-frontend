@@ -190,7 +190,8 @@ export async function searchCitizenAddress(
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  const cacheKey = trimmed.toLowerCase();
+  const allowNominatimFallback = options?.allowNominatim ?? true;
+  const cacheKey = `${trimmed.toLowerCase()}|${allowNominatimFallback ? 1 : 0}`;
   const cached = citizenSearchCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < CITIZEN_CACHE_TTL_MS) {
     return cached.items;
@@ -223,11 +224,19 @@ export async function searchCitizenAddress(
     .filter((r): r is PromiseFulfilledResult<AddressSuggestion[]> => r.status === 'fulfilled')
     .reduce<AddressSuggestion[]>((acc, r) => mergeSuggestions(acc, r.value), []);
 
-  const allowNominatimFallback = options?.allowNominatim ?? true;
-  if (merged.length === 0 && allowNominatimFallback && !signal?.aborted) {
+  // Khi dán địa chỉ dài (nhiều dấu phẩy / mã bưu chính từ reverse-geocode) mà Photon chỉ trả về POI chung không khớp phần đầu (VD: "Đường D18"),
+  // tự fallback sang Nominatim ngay cả lúc gợi ý tự động vì Nominatim giải mã chuẩn chuỗi reverse-geocode của chính nó.
+  const firstPart = trimmed.split(',')[0].trim().toLowerCase();
+  const hasRelevantHit =
+    firstPart.length >= 3 &&
+    merged.some((m) => m.label.toLowerCase().includes(firstPart));
+  const looksLikeFullCopiedAddress = trimmed.includes(',') && firstPart.length >= 3;
+
+  if (((merged.length === 0 && allowNominatimFallback) || (!hasRelevantHit && looksLikeFullCopiedAddress)) && !signal?.aborted) {
     try {
       const nom = await searchNominatim(trimmed, signal);
-      merged = mergeSuggestions(merged, nom);
+      // Đặt kết quả Nominatim lên trước khi chuỗi copy đầy đủ khớp chính xác hơn Photon
+      merged = !hasRelevantHit && nom.length > 0 ? mergeSuggestions(nom, merged) : mergeSuggestions(merged, nom);
     } catch (err: any) {
       if (signal?.aborted) throw err;
     }
