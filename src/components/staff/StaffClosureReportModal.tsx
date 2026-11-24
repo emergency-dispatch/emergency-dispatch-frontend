@@ -24,6 +24,7 @@ import { StaffSignaturePad } from './StaffSignaturePad';
 import { staffAudioService } from '../../services/staffAudioService';
 import { mediaService } from '../../services/mediaService';
 import { useAuth } from '../../hooks/useAuth';
+import { formatShortId } from '../../utils/incidentFormat';
 
 interface StaffClosureReportModalProps {
   mission: StaffMission;
@@ -286,8 +287,8 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
                   <span className="text-xs uppercase font-mono font-bold text-red-600">
                     BÁO CÁO NGHIỆM THU HIỆN TRƯỜNG (FR-RS-03)
                   </span>
-                  <span className="px-2 py-0.5 rounded bg-slate-100 text-[11px] font-mono text-slate-600 border border-slate-200">
-                    Sự cố #{mission.incidentId}
+                  <span className="px-2 py-0.5 rounded bg-slate-100 text-[11px] font-mono text-slate-600 border border-slate-200" title={mission.incidentId}>
+                    Sự cố {formatShortId(mission.incidentCode || mission.incidentId)}
                   </span>
                 </div>
                 <h2 className="text-lg font-black text-slate-900 mt-0.5">

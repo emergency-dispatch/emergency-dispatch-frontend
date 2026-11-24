@@ -7,6 +7,7 @@ import type { ServiceAreaDto } from '../../../services/liveMapService';
 import { StaffActiveMissionView } from './StaffActiveMissionView';
 import { StaffStandbyView } from '../../../components/staff/StaffStandbyView';
 import { Radio } from 'lucide-react';
+import { formatShortId } from '../../../utils/incidentFormat';
 
 interface StaffMissionTabProps {
   activeMission: StaffMission | null;
@@ -100,8 +101,8 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
                 <Radio className="w-5 h-5 animate-pulse" />
               </div>
               <div>
-                <p className="text-xs font-bold font-mono uppercase tracking-wider text-red-950">
-                  Đang có 1 nhiệm vụ tác chiến #{activeMission.incidentId}
+                <p className="text-xs font-bold font-mono uppercase tracking-wider text-red-950" title={activeMission.incidentId}>
+                  Đang có 1 nhiệm vụ tác chiến {formatShortId(activeMission.incidentCode || activeMission.incidentId)}
                 </p>
                 <p className="text-xs text-red-800 mt-0.5 font-medium">
                   {activeMission.title} – {activeMission.address}

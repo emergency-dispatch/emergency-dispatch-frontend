@@ -62,6 +62,7 @@ export interface DigitalClosureReport {
 export interface StaffMission {
   id: string;
   incidentId: string;
+  incidentCode?: string;
   title: string;
   description: string;
   severity: IncidentSeverity;

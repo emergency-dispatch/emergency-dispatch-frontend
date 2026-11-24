@@ -4,6 +4,7 @@
  */
 import React, { useState } from 'react';
 import { QrCode, ScanLine, CheckCircle2, Hospital, ShieldCheck, Sparkles, RefreshCw } from 'lucide-react';
+import { formatShortId } from '../../utils/incidentFormat';
 
 interface StaffQrHandoverProps {
   missionId: string;
@@ -201,7 +202,7 @@ export const StaffQrHandover: React.FC<StaffQrHandoverProps> = ({
 
           <div className="space-y-1.5 text-xs">
             <div className="font-mono-data font-bold text-slate-900 text-sm">
-              MÃ BÀN GIAO: <span className="text-red-600">{missionId}</span>
+              MÃ BÀN GIAO: <span className="text-red-600" title={missionId}>{formatShortId(missionId, '')}</span>
             </div>
             <p className="text-slate-600">
               Đưa mã QR này cho đại diện Bệnh viện / Công an quét để đồng bộ hồ sơ tiếp nhận hiện trường tức thì vào hệ thống CAD liên ngành.

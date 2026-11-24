@@ -153,3 +153,62 @@ export function formatCitizenIncidentStatus(status?: string | null): string {
   }
 }
 
+export const isGuid = (val?: string | null): boolean =>
+  typeof val === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
+
+/**
+ * Rút gọn ID tác chiến / sự cố / nhiệm vụ hiển thị trên giao diện:
+ * Nếu là GUID dài (36 ký tự) -> chỉ lấy 8 ký tự đầu viết hoa, ví dụ: "64da9ab4-da11-..." -> "#64DA9AB4"
+ * Nếu có mã sự cố ngắn như "INC-0012" -> "#INC-0012"
+ */
+export function formatShortId(id?: string | null, prefix = '#'): string {
+  if (!id) return '';
+  const clean = id.trim().replace(/^#/, '');
+  if (!clean) return '';
+  if (clean.toUpperCase().startsWith('INC-')) {
+    return `${prefix}${clean.toUpperCase()}`;
+  }
+  if (isGuid(clean) || clean.length >= 32) {
+    const firstBlock = clean.split('-')[0] || clean.slice(0, 8);
+    return `${prefix}${firstBlock.slice(0, 8).toUpperCase()}`;
+  }
+  return `${prefix}${clean}`;
+}
+
+/**
+ * Chuẩn hóa vai trò nhân viên / thành viên tổ cứu hộ từ mã backend enum sang tiếng Việt người dùng dễ hiểu:
+ * Rescuer -> Chiến sĩ cứu hộ, Driver -> Lái xe, Medic -> Y sĩ cấp cứu,
+ * Commander / Leader -> Chỉ huy kíp, Firefighter -> Chiến sĩ cứu hỏa,
+ * RescueStaff -> Cán bộ cứu hộ, Operator -> Điều phối viên, Admin -> Quản trị viên.
+ */
+export function formatCrewRole(role?: string | null): string {
+  if (!role || !role.trim()) return '';
+  const key = role.trim().toLowerCase();
+  switch (key) {
+    case 'rescuer':
+      return 'Chiến sĩ cứu hộ';
+    case 'driver':
+      return 'Lái xe';
+    case 'medic':
+      return 'Y sĩ cấp cứu';
+    case 'commander':
+    case 'leader':
+    case 'teamleader':
+      return 'Chỉ huy kíp';
+    case 'firefighter':
+      return 'Chiến sĩ cứu hỏa';
+    case 'rescuestaff':
+      return 'Cán bộ cứu hộ';
+    case 'operator':
+      return 'Điều phối viên';
+    case 'admin':
+      return 'Quản trị viên';
+    case 'citizen':
+      return 'Người dân';
+    default:
+      return role.trim();
+  }
+}
+
+
