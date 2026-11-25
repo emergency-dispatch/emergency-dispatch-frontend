@@ -131,6 +131,25 @@ export function glowAiWorkingMarkerHtml(category: IncidentCategory, phase: 'anal
   `;
 }
 
+/**
+ * Ca chờ người thẩm định: cùng họ "Quầng sáng", vòng đỏ nét đứt đứng yên (chưa duyệt, tới lượt người). Đang mở thẩm định
+ * thì vòng liền + viền trắng. Không có cung cấp độ vì chưa ai chốt. Neo tâm.
+ */
+export function glowPendingMarkerHtml(category: IncidentCategory, opened: boolean): string {
+  const { ring, halo, glyph: glyphColor } = C.human;
+  return `
+    <div class="relative cursor-pointer" style="width:52px;height:52px;">
+      <svg viewBox="0 0 52 52" width="52" height="52" style="position:absolute;inset:0;overflow:visible;pointer-events:none;">
+        <circle cx="26" cy="26" r="25" fill="${halo}" opacity="0.2"${opened ? ' class="motion-safe:animate-pulse"' : ''}/>
+        <circle cx="26" cy="26" r="21" fill="none" stroke="${ring}" stroke-width="3"${opened ? '' : ' stroke-dasharray="7 5.2" stroke-linecap="round"'}/>
+        ${opened ? '<circle cx="26" cy="26" r="24.4" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>' : ''}
+        <circle cx="26" cy="26" r="14" fill="${C.core}" stroke="${ring}" stroke-width="1.5"/>
+      </svg>
+      ${glyph(INCIDENT_GLYPH[category], 18, 18, 16, glyphColor)}
+    </div>
+  `;
+}
+
 /** Cạnh khung icon trạm 3D (px). Tâm nền nhà trùng tâm khung → neo 'center'. */
 export const STATION_ICON_SIZE = 48;
 
@@ -288,6 +307,11 @@ export function legendIncidentIconHtml(category: IncidentCategory, size = 18): s
       <svg viewBox="0 0 20 20" width="${size}" height="${size}" style="position:absolute;inset:0;"><circle cx="10" cy="10" r="9" fill="${C.core}" stroke="${color}" stroke-width="1.5"/></svg>
       ${glyph(INCIDENT_GLYPH[category], (size - g) / 2, (size - g) / 2, g, C.categoryGlyph[category])}
     </div>`;
+}
+
+/** Ca chờ người thẩm định (vòng đỏ nét đứt). */
+export function legendPendingIconHtml(size = 18): string {
+  return `<svg viewBox="0 0 20 20" width="${size}" height="${size}" style="display:block;"><circle cx="10" cy="10" r="5" fill="${C.core}"/><circle cx="10" cy="10" r="8.6" fill="none" stroke="${C.human.ring}" stroke-width="1.8" stroke-dasharray="3.4 2"/></svg>`;
 }
 
 /** Vòng 3 cung sáng theo cấp độ. */

@@ -5,7 +5,10 @@ import { useDispatchStore } from '../../context/DispatchContext';
 import { useAuth } from '../../hooks/useAuth';
 import { usePlanProgress } from '../../hooks/usePlanProgress';
 import { useDispatchRoutes } from '../../hooks/useDispatchRoutes';
+import { useIncidentTriage } from '../../hooks/useIncidentTriage';
 import { useNow } from '../../hooks/useNow';
+import { CaseDossierPanel } from '../../components/operator/livemap/CaseDossierPanel';
+import { IncidentDetailDrawer } from '../../components/operator/incidents/IncidentDetailDrawer';
 import { DispatchIncidentList } from '../../components/operator/livemap/DispatchIncidentList';
 import { DispatchRecommendPanel } from '../../components/operator/livemap/DispatchRecommendPanel';
 import { CaseAssignments } from '../../components/operator/livemap/CaseAssignments';
@@ -24,7 +27,7 @@ import { findNearbyIncidents } from '../../utils/nearbyIncidents';
 import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
 import type { AssignOptions, TeamAssignTarget } from '../../context/DispatchContext';
 import type { FieldRequestDto } from '../../types/fieldRequest';
-import type { OperatorCancellationCode } from '../../types/incident';
+import type { BlockDuration, OperatorCancellationCode } from '../../types/incident';
 import type { DispatchAlgorithm } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
 
@@ -36,8 +39,8 @@ const GpsSimulatorPanel = import.meta.env.DEV
   : null;
 
 /**
- * Live Map — giám sát và xử lý ngoại lệ sau khi giao xe (giao xe lần đầu đã chuyển vào Hàng đợi):
- *   [Panel trái 2 tầng: Danh sách ca ⇄ Chi tiết ca] | [Bản đồ + thẻ "Tổ sẵn sàng"]
+ * Live Map — giám sát, thẩm định và điều phối:
+ *   [Panel trái: Danh sách ca ⇄ Chi tiết ca (380px) / Thẩm định, Hồ sơ ca (760px)] | [Bản đồ + thẻ "Tổ sẵn sàng"]
  *
  * Tablet < 1024px: cùng panel đó trong Bottom Sheet (tablet cũng giao xe được).
  * Chế độ tạo sự cố (?create=1, nút "Tạo sự cố" trên Topbar): form tiếp nhận thay panel trái (rộng hơn),
@@ -74,6 +77,11 @@ export const LiveMapPage: React.FC = () => {
     escalatedIncidentIds,
     assignmentsByIncident,
     autoDispatchSettings,
+    currentOperatorId,
+    revealReporterPhone,
+    unlinkLinkedReport,
+    supplementVersions,
+    setIncidentDrawerOpen,
   } = useDispatchStore();
   const teamByVehicle = useTeamByVehicle();
   const navigate = useNavigate();
@@ -84,6 +92,8 @@ export const LiveMapPage: React.FC = () => {
   const [assigningTeamId, setAssigningTeamId] = useState<string | null>(null);
   const [cancellingVehicleId, setCancellingVehicleId] = useState<string | null>(null);
   const [cancellingIncidentId, setCancellingIncidentId] = useState<string | null>(null);
+  // Hồ sơ của ca đang chọn (thay Chi tiết ca, panel rộng hơn); `cancelling` = mở sẵn phần hủy ca.
+  const [dossier, setDossier] = useState<{ incidentId: string; cancelling: boolean } | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
   /** §35: hệ quả của thao tác vừa xong (VD thu hồi lượt cuối → sự cố tự đóng / về hàng chờ). */
   const [panelNotice, setPanelNotice] = useState<string | null>(null);
@@ -122,13 +132,50 @@ export const LiveMapPage: React.FC = () => {
     });
   }, [incidents, fieldRequests, escalatedIncidentIds, autoDispatchSettings, slowNow, planProgressOf]);
 
+  // Chọn ca ngay (không hỏi) — chỉ gọi khi chắc chắn không còn ca nào đang thẩm định.
+  const showIncident = (id: string | null) => {
+    setSelectedIncidentId(id);
+    setDossier(null);
+    setPanelError(null);
+    setPanelNotice(null);
+    setServingRequestId(null);
+    if (id) setSheetOpen(true);
+  };
+
+  // Thẩm định ngay trên Live Map; duyệt xong chuyển thẳng sang Chi tiết ca để điều tổ.
+  const triage = useIncidentTriage({ onApproved: showIncident });
+  const handleSelectIncident = (id: string | null) => triage.requestLeave(() => showIncident(id));
+  const handleOpenTriage = (id: string) => {
+    if (triage.openId === id) {
+      setSheetOpen(true);
+      return;
+    }
+    triage.requestLeave(() => {
+      showIncident(null);
+      triage.open(id);
+      setSheetOpen(true);
+    });
+  };
+
+  // "Tôi xử lý" ở dải AI / thẻ AI / marker AI → mở thẩm định. Chờ ca có trong danh sách rồi mới mở, xong thì xóa khỏi
+  // lịch sử để tải lại trang không tự giữ khóa ca cũ.
+  const triageIncidentId = (location.state as { triageIncidentId?: string } | null)?.triageIncidentId;
+  const triageTargetStatus = triageIncidentId ? incidentsById.get(triageIncidentId)?.status : undefined;
+  useEffect(() => {
+    if (!triageIncidentId || !triageTargetStatus) return;
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    if (triageTargetStatus === 'pending') handleOpenTriage(triageIncidentId);
+    else handleSelectIncident(triageIncidentId);
+    // Mỗi yêu cầu là một location.key mới.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triageIncidentId, triageTargetStatus, location.key]);
+
   // Deep link từ banner leo thang / thông báo
   const focusIncidentId = (location.state as { focusIncidentId?: string } | null)?.focusIncidentId;
   useEffect(() => {
-    if (focusIncidentId) {
-      setSelectedIncidentId(focusIncidentId);
-      setSheetOpen(true);
-    }
+    if (focusIncidentId) handleSelectIncident(focusIncidentId);
+    // Chỉ chạy theo yêu cầu mới.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusIncidentId, location.key]);
 
   // Cảnh báo điểm ùn tắc leo thang (§24) → bay tới và mở popup (có nút giao đội).
@@ -163,14 +210,6 @@ export const LiveMapPage: React.FC = () => {
     [fieldRequests, servingRequestId, selectedIncidentId]
   );
 
-  const handleSelectIncident = (id: string | null) => {
-    setSelectedIncidentId(id);
-    setPanelError(null);
-    setPanelNotice(null);
-    setServingRequestId(null);
-    if (id) setSheetOpen(true);
-  };
-
   // Bấm lại icon Live Map ở thanh bên khi đang ở đây → về "Theo dõi ca" (đang tạo sự cố thì hỏi bỏ dữ liệu trước).
   // Bản đồ giữ nguyên. Bỏ qua state còn lưu trong lịch sử khi vừa mở / tải lại trang.
   const liveMapHome = !!(location.state as { liveMapHome?: boolean } | null)?.liveMapHome;
@@ -185,10 +224,9 @@ export const LiveMapPage: React.FC = () => {
   }, [liveMapHome, location.key]);
 
   const handleServeFieldRequest = (request: FieldRequestDto) => {
-    setSelectedIncidentId(request.incidentId);
+    showIncident(request.incidentId);
     setServingRequestId(request.id);
     setHighlightFieldRequestId(request.id);
-    setPanelError(null);
   };
 
   const closeCreate = () => {
@@ -209,6 +247,24 @@ export const LiveMapPage: React.FC = () => {
   // Tablet: mở form thì kéo bottom sheet lên.
   useEffect(() => {
     if (createOpen) setSheetOpen(true);
+  }, [createOpen]);
+
+  // Bấm "Tạo sự cố" khi đang thẩm định → rời ca (nhả khóa); đang nhập dở thì hỏi trước rồi mới mở form.
+  useEffect(() => {
+    if (!createOpen || !triage.openId) return;
+    if (!triage.isDirty()) {
+      triage.close();
+      return;
+    }
+    closeCreate();
+    triage.requestLeave(() =>
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('create', '1');
+        return next;
+      })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createOpen]);
 
   // Sự cố Operator tạo đã được xác minh → chọn ngay để panel phải mở gợi ý xe.
@@ -276,17 +332,22 @@ export const LiveMapPage: React.FC = () => {
     else setPanelNotice(result.notice ?? null);
   };
 
-  const handleCancelIncident = async (incidentId: string, reasonCode: OperatorCancellationCode) => {
+  const handleCancelIncident = async (
+    incidentId: string,
+    reason: string,
+    blockDuration: BlockDuration | null,
+    reasonCode: OperatorCancellationCode
+  ) => {
     setCancellingIncidentId(incidentId);
     setPanelError(null);
     const result = await rejectIncident(
       incidentId,
-      'Điều phối viên hủy sự cố đã duyệt trên Live Map.',
-      null,
+      reason || 'Điều phối viên hủy sự cố đã duyệt trên Live Map.',
+      blockDuration,
       reasonCode
     );
     if (!result.ok) setPanelError(result.message ?? t('context.cancelFailed'));
-    else if (selectedIncidentId === incidentId) setSelectedIncidentId(null);
+    else if (selectedIncidentId === incidentId) showIncident(null);
     setCancellingIncidentId(null);
   };
 
@@ -296,60 +357,141 @@ export const LiveMapPage: React.FC = () => {
   const ownAssignments = selectedCase ? assignmentsByIncident.get(selectedCase.id) : undefined;
   const completion = ownAssignments ? progressOf(groupCompletion(ownAssignments, teamByVehicle)) : null;
 
+  const dossierOpen = showDetail && !!selectedCase && dossier?.incidentId === selectedCase.id;
+  // Thẩm định / Hồ sơ ca cần hai cột → panel rộng; banner leo thang né sang phần bản đồ.
+  const widePanel = !createOpen && (!!triage.incident || dossierOpen);
+  useEffect(() => {
+    setIncidentDrawerOpen(widePanel, 'left');
+    return () => setIncidentDrawerOpen(false);
+  }, [widePanel, setIncidentDrawerOpen]);
+
   const casePanel =
-    showDetail && selectedCase ? (
-      <DispatchRecommendPanel
-        selectedIncidentId={selectedCase.id}
-        assigningTeamId={assigningTeamId}
-        onAssign={handleAssign}
-        fieldRequest={servingRequest}
-        onExitFieldRequest={() => setServingRequestId(null)}
-        onBack={() => handleSelectIncident(null)}
-        onOpenIncident={handleSelectIncident}
+    triage.incident ? (
+      <IncidentDetailDrawer
+        key={triage.incident.id}
+        variant="panel"
+        incident={triage.incident}
+        currentOperatorId={currentOperatorId}
+        isEscalated={escalatedIncidentIds.has(triage.incident.id)}
+        isLocking={triage.isLocking}
         attentionCount={attentionCount}
-        caseBody={
-          <>
-            {panelError && (
-              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <span className="flex-1">{panelError}</span>
-                <button onClick={() => setPanelError(null)} aria-label={t('liveMap.incidentList.dismissError')}>
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-            {panelNotice && (
-              <div
-                role="status"
-                className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
+        onClose={() => handleSelectIncident(null)}
+        onApprove={triage.approve}
+        onReject={triage.reject}
+        onTransfer={triage.transfer}
+        transferStations={triage.transferStations}
+        onRelock={triage.relock}
+        onRevealPhone={revealReporterPhone}
+        onUnlinkReport={unlinkLinkedReport}
+        supplementVersion={supplementVersions.get(triage.incident.id) ?? 0}
+        isSubmitting={triage.submitting}
+        errorMsg={triage.actionError}
+        onDirtyChange={triage.setDirty}
+        leavePrompt={
+          triage.leavePending && (
+            <div
+              role="alertdialog"
+              aria-label={t('liveMap.triage.leavePrompt')}
+              className="shrink-0 flex flex-wrap items-center gap-2 px-5 py-2 border-b border-amber-300 bg-amber-50 text-xs text-amber-900"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span className="flex-1 min-w-[12rem] font-semibold">{t('liveMap.triage.leavePrompt')}</span>
+              <button
+                onClick={triage.cancelLeave}
+                autoFocus
+                className="px-2.5 py-1 rounded-md border border-amber-300 bg-white font-bold hover:bg-amber-100"
               >
-                <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <span className="flex-1">{panelNotice}</span>
-                <button onClick={() => setPanelNotice(null)} aria-label={t('common.close')}>
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-            <CaseAssignments
-              key={selectedCase.id}
-              incident={selectedCase}
-              vehiclesById={vehiclesById}
-              assignments={ownAssignments ?? []}
-              completion={completion}
-              onOpenCompletion={() => navigate(`${COMPLETION_PATH}?incident=${encodeURIComponent(selectedCase.id)}`)}
-              isCancelling={cancellingIncidentId === selectedCase.id}
-              cancellingVehicleId={cancellingVehicleId}
-              onCancelVehicle={handleCancelVehicle}
-              onCancelIncident={(reasonCode) => handleCancelIncident(selectedCase.id, reasonCode)}
-              onDismissNotice={(noticeId) => dismissResponseNotice(selectedCase.id, noticeId)}
-            />
-          </>
+                {t('liveMap.triage.stay')}
+              </button>
+              <button
+                onClick={triage.confirmLeave}
+                className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-500 text-white font-bold"
+              >
+                {t('liveMap.triage.leave')}
+              </button>
+            </div>
+          )
         }
       />
+    ) : showDetail && selectedCase ? (
+      <>
+        {dossierOpen && (
+          <CaseDossierPanel
+            key={selectedCase.id}
+            incident={selectedCase}
+            assignments={ownAssignments ?? []}
+            startCancelling={!!dossier?.cancelling}
+            isCancelling={cancellingIncidentId === selectedCase.id}
+            errorMsg={panelError}
+            onBack={() => {
+              setDossier(null);
+              setPanelError(null);
+            }}
+            onCancelCase={(reason, blockDuration, reasonCode) =>
+              handleCancelIncident(selectedCase.id, reason, blockDuration, reasonCode)
+            }
+          />
+        )}
+        {/* Ẩn chứ không gỡ: quay lại từ Hồ sơ ca vẫn còn các tổ đang chọn. */}
+        <div className={dossierOpen ? 'hidden' : 'h-full'}>
+          <DispatchRecommendPanel
+            selectedIncidentId={selectedCase.id}
+            assigningTeamId={assigningTeamId}
+            onAssign={handleAssign}
+            fieldRequest={servingRequest}
+            onExitFieldRequest={() => setServingRequestId(null)}
+            onBack={() => handleSelectIncident(null)}
+            onOpenIncident={handleSelectIncident}
+            onOpenDossier={() => setDossier({ incidentId: selectedCase.id, cancelling: false })}
+            attentionCount={attentionCount}
+            caseBody={
+              <>
+                {panelError && (
+                  <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span className="flex-1">{panelError}</span>
+                    <button onClick={() => setPanelError(null)} aria-label={t('liveMap.incidentList.dismissError')}>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+                {panelNotice && (
+                  <div
+                    role="status"
+                    className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
+                  >
+                    <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span className="flex-1">{panelNotice}</span>
+                    <button onClick={() => setPanelNotice(null)} aria-label={t('common.close')}>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+                <CaseAssignments
+                  key={selectedCase.id}
+                  incident={selectedCase}
+                  vehiclesById={vehiclesById}
+                  assignments={ownAssignments ?? []}
+                  completion={completion}
+                  onOpenCompletion={() => navigate(`${COMPLETION_PATH}?incident=${encodeURIComponent(selectedCase.id)}`)}
+                  cancellingVehicleId={cancellingVehicleId}
+                  onCancelVehicle={handleCancelVehicle}
+                  onCancelIncident={() => {
+                    setPanelError(null);
+                    setDossier({ incidentId: selectedCase.id, cancelling: true });
+                  }}
+                  onDismissNotice={(noticeId) => dismissResponseNotice(selectedCase.id, noticeId)}
+                />
+              </>
+            }
+          />
+        </div>
+      </>
     ) : (
       <DispatchIncidentList
         selectedIncidentId={selectedIncidentId}
         onSelectIncident={handleSelectIncident}
+        onOpenTriage={handleOpenTriage}
         panelError={panelError}
         onClearError={() => setPanelError(null)}
         onServeFieldRequest={handleServeFieldRequest}
@@ -367,7 +509,7 @@ export const LiveMapPage: React.FC = () => {
       {/* Desktop: luôn hiện. Tablet: nằm trong bottom sheet. */}
       <div
         className={`hidden lg:flex lg:shrink-0 h-full flex-col border-r border-slate-200 bg-white ${
-          createOpen ? 'lg:w-[440px]' : 'lg:w-[380px]'
+          createOpen ? 'lg:w-[440px]' : widePanel ? 'lg:w-[min(760px,58vw)]' : 'lg:w-[380px]'
         }`}
       >
         {(isDesktop && createPanel) || (isDesktop && casePanel)}
@@ -390,6 +532,8 @@ export const LiveMapPage: React.FC = () => {
           trafficAssignableUnits={trafficAssignableUnits}
           focusTrafficJam={focusTrafficJam}
           focusAiIncident={focusAiIncident}
+          triageIncidentId={triage.incident?.id ?? null}
+          onOpenTriage={handleOpenTriage}
           routes={routes}
           vehiclesById={vehiclesById}
           incidentsById={incidentsById}
@@ -437,7 +581,7 @@ export const LiveMapPage: React.FC = () => {
       <div
         className={`lg:hidden z-[1100] bg-white flex flex-col transition-[height] duration-300
           absolute inset-x-0 bottom-0 rounded-t-2xl shadow-[0_-8px_24px_rgba(15,23,42,0.18)]
-          ${sheetOpen ? (createOpen ? 'h-[70%]' : 'h-[55%]') : 'h-11'}`}
+          ${sheetOpen ? (widePanel ? 'h-full' : createOpen ? 'h-[70%]' : 'h-[55%]') : 'h-11'}`}
       >
         <button
           onClick={() => setSheetOpen((v) => !v)}
@@ -450,8 +594,9 @@ export const LiveMapPage: React.FC = () => {
         {!isDesktop && createPanel ? (
           // Giữ form mounted khi thu sheet (để xem bản đồ chọn vị trí) — không mất dữ liệu đang nhập.
           <div className={`flex-1 min-h-0 ${sheetOpen ? '' : 'hidden'}`}>{createPanel}</div>
-        ) : sheetOpen && (
-          <div className="flex-1 min-h-0">{!isDesktop && casePanel}</div>
+        ) : (sheetOpen || widePanel) && (
+          // Đang thẩm định / xem hồ sơ: thu sheet để nhìn bản đồ không làm mất nội dung đang nhập.
+          <div className={`flex-1 min-h-0 ${sheetOpen ? '' : 'hidden'}`}>{!isDesktop && casePanel}</div>
         )}
       </div>
     </div>

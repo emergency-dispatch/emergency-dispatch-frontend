@@ -13,7 +13,7 @@ import { IncidentCode } from './incidents/IncidentCode';
  * Escalated (Cấp 3 chưa có đội nhận quá ngưỡng cấu hình). Tự biến mất khi có đơn vị nhận.
  */
 export const EscalationAlert: React.FC = () => {
-  const { incidents, escalatedIncidentIds, incidentDrawerOpen, escalationSettings, escalationTiers } = useDispatchStore();
+  const { incidents, escalatedIncidentIds, incidentDrawerOpen, incidentDrawerSide, escalationSettings, escalationTiers } = useDispatchStore();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const now = useNow(15000);
@@ -32,9 +32,19 @@ export const EscalationAlert: React.FC = () => {
   const collapse = () => (incidentDrawerOpen ? setPeekKey(null) : setCollapsedKey(key));
 
   // Drawer chiếm tối đa 64rem bên phải → đặt banner vào giữa vùng còn trống bên trái để không che Drawer.
+  const besideRightDrawer = incidentDrawerOpen && incidentDrawerSide === 'right';
   const positionStyle = (halfWidth: string): React.CSSProperties =>
-    incidentDrawerOpen ? { left: `max(1rem, calc((100vw - 64rem) / 2 - ${halfWidth}))` } : {};
-  const centeredClass = incidentDrawerOpen ? '' : 'left-1/2 -translate-x-1/2';
+    besideRightDrawer ? { left: `max(1rem, calc((100vw - 64rem) / 2 - ${halfWidth}))` } : {};
+  // Panel trái Live Map (thanh bên 64px + min(760px, 58vw)) → giữa phần bản đồ còn lại.
+  const centeredClass = besideRightDrawer
+    ? ''
+    : incidentDrawerOpen
+      ? 'left-1/2 lg:left-[calc(50%+32px+min(380px,29vw))] -translate-x-1/2'
+      : 'left-1/2 -translate-x-1/2';
+  const widthClass =
+    incidentDrawerOpen && !besideRightDrawer
+      ? 'w-[min(640px,calc(100%-2rem))] lg:w-[min(640px,calc(100vw-96px-min(760px,58vw)))]'
+      : 'w-[min(640px,calc(100%-2rem))]';
   const thresholdMinutes = escalationThresholdMinutes(now, escalationSettings);
   const thresholdLabel =
     t('layout.escalation.threshold', { minutes: thresholdMinutes.toLocaleString(dateLocale()) }) +
@@ -66,7 +76,7 @@ export const EscalationAlert: React.FC = () => {
         <div
           role="alert"
           style={positionStyle('320px')}
-          className={`fixed top-20 ${centeredClass} z-[1501] w-[min(640px,calc(100%-2rem))] rounded-xl bg-red-600 text-white shadow-2xl shadow-red-900/30`}
+          className={`fixed top-20 ${centeredClass} z-[1501] ${widthClass} rounded-xl bg-red-600 text-white shadow-2xl shadow-red-900/30`}
         >
           <div className="flex items-start gap-3 px-4 pt-3.5 pb-2">
             <Siren className="w-5 h-5 shrink-0 mt-0.5 animate-pulse" />

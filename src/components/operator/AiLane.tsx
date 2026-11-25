@@ -16,7 +16,6 @@ import {
 import { useTranslation } from '../../i18n';
 import './aiLane.css';
 
-const QUEUE_PATH = '/dashboard/command-center/incidents';
 const LIVE_MAP_PATH = '/dashboard/command-center/live-map';
 
 /** Số ô hiện được trên thanh trên cùng theo bề ngang; còn lại gộp vào "+N". Dưới lg chỉ còn nút "AI · N". */
@@ -96,7 +95,7 @@ export const AiTakeOver: React.FC<{ incidentId: string; onDone?: () => void }> =
           onClick={() => {
             dismissIncomingIncident(incidentId);
             onDone?.();
-            navigate(QUEUE_PATH, { state: { openIncidentId: incidentId } });
+            navigate(LIVE_MAP_PATH, { state: { triageIncidentId: incidentId } });
           }}
           className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-bold"
         >

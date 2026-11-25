@@ -1,17 +1,14 @@
 import React, { useEffect } from 'react';
-import { AlertTriangle, Ban, FileCheck2, History, Map as MapIcon, MapPin, X } from 'lucide-react';
+import { AlertTriangle, History, Map as MapIcon, MapPin, X } from 'lucide-react';
 import { AutoDispatchNotice } from './AutoDispatchInfo';
 import { AiVotesPanel } from './AiVotesPanel';
+import { DispatchAssignmentList } from './DispatchAssignmentList';
 import { IncidentAuditTimeline } from './IncidentAuditTimeline';
 import { IncidentMediaGallery } from './IncidentMediaGallery';
 import { SeverityBadge } from './SeverityBadge';
 import { DispatchPlanHint } from '../livemap/DispatchPlanHint';
-import { ASSIGNMENT_VEHICLE_STATUS } from '../completion/completionGroups';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
-import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import { useDispatchStore } from '../../../context/DispatchContext';
-import { useAssignmentTeam } from '../../../hooks/useStationTeams';
-import { assignmentPlateLabel, type DispatchAssignmentResponseDto } from '../../../types/dispatch';
 import type { Incident } from '../../../types/incident';
 import { useTranslation } from '../../../i18n';
 import { IncidentCode } from './IncidentCode';
@@ -113,15 +110,7 @@ export const AutoDispatchedDrawer: React.FC<AutoDispatchedDrawerProps> = ({ inci
               {t('incidents.autoDispatched.teams', { count: Math.max(0, activeCount) })}
             </h3>
             <DispatchPlanHint limit={vehicleLimitFor(incident)} />
-            {assignments.length === 0 ? (
-              <p className="text-sm text-slate-400">{t('incidents.dispatchStep.noneAssigned')}</p>
-            ) : (
-              <ul className="divide-y divide-slate-100 border-y border-slate-100">
-                {assignments.map((a) => (
-                  <AssignmentRow key={a.id} assignment={a} />
-                ))}
-              </ul>
-            )}
+            <DispatchAssignmentList assignments={assignments} />
           </section>
 
           <details className="group rounded-lg border border-slate-200">
@@ -136,53 +125,5 @@ export const AutoDispatchedDrawer: React.FC<AutoDispatchedDrawerProps> = ({ inci
         </div>
       </aside>
     </>
-  );
-};
-
-/** Một lượt điều xe: tổ (chốt lúc phát lệnh) + xe + trạng thái. */
-const AssignmentRow: React.FC<{ assignment: DispatchAssignmentResponseDto }> = ({ assignment }) => {
-  const { t } = useTranslation();
-  const { unitTypeLabel } = useDispatchStore();
-  const team = useAssignmentTeam()(assignment.rescueUnitId, assignment);
-  const vehicleStatus = ASSIGNMENT_VEHICLE_STATUS[assignment.status];
-  const plate = assignmentPlateLabel(assignment);
-  const unitType = assignment.rescueUnit?.unitType;
-
-  let statusEl: React.ReactNode;
-  if (vehicleStatus) {
-    statusEl = (
-      <span className="inline-flex items-center gap-1 font-semibold" style={{ color: VEHICLE_STATUS_META[vehicleStatus].color }}>
-        <span className="w-2 h-2 rounded-full" style={{ background: VEHICLE_STATUS_META[vehicleStatus].color }} />
-        {t(`enums.vehicleStatus.${vehicleStatus}`)}
-      </span>
-    );
-  } else if (assignment.status === 'Completed') {
-    statusEl = (
-      <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
-        <FileCheck2 className="w-3.5 h-3.5" />
-        {t('liveMap.incidentList.reported')}
-      </span>
-    );
-  } else {
-    // Cancelled (thu hồi) / Rejected (đội từ chối).
-    statusEl = (
-      <span className="inline-flex items-center gap-1 font-semibold text-slate-400">
-        <Ban className="w-3.5 h-3.5" />
-        {assignment.status === 'Rejected' ? t('incidents.autoDispatched.rejected') : t('incidents.autoDispatched.recalled')}
-      </span>
-    );
-  }
-
-  return (
-    <li className="flex items-center justify-between gap-3 py-2.5">
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-900 truncate">{team?.name ?? t('liveMap.incidentList.vehicleNoTeam')}</p>
-        <p className="text-xs text-slate-500 truncate">
-          <span className="font-mono-data">{plate}</span>
-          {unitType && ` · ${unitTypeLabel(unitType)}`}
-        </p>
-      </div>
-      <span className="shrink-0 text-xs">{statusEl}</span>
-    </li>
   );
 };

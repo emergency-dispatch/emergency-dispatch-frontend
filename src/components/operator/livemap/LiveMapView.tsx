@@ -31,6 +31,7 @@ import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } f
 import { dateLocale, useTranslation } from '../../../i18n';
 import { IncidentCode } from '../incidents/IncidentCode';
 import { AiWorkingMarkers } from './AiWorkingMarkers';
+import { PendingCaseMarkers } from './PendingCaseMarkers';
 import { gpsFarFromStationKm, isGpsSignalLost, readyAwayFromStationKm } from '../../../utils/vehicleLocation';
 import { useNow } from '../../../hooks/useNow';
 import { trackingHubService } from '../../../services/realtime/incidentHubService';
@@ -429,6 +430,10 @@ interface LiveMapViewProps {
   focusTrafficJam?: { id: string; key: number } | null;
   /** §31.E: bay tới + mở popup tin báo AI đang xử lý ("Xem trên bản đồ" ở dải AI); `key` đổi mỗi lần yêu cầu. */
   focusAiIncident?: { id: string; key: number } | null;
+  /** Ca đang mở thẩm định ở panel trái → bay tới marker của ca. */
+  triageIncidentId?: string | null;
+  /** Bấm marker ca chờ người → mở thẩm định. */
+  onOpenTriage?: (incidentId: string) => void;
   /** Lộ trình xe đang tới hiện trường. */
   routes?: DispatchRoute[];
   vehiclesById?: Map<string, Vehicle>;
@@ -456,6 +461,8 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   trafficAssignableUnits = [],
   focusTrafficJam = null,
   focusAiIncident = null,
+  triageIncidentId = null,
+  onOpenTriage,
   routes = [],
   serviceArea = null,
   vehiclesById,
@@ -616,6 +623,13 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, focusAiIncident?.key, !!focusAi]);
 
+  const triageIncident = triageIncidentId ? allIncidents.find((i) => i.id === triageIncidentId) : undefined;
+  useEffect(() => {
+    if (!map || !triageIncident) return;
+    map.flyTo({ center: [triageIncident.lng, triageIncident.lat], zoom: Math.max(map.getZoom(), 15), duration: 800 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, triageIncident?.id]);
+
   const handleOpenDirections = () => {
     if (!selectedVehicle) return;
     const targetIncident = selectedVehicle.incidentId ? incidentsById?.get(selectedVehicle.incidentId) : null;
@@ -765,6 +779,10 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
           })}
 
           <AiWorkingMarkers map={map} focus={focusAiIncident} />
+          {/* Đang chọn vị trí tạo sự cố thì ẩn: bấm nhầm marker sẽ rời form đang nhập. */}
+          {!pickLocation && onOpenTriage && (
+            <PendingCaseMarkers map={map} openIncidentId={triageIncidentId} onOpen={onOpenTriage} />
+          )}
 
           {nearbyOffMap.map((incident) => (
             <MapMarker

@@ -49,7 +49,8 @@ export const liveMapVi = {
       planShort: 'Còn thiếu {{units}}',
       planShortNoTeam: 'Thiếu {{units}} · trạm hết tổ',
     },
-    cta: { dispatchMore: 'Giao tiếp', reassign: 'Giao lại', serve: 'Đáp ứng', dispatch: 'Giao tổ', open: 'Mở ca', review: 'Thẩm định' },
+    cta: { dispatchMore: 'Giao tiếp', reassign: 'Giao lại', serve: 'Đáp ứng', dispatch: 'Giao tổ', open: 'Mở ca', review: 'Thẩm định', view: 'Xem' },
+    loading: 'Đang tải danh sách ca…',
     allReported: 'Các tổ đã nộp báo cáo',
     vehicleCount: '{{active}}/{{max}} tổ',
   },
@@ -58,6 +59,19 @@ export const liveMapVi = {
     attention: '· {{count}} cần xử lý',
     addVehicles: 'Giao thêm tổ',
     cancelCase: 'Hủy ca',
+  },
+  // Thẩm định ca chờ duyệt ngay trong panel trái.
+  triage: {
+    gone: 'Ca bạn đang mở không còn chờ thẩm định (đã hủy, đã gộp hoặc đã có người xử lý).',
+    leavePrompt: 'Bạn đang nhập dở. Rời ca này thì nội dung chưa lưu sẽ mất.',
+    leave: 'Rời ca',
+    stay: 'Ở lại',
+  },
+  // Hồ sơ ca đã duyệt / đã điều.
+  dossier: {
+    title: 'Hồ sơ ca',
+    back: 'Chi tiết ca',
+    tabInfo: 'Hồ sơ',
   },
   readyTeams: {
     title: 'Tổ sẵn sàng',
@@ -220,6 +234,7 @@ export const liveMapVi = {
     open: 'Chú thích',
     collapse: 'Thu gọn chú thích',
     incidents: 'Sự cố',
+    pendingReview: 'Ca chờ bạn thẩm định',
     vehicles: 'Tổ / xe',
     severity: 'Cấp độ',
     stationsAndTraffic: 'Trạm & ùn tắc',

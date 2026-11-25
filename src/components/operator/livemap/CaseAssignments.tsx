@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AlertTriangle, Ban, CheckCircle2, ChevronRight, ClipboardCheck, FileCheck2, Loader2, X } from 'lucide-react';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
-import { CANCELLATION_REASON_OPTIONS } from '../../../data/incidentMock';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { DispatchPlanHint } from './DispatchPlanHint';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
-import type { Incident, OperatorCancellationCode } from '../../../types/incident';
+import type { Incident } from '../../../types/incident';
 import type { DispatchAssignmentResponseDto } from '../../../types/dispatch';
 import type { Vehicle } from '../../../types/vehicle';
 import { findVehicleAssignment, type CompletionProgress } from '../completion/completionGroups';
@@ -21,15 +20,15 @@ interface CaseAssignmentsProps {
   /** §26.2: số tổ đã ký nghiệm thu / tổng số tổ đang giao (null = chưa giao xe). */
   completion: CompletionProgress | null;
   onOpenCompletion: () => void;
-  isCancelling: boolean;
   cancellingVehicleId: string | null;
   onCancelVehicle: (vehicleId: string) => void;
-  onCancelIncident: (reasonCode: OperatorCancellationCode) => void;
+  /** Mở Hồ sơ ca ở phần hủy (xem lại bằng chứng, chặn số). */
+  onCancelIncident: () => void;
   onDismissNotice: (noticeId: string) => void;
 }
 
 /**
- * Phần "ca" trong Chi tiết ca của Live Map: đội từ chối / không phản hồi, tổ đã giao (thu hồi), hủy ca, tiến độ nghiệm thu.
+ * Phần "ca" trong Chi tiết ca của Live Map: đội từ chối / không phản hồi, tổ đã giao (thu hồi), lối hủy ca, tiến độ nghiệm thu.
  * Trước đây nằm trong thẻ của danh sách; giờ danh sách chỉ để quét nhanh, thao tác làm ở đây.
  */
 export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
@@ -38,15 +37,12 @@ export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
   assignments,
   completion,
   onOpenCompletion,
-  isCancelling,
   cancellingVehicleId,
   onCancelVehicle,
   onCancelIncident,
   onDismissNotice,
 }) => {
   const { t } = useTranslation();
-  const [confirmingCancel, setConfirmingCancel] = useState(false);
-  const [cancelCode, setCancelCode] = useState<OperatorCancellationCode>('FalseReport');
 
   const { vehicleLimitFor } = useDispatchStore();
   const assignmentTeam = useAssignmentTeam();
@@ -88,39 +84,6 @@ export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
           <CheckCircle2 className="w-4 h-4" />
           {t('liveMap.incidentList.closed', { count: incident.reportedVehicleIds.length })}
         </div>
-      ) : confirmingCancel ? (
-        <div className="space-y-2 rounded-lg border border-red-200 bg-red-50/40 p-2.5">
-          <p className="text-xs text-red-700 leading-snug">{t('liveMap.incidentList.confirmCancel')}</p>
-          <select
-            value={cancelCode}
-            onChange={(e) => setCancelCode(e.target.value as OperatorCancellationCode)}
-            aria-label={t('liveMap.incidentList.cancelReason')}
-            className="w-full text-xs bg-white border border-red-200 rounded-md px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-red-300"
-          >
-            {CANCELLATION_REASON_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {t(`enums.cancellationReason.${opt.value}`)}
-              </option>
-            ))}
-          </select>
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              onClick={() => setConfirmingCancel(false)}
-              disabled={isCancelling}
-              className="py-1.5 rounded-md border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:bg-slate-50 disabled:opacity-50"
-            >
-              {t('liveMap.incidentList.back')}
-            </button>
-            <button
-              onClick={() => onCancelIncident(cancelCode)}
-              disabled={isCancelling}
-              className="flex items-center justify-center gap-1 py-1.5 rounded-md bg-red-600 hover:bg-red-500 text-white text-xs font-bold disabled:opacity-60"
-            >
-              {isCancelling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />}
-              {t('liveMap.incidentList.confirm')}
-            </button>
-          </div>
-        </div>
       ) : (
         <>
           <div className="flex items-center justify-between">
@@ -128,10 +91,9 @@ export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
               {t('liveMap.incidentList.assignedTeams', { active: activeCount, max: maxVehicles })}
             </h3>
             <button
-              onClick={() => setConfirmingCancel(true)}
-              disabled={isCancelling}
+              onClick={onCancelIncident}
               title={t('liveMap.incidentList.cancelIncidentTitle')}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-40"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50"
             >
               <Ban className="w-3 h-3" />
               {t('liveMap.detail.cancelCase')}

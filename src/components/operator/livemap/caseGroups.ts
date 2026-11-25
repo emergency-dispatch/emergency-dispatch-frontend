@@ -26,7 +26,7 @@ interface CaseContext {
 }
 
 /**
- * Panel "Theo dõi ca" gồm mọi ca của trạm, xếp theo việc cần làm: ca AI chuyển cho người (thẩm định ở Hàng đợi), đội từ
+ * Panel "Theo dõi ca" gồm mọi ca của trạm, xếp theo việc cần làm: ca AI chuyển cho người (thẩm định), đội từ
  * chối / không phản hồi, đội xin chi viện, đã duyệt mà chưa có xe ("Để sau" / giao lỗi), chưa đủ tổ theo
  * kế hoạch, leo thang.
  */
