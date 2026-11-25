@@ -43,6 +43,7 @@ export const HubEvents = {
   ForceLogout: 'ForceLogout',
   ReceiveEscalationAlert: 'ReceiveEscalationAlert',
   ReceiveNotification: 'ReceiveNotification',
+  ReceiveCitizenMapChanged: 'ReceiveCitizenMapChanged',
 } as const;
 
 /**

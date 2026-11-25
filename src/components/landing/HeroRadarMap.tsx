@@ -23,7 +23,11 @@ import {
   createStaffBaseMapStyle,
   mapboxService,
 } from '../../services/mapboxService';
-import { incidentService, type CitizenTrackingDto } from '../../services/incidentService';
+import {
+  incidentService,
+  type CitizenMapIncidentDto,
+  type CitizenTrackingDto,
+} from '../../services/incidentService';
 import { liveMapService } from '../../services/liveMapService';
 import {
   trackingHubService,
@@ -34,6 +38,7 @@ import {
   glowStationMarkerHtml,
   vehicle3dMarkerHtml,
   glowIncidentMarkerHtml,
+  publicIncidentMarkerHtml,
 } from '../operator/livemap/glowMarkers';
 import type { IncidentResponseDto, IncidentCategory, SeverityLevel } from '../../types/incident';
 import { getIncidentVisualMeta, formatCitizenIncidentStatus } from '../../utils/incidentFormat';
@@ -86,6 +91,13 @@ const getIncidentCategory = (incident: IncidentResponseDto): IncidentCategory =>
   return 'unknown';
 };
 
+const getPublicCategory = (eventType?: string): IncidentCategory => {
+  if (eventType === 'TrafficAccident') return 'accident';
+  if (eventType === 'FireExplosion') return 'fire';
+  if (eventType && eventType !== 'None' && eventType !== 'Unknown') return 'other';
+  return 'unknown';
+};
+
 const getIncidentSeverity = (sev?: string): SeverityLevel => {
   if (sev === 'Level3') return 3;
   if (sev === 'Level2') return 2;
@@ -134,6 +146,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   const stationMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const unitMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const incidentMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const publicIncidentMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const [publicIncidents, setPublicIncidents] = useState<CitizenMapIncidentDto[]>([]);
+  const lastCitizenMapRevRef = useRef<string | null>(null);
   const myLocationMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const hasFittedTrackingBoundsRef = useRef<string | null>(null);
 
@@ -658,6 +673,84 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     };
   }, [reportedIncident?.id]);
 
+  // Bản đồ sự cố công khai cho Citizen Active (lấy các ca đã xác nhận đang hoạt động từ /api/citizen-map/incidents)
+  useEffect(() => {
+    if (!user || user.role !== UserRole.Citizen || typeof incidentService.getCitizenMapIncidents !== 'function') {
+      setPublicIncidents([]);
+      lastCitizenMapRevRef.current = null;
+      return;
+    }
+
+    let cancelled = false;
+    const loadPublicIncidents = async () => {
+      try {
+        const first = await incidentService.getCitizenMapIncidents({ pageIndex: 1, pageSize: 200 });
+        if (cancelled) return;
+        const all = [...(first.items || [])];
+        const total = first.totalCount ?? (first as any).total ?? all.length;
+        if (total > all.length) {
+          const totalPages = Math.min(Math.ceil(total / 200), 5);
+          for (let page = 2; page <= totalPages; page++) {
+            const next = await incidentService.getCitizenMapIncidents({ pageIndex: page, pageSize: 200 });
+            if (cancelled) return;
+            all.push(...(next.items || []));
+          }
+        }
+        setPublicIncidents(all);
+      } catch {
+        // Giữ nguyên danh sách hiện tại nếu rớt mạng tạm thời
+      }
+    };
+
+    const subscribeAndLoad = async () => {
+      const ok = await incidentHubService.start().catch(() => false);
+      if (ok && !cancelled) {
+        await incidentHubService.invoke('SubscribeCitizenMap').catch(() => {});
+      }
+      await loadPublicIncidents();
+    };
+
+    void subscribeAndLoad();
+    const unsubMapChanged = incidentHubService.on<{ revision?: string }>(
+      HubEvents.ReceiveCitizenMapChanged,
+      (evt) => {
+        if (evt?.revision && evt.revision === lastCitizenMapRevRef.current) return;
+        lastCitizenMapRevRef.current = evt?.revision || null;
+        void loadPublicIncidents();
+      }
+    );
+    const unsubReconnected = incidentHubService.onReconnected(() => {
+      incidentHubService.invoke('SubscribeCitizenMap').catch(() => {});
+      void loadPublicIncidents();
+    });
+    const fallbackTimer = setInterval(loadPublicIncidents, 20000);
+
+    const handleFocusAlert = async (e: Event) => {
+      const publicAlertId = (e as CustomEvent<{ publicAlertId?: string }>).detail?.publicAlertId;
+      if (!publicAlertId) return;
+      const item = await incidentService.getCitizenMapIncidentByAlert?.(publicAlertId);
+      if (!item || cancelled) {
+        void loadPublicIncidents();
+        return;
+      }
+      setPublicIncidents((prev) => (prev.some((p) => p.id === item.id) ? prev : [item, ...prev]));
+      mapRef.current?.flyTo({ center: [item.longitude, item.latitude], zoom: 15, essential: true, duration: 900 });
+      setTimeout(() => {
+        publicIncidentMarkersRef.current.get(item.id)?.togglePopup();
+      }, 350);
+    };
+    window.addEventListener('resq_focus_citizen_map_alert', handleFocusAlert);
+
+    return () => {
+      cancelled = true;
+      clearInterval(fallbackTimer);
+      unsubMapChanged();
+      unsubReconnected();
+      window.removeEventListener('resq_focus_citizen_map_alert', handleFocusAlert);
+      incidentHubService.invoke('UnsubscribeCitizenMap').catch(() => {});
+    };
+  }, [user?.id, user?.role]);
+
   // Determine user GPS / cached location
   useEffect(() => {
     let hasCached = false;
@@ -1071,6 +1164,65 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       }
     }
   }, [reportedIncident, i18n.language]);
+
+  // Vẽ marker sự cố công khai (nhỏ gọn, khác biệt với sự cố của chính mình; tự xóa khi hoàn tất/hủy/xóa/gộp)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const visibleItems = publicIncidents.filter(
+      (item) =>
+        item.id !== reportedIncident?.id &&
+        typeof item.latitude === 'number' &&
+        typeof item.longitude === 'number'
+    );
+    const activeIds = new Set(visibleItems.map((i) => i.id));
+
+    publicIncidentMarkersRef.current.forEach((marker, id) => {
+      if (!activeIds.has(id)) {
+        marker.remove();
+        publicIncidentMarkersRef.current.delete(id);
+      }
+    });
+
+    const typeLabels: Record<IncidentCategory, string> =
+      i18n.language === 'en'
+        ? { fire: 'Fire & Explosion', accident: 'Traffic Accident', other: 'Incident', unknown: 'Public Alert' }
+        : { fire: 'Hỏa hoạn', accident: 'Tai nạn giao thông', other: 'Sự cố khu vực', unknown: 'Cảnh báo sự cố' };
+
+    visibleItems.forEach((item) => {
+      const cat = getPublicCategory(item.eventType);
+      const statusText = formatCitizenIncidentStatus(item.status);
+      const popupHtml = `
+        <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 185px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;font-weight:800;color:#B45309;background:#FFFBEB;border:1px solid #FDE68A;padding:1px 6px;border-radius:4px;">
+              ${typeLabels[cat]}
+            </span>
+            <span style="font-size:9px;font-weight:700;color:#475569;">${statusText.toUpperCase()}</span>
+          </div>
+          <div style="font-size:11px;font-weight:700;color:#0F172A;line-height:1.35;">${item.message || item.area}</div>
+          <div style="font-size:10px;color:#64748B;margin-top:3px;">📍 ${item.area}</div>
+        </div>
+      `;
+
+      const existing = publicIncidentMarkersRef.current.get(item.id);
+      if (existing) {
+        existing.setLngLat([item.longitude, item.latitude]);
+        existing.getElement().innerHTML = publicIncidentMarkerHtml(cat);
+        existing.getPopup()?.setHTML(popupHtml);
+      } else {
+        const el = document.createElement('div');
+        el.innerHTML = publicIncidentMarkerHtml(cat);
+        const popup = new mapboxgl.Popup({ offset: 16, closeButton: false }).setHTML(popupHtml);
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([item.longitude, item.latitude])
+          .setPopup(popup)
+          .addTo(map);
+        publicIncidentMarkersRef.current.set(item.id, marker);
+      }
+    });
+  }, [publicIncidents, reportedIncident?.id, i18n.language]);
 
   const handleSetRadarLayer = (nextMode: 'satellite' | 'streets' | 'dark') => {
     if (nextMode === radarLayer) return;

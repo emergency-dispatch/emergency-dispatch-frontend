@@ -92,6 +92,26 @@ export interface RevealPhoneDto {
   phoneNumber: string | null;
 }
 
+export interface CitizenMapIncidentDto {
+  id: string;
+  latitude: number;
+  longitude: number;
+  area: string;
+  message: string;
+  eventType: string;
+  severity: string;
+  status: string;
+  reportedAt: string;
+  updatedAt?: string | null;
+}
+
+export interface CitizenIncidentAlertDto {
+  id: string;
+  area: string;
+  message: string;
+  createdAt: string;
+}
+
 export const incidentService = {
   /**
    * Phát tín hiệu cứu nạn khẩn cấp SOS / Gửi báo cáo sự cố hiện trường
@@ -321,5 +341,41 @@ export const incidentService = {
       reason,
     });
     return response.data;
+  },
+
+  /** Danh sách sự cố công khai đang hoạt động trên bản đồ Citizen (yêu cầu Citizen Active JWT). */
+  async getCitizenMapIncidents(params?: {
+    south?: number;
+    west?: number;
+    north?: number;
+    east?: number;
+    pageIndex?: number;
+    pageSize?: number;
+  }): Promise<PaginatedResultDto<CitizenMapIncidentDto>> {
+    return unwrapApi(
+      apiClient.get<ApiResponse<PaginatedResultDto<CitizenMapIncidentDto>>>('/citizen-map/incidents', {
+        params: { pageIndex: 1, pageSize: 200, ...params },
+      })
+    );
+  },
+
+  /** Lấy marker bản đồ công khai theo publicAlertId trong thông báo Citizen (404 nếu sự cố đã đóng/hủy/gộp). */
+  async getCitizenMapIncidentByAlert(publicAlertId: string): Promise<CitizenMapIncidentDto | null> {
+    try {
+      return await unwrapApi(
+        apiClient.get<ApiResponse<CitizenMapIncidentDto>>(`/citizen-map/incidents/by-alert/${publicAlertId}`)
+      );
+    } catch {
+      return null;
+    }
+  },
+
+  /** Danh sách thông báo sự cố theo khu vực cho Citizen hiện tại. */
+  async getCitizenIncidentAlerts(pageIndex = 1, pageSize = 10): Promise<PaginatedResultDto<CitizenIncidentAlertDto>> {
+    return unwrapApi(
+      apiClient.get<ApiResponse<PaginatedResultDto<CitizenIncidentAlertDto>>>('/citizen-incident-alerts', {
+        params: { pageIndex, pageSize },
+      })
+    );
   },
 };
