@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useMemo, useState, useSyncExternalStore } f
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { useDispatchStore } from '../../context/DispatchContext';
+import { useAuth } from '../../hooks/useAuth';
 import { useDispatchRoutes } from '../../hooks/useDispatchRoutes';
 import { useNow } from '../../hooks/useNow';
 import { DispatchIncidentList } from '../../components/operator/livemap/DispatchIncidentList';
@@ -101,6 +102,7 @@ export const LiveMapPage: React.FC = () => {
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
   const incidentsById = useMemo(() => new Map(incidents.map((i) => [i.id, i])), [incidents]);
   const routes = useDispatchRoutes(incidents, vehicles);
+  const { user } = useAuth();
 
   // Nhịp chậm: chỉ để đếm, không vẽ lại cả trang (bản đồ) mỗi giây.
   const slowNow = useNow(15_000);
@@ -400,7 +402,7 @@ export const LiveMapPage: React.FC = () => {
         {!createOpen && <ReadyTeamsCard />}
         {GpsSimulatorPanel && (
           <Suspense fallback={null}>
-            <GpsSimulatorPanel vehicles={vehicles} />
+            <GpsSimulatorPanel vehicles={vehicles} stations={stations} myStationId={user?.stationId ?? null} />
           </Suspense>
         )}
       </div>

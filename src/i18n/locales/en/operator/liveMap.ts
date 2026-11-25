@@ -225,6 +225,10 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     approximateRoute: 'Estimated route',
   },
   gpsSim: {
+    modes: { scene: 'To scene', station: 'To station' },
+    allAtStation: "All of the station's idle vehicles are at the station.",
+    atStation: 'Vehicle is back at the station.',
+    interrupted: 'Stopped: the vehicle got a mission or is no longer in the list.',
     minimize: 'Minimize',
     noVehicles: 'No vehicle is currently dispatched.',
     vehicle: 'Vehicle',

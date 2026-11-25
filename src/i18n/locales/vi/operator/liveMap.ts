@@ -223,6 +223,10 @@ export const liveMapVi = {
     approximateRoute: 'Tuyến ước lượng',
   },
   gpsSim: {
+    modes: { scene: 'Tới hiện trường', station: 'Về trạm' },
+    allAtStation: 'Các xe không có nhiệm vụ của trạm đều đang ở trạm.',
+    atStation: 'Xe đã về tới trạm.',
+    interrupted: 'Đã dừng: xe vừa nhận nhiệm vụ hoặc không còn trong danh sách.',
     minimize: 'Thu nhỏ',
     noVehicles: 'Chưa có xe nào đang được điều đi.',
     vehicle: 'Xe',

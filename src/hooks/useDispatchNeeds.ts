@@ -18,7 +18,10 @@ export function useDispatchNeeds(
   const { teams } = useStationTeams();
 
   const resourceKey = useMemo(() => {
-    const available = vehicles.filter((v) => v.status === 'available').map((v) => v.id);
+    // Kèm tọa độ làm tròn ~1 km: backend lọc theo GPS lưu nên xe rảnh đổi chỗ thì gợi ý cũng đổi.
+    const available = vehicles
+      .filter((v) => v.status === 'available')
+      .map((v) => `${v.id}@${v.lat.toFixed(2)},${v.lng.toFixed(2)}`);
     const teamStates = teams.map((team) => `${team.id}:${team.canBeAssigned}:${team.vehicleIds.join('+')}`);
     return `${available.sort().join(',')}|${teamStates.sort().join(',')}`;
   }, [vehicles, teams]);
