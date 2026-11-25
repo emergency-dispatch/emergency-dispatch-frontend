@@ -60,6 +60,18 @@ export const liveMapVi = {
   readyTeams: {
     title: 'Tổ sẵn sàng',
     blocked: '{{count}} tổ có xe sẵn sàng nhưng chưa giao được (không có nhân viên cứu hộ đang hoạt động). Kiểm tra ở Trạm & Tổ.',
+    gpsFar: 'GPS xe cách trạm {{km}} km, có thể không được gợi ý.',
+    gpsFarTitle: 'Có tổ mà GPS xe ở xa trạm',
+  },
+  shortage: {
+    title: 'Chưa có tổ để giao: {{type}}',
+    tooFar: 'GPS cách hiện trường {{km}} km (chim bay), ngoài bán kính tìm',
+    noTeam: 'Xe chưa thuộc tổ nào',
+    noStaff: 'Tổ không có nhân viên cứu hộ đang hoạt động',
+    busy: 'Tổ đang bận hoặc đang hồi sức',
+    unknown: 'Chưa rõ lý do, hãy mở lại ca để tải lại',
+    noOwnVehicle: 'Trạm của bạn không có xe loại này đang Sẵn sàng.',
+    probeFailed: 'Không kiểm tra được các tổ ở xa.',
   },
   recommend: {
     loadFailed: 'Không tải được gợi ý xe.',
@@ -88,7 +100,6 @@ export const liveMapVi = {
     expanded: 'Đã mở rộng',
     searching: 'Đang tìm tổ phù hợp…',
     noneLeft: 'Không còn tổ phù hợp',
-    noneLeftWithin: ' trong {{km}} km',
     distance: ' · {{km}} km',
     approximate: ' (ước lượng)',
     etaShort: ' · ETA {{count}}ph',

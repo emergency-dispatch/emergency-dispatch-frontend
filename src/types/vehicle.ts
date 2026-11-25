@@ -95,9 +95,34 @@ export interface DispatchTeamCandidate {
   options: DispatchCandidate[];
 }
 
+/** Tổ đủ điều kiện (có người, không bận, xe Sẵn sàng đúng chức năng) nhưng xe ở ngoài bán kính tìm — chỉ để xem. */
+export interface DispatchFarTeam {
+  teamId: string;
+  teamName: string;
+  stationName: string;
+  unitType: string;
+  vehicleId: string;
+  plate: string;
+  /** Khoảng cách chim bay tới hiện trường — backend so bán kính theo số này. */
+  km: number;
+}
+
+/** Một chức năng sự cố còn cần mà không có tổ nào trong bán kính tìm. */
+export interface DispatchShortage {
+  /** Mã loại xe; null = sự cố chưa có kế hoạch điều xe (không biết cần chức năng nào). */
+  unitType: string | null;
+  /** Câu của backend, có bán kính đã tìm. */
+  message: string;
+  /** null = không kiểm tra được (lỗi mạng). */
+  farTeams: DispatchFarTeam[] | null;
+}
+
 export interface DispatchSuggestion {
+  /** Bán kính lớn nhất đã dùng để ra danh sách; 0 = danh sách rỗng. */
   radiusKm: number;
   expanded: boolean;
   /** Tổ theo thứ tự gợi ý của backend. */
   teams: DispatchTeamCandidate[];
+  /** Chức năng còn thiếu tổ; rỗng = đủ. */
+  shortages: DispatchShortage[];
 }

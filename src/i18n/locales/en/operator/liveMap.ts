@@ -62,6 +62,18 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
   readyTeams: {
     title: 'Ready teams',
     blocked: '{{count}} team(s) have a ready vehicle but cannot be assigned (no active rescue staff). Check Stations & Teams.',
+    gpsFar: 'Vehicle GPS is {{km}} km from the station; it may not be suggested.',
+    gpsFarTitle: 'Some teams have a vehicle with GPS far from the station',
+  },
+  shortage: {
+    title: 'No team to assign: {{type}}',
+    tooFar: 'GPS is {{km}} km from the scene (straight line), outside the search radius',
+    noTeam: 'Vehicle does not belong to a team',
+    noStaff: 'Team has no active rescue staff',
+    busy: 'Team is busy or cooling down',
+    unknown: 'Reason unknown; reopen the incident to reload',
+    noOwnVehicle: 'Your station has no ready vehicle of this type.',
+    probeFailed: 'Could not check teams farther away.',
   },
   recommend: {
     loadFailed: 'Could not load vehicle suggestions.',
@@ -90,7 +102,6 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     expanded: 'Radius expanded',
     searching: 'Searching for suitable teams…',
     noneLeft: 'No suitable teams left',
-    noneLeftWithin: ' within {{km}} km',
     distance: ' · {{km}} km',
     approximate: ' (estimated)',
     etaShort: ' · ETA {{count}}m',

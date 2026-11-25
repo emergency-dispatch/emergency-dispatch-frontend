@@ -410,6 +410,8 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
       return station && isParkedAtStation(v) ? { ...v, lat: station.lat, lng: station.lng } : v;
     });
   }, [vehicles, stations, pinnedIncidentsById]);
+  const myStationId = user?.stationId ?? null;
+  const ownIncidentIds = useMemo(() => new Set(allIncidents.map((i) => i.id)), [allIncidents]);
   // Vẽ xe đang làm nhiệm vụ (đã nhận / đang đi / tại hiện trường); hình xe theo loại (vehicle3dMarkerHtml, xoay theo heading).
   const movingVehicles = useMemo(
     () =>
@@ -418,9 +420,12 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
           MAP_VISIBLE_VEHICLE_STATUSES.includes(v.status) &&
           // "Tại hiện trường" mà không còn lượt điều xe = trạng thái xe kẹt ở backend (VD lượt cập nhật GPS ghi đè
           // CoolDown sau nghiệm thu) → không vẽ, tránh hiện xe "ở hiện trường" đứng tại trạm.
-          (v.status !== 'on_scene' || !!v.incidentId)
+          (v.status !== 'on_scene' || !!v.incidentId) &&
+          // Backend trả / phát xe của mọi trạm cho Operator → chỉ vẽ xe trạm mình và xe trạm khác đang hỗ trợ ca của
+          // trạm mình (store chỉ có sự cố của trạm mình).
+          (v.stationId === myStationId || (!!v.incidentId && ownIncidentIds.has(v.incidentId)))
       ),
-    [mapVehicles]
+    [mapVehicles, myStationId, ownIncidentIds]
   );
   const selectedVehicle = movingVehicles.find((v) => v.id === selectedVehicleId) ?? null;
   // Xe không vẽ thì không có vị trí marker → đường đi (VD xe chờ đội xác nhận) bắt đầu từ điểm đầu của tuyến (trạm).

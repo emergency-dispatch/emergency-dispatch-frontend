@@ -14,6 +14,7 @@ import {
   Users,
 } from 'lucide-react';
 import { ChangeSeverityDialog } from './ChangeSeverityDialog';
+import { DispatchShortages } from './DispatchShortages';
 import { RecommendedTeamLabel } from '../teams/RecommendedTeamLabel';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
 import { IncidentSupplementList } from '../incidents/IncidentSupplementList';
@@ -23,6 +24,7 @@ import { SourceChip } from '../incidents/SourceChip';
 import { INCIDENT_CATEGORY_META, OVERRIDE_REASON_MIN_LENGTH } from '../../../data/incidentMock';
 import { DISPATCH_ALGORITHM_META } from '../../../data/dispatchConfig';
 import { useDispatchStore, type AssignOptions, type TeamAssignTarget } from '../../../context/DispatchContext';
+import { useDispatchNeeds } from '../../../hooks/useDispatchNeeds';
 import { useDispatchRecommendations } from '../../../hooks/useDispatchRecommendations';
 import { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
@@ -140,20 +142,19 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   const isEscalated = selectedIncident ? escalatedIncidentIds.has(selectedIncident.id) : false;
   const category = selectedIncident ? INCIDENT_CATEGORY_META[selectedIncident.category] : null;
 
-  const refreshKey = selectedIncident
-    ? `${selectedIncident.assignedVehicleIds.join(',')}|${isEscalated}`
-    : '';
+  const preferredType = serving ? fieldRequest?.requestedUnitType ?? null : null;
+  const { neededTypes, refreshKey } = useDispatchNeeds(selectedIncident, preferredType);
 
   const { suggestion, loading: suggestionLoading, error: suggestionError } = useDispatchRecommendations(
     selectedIncidentId,
     !!selectedIncidentId && showSuggestions,
     algorithm,
-    refreshKey
+    refreshKey,
+    neededTypes
   );
 
   // §34: backend chỉ gợi ý tổ có nhân viên đang hoạt động, không bận và có xe đúng chức năng đang Sẵn sàng.
   // Đáp ứng yêu cầu chi viện có chỉ định loại xe → tổ có chức năng đó lên đầu (sort ổn định, giữ thứ tự gợi ý).
-  const preferredType = serving ? fieldRequest?.requestedUnitType ?? null : null;
   const hasPreferred = (team: DispatchTeamCandidate) => team.options.some((o) => o.unitType === preferredType);
   const teams = preferredType
     ? [...(suggestion?.teams ?? [])].sort((a, b) => Number(hasPreferred(b)) - Number(hasPreferred(a)))
@@ -549,7 +550,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                 <span className="flex items-center gap-1 text-[13px] font-semibold text-slate-700">
                   <Radar className="w-3 h-3" />
                   {t('liveMap.recommend.suitableTeams')}
-                  {suggestion && t('liveMap.recommend.radius', { km: suggestion.radiusKm })}
+                  {suggestion && suggestion.radiusKm > 0 && t('liveMap.recommend.radius', { km: suggestion.radiusKm })}
                 </span>
                 {isEscalated ? (
                   <span className="text-[10px] font-bold text-red-600">{t('liveMap.recommend.radiusDoubled')}</span>
@@ -567,13 +568,6 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
             )}
 
             {suggestionError && <p className="text-[11px] text-red-600">{suggestionError}</p>}
-
-            {suggestion && teams.length === 0 && (
-              <p className="text-[11px] text-red-600 py-1">
-                {t('liveMap.recommend.noneLeft')}
-                {suggestion.radiusKm > 0 && t('liveMap.recommend.noneLeftWithin', { km: suggestion.radiusKm })}.
-              </p>
-            )}
 
             {teams.map((team, index) => {
               const option = optionOf(team);
@@ -650,6 +644,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                 </div>
               );
             })}
+
+            {suggestion && <DispatchShortages shortages={suggestion.shortages} />}
 
             {serving && teams.length > 0 && (
               <div className="sticky bottom-0 -mx-3 -mb-3 px-3 py-2 bg-white/95 border-t border-orange-200 flex items-center justify-between gap-2">

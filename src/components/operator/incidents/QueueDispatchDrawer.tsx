@@ -22,7 +22,9 @@ import { SourceChip } from './SourceChip';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { DISPATCH_ALGORITHM_META } from '../../../data/dispatchConfig';
 import { DispatchPlanHint } from '../livemap/DispatchPlanHint';
+import { DispatchShortages } from '../livemap/DispatchShortages';
 import { useDispatchStore } from '../../../context/DispatchContext';
+import { useDispatchNeeds } from '../../../hooks/useDispatchNeeds';
 import { useDispatchRecommendations } from '../../../hooks/useDispatchRecommendations';
 import { useAssignmentTeam, useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { findVehicleAssignment } from '../completion/completionGroups';
@@ -76,12 +78,13 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
   const isFull = activeCount >= maxVehicles;
   const isEscalated = escalatedIncidentIds.has(incidentId);
 
-  const refreshKey = incident ? `${incident.assignedVehicleIds.join(',')}|${isEscalated}` : '';
+  const { neededTypes, refreshKey } = useDispatchNeeds(incident);
   const { suggestion, loading, error: suggestionError } = useDispatchRecommendations(
     incidentId,
     available && !isFull,
     algorithm,
-    refreshKey
+    refreshKey,
+    neededTypes
   );
 
   // §34: backend chỉ gợi ý tổ có nhân viên đang hoạt động, không bận và có xe đúng chức năng đang Sẵn sàng.
@@ -273,7 +276,7 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                       <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700">
                         <Radar className="w-4 h-4 text-red-600" />
                         {t('liveMap.recommend.suitableTeams')}
-                        {suggestion && (
+                        {suggestion && suggestion.radiusKm > 0 && (
                           <span className="font-mono-data font-normal text-slate-400">
                             {t('liveMap.recommend.radius', { km: suggestion.radiusKm })}
                           </span>
@@ -312,15 +315,8 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
 
                     {suggestionError && <p className="text-sm text-red-600">{suggestionError}</p>}
 
-                    {suggestion && teams.length === 0 && (
-                      <p className="text-sm text-red-600 py-1">
-                        {t('liveMap.recommend.noneLeft')}
-                        {suggestion.radiusKm > 0 && t('liveMap.recommend.noneLeftWithin', { km: suggestion.radiusKm })}.
-                      </p>
-                    )}
-
                     {/* Danh sách xếp hạng: số thứ tự là thứ hạng gợi ý thật, không phải trang trí */}
-                    <ol className="divide-y divide-slate-100 border-y border-slate-100">
+                    <ol className={`divide-y divide-slate-100 ${teams.length > 0 ? 'border-y border-slate-100' : ''}`}>
                       {teams.map((team, index) => {
                         const option = optionOf(team);
                         const leader = teamByVehicle
@@ -394,6 +390,7 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                       })}
                     </ol>
 
+                    {suggestion && <DispatchShortages shortages={suggestion.shortages} />}
                   </>
                 )}
               </div>
