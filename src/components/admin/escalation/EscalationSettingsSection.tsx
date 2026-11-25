@@ -6,6 +6,7 @@ import { showToast } from '../common/toastStore';
 import { inputClass, labelClass } from '../common/styles';
 import { useServiceQuery, useUnsavedChangesGuard } from '../common/hooks';
 import {
+  ACCEPT_TIMEOUT_MINUTES,
   adminSettingsService,
   validateEscalationSettings,
   type EscalationSettings,
@@ -212,6 +213,22 @@ const EscalationForm: React.FC<{
               onChange={set('fieldRequestThresholdMinutes')}
               error={errors.fieldRequestThresholdMinutes}
               hint={t('admin.settings.escalation.halfStepHint')}
+            />
+          </div>
+
+          {/* §52: tổ không nhận lệnh → hệ thống tự rút lệnh, trả xe, báo Operator. */}
+          <div className="pt-4 border-t border-slate-100">
+            <h3 className="text-sm font-bold text-slate-900">{t('admin.settings.escalation.acceptTimeoutTitle')}</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">{t('admin.settings.escalation.acceptTimeoutDescription')}</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <NumberSettingField
+              label={t('admin.settings.escalation.acceptTimeout')}
+              unit={t('admin.settings.dispatch.minutesUnit')}
+              value={draft.acceptTimeoutMinutes}
+              onChange={set('acceptTimeoutMinutes')}
+              error={errors.acceptTimeoutMinutes}
+              hint={t('admin.settings.escalation.acceptTimeoutHint', { min: ACCEPT_TIMEOUT_MINUTES.min, max: ACCEPT_TIMEOUT_MINUTES.max })}
             />
           </div>
         </section>

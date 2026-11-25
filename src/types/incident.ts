@@ -217,6 +217,8 @@ export interface Incident {
   autoDispatchNotEligibleNote: string | null;
   /** Độ tin cậy AI là xác suất đo thật (logprob); false = chỉ tham khảo; null = không rõ nguồn (AI / backend cũ). */
   confidenceMeasured: boolean | null;
+  /** §44: AI trả kết quả không đọc được (confidenceSource = unparseable) → không có độ tin cậy. */
+  confidenceUnreadable?: boolean;
   /** §42: phiếu của 3 AI, phần tử đầu là TriageVL; null = chưa bỏ phiếu. */
   aiVotes: AiModelVoteDto[] | null;
   /** §31.E: lý do không đủ điều kiện AI tự điều phối (null = đủ, còn xét khóa mềm + ngưỡng). Vô nghĩa khi aiPending. */
@@ -870,6 +872,7 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
         : null,
     autoDispatchNotEligibleNote: dto.autoDispatchState === 'NotEligible' ? dto.autoDispatchNote ?? null : null,
     confidenceMeasured: ai?.confidenceSource ? ai.confidenceSource.startsWith('logprob') : null,
+    confidenceUnreadable: ai?.confidenceSource === 'unparseable',
     aiVotes: ai?.ensembleVotes?.length ? ai.ensembleVotes : null,
     autoDispatchIneligible: autoDispatchIneligibleOf(dto),
     hazardTags,

@@ -98,7 +98,11 @@ const TimelineItem: React.FC<{ entry: IncidentAuditEntryDto; isLast: boolean }> 
       ? t(`incidents.audit.actions.${entry.action}`)
       : t('incidents.audit.unknownAction');
   const Icon = meta.icon;
-  const role = entry.actorRole
+  // Tác vụ nền (VD §52 tự rút lệnh): backend ghi tên = mã vai trò "System" → chỉ hiện "Hệ thống" một lần.
+  const bySystem = entry.actorRole === 'System' && (!entry.actorName || entry.actorName === 'System');
+  const role = bySystem
+    ? null
+    : entry.actorRole
     ? isKnownRole(entry.actorRole)
       ? t(`incidents.audit.roles.${entry.actorRole}`)
       : entry.actorRole
@@ -120,12 +124,14 @@ const TimelineItem: React.FC<{ entry: IncidentAuditEntryDto; isLast: boolean }> 
             {formatTime(entry.timestamp)}
           </span>
         </div>
-        {(entry.actorName || role) && (
+        {(entry.actorName || role || bySystem) && (
           <p className="text-xs text-slate-500 mt-0.5">
             {/* AI tự điều phối không có tài khoản → backend ghi tên = mã vai trò "AI_AutoDispatch". */}
             {entry.actorRole === 'AI_AutoDispatch'
               ? t('incidents.audit.autoDispatchActor')
-              : (entry.actorName ?? t('incidents.audit.system'))}
+              : bySystem
+                ? t('incidents.audit.system')
+                : (entry.actorName ?? t('incidents.audit.system'))}
             {role && <span className="text-slate-400"> · {role}</span>}
           </p>
         )}

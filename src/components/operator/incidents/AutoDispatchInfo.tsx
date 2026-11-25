@@ -52,7 +52,7 @@ export const ConfidenceThresholdBar: React.FC<{
   const { t } = useTranslation();
   const label =
     measured === false
-      ? t('incidents.autoDispatch.notMeasured', { confidence })
+      ? t('incidents.autoDispatch.notMeasured')
       : t('incidents.autoDispatch.confidenceVsThreshold', { confidence, threshold });
   const fill = tone === 'amber' ? 'bg-amber-600' : 'bg-indigo-600';
   const track = tone === 'amber' ? 'bg-amber-200' : 'bg-indigo-100';

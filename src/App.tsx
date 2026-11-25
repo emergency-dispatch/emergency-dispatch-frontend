@@ -33,7 +33,6 @@ const AdminBlockedNumbersPage = lazy(() => import('./pages/admin/BlockedNumbersP
 const AdminAuditTrailPage = lazy(() => import('./pages/admin/AuditTrailPage'));
 const AdminEscalationSettingsPage = lazy(() => import('./pages/admin/EscalationSettingsPage'));
 const AdminServiceAreaSettingsPage = lazy(() => import('./pages/admin/ServiceAreaSettingsPage'));
-const AdminDuplicateDetectionSettingsPage = lazy(() => import('./pages/admin/DuplicateDetectionSettingsPage'));
 const AdminReportsPage = lazy(() => import('./pages/admin/ReportsPage'));
 const AdminCompletionReportsPage = lazy(() => import('./pages/admin/CompletionReportsPage'));
 
@@ -109,7 +108,10 @@ const App: React.FC = () => {
             {/* Tham số điều phối đã gộp vào trang Điều phối & leo thang — giữ đường dẫn cũ. */}
             <Route path="settings/dispatch" element={<Navigate to="/admin/settings/escalation" replace />} />
             <Route path="settings/service-area" element={<AdminServiceAreaSettingsPage />} />
-            <Route path="settings/duplicate-detection" element={<AdminDuplicateDetectionSettingsPage />} />
+            {/* Gộp báo cáo trùng + thông báo người dân là tab của trang Khu vực phục vụ — giữ đường dẫn cũ. */}
+            <Route path="settings/citizen-reports" element={<Navigate to="/admin/settings/service-area?tab=merge" replace />} />
+            <Route path="settings/duplicate-detection" element={<Navigate to="/admin/settings/service-area?tab=merge" replace />} />
+            <Route path="settings/citizen-incident-alerts" element={<Navigate to="/admin/settings/service-area?tab=alerts" replace />} />
             <Route path="reports" element={<AdminReportsPage />} />
             <Route path="completion-reports" element={<AdminCompletionReportsPage />} />
             <Route path="audit-trail" element={<AdminAuditTrailPage />} />

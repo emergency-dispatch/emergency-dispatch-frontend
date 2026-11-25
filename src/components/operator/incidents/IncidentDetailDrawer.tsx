@@ -194,7 +194,9 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const aiFailed = !incident.aiPending && incident.aiFailed;
   // Nhãn "AI" chỉ khi AI thực sự đề xuất được cấp 1–3.
   const hasAiSeverity = !incident.aiPending && !aiFailed && !incident.aiUnclassified;
-  const isLowConfidence = hasAiSeverity && incident.confidenceScore < LOW_CONFIDENCE_THRESHOLD;
+  // Con số ước lượng (§46) không nói lên độ tin cậy → không cảnh báo thấp theo nó.
+  const isLowConfidence =
+    hasAiSeverity && incident.confidenceMeasured !== false && incident.confidenceScore < LOW_CONFIDENCE_THRESHOLD;
   const hasPhone = /\d/.test(incident.reporterPhone);
 
   const lockRemainingMs = incident.lock ? new Date(incident.lock.expiresAt).getTime() - now : 0;
@@ -577,18 +579,11 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                       {aiFailed ? (
                         <span className="text-slate-400">—</span>
                       ) : (
-                        <>
-                          <ConfidenceBadge score={incident.confidenceScore} />
-                          {/* §31.D: không phải xác suất đo thật (logprob) → chỉ để tham khảo. */}
-                          {incident.confidenceMeasured === false && (
-                            <span
-                              title={t('incidents.confidence.estimatedTitle')}
-                              className="ml-1 text-[10px] font-semibold text-slate-400 underline decoration-dotted cursor-help"
-                            >
-                              {t('incidents.confidence.estimated')}
-                            </span>
-                          )}
-                        </>
+                        <ConfidenceBadge
+                          score={incident.confidenceScore}
+                          measured={incident.confidenceMeasured}
+                          unreadable={incident.confidenceUnreadable}
+                        />
                       )}
                     </div>
                     <div>

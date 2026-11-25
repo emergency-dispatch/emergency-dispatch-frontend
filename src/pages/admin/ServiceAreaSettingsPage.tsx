@@ -1,6 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Circle, FileUp, Hexagon, LocateFixed, RotateCcw } from 'lucide-react';
+import { CitizenAlertsSection } from '../../components/admin/settings/CitizenAlertsSection';
+import { DuplicateDetectionSection } from '../../components/admin/settings/DuplicateDetectionSection';
 import { SettingsForm } from '../../components/admin/settings/SettingsForm';
+import { SettingsTabs } from '../../components/admin/settings/SettingsTabs';
 import { sameSettings, toNumber } from '../../components/admin/settings/settingsDraft';
 import { StationMapPicker, type MapReferenceArea, type MapReferenceStation } from '../../components/admin/stations/StationMapPicker';
 import {
@@ -37,6 +41,13 @@ import { Trans, useTranslation } from '../../i18n';
 const AREA_COLOR = '#2563EB';
 const NAME_MAX = 100;
 
+// Ba phần cùng trả lời "SOS của người dân được xử lý thế nào": nhận ở đâu, gộp ra sao, báo lại cho ai. Mỗi tab một API,
+// lưu riêng; mọi tab luôn giữ trên cây để đổi tab không mất phần đang sửa.
+const TAB_KEYS = ['area', 'merge', 'alerts'] as const;
+type TabKey = (typeof TAB_KEYS)[number];
+const TABS_ID = 'citizen-settings';
+const panelProps = (key: TabKey) => ({ id: `${TABS_ID}-panel-${key}`, 'aria-labelledby': `${TABS_ID}-tab-${key}` });
+
 const ServiceAreaSettingsPage: React.FC = () => {
   const { t } = useTranslation();
   const query = useServiceQuery(async () => {
@@ -58,7 +69,6 @@ const ServiceAreaSettingsPage: React.FC = () => {
 
   return (
     <ServiceAreaForm
-      key={query.data.area.updatedAt ?? 'default'}
       record={query.data.area}
       stations={query.data.stations}
       onSaved={(message) => {
@@ -111,29 +121,32 @@ const toSettings = (d: ServiceAreaDraft): ServiceAreaSettings => {
   };
 };
 
+/** Bản nháp từ cấu hình đang lưu (chưa cấu hình thì tâm đặt mặc định). */
+const toDraft = (values: ServiceAreaSettings, stations: StationResponseDto[]): ServiceAreaDraft => {
+  const center = initialCenter(values, stations);
+  const polygons = parseBoundary(values.boundaryGeoJson);
+  return {
+    enabled: values.enabled,
+    // Backend cũ chưa có trường này → mặc định của backend là từ chối.
+    rejectOutside: values.rejectOutside ?? true,
+    name: values.name,
+    centerLat: center.lat,
+    centerLng: center.lng,
+    // Ô số giữ dạng chuỗi để gõ dở không bị nhảy.
+    radiusKm: String(values.radiusKm),
+    shape: polygons.length > 0 ? 'polygon' : 'circle',
+    polygons,
+  };
+};
+
 const ServiceAreaForm: React.FC<{
   record: SettingsRecord<ServiceAreaSettings>;
   stations: StationResponseDto[];
   onSaved: (message: string) => void;
 }> = ({ record, stations, onSaved }) => {
   const { t } = useTranslation();
-  // Bản nháp ban đầu (chưa cấu hình thì tâm đã được đặt mặc định) — mốc để biết có thay đổi chưa lưu.
-  const [initialDraft] = useState<ServiceAreaDraft>(() => {
-    const center = initialCenter(record.values, stations);
-    const polygons = parseBoundary(record.values.boundaryGeoJson);
-    return {
-      enabled: record.values.enabled,
-      // Backend cũ chưa có trường này → mặc định của backend là từ chối.
-      rejectOutside: record.values.rejectOutside ?? true,
-      name: record.values.name,
-      centerLat: center.lat,
-      centerLng: center.lng,
-      // Ô số giữ dạng chuỗi để gõ dở không bị nhảy.
-      radiusKm: String(record.values.radiusKm),
-      shape: polygons.length > 0 ? 'polygon' : 'circle',
-      polygons,
-    };
-  });
+  // Mốc để biết có thay đổi chưa lưu.
+  const [initialDraft, setInitialDraft] = useState<ServiceAreaDraft>(() => toDraft(record.values, stations));
   const [draft, setDraft] = useState(initialDraft);
   const [recenterKey, setRecenterKey] = useState(0);
   // Đổi để dựng lại bản đồ vẽ (Hủy thay đổi / Vẽ lại từ đầu) — công cụ vẽ chỉ nạp đa giác lúc khởi tạo.
@@ -141,6 +154,36 @@ const ServiceAreaForm: React.FC<{
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<NoticeState>(null);
   const [importOpen, setImportOpen] = useState(false);
+
+  // Lưu xong, dữ liệu mới về → làm lại bản nháp tại chỗ (không dựng lại cả trang, kẻo mất phần đang sửa ở tab khác).
+  const loadedAtRef = useRef(record.updatedAt);
+  useEffect(() => {
+    if (loadedAtRef.current === record.updatedAt) return;
+    loadedAtRef.current = record.updatedAt;
+    const next = toDraft(record.values, stations);
+    setInitialDraft(next);
+    setDraft(next);
+    setSaving(false);
+    setNotice(null);
+    setRecenterKey((k) => k + 1);
+    setMapKey((k) => k + 1);
+  }, [record, stations]);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab = TAB_KEYS.find((key) => key === tabParam) ?? 'area';
+  const setTab = (next: TabKey) =>
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        if (next === 'area') params.delete('tab');
+        else params.set('tab', next);
+        return params;
+      },
+      { replace: true }
+    );
+  const [mergeDirty, setMergeDirty] = useState(false);
+  const [alertsDirty, setAlertsDirty] = useState(false);
 
   const values = toSettings(draft);
   const errors = validateServiceArea(values);
@@ -235,8 +278,34 @@ const ServiceAreaForm: React.FC<{
         setMapKey((k) => k + 1);
         setNotice(null);
       }}
-      aside={
+      sideTabs={
+        <SettingsTabs
+          label={t('admin.layout.pageTitles.serviceArea')}
+          idPrefix={TABS_ID}
+          active={tab}
+          onChange={setTab}
+          tabs={[
+            { key: 'area', label: t('admin.settings.serviceArea.tabs.area'), dirty },
+            { key: 'merge', label: t('admin.settings.serviceArea.tabs.merge'), dirty: mergeDirty },
+            { key: 'alerts', label: t('admin.settings.serviceArea.tabs.alerts'), dirty: alertsDirty },
+          ]}
+        />
+      }
+      formHidden={tab !== 'area'}
+      formPanelProps={panelProps('area')}
+      sidePanels={
         <>
+          <div role="tabpanel" {...panelProps('merge')} className={tab === 'merge' ? 'flex-1 min-h-0 xl:overflow-y-auto' : 'hidden'}>
+            <DuplicateDetectionSection onDirtyChange={setMergeDirty} />
+          </div>
+          <div role="tabpanel" {...panelProps('alerts')} className={tab === 'alerts' ? 'flex-1 min-h-0 xl:overflow-y-auto' : 'hidden'}>
+            <CitizenAlertsSection onDirtyChange={setAlertsDirty} />
+          </div>
+        </>
+      }
+      aside={
+        // Tab khác: bản đồ chỉ để xem, khóa thao tác để không lỡ kéo / vẽ lại vùng.
+        <div className="absolute inset-0" inert={tab !== 'area'}>
           <div className="absolute inset-0">
             {/* Đổi hình dạng / vẽ lại → key đổi → dựng lại bản đồ đúng chế độ. */}
             <StationMapPicker
@@ -271,7 +340,7 @@ const ServiceAreaForm: React.FC<{
             <LocateFixed className="w-3.5 h-3.5" />
             {t('admin.settings.serviceArea.viewWholeArea')}
           </button>
-        </>
+        </div>
       }
     >
       <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer select-none">

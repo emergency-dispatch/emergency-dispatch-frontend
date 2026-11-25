@@ -276,6 +276,7 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       escalation: 'Escalation',
       serviceArea: 'Service area',
       duplicateDetection: 'Duplicate report merging',
+      citizenIncidentAlerts: 'Area alerts for citizens',
     },
     actorRole: {
       Admin: 'Administrator',
@@ -287,6 +288,7 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       System: 'System',
     },
     actorName: {
+      System: 'System',
       AI_AutoDispatch: 'AI auto-dispatch',
     },
     field: {
@@ -335,6 +337,10 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       format: 'Format',
       code: 'Station code',
       autoExpireHours: 'Auto-cancel unverified incidents (hours)',
+      acceptTimeoutMinutes: 'Team acceptance timeout (minutes)',
+      enabledFromUtc: 'Effective from',
+      autoWithdrawn: 'Order withdrawn by the system',
+      timeoutMinutes: 'Timeout (minutes)',
       fieldRequestThresholdMinutes: 'Field request threshold (minutes)',
       rejectOutside: 'Reject SOS outside area',
       radiusMeters: 'Merge radius (m)',

@@ -274,6 +274,7 @@ export const adminMonitoringVi = {
       escalation: 'Leo thang',
       serviceArea: 'Khu vực phục vụ',
       duplicateDetection: 'Gom báo cáo trùng',
+      citizenIncidentAlerts: 'Thông báo khu vực cho người dân',
     },
     actorRole: {
       Admin: 'Quản trị viên',
@@ -286,6 +287,7 @@ export const adminMonitoringVi = {
     },
     // Tác vụ nền: backend ghi tên = mã vai trò.
     actorName: {
+      System: 'Hệ thống',
       AI_AutoDispatch: 'AI tự điều phối',
     },
     // Khóa có dấu chấm (VD weights.distance) đổi thành gạch dưới.
@@ -335,6 +337,10 @@ export const adminMonitoringVi = {
       format: 'Định dạng',
       code: 'Mã trạm',
       autoExpireHours: 'Tự hủy sự cố chưa xác minh (giờ)',
+      acceptTimeoutMinutes: 'Thời gian chờ tổ nhận lệnh (phút)',
+      enabledFromUtc: 'Bắt đầu áp dụng',
+      autoWithdrawn: 'Hệ thống tự rút lệnh',
+      timeoutMinutes: 'Thời gian chờ (phút)',
       fieldRequestThresholdMinutes: 'Ngưỡng yêu cầu hiện trường (phút)',
       rejectOutside: 'Từ chối SOS ngoài vùng',
       radiusMeters: 'Bán kính gộp (m)',

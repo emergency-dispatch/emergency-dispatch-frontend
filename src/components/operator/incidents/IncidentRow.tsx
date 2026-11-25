@@ -177,7 +177,13 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
         ) : (
           <>
             <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
-            {!incident.aiUnclassified && <ConfidenceBadge score={incident.confidenceScore} />}
+            {!incident.aiUnclassified && (
+              <ConfidenceBadge
+                score={incident.confidenceScore}
+                measured={incident.confidenceMeasured}
+                unreadable={incident.confidenceUnreadable}
+              />
+            )}
           </>
         )}
       </div>

@@ -9,6 +9,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     stepsPositive: 'Each radius step must be greater than 0.',
     stepsIncreasing: 'Radius steps must be increasing.',
     stepsExceedMax: 'The last step cannot exceed the escalation max radius ({{km}} km).',
+    acceptTimeoutRange: 'Enter 0 (off) or {{min}} to {{max}} minutes.',
     halfStep: 'Only 0.5-minute steps are allowed (e.g. 2, 2.5, 3).',
     invalidTime: 'Invalid time.',
     sameStartEnd: 'The end time must differ from the start time.',
@@ -90,6 +91,11 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     fieldRequestDescription:
       'Backup requests / issue reports from rescue crews that the center has not handled within this threshold are reported to Admins and the station Operators.',
     fieldRequestThreshold: 'Handling threshold',
+    acceptTimeoutTitle: 'Team acceptance',
+    acceptTimeoutDescription:
+      'If a team does not accept within this time, the system withdraws the order, sets the vehicle back to Ready and tells the Operator to assign another team. Applies to AI and Operator orders.',
+    acceptTimeout: 'Timeout',
+    acceptTimeoutHint: '0 = off, or {{min}}–{{max}} minutes, 0.5 steps.',
     rules: {
       title: 'Escalation rules',
       activeCount: '{{active}}/{{total}} active',
@@ -161,6 +167,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     notifyRole: { Operator: 'Operator', Admin: 'Administrator', RescueStaff: 'Rescue staff' },
   },
   serviceArea: {
+    tabs: { area: 'Area', merge: 'Merge reports', alerts: 'Alerts' },
     savedEnabled: 'Service area saved. SOS reports outside the area will be flagged and reported to Operators / Admins.',
     savedReject: 'Service area saved. Citizen SOS reports outside the area will be rejected.',
     savedDisabled: 'Service area saved (checking is disabled).',
@@ -217,20 +224,35 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     outsideStationsPolygon:
       'Stations outside the polygon: <b>{{stations}}</b>. You can still save, but consider redrawing the boundary so all stations are inside the service area.',
   },
+  citizenAlerts: {
+    title: 'Area incident alerts',
+    enableHint: 'Tells all citizens where an incident is happening. When off, no new alerts are sent; alerts already sent are kept.',
+    previewTitle: 'Citizens will receive',
+    previewTime: 'now',
+    previewHeading: 'INCIDENT NOTICE',
+    previewBody: 'An incident has been reported at ĐT. 914, Đôn Châu, Vĩnh Long.',
+    whenTitle: 'When it is sent',
+    whenVerified: 'An Operator or Admin verifies the incident.',
+    whenAccepted: 'AI dispatches it and the crew accepts.',
+    summaryOnce: 'Each incident is announced once, to every active citizen account.',
+    summaryContent: 'Only the incident address, with no reporter, photo or medical data.',
+    enabledFrom: 'Applies to incidents from {{time}}.',
+    savedEnabled: 'Area alerts for citizens are on.',
+    savedDisabled: 'Area alerts for citizens are off.',
+    enableTitle: 'Turn on alerts for all citizens?',
+    enableBody:
+      'From now on, every confirmed incident sends an alert to all active citizen accounts. Incidents confirmed earlier are not sent again.',
+    enableConfirm: 'Turn on and save',
+  },
   duplicateDetection: {
-    scopeNote:
-      'The system merges citizen SOS reports sent from nearby at about the same time into one ongoing incident, so Operators do not handle several duplicate cases. Does not apply to Operator-created incidents.',
-    enable: 'Merge duplicate reports automatically',
+    scopeNote: 'When several people report the same event, the Operator handles one case. Does not apply to Operator-created incidents.',
+    enable: 'Merge duplicate reports',
     enableHint: 'Off: every SOS report enters the queue as a separate incident.',
     radius: 'Merge radius',
-    radiusHint: 'From {{min}} to {{max}} m, measured from the open incident.',
     window: 'Time window',
-    windowHint: 'From {{min}} to {{max}} minutes, counted from the latest report of the open incident.',
-    minutesUnit: 'min',
-    summaryTitle: 'How it applies',
-    summaryRule:
-      'A new SOS is merged when it is within {{meters}} m of an open incident that was reported in the last {{minutes}} minutes and has the same event type (if known).',
-    summaryOutlier: 'Reports near the edge of the radius or of a different type are flagged "Needs review" for the Operator.',
+    sentenceBefore: 'Merge an SOS that is within',
+    sentenceMiddle: 'm of an open incident that was reported in the last',
+    sentenceAfter: 'minutes and has the same type (if known).',
     summaryOperator: 'Operators see "+N also reported" on the main incident and can split or confirm each report.',
     savedEnabled: 'Duplicate report merging saved.',
     savedDisabled: 'Duplicate report merging saved (turned off).',

@@ -158,6 +158,8 @@ interface LivePosition {
   lng: number;
   heading: number | null;
   at: string;
+  /** Giờ máy này lúc nhận — tính mất tín hiệu GPS mà không lệ thuộc đồng hồ server. */
+  receivedAt: number;
 }
 
 interface UnitLocationMessage {
@@ -1054,7 +1056,11 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const base = i18n.t('layout.operatorAlerts.crewRejectedMessage', {
             unit: a.rescueUnit?.plateNumber ?? '—',
             incident: incident.title,
-            reason: a.rejectionNotes?.trim() || i18n.t(`enums.rejectionReason.${a.rejectionReason ?? 'Other'}`),
+            // §52: hệ thống tự rút → nhãn riêng (ghi chú backend chỉ có tiếng Việt).
+            reason:
+              a.rejectionReason === 'NoResponse'
+                ? i18n.t('layout.operatorAlerts.noResponseReason')
+                : a.rejectionNotes?.trim() || i18n.t(`enums.rejectionReason.${a.rejectionReason ?? 'Other'}`),
           });
           const hint = closed
             ? i18n.t('layout.operatorAlerts.crewRejectedIncidentClosed')
@@ -1163,6 +1169,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             lng: msg.longitude,
             heading: msg.headingDegrees ?? null,
             at: msg.timestampUtc,
+            receivedAt: Date.now(),
           })
         )
       ),
@@ -1251,6 +1258,12 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           heading: live?.heading ?? 0,
           etaMinutes,
           incidentId: assignment?.incidentId ?? null,
+          lastSignalAt: Math.max(
+            live?.receivedAt ?? 0,
+            unit.lastLocationUpdateAt ? new Date(unit.lastLocationUpdateAt).getTime() : 0,
+            // Mới xuất phát thì tính từ lúc xuất phát, không báo mất tín hiệu ngay.
+            assignment ? new Date(assignment.enRouteAt ?? assignment.acceptedAt ?? assignment.dispatchedAt).getTime() : 0
+          ),
           lastUpdated: live?.at ?? unit.lastLocationUpdateAt ?? unit.updatedAt ?? unit.createdAt,
           assignmentId: assignment?.id ?? null,
           hasLiveGps:
@@ -1277,15 +1290,28 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const incident = mapIncidentResponseToIncident(dto, getLanguage());
       const own = byIncident.get(dto.id) ?? [];
       const notices: CrewResponseNotice[] = own
-        .filter((a) => a.status === 'Rejected' && !dismissedNoticeIds.has(a.id))
+        .filter(
+          (a) =>
+            a.status === 'Rejected' &&
+            !dismissedNoticeIds.has(a.id) &&
+            // Đã giao tổ khác sau đó → không còn việc phải làm (còn thiếu tổ thì kế hoạch vẫn báo).
+            !own.some(
+              (b) =>
+                (isActiveAssignment(b) || b.status === 'Completed') &&
+                new Date(b.dispatchedAt).getTime() > new Date(a.rejectedAt ?? a.dispatchedAt).getTime()
+            )
+        )
         .map((a) => ({
           id: a.id,
           vehicleId: a.rescueUnitId,
           plate: a.rescueUnit?.plateNumber ?? '—',
           kind: a.rejectionReason === 'NoResponse' ? 'timeout' : 'rejected',
-          reason: [a.rejectionReason ? t(`enums.rejectionReason.${a.rejectionReason}`) : null, a.rejectionNotes]
-            .filter(Boolean)
-            .join(' — '),
+          reason:
+            a.rejectionReason === 'NoResponse'
+              ? t('layout.operatorAlerts.noResponseReason')
+              : [a.rejectionReason ? t(`enums.rejectionReason.${a.rejectionReason}`) : null, a.rejectionNotes]
+                  .filter(Boolean)
+                  .join(' — '),
           at: a.rejectedAt ?? a.dispatchedAt,
         }));
 
