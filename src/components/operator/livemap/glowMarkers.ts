@@ -84,6 +84,22 @@ export function glowIncidentMarkerHtml(category: IncidentCategory, severity: Sev
   `;
 }
 
+/** Sự cố công khai (người khác báo, đã xác nhận/đang xử lý): icon nhỏ gọn hơn & khác biệt so với SOS của chính mình. */
+export function publicIncidentMarkerHtml(category: IncidentCategory): string {
+  const palette: Record<IncidentCategory, { bg: string; border: string; icon: string }> = {
+    fire: { bg: '#FEF2F2', border: '#DC2626', icon: '#B91C1C' },
+    accident: { bg: '#FFFBEB', border: '#D97706', icon: '#B45309' },
+    other: { bg: '#F0F9FF', border: '#0284C7', icon: '#0369A1' },
+    unknown: { bg: '#FFF7ED', border: '#EA580C', icon: '#C2410C' },
+  };
+  const p = palette[category];
+  return `
+    <div class="relative cursor-pointer" style="width:28px;height:28px;border-radius:9px;background:${p.bg};border:2px solid ${p.border};box-shadow:0 2px 8px rgba(15,23,42,0.28);display:flex;align-items:center;justify-content:center;">
+      ${glyph(INCIDENT_GLYPH[category], 5, 5, 14, p.icon)}
+    </div>
+  `;
+}
+
 /**
  * §31.E: tin báo AI đang xử lý (chưa duyệt). Cùng họ "Quầng sáng" nhưng màu chàm:
  * - đang phân tích ảnh = vòng nét đứt quay chậm (đang "quét");

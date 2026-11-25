@@ -5,7 +5,7 @@ import type { PaginatedResultDto } from '../types/incident';
 /** Mirror NotificationDto (GET /api/notifications, SignalR ReceiveNotification). */
 export interface NotificationDto {
   id: string;
-  type: 'NewIncident' | 'JobAssigned' | 'StatusUpdate' | 'Escalation' | 'System';
+  type: 'NewIncident' | 'JobAssigned' | 'StatusUpdate' | 'Escalation' | 'System' | 'CitizenIncidentAlert';
   title: string;
   message: string;
   incidentId: string | null;
