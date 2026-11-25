@@ -1,35 +1,35 @@
 import React, { useState } from 'react';
-import { NumberSettingField, SettingsForm } from '../../components/admin/settings/SettingsForm';
-import { sameSettings, toNumber } from '../../components/admin/settings/settingsDraft';
-import { ConfirmModal, Notice, type NoticeState } from '../../components/admin/common/ui';
-import { showToast } from '../../components/admin/common/toastStore';
-import { useServiceQuery, useUnsavedChangesGuard } from '../../components/admin/common/hooks';
+import { CompactSettingsForm } from './CompactSettingsForm';
+import { sameSettings, toNumber } from './settingsDraft';
+import { ConfirmModal, Notice, type NoticeState } from '../common/ui';
+import { showToast } from '../common/toastStore';
+import { useServiceQuery, useUnsavedChangesGuard } from '../common/hooks';
 import {
   DUPLICATE_DETECTION_LIMITS,
   adminSettingsService,
   validateDuplicateDetection,
   type DuplicateDetectionSettings,
   type SettingsRecord,
-} from '../../services/admin/adminSettingsService';
-import { getApiErrorMessage } from '../../services/apiClient';
-import { dateLocale, useTranslation } from '../../i18n';
+} from '../../../services/admin/adminSettingsService';
+import { getApiErrorMessage } from '../../../services/apiClient';
+import { useTranslation } from '../../../i18n';
 
 /**
  * BR-07 — cấu hình tự gộp SOS trùng của người dân (GET/PUT /api/settings/duplicate-detection).
  * Backend ghi nhật ký hệ thống và phát ReceiveSettingsChanged khi lưu.
  */
-const DuplicateDetectionSettingsPage: React.FC = () => {
+export const DuplicateDetectionSection: React.FC = () => {
   const { t } = useTranslation();
   const query = useServiceQuery(() => adminSettingsService.getDuplicateDetection(), 'duplicate-detection-settings');
 
   if (query.error && !query.data) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="p-5">
         <Notice notice={{ kind: 'error', message: query.error }} />
       </div>
     );
   }
-  if (!query.data) return <div className="p-4 sm:p-6 text-sm text-slate-400">{t('admin.common.settings.loading')}</div>;
+  if (!query.data) return <div className="p-5 text-sm text-slate-400">{t('admin.common.settings.loading')}</div>;
 
   return (
     <DuplicateDetectionForm
@@ -80,7 +80,6 @@ const DuplicateDetectionForm: React.FC<{
   useUnsavedChangesGuard(dirty);
 
   const { radiusMeters: radiusLimit, windowMinutes: windowLimit } = DUPLICATE_DETECTION_LIMITS;
-  const formatNumber = (n: number) => n.toLocaleString(dateLocale());
 
   const save = async () => {
     setSaving(true);
@@ -115,8 +114,11 @@ const DuplicateDetectionForm: React.FC<{
 
   return (
     <>
-      <SettingsForm
-        scopeNote={t('admin.settings.duplicateDetection.scopeNote')}
+      <CompactSettingsForm
+        title={t('admin.settings.duplicateDetection.enable')}
+        description={t('admin.settings.duplicateDetection.scopeNote')}
+        enabled={draft.enabled}
+        onEnabledChange={(next) => setDraft((d) => ({ ...d, enabled: next }))}
         updatedAt={record.updatedAt}
         updatedByName={record.updatedByName}
         notice={notice}
@@ -131,57 +133,42 @@ const DuplicateDetectionForm: React.FC<{
         }}
         onRestoreDefaults={handleRestoreDefaults}
       >
-        <label className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={draft.enabled}
-            onChange={(e) => setDraft((d) => ({ ...d, enabled: e.target.checked }))}
-            className="w-4 h-4 mt-0.5 accent-red-600"
-          />
-          <span>
-            <span className="block text-sm font-bold text-slate-900">{t('admin.settings.duplicateDetection.enable')}</span>
-            <span className="block text-[11px] text-slate-500 mt-0.5">{t('admin.settings.duplicateDetection.enableHint')}</span>
-          </span>
-        </label>
-
         {/* Tắt → làm mờ nhưng vẫn giữ / sửa được giá trị (backend lưu cả khi tắt). */}
-        <div className={`space-y-4 transition-opacity ${draft.enabled ? '' : 'opacity-50'}`}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <NumberSettingField
+        <div className={`space-y-2 transition-opacity motion-reduce:transition-none ${draft.enabled ? '' : 'opacity-50'}`}>
+          <p className="text-sm leading-[2.6] text-slate-800">
+            {t('admin.settings.duplicateDetection.sentenceBefore')}{' '}
+            <SentenceNumber
               label={t('admin.settings.duplicateDetection.radius')}
-              unit="m"
-              step={10}
               value={draft.radiusMeters}
+              step={10}
+              limit={radiusLimit}
+              invalid={!!errors.radiusMeters}
               onChange={(v) => setDraft((d) => ({ ...d, radiusMeters: v }))}
-              error={errors.radiusMeters}
-              hint={t('admin.settings.duplicateDetection.radiusHint', radiusLimit)}
-            />
-            <NumberSettingField
+            />{' '}
+            {t('admin.settings.duplicateDetection.sentenceMiddle')}{' '}
+            <SentenceNumber
               label={t('admin.settings.duplicateDetection.window')}
-              unit={t('admin.settings.duplicateDetection.minutesUnit')}
-              step={1}
               value={draft.windowMinutes}
+              step={1}
+              limit={windowLimit}
+              invalid={!!errors.windowMinutes}
               onChange={(v) => setDraft((d) => ({ ...d, windowMinutes: v }))}
-              error={errors.windowMinutes}
-              hint={t('admin.settings.duplicateDetection.windowHint', windowLimit)}
-            />
-          </div>
-
-          {draft.enabled && !errors.radiusMeters && !errors.windowMinutes && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 space-y-1.5 text-xs text-slate-600">
-              <p className="font-bold text-slate-800">{t('admin.settings.duplicateDetection.summaryTitle')}</p>
-              <p>
-                {t('admin.settings.duplicateDetection.summaryRule', {
-                  meters: formatNumber(values.radiusMeters),
-                  minutes: formatNumber(values.windowMinutes),
-                })}
-              </p>
-              <p>{t('admin.settings.duplicateDetection.summaryOutlier')}</p>
-              <p>{t('admin.settings.duplicateDetection.summaryOperator')}</p>
-            </div>
+            />{' '}
+            {t('admin.settings.duplicateDetection.sentenceAfter')}
+          </p>
+          {[errors.radiusMeters, errors.windowMinutes].map(
+            (message) =>
+              message && (
+                <p key={message} role="alert" className="text-[11px] font-medium text-red-600">
+                  {message}
+                </p>
+              )
           )}
         </div>
-      </SettingsForm>
+        <p className="text-xs leading-relaxed text-slate-600">
+          {t(draft.enabled ? 'admin.settings.duplicateDetection.summaryOperator' : 'admin.settings.duplicateDetection.enableHint')}
+        </p>
+      </CompactSettingsForm>
 
       {confirmDisable && (
         <ConfirmModal
@@ -200,4 +187,27 @@ const DuplicateDetectionForm: React.FC<{
   );
 };
 
-export default DuplicateDetectionSettingsPage;
+/** Ô số nằm trong câu. */
+const SentenceNumber: React.FC<{
+  label: string;
+  value: string;
+  step: number;
+  limit: { min: number; max: number };
+  invalid: boolean;
+  onChange: (value: string) => void;
+}> = ({ label, value, step, limit, invalid, onChange }) => (
+  <input
+    type="number"
+    inputMode="numeric"
+    aria-label={label}
+    aria-invalid={invalid}
+    min={limit.min}
+    max={limit.max}
+    step={step}
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    className={`w-20 rounded-lg border bg-white px-2 py-1.5 text-center text-base font-bold text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
+      invalid ? 'border-red-500 bg-red-50/40' : 'border-slate-300'
+    }`}
+  />
+);

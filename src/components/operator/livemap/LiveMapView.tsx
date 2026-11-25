@@ -31,7 +31,9 @@ import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } f
 import { dateLocale, useTranslation } from '../../../i18n';
 import { IncidentCode } from '../incidents/IncidentCode';
 import { AiWorkingMarkers } from './AiWorkingMarkers';
-import { gpsFarFromStationKm, readyAwayFromStationKm } from '../../../utils/vehicleLocation';
+import { gpsFarFromStationKm, isGpsSignalLost, readyAwayFromStationKm } from '../../../utils/vehicleLocation';
+import { useNow } from '../../../hooks/useNow';
+import { trackingHubService } from '../../../services/realtime/incidentHubService';
 
 // Bán kính gom cụm (px trên màn hình) — các xe nằm gần nhau hơn mức này ở zoom hiện tại sẽ gộp lại.
 const MAX_ZOOM = 18;
@@ -94,11 +96,12 @@ const PopupRow: React.FC<{ icon: React.ElementType; children: React.ReactNode }>
 );
 
 /** Popup xe (RescueUnit): biển số, loại xe, trạng thái, trạm, tổ phụ trách, nhiệm vụ đang chạy, lần cập nhật vị trí. */
-const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam?: TrafficJamReport }> = ({
-  vehicle,
-  incident,
-  trafficJam,
-}) => {
+const VehiclePopup: React.FC<{
+  vehicle: Vehicle;
+  incident?: Incident;
+  trafficJam?: TrafficJamReport;
+  signalLost?: boolean;
+}> = ({ vehicle, incident, trafficJam, signalLost = false }) => {
   const { t } = useTranslation();
   const { unitTypeLabel, assignmentsByIncident, stations } = useDispatchStore();
   const station = stations.find((s) => s.id === vehicle.stationId);
@@ -168,6 +171,11 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam
           <PopupRow icon={TrafficCone}>
             {t('liveMap.traffic.vehicleTask')}
             <span className="font-semibold text-slate-800">{trafficJam.area}</span>
+          </PopupRow>
+        )}
+        {signalLost && (
+          <PopupRow icon={MapPin}>
+            <span className="font-semibold text-amber-700">{t('liveMap.map.signalLost')}</span>
           </PopupRow>
         )}
         {awayKm !== null && (
@@ -293,6 +301,13 @@ function lotOffsets(fleet: Vehicle[]): Map<string, [number, number]> {
   return offsets;
 }
 
+/** Xe mất tín hiệu GPS: marker nhấp nháy + nhãn dưới xe (nhãn không xoay theo hướng xe vì marker lúc này đứng thẳng). */
+const withSignalLost = (html: string, label: string) => `
+  <div class="relative">
+    <div class="motion-safe:animate-pulse">${html}</div>
+    <span class="absolute left-1/2 top-full -translate-x-1/2 whitespace-nowrap rounded bg-slate-900 px-1.5 py-px text-[10px] font-bold text-amber-300 pointer-events-none">${label}</span>
+  </div>`;
+
 /** Nhãn số xe Sẵn sàng thay cho bãi xe khi phóng xa. */
 const lotLabelHtml = (label: string) =>
   `<span class="block whitespace-nowrap rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold text-emerald-700 shadow-sm cursor-pointer">${label}</span>`;
@@ -353,16 +368,21 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
   onSelectVehicle,
 }) => {
   const { stations } = useDispatchStore();
+  const { t } = useTranslation();
+  const now = useNow(10_000);
+  // Hub vị trí rớt thì im lặng là do máy Operator, không phải do xe → không kết luận.
+  const hubConnected = trackingHubService.isConnected();
   return (
     <>
       {vehicles.map((vehicle) => {
+        const signalLost = hubConnected && isGpsSignalLost(vehicle, now);
         const isFar = gpsFarFromStationKm(vehicle, stations.find((s) => s.id === vehicle.stationId)) !== null;
         const isSelected = vehicle.id === selectedVehicleId;
         const markerHtml = vehicle3dMarkerHtml(vehicle.type, vehicle.status, isSelected);
         const place = placements.get(vehicle.id)!;
         // Xe theo GPS thật (không bị dời xếp hàng) → xoay theo hướng chạy, nằm phẳng trên mặt đường khi nghiêng 3D.
         // Xe trong bãi / Sẵn sàng ngoài trạm / ở hiện trường → đứng thẳng, đầu xe hướng lên cho hàng xe gọn.
-        const followsGps = !place.offset && vehicle.status !== 'available';
+        const followsGps = !place.offset && vehicle.status !== 'available' && !signalLost;
         return (
           <MapMarker
             key={vehicle.id}
@@ -372,7 +392,7 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
             offset={place.offset}
             rotation={followsGps ? vehicle.heading : 0}
             rotationAlignment={followsGps ? 'map' : 'viewport'}
-            html={isFar ? withFarWarning(markerHtml) : markerHtml}
+            html={signalLost ? withSignalLost(markerHtml, t('liveMap.map.signalLost')) : isFar ? withFarWarning(markerHtml) : markerHtml}
             zIndex={isSelected ? VEHICLE_Z_INDEX + 1 : VEHICLE_Z_INDEX}
             popupOffset={isSelected ? 28 : 24}
             onClick={() => onSelectVehicle(vehicle.id)}
@@ -381,6 +401,7 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
               vehicle={vehicle}
               incident={vehicle.incidentId ? incidentsById?.get(vehicle.incidentId) : undefined}
               trafficJam={trafficJamByUnit?.get(vehicle.id)}
+              signalLost={signalLost}
             />
           </MapMarker>
         );

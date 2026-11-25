@@ -160,6 +160,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
     teamCompletedMessage: '{{team}} signed the completion report · {{incident}}',
     crewRejectedTitle: 'Crew declined the mission',
     crewTimeoutTitle: 'Crew did not respond',
+    noResponseReason: 'No response (withdrawn by the system)',
     crewRejectedMessage: '{{unit}} · {{incident}} · {{reason}}',
     crewRejectedIncidentClosed: 'The incident closed automatically because other teams have signed off.',
     crewRejectedNoTeamLeft: 'No team is handling it any more — assign a replacement team.',

@@ -119,6 +119,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
   badge: {
     unclassified: 'Unclassified',
     lowConfidence: 'Low confidence — check the photos/videos carefully before approving',
+    estimated: 'Estimate',
     confidenceTitle: 'AI confidence {{score}}%',
     confidence: 'AI {{score}}%',
   },
@@ -468,10 +469,10 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     heldWhileAnalyzingBody:
       'The case is open, so AI will not dispatch it automatically when it finishes — the decision is yours. To let AI handle it, close the case now.',
     confidenceVsThreshold: 'Confidence {{confidence}}% · auto-dispatch threshold {{threshold}}%',
-    notMeasured: 'Confidence not measured — {{confidence}}% is only an estimate',
+    notMeasured: 'Confidence was not measured; the AI number is only an estimate',
   },
   confidence: {
-    estimated: 'estimated',
+    unreadableTitle: 'The AI result could not be read, so there is no confidence.',
     estimatedTitle: 'Confidence self-estimated by the model, for reference only (not used for AI auto-dispatch).',
   },
 };

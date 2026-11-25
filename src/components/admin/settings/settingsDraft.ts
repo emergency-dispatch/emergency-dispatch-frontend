@@ -1,4 +1,5 @@
 import {
+  ACCEPT_TIMEOUT_MINUTES,
   AUTO_DISPATCH_DEFAULTS,
   type AutoDispatchMode,
   type DispatchSettings,
@@ -73,6 +74,7 @@ export interface EscalationDraft {
   radiusMultiplier: string;
   maxRadiusKm: string;
   fieldRequestThresholdMinutes: string;
+  acceptTimeoutMinutes: string;
 }
 
 export const escalationToDraft = (s: EscalationSettings): EscalationDraft => ({
@@ -83,6 +85,7 @@ export const escalationToDraft = (s: EscalationSettings): EscalationDraft => ({
   radiusMultiplier: String(s.radiusMultiplier),
   maxRadiusKm: String(s.maxRadiusKm),
   fieldRequestThresholdMinutes: String(s.fieldRequestThresholdMinutes),
+  acceptTimeoutMinutes: String(s.acceptTimeoutMinutes ?? ACCEPT_TIMEOUT_MINUTES.default),
 });
 
 export const draftToEscalation = (d: EscalationDraft): EscalationSettings => ({
@@ -93,6 +96,7 @@ export const draftToEscalation = (d: EscalationDraft): EscalationSettings => ({
   radiusMultiplier: toNumber(d.radiusMultiplier),
   maxRadiusKm: toNumber(d.maxRadiusKm),
   fieldRequestThresholdMinutes: toNumber(d.fieldRequestThresholdMinutes),
+  acceptTimeoutMinutes: toNumber(d.acceptTimeoutMinutes),
 });
 
 /** So sánh giá trị đã đổi sang số (VD "5" và "5.0" coi là như nhau). */

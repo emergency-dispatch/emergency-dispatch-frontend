@@ -19,7 +19,9 @@ export const AdminTopbar: React.FC<AdminTopbarProps> = ({ onOpenMenu }) => {
   const userRef = useRef<HTMLDivElement>(null);
 
   const navItem = findAdminNavItem(location.pathname);
-  const pageTitle = navItem ? t(`admin.layout.nav.${navItem.key}`) : t('admin.layout.systemAdmin');
+  const pageTitle = navItem
+    ? t(navItem.titleKey ? `admin.layout.pageTitles.${navItem.titleKey}` : `admin.layout.nav.${navItem.key}`)
+    : t('admin.layout.systemAdmin');
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

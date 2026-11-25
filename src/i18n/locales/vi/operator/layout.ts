@@ -92,7 +92,7 @@ export const layoutVi = {
       typeNotAiRecognizable: 'Loại sự cố không thuộc nhóm AI nhận diện được (Cháy / Tai nạn).',
       reporterChoseOther: 'Người báo chọn loại "Khác" — cần người xác minh.',
       aiFailed: 'AI phân tích lỗi hoặc quá thời gian chờ.',
-      confidenceNotMeasured: 'AI không đo được độ tin cậy (con số hiện ra chỉ là ước lượng).',
+      confidenceNotMeasured: 'AI không đo được độ tin cậy, con số của AI chỉ là ước lượng.',
       aiTypeMismatch: 'Loại sự cố AI nhận diện khác loại đang ghi nhận.',
       belowThreshold: 'Độ tin cậy {{confidence}}% thấp hơn ngưỡng tự điều phối {{threshold}}%.',
       operatorHandling: '{{name}} đã mở ca trước khi AI phân tích xong, nên AI không tự điều phối.',
@@ -159,6 +159,7 @@ export const layoutVi = {
     // Đội từ chối / không phản hồi: báo ở mọi trang vì Operator thường đã quay về Hàng đợi sau khi giao xe.
     crewRejectedTitle: 'Đội từ chối nhiệm vụ',
     crewTimeoutTitle: 'Đội không phản hồi',
+    noResponseReason: 'Không phản hồi (hệ thống tự rút lệnh)',
     crewRejectedMessage: '{{unit}} · {{incident}} · {{reason}}',
     crewRejectedIncidentClosed: 'Sự cố đã tự đóng vì tổ khác đã nghiệm thu.',
     crewRejectedNoTeamLeft: 'Không còn tổ nào xử lý — cần giao tổ thay thế.',

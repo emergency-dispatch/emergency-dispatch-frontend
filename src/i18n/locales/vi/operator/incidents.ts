@@ -116,6 +116,7 @@ export const incidentsVi = {
   badge: {
     unclassified: 'Chưa phân loại',
     lowConfidence: 'Độ tin cậy thấp — xem kỹ ảnh/video trước khi duyệt',
+    estimated: 'Ước lượng',
     confidenceTitle: 'AI tin cậy {{score}}%',
     confidence: 'AI {{score}}%',
   },
@@ -469,10 +470,10 @@ export const incidentsVi = {
     heldWhileAnalyzingBody:
       'Ca đang được mở nên khi phân tích xong AI sẽ không tự điều phối — ca do bạn quyết định. Muốn để AI xử lý thì đóng ca ngay.',
     confidenceVsThreshold: 'Độ tin cậy {{confidence}}% · ngưỡng tự điều phối {{threshold}}%',
-    notMeasured: 'Không đo được độ tin cậy — {{confidence}}% chỉ là ước lượng',
+    notMeasured: 'Không đo được độ tin cậy, con số của AI chỉ là ước lượng',
   },
   confidence: {
-    estimated: 'ước lượng',
+    unreadableTitle: 'AI trả kết quả không đọc được nên không có độ tin cậy.',
     estimatedTitle: 'Độ tin cậy do mô hình tự ước lượng, chỉ để tham khảo (không dùng cho AI tự điều phối).',
   },
 } as const;

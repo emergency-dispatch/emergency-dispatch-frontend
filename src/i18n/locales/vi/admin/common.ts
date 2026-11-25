@@ -17,6 +17,8 @@ export const adminCommonVi = {
     last30Days: '30 ngày',
   },
   settings: {
+    on: 'Bật',
+    off: 'Tắt',
     restoreDefaults: 'Khôi phục mặc định',
     discard: 'Hủy thay đổi',
     save: 'Lưu cấu hình',
