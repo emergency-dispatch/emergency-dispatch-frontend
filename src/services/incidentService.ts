@@ -1,6 +1,7 @@
 import { apiClient, unwrapApi } from './apiClient';
 import type { ApiResponse } from '../types/auth';
 import type {
+  AudioAttachmentInputDto,
   BackendIncidentStatus,
   BlockDuration,
   ChangeSeverityRequestDto,
@@ -17,6 +18,7 @@ import type {
   VerifyIncidentRequestDto,
   MyReportDto,
 } from '../types/incident';
+import type { AudioPlaybackUrlDto } from './mediaService';
 
 const BLOCK_DURATION_TO_BACKEND: Record<BlockDuration, string> = {
   '7d': 'SevenDays',
@@ -283,12 +285,37 @@ export const incidentService = {
     return unwrapApi(apiClient.get<ApiResponse<IncidentSupplementDto[]>>(`/Incidents/${id}/supplements`));
   },
 
-  /** §21.4: người báo bổ sung ghi chú / ảnh cho sự cố (kể cả khi Linked). */
+  /** §21.4 + §55: người báo bổ sung ghi chú / ảnh / audio kèm transcript. */
   async addSupplement(
     id: string,
-    dto: { note: string; mediaUrls: string[]; guestCancellationToken?: string }
+    dto: {
+      note: string;
+      mediaUrls: string[];
+      audioAttachments?: AudioAttachmentInputDto[];
+      guestCancellationToken?: string;
+    }
   ): Promise<IncidentSupplementDto> {
     return unwrapApi(apiClient.post<ApiResponse<IncidentSupplementDto>>(`/Incidents/${id}/supplements`, dto));
+  },
+
+  /** §55: lấy URL phát âm thanh có hạn 5 phút cho bản ghi gắn trực tiếp với sự cố. */
+  async getAudioPlaybackUrl(incidentId: string, mediaId: string): Promise<AudioPlaybackUrlDto> {
+    return unwrapApi(
+      apiClient.get<ApiResponse<AudioPlaybackUrlDto>>(`/incidents/${incidentId}/audio/${mediaId}/playback-url`)
+    );
+  },
+
+  /** §55: lấy URL phát âm thanh có hạn 5 phút cho bản ghi thuộc supplement. */
+  async getSupplementAudioPlaybackUrl(
+    incidentId: string,
+    supplementId: string,
+    mediaId: string
+  ): Promise<AudioPlaybackUrlDto> {
+    return unwrapApi(
+      apiClient.get<ApiResponse<AudioPlaybackUrlDto>>(
+        `/incidents/${incidentId}/supplements/${supplementId}/audio/${mediaId}/playback-url`
+      )
+    );
   },
 
   /** BR-07: các báo cáo trùng backend đã gom vào sự cố gốc (đang gom + đã xác nhận trùng). */

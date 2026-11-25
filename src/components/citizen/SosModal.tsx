@@ -28,10 +28,16 @@ import {
   HelpCircle,
   Link2,
   PlusCircle,
-  Split,
+  Mic,
+  Square,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSosCooldown } from '../../hooks/useSosCooldown';
+import {
+  MAX_AUDIO_DURATION_SEC,
+  MAX_TRANSCRIPT_LENGTH,
+  useCitizenAudioRecorder,
+} from '../../hooks/useCitizenAudioRecorder';
 import { incidentService } from '../../services/incidentService';
 import { mediaService } from '../../services/mediaService';
 import { liveMapService, ServiceAreaDto } from '../../services/liveMapService';
@@ -40,7 +46,7 @@ import { MapboxLocationPicker } from '../common/MapboxLocationPicker';
 import { mapboxService } from '../../services/mapboxService';
 import { searchCitizenAddress, type AddressSuggestion } from '../../services/admin/geocodeService';
 import { UserRole } from '../../types/auth';
-import type { CreateIncidentDto, IncidentResponseDto } from '../../types/incident';
+import type { AudioAttachmentInputDto, CreateIncidentDto, IncidentResponseDto } from '../../types/incident';
 import { CitizenPhoneModal } from './CitizenPhoneModal';
 import { CitizenSupplementModal } from './CitizenSupplementModal';
 import { formatCitizenIncidentStatus } from '../../utils/incidentFormat';
@@ -109,8 +115,6 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<boolean>(false);
   const [reportedEventType, setReportedEventType] = useState<'FireExplosion' | 'TrafficAccident' | ''>('');
-  const [isUnlinking, setIsUnlinking] = useState<boolean>(false);
-  const [unlinkSuccessMsg, setUnlinkSuccessMsg] = useState<string>('');
   const [showSupplementModal, setShowSupplementModal] = useState<boolean>(false);
 
   // Out of service area notice modal & real-time monitoring
@@ -121,6 +125,23 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     outsideKm: number;
   }>({ areaName: '', radiusKm: 0, outsideKm: 0 });
   const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(() => getCachedServiceArea());
+  const audioRecorder = useCitizenAudioRecorder({ language: i18n.language });
+  const lastSyncedTranscriptRef = useRef<string>('');
+
+  useEffect(() => {
+    const next = audioRecorder.transcript.trim();
+    const prev = lastSyncedTranscriptRef.current;
+    if (next === prev) return;
+    lastSyncedTranscriptRef.current = next;
+    if (!next) return;
+    setDescription((cur) => {
+      if (!cur.trim() || cur.trim() === prev) return next;
+      if (prev && cur.endsWith(prev)) {
+        return `${cur.slice(0, cur.length - prev.length)}${next}`;
+      }
+      return `${cur.trimEnd()} ${next}`;
+    });
+  }, [audioRecorder.transcript]);
 
   useEffect(() => {
     if (isOpen) {
@@ -149,6 +170,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    audioRecorder.stopRecording();
     setIsCameraActive(false);
     setIsCameraStarting(false);
   };
@@ -195,6 +217,9 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
         videoRef.current.play().catch(() => {});
       }
       setIsCameraActive(true);
+      if (!audioRecorder.isRecording && !audioRecorder.audioFile) {
+        void audioRecorder.startRecording({ resetTranscript: true });
+      }
 
       // Check for front/rear camera support
       try {
@@ -265,6 +290,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
       setPhotoPreview(null);
     }
     setPhotoFile(null);
+    audioRecorder.clearRecording();
     startCamera(cameraFacing);
   };
 
@@ -275,10 +301,12 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
     } else {
       document.body.style.overflow = '';
       stopCamera();
+      audioRecorder.clearRecording();
     }
     return () => {
       document.body.style.overflow = '';
       stopCamera();
+      audioRecorder.clearRecording();
     };
   }, [isOpen]);
 
@@ -547,7 +575,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
       return;
     }
 
-    // Camera photo requirement for SOS
+    // Scene photo is required for SOS (unless browser has no camera device); audio & text are optional
     if (!photoFile) {
       if (!cameraError) {
         setErrorMsg(t('citizen.sos.photoRequiredError'));
@@ -577,20 +605,34 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
         }
       }
 
+      const audioAttachments: AudioAttachmentInputDto[] = [];
+      if (audioRecorder.audioFile) {
+        const uploadedAudio = await mediaService.uploadAsset(audioRecorder.audioFile);
+        if (!uploadedAudio.uploadToken) {
+          throw new Error('Máy chủ không cấp được mã xác nhận bản ghi âm.');
+        }
+        audioAttachments.push({
+          uploadToken: uploadedAudio.uploadToken,
+        });
+      }
+
       const payload: CreateIncidentDto = {
         title: 'Tín hiệu cứu nạn khẩn cấp SOS',
-        description: description.trim() || `Tín hiệu cứu nạn SOS từ người dân tại ${locationAddress}`,
+        description: (description.trim() || `Tín hiệu cứu nạn SOS từ người dân tại ${locationAddress}`).slice(0, MAX_TRANSCRIPT_LENGTH),
         latitude: finalLat,
         longitude: finalLng,
         locationAddress,
         reporterName: reporterName.trim() || (user?.fullName ?? 'Người dân'),
         reporterPhone: cleanPhone || (user?.phoneNumber ?? undefined),
         mediaUrls,
+        audioAttachments: audioAttachments.length > 0 ? audioAttachments : undefined,
         reportedEventType: reportedEventType ? reportedEventType : undefined,
       };
 
       const response = await incidentService.createIncident(payload);
       if (response.success && response.data) {
+        audioRecorder.clearRecording();
+        lastSyncedTranscriptRef.current = '';
         triggerCooldown();
         setCreatedIncident(response.data);
         setSubmittingState('dispatched');
@@ -619,42 +661,14 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
 
   const handleReset = () => {
     stopCamera();
+    audioRecorder.clearRecording();
     setSubmittingState('idle');
     setCreatedIncident(null);
     setIsCancelling(false);
     setShowCancelConfirm(false);
     setReportedEventType('');
-    setIsUnlinking(false);
-    setUnlinkSuccessMsg('');
     setShowSupplementModal(false);
     onClose();
-  };
-
-  const handleUnlink = async () => {
-    if (!createdIncident?.id || isUnlinking) return;
-    setIsUnlinking(true);
-    setUnlinkSuccessMsg('');
-    setErrorMsg('');
-    try {
-      const guestToken =
-        localStorage.getItem('resq_guest_token_' + createdIncident.id) ||
-        createdIncident.guestCancellationToken ||
-        undefined;
-      const unlinked = await incidentService.unlinkReport(
-        createdIncident.id,
-        'Người báo xác nhận đây là sự cố khác',
-        guestToken
-      );
-      setCreatedIncident({ ...unlinked, linkedTo: undefined });
-      setUnlinkSuccessMsg(
-        t('citizen.sos.unlinkSuccess', 'Đã tách báo cáo thành sự cố riêng. Đội điều phối sẽ tiếp nhận ngay.')
-      );
-      window.dispatchEvent(new CustomEvent('resq_incident_updated', { detail: unlinked }));
-    } catch (err: any) {
-      setErrorMsg(getApiErrorMessage(err, 'Không thể tách báo cáo lúc này.'));
-    } finally {
-      setIsUnlinking(false);
-    }
   };
 
   const handleCancelSubmittedIncident = async () => {
@@ -904,127 +918,10 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                   )}
                 </div>
 
-                {/* Right Column (5 cols): Details, Media & SOS Submission */}
+                {/* Right Column (5 cols): Cam -> Ghi âm -> Loại sự cố -> Mô tả -> Họ tên & SĐT -> SOS */}
                 <div className="lg:col-span-5 flex flex-col justify-between space-y-3.5 sm:space-y-4">
                   <div className="space-y-3">
-                    {/* Reporter Name */}
-                    <div className="space-y-1">
-                      <label className="block text-[11px] font-mono uppercase text-slate-700 font-bold">
-                        {t('citizen.sos.reporterNameLabel')}
-                      </label>
-                      <div className="relative">
-                        <User className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-                        <input
-                          type="text"
-                          value={reporterName}
-                          onChange={(e) => setReporterName(e.target.value)}
-                          placeholder="Nguyễn Văn A"
-                          className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:border-red-500 font-mono shadow-xs"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Reporter Phone */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label className="block text-[11px] font-mono uppercase text-slate-700 font-bold">
-                          {t('citizen.sos.reporterPhoneLabel')}
-                        </label>
-                        {isCitizenWithoutPhone && (
-                          <button
-                            type="button"
-                            onClick={() => setShowPhoneModal(true)}
-                            className="text-[10px] font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-0.5 cursor-pointer"
-                          >
-                            <ShieldAlert className="w-3 h-3" />
-                            <span>{t('citizen.sos.addToProfile')}</span>
-                          </button>
-                        )}
-                      </div>
-                      <div className="relative">
-                        <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-                        <input
-                          type="tel"
-                          value={reporterPhone}
-                          onChange={(e) => setReporterPhone(e.target.value)}
-                          placeholder="0912345678"
-                          className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:border-red-500 font-mono shadow-xs"
-                        />
-                      </div>
-                      {isCitizenWithoutPhone && reporterPhone.trim() && (
-                        <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer pt-0.5">
-                          <input
-                            type="checkbox"
-                            checked={savePhoneToProfile}
-                            onChange={(e) => setSavePhoneToProfile(e.target.checked)}
-                            className="rounded text-red-600 focus:ring-red-500"
-                          />
-                          <span>{t('citizen.sos.savePhoneCheckbox')}</span>
-                        </label>
-                      )}
-                    </div>
-
-                    {/* Reported Event Type (BR-07) */}
-                    <div className="space-y-1">
-                      <label className="block text-[11px] font-mono uppercase text-slate-700 font-bold">
-                        {t('citizen.sos.eventTypeLabel', 'Loại sự cố:')}
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setReportedEventType(reportedEventType === 'FireExplosion' ? '' : 'FireExplosion')}
-                          className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                            reportedEventType === 'FireExplosion'
-                              ? 'bg-red-50 border-red-500 text-red-600 shadow-2xs ring-1 ring-red-400'
-                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                          }`}
-                        >
-                          <Flame className="w-3.5 h-3.5 text-red-500" />
-                          <span>{t('citizen.sos.eventTypeFire', 'Cháy nổ')}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReportedEventType(reportedEventType === 'TrafficAccident' ? '' : 'TrafficAccident')}
-                          className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                            reportedEventType === 'TrafficAccident'
-                              ? 'bg-amber-50 border-amber-500 text-amber-700 shadow-2xs ring-1 ring-amber-400'
-                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                          }`}
-                        >
-                          <Car className="w-3.5 h-3.5 text-amber-600" />
-                          <span>{t('citizen.sos.eventTypeAccident', 'Tai nạn')}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReportedEventType('')}
-                          className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                            reportedEventType === ''
-                              ? 'bg-slate-100 border-slate-400 text-slate-800 shadow-2xs font-bold'
-                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                          }`}
-                        >
-                          <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{t('citizen.sos.eventTypeUnknown', 'Không rõ')}</span>
-                        </button>
-                      </div>
-                    </div>
-
-
-                    {/* Description Note */}
-                    <div className="space-y-1">
-                      <label className="block text-[11px] font-mono uppercase text-slate-700 font-bold">
-                        {t('citizen.sos.situationDescLabel')}
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder={t('citizen.sos.situationDescPlaceholder')}
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:border-red-500 font-mono resize-none shadow-xs"
-                      />
-                    </div>
-
-                    {/* Media Camera Section - Live Camera Required */}
+                    {/* 1. Media Camera Section - Live Camera Required */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <label className="block text-[11px] font-mono uppercase text-slate-700 font-bold flex items-center gap-1.5">
@@ -1047,7 +944,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
 
                       {photoPreview ? (
                         <div className="relative rounded-xl border border-emerald-300 bg-emerald-50/20 overflow-hidden group shadow-sm">
-                          <div className="relative w-full h-36 sm:h-44 bg-slate-900 flex items-center justify-center overflow-hidden">
+                          <div className="relative w-full h-48 sm:h-56 bg-slate-900 flex items-center justify-center overflow-hidden">
                             <img
                               src={photoPreview}
                               alt="Scene"
@@ -1091,7 +988,7 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                       ) : isCameraActive ? (
                         <div className="relative rounded-xl border border-red-300 bg-slate-950 overflow-hidden shadow-inner">
                           {/* Live Video Viewfinder */}
-                          <div className="relative w-full h-40 sm:h-48 bg-black flex items-center justify-center overflow-hidden">
+                          <div className="relative w-full h-56 sm:h-64 bg-black flex items-center justify-center overflow-hidden">
                             <video
                               ref={(el) => {
                                 videoRef.current = el;
@@ -1108,9 +1005,17 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
 
                             {/* Live Badge and Camera Controls */}
                             <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-auto">
-                              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-red-600/90 text-white text-[10px] font-mono font-bold shadow-sm">
-                                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                                <span>{t('citizen.sos.liveCameraBadge')}</span>
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-red-600/90 text-white text-[10px] font-mono font-bold shadow-sm">
+                                  <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                                  <span>{t('citizen.sos.liveCameraBadge')}</span>
+                                </div>
+                                {audioRecorder.isRecording && (
+                                  <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900/85 border border-red-400/70 text-red-200 text-[10px] font-mono font-bold">
+                                    <Mic className="w-3 h-3 text-red-400 animate-pulse" />
+                                    <span>REC {audioRecorder.recordingSeconds}s/{MAX_AUDIO_DURATION_SEC}s</span>
+                                  </div>
+                                )}
                               </div>
 
                               <div className="flex items-center gap-1.5">
@@ -1140,6 +1045,12 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                               <div className="w-36 h-28 border border-white/40 rounded-xl" />
                             </div>
+
+                            {audioRecorder.isRecording && (audioRecorder.transcript || audioRecorder.interimTranscript) && (
+                              <div className="absolute bottom-2 left-2 right-2 px-2.5 py-1 rounded-lg bg-black/75 text-white text-[11px] leading-snug line-clamp-2 pointer-events-none">
+                                {`${audioRecorder.transcript} ${audioRecorder.interimTranscript}`.trim()}
+                              </div>
+                            )}
                           </div>
 
                           {/* Shutter Capture Button */}
@@ -1198,6 +1109,183 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                             </button>
                           </div>
                         </div>
+                      )}
+                    </div>
+
+                    {/* 2. Unified Detailed Description + Voice Recording & STT (§55) */}
+                    <div className="space-y-1.5 p-2.5 rounded-xl border border-slate-200 bg-slate-50/70">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-[11px] font-mono uppercase text-slate-700 font-bold flex items-center gap-1.5">
+                          <Mic className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                          <span>
+                            {t('citizen.sos.situationDescLabel')}
+                            {audioRecorder.durationSeconds ? ` · ${audioRecorder.durationSeconds}s` : ''}
+                          </span>
+                        </label>
+                        {audioRecorder.isRecording ? (
+                          <button
+                            type="button"
+                            onClick={audioRecorder.stopRecording}
+                            className="px-2 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                          >
+                            <Square className="w-3 h-3 fill-current" />
+                            <span>Dừng ({audioRecorder.recordingSeconds}s)</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void audioRecorder.startRecording({ resetTranscript: true })}
+                            className="px-2 py-1 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                          >
+                            <Mic className="w-3 h-3" />
+                            <span>{audioRecorder.audioFile ? 'Ghi lại' : `Ghi âm (${MAX_AUDIO_DURATION_SEC}s)`}</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {audioRecorder.micError && (
+                        <p className="text-[11px] text-amber-700 font-medium">{audioRecorder.micError}</p>
+                      )}
+
+                      {audioRecorder.localPreviewUrl && (
+                        <div className="flex items-center gap-2">
+                          <audio src={audioRecorder.localPreviewUrl} controls className="w-full h-8" />
+                          <button
+                            type="button"
+                            onClick={audioRecorder.clearRecording}
+                            className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 cursor-pointer shrink-0"
+                            title="Xóa ghi âm"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      <textarea
+                        rows={2}
+                        maxLength={MAX_TRANSCRIPT_LENGTH}
+                        value={
+                          audioRecorder.isRecording && audioRecorder.interimTranscript
+                            ? `${description}${description.trim() ? ' ' : ''}${audioRecorder.interimTranscript}`
+                            : description
+                        }
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder={
+                          audioRecorder.sttSupported
+                            ? `${t('citizen.sos.situationDescPlaceholder')} (hoặc nói khi ghi âm để tự nhập chữ)`
+                            : t('citizen.sos.situationDescPlaceholder')
+                        }
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-red-500 font-mono resize-none shadow-xs"
+                      />
+                    </div>
+
+                    {/* 3. Reported Event Type (BR-07) */}
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-mono uppercase text-slate-700 font-bold">
+                        {t('citizen.sos.eventTypeLabel', 'Loại sự cố:')}
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setReportedEventType(reportedEventType === 'FireExplosion' ? '' : 'FireExplosion')}
+                          className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            reportedEventType === 'FireExplosion'
+                              ? 'bg-red-50 border-red-500 text-red-600 shadow-2xs ring-1 ring-red-400'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          <Flame className="w-3.5 h-3.5 text-red-500" />
+                          <span>{t('citizen.sos.eventTypeFire', 'Cháy nổ')}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReportedEventType(reportedEventType === 'TrafficAccident' ? '' : 'TrafficAccident')}
+                          className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            reportedEventType === 'TrafficAccident'
+                              ? 'bg-amber-50 border-amber-500 text-amber-700 shadow-2xs ring-1 ring-amber-400'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          <Car className="w-3.5 h-3.5 text-amber-600" />
+                          <span>{t('citizen.sos.eventTypeAccident', 'Tai nạn')}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReportedEventType('')}
+                          className={`py-1.5 px-2 rounded-lg border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            reportedEventType === ''
+                              ? 'bg-slate-100 border-slate-400 text-slate-800 shadow-2xs font-bold'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{t('citizen.sos.eventTypeUnknown', 'Không rõ')}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 4. Reporter Name & Phone (Compact 1-row grid) */}
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <div className="space-y-1 min-w-0">
+                        <label
+                          className="block text-[10px] font-mono uppercase text-slate-600 font-bold truncate"
+                          title={t('citizen.sos.reporterNameLabel')}
+                        >
+                          {t('citizen.sos.reporterNameLabel')}
+                        </label>
+                        <div className="relative">
+                          <User className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={reporterName}
+                            onChange={(e) => setReporterName(e.target.value)}
+                            placeholder="Nguyễn Văn A"
+                            className="w-full pl-7 pr-2 py-1 text-[11px] rounded-lg border border-slate-300 focus:outline-none focus:border-red-500 font-mono shadow-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <label
+                            className="block text-[10px] font-mono uppercase text-slate-600 font-bold truncate"
+                            title={t('citizen.sos.reporterPhoneLabel')}
+                          >
+                            {t('citizen.sos.reporterPhoneLabel')}
+                          </label>
+                          {isCitizenWithoutPhone && (
+                            <button
+                              type="button"
+                              onClick={() => setShowPhoneModal(true)}
+                              className="text-[9px] font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-0.5 cursor-pointer shrink-0"
+                              title={t('citizen.sos.addToProfile')}
+                            >
+                              <ShieldAlert className="w-2.5 h-2.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <Phone className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="tel"
+                            value={reporterPhone}
+                            onChange={(e) => setReporterPhone(e.target.value)}
+                            placeholder="0912345678"
+                            className="w-full pl-7 pr-2 py-1 text-[11px] rounded-lg border border-slate-300 focus:outline-none focus:border-red-500 font-mono shadow-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {isCitizenWithoutPhone && reporterPhone.trim() && (
+                        <label className="col-span-2 flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={savePhoneToProfile}
+                            onChange={(e) => setSavePhoneToProfile(e.target.checked)}
+                            className="rounded text-red-600 focus:ring-red-500"
+                          />
+                          <span>{t('citizen.sos.savePhoneCheckbox')}</span>
+                        </label>
                       )}
                     </div>
                   </div>
@@ -1270,99 +1358,51 @@ export const SosModal: React.FC<SosModalProps> = ({ isOpen, onClose, onOpenRepor
                 <span className="text-xs font-mono text-emerald-600 font-bold tracking-widest uppercase">
                   {t('citizen.sos.dispatchedBadge')}
                 </span>
-                <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+                <h3 className="text-xl sm:text-3xl font-extrabold text-slate-900">
                   {t('citizen.sos.dispatchedTitle')}
                 </h3>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-slate-600 text-center">
                   {t('citizen.sos.incidentCode')}{' '}
                   <strong className="text-red-600 font-mono text-base">
                     {createdIncident.code || `INC-${createdIncident.id.substring(0, 8).toUpperCase()}`}
-                  </strong>{' '}
-                  — {t('citizen.sos.statusLabel')}{' '}
-                  <strong className="text-slate-900 font-mono">
-                    {formatIncidentStatus(createdIncident.status)}
                   </strong>
                 </p>
               </div>
 
-              {/* Linked Incident Card (BR-07) or Regular Details Card */}
-              {createdIncident.linkedTo ? (
-                <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-left space-y-3 font-mono text-xs w-full max-w-xl mx-auto shadow-xs">
-                  <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm">
-                    <Link2 className="w-4 h-4 shrink-0 text-indigo-600" />
-                    <span>Đã tiếp nhận &amp; đang đối soát sự cố lân cận</span>
+              {/* Details Card */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-3 font-mono text-xs w-full max-w-xl mx-auto">
+                <div className="space-y-1.5 pb-2.5 border-b border-slate-200">
+                  <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px] uppercase tracking-wide">
+                    <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                    <span>{t('citizen.sos.sceneLocationLabel')}</span>
                   </div>
-                  <p className="text-slate-600 text-xs font-sans leading-relaxed">
-                    Hệ thống ghi nhận có sự cố gần vị trí của bạn và đang chuyển điều phối viên đối soát. Nếu đây là sự cố khác hoàn toàn, vui lòng chọn &ldquo;Đây là sự cố khác&rdquo;.
+                  <p className="text-slate-900 font-bold text-xs leading-relaxed break-words text-left pl-5">
+                    {createdIncident.locationAddress}
                   </p>
-
-                  {unlinkSuccessMsg ? (
-                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>{unlinkSuccessMsg}</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={handleUnlink}
-                        disabled={isUnlinking}
-                        className="w-full sm:w-auto flex-1 py-2 px-3 rounded-xl border border-indigo-300 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      >
-                        {isUnlinking ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Split className="w-3.5 h-3.5" />
-                        )}
-                        <span>{t('citizen.sos.btnUnlink', 'Đây là sự cố khác')}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowSupplementModal(true)}
-                        className="w-full sm:w-auto flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                      >
-                        <PlusCircle className="w-3.5 h-3.5" />
-                        <span>{t('citizen.sos.btnSupplement', 'Bổ sung thông tin')}</span>
-                      </button>
-                    </div>
-                  )}
                 </div>
-              ) : (
-                /* Details Card */
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-3 font-mono text-xs w-full max-w-xl mx-auto">
-                  <div className="space-y-1.5 pb-2.5 border-b border-slate-200">
-                    <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px] uppercase tracking-wide">
-                      <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                      <span>{t('citizen.sos.sceneLocationLabel')}</span>
-                    </div>
-                    <p className="text-slate-900 font-bold text-xs leading-relaxed break-words text-left pl-5">
-                      {createdIncident.locationAddress}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between pt-0.5">
-                    <span className="text-slate-500 font-bold shrink-0 text-[11px] uppercase tracking-wide">
-                      {t('citizen.sos.timeReceivedLabel')}
-                    </span>
-                    <span className="text-slate-900 font-bold">
-                      {new Date(createdIncident.createdAt).toLocaleTimeString(dateLocale())}
-                    </span>
-                  </div>
-
-                  {/* Quick Supplement Action for regular SOS */}
-                  {createdIncident.status !== 'Cancelled' && createdIncident.status !== 'Completed' && (
-                    <div className="pt-2 border-t border-slate-200 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setShowSupplementModal(true)}
-                        className="py-1.5 px-3 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <PlusCircle className="w-3.5 h-3.5 text-red-600" />
-                        <span>{t('citizen.sos.btnSupplement', 'Bổ sung thông tin')}</span>
-                      </button>
-                    </div>
-                  )}
+                <div className="flex items-center justify-between pt-0.5">
+                  <span className="text-slate-500 font-bold shrink-0 text-[11px] uppercase tracking-wide">
+                    {t('citizen.sos.timeReceivedLabel')}
+                  </span>
+                  <span className="text-slate-900 font-bold">
+                    {new Date(createdIncident.createdAt).toLocaleTimeString(dateLocale())}
+                  </span>
                 </div>
-              )}
+
+                {/* Quick Supplement Action */}
+                {createdIncident.status !== 'Cancelled' && createdIncident.status !== 'Completed' && (
+                  <div className="pt-2 border-t border-slate-200 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowSupplementModal(true)}
+                      className="py-1.5 px-3 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5 text-red-600" />
+                      <span>{t('citizen.sos.btnSupplement', 'Bổ sung thông tin')}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Primary Action: Track on CAD Radar */}
               <div className="max-w-xl mx-auto">

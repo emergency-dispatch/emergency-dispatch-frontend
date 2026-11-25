@@ -54,6 +54,7 @@ export type AutoDispatchReasonCode =
   | 'ensemble-no-majority'
   | 'ensemble-unavailable'
   | 'ensemble-no-photo'
+  | 'audio-transcript-unavailable'
   // Skipped
   | 'suspected-duplicate'
   | 'no-teams'
@@ -87,6 +88,7 @@ export type AutoDispatchNotEligibleReason =
   | 'ensembleNoMajority'
   | 'ensembleUnavailable'
   | 'ensembleNoPhoto'
+  | 'audioTranscriptUnavailable'
   | 'other';
 
 const NOT_ELIGIBLE_REASON_FROM_CODE: Partial<Record<AutoDispatchReasonCode, AutoDispatchNotEligibleReason>> = {
@@ -102,6 +104,7 @@ const NOT_ELIGIBLE_REASON_FROM_CODE: Partial<Record<AutoDispatchReasonCode, Auto
   'ensemble-no-majority': 'ensembleNoMajority',
   'ensemble-unavailable': 'ensembleUnavailable',
   'ensemble-no-photo': 'ensembleNoPhoto',
+  'audio-transcript-unavailable': 'audioTranscriptUnavailable',
   // 'linked-report': ca đã gộp bị ẩn khỏi hàng đợi → không cần nhãn riêng (rơi vào 'other').
 };
 
@@ -262,6 +265,8 @@ export interface Incident {
   mediaType: IncidentMediaType;
   mediaUrl: string | null;
   media: IncidentMedia[];
+  /** §55: danh sách file ghi âm (phát qua playback-url 5 phút + bản chép lời). */
+  audioItems?: IncidentMediaDto[];
   reporterMedical: ReporterMedicalProfile | null;
   /** Nhật ký SMS khẩn cấp đã tự gửi tới người thân (nếu người báo bật). */
   emergencySmsLog: string | null;
@@ -362,9 +367,17 @@ export type BackendSeverityLevel = 'Unclassified' | 'Level1' | 'Level2' | 'Level
 export interface IncidentMediaDto {
   id: string;
   mediaUrl: string;
-  mediaType: 'Photo' | 'Video';
+  mediaType: 'Photo' | 'Video' | 'Audio';
   fileSizeBytes?: number;
   mimeType?: string;
+  publicId?: string | null;
+  durationSeconds?: number | null;
+  transcript?: string | null;
+  transcriptionStatus?: string | null;
+}
+
+export interface AudioAttachmentInputDto {
+  uploadToken: string;
 }
 
 export interface AiClassificationResultDto {
@@ -497,6 +510,7 @@ export interface IncidentSupplementDto {
   targetIncidentId: string;
   note: string;
   mediaUrls: string[];
+  audioAttachments?: IncidentMediaDto[];
   reporterName?: string | null;
   createdAt: string;
 }
@@ -588,6 +602,7 @@ export interface CreateIncidentDto {
   reporterName?: string;
   reporterPhone?: string;
   mediaUrls?: string[];
+  audioAttachments?: AudioAttachmentInputDto[];
   /** Loại sự cố người báo tự chọn: FireExplosion / TrafficAccident (tùy chọn) */
   reportedEventType?: 'FireExplosion' | 'TrafficAccident';
 }
@@ -827,7 +842,8 @@ function autoDispatchIneligibleOf(dto: IncidentResponseDto): AutoDispatchIneligi
  * `language` chọn bản tóm tắt / căn cứ ùn tắc của AI (backend trả cả tiếng Việt và tiếng Anh).
  */
 export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language: 'vi' | 'en' = 'vi'): Incident {
-  const firstMedia = dto.mediaItems[0] ?? null;
+  const visualMediaItems = dto.mediaItems.filter((m) => m.mediaType !== 'Audio');
+  const firstMedia = visualMediaItems[0] ?? null;
   const ai = dto.aiClassification;
   const allTags = (ai?.hazardTags ?? []).map(normalizeHazardTag);
   const hazardTags = allTags.filter((tag) => !AI_SYSTEM_TAGS.has(tag));
@@ -912,7 +928,8 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
     createdAt: dto.createdAt,
     mediaType: firstMedia?.mediaType === 'Video' ? 'video' : 'image',
     mediaUrl: firstMedia?.mediaUrl ?? null,
-    media: dto.mediaItems.map((m) => ({ url: m.mediaUrl, type: m.mediaType === 'Video' ? 'video' : 'image' })),
+    media: visualMediaItems.map((m) => ({ url: m.mediaUrl, type: m.mediaType === 'Video' ? 'video' : 'image' })),
+    audioItems: dto.mediaItems.filter((m) => m.mediaType === 'Audio'),
     reporterMedical: dto.reporterMedicalProfile ?? null,
     emergencySmsLog: dto.emergencySmsDispatchLog || null,
     assignedVehicleIds: [],
