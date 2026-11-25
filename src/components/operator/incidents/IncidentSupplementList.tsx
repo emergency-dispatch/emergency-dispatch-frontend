@@ -3,6 +3,8 @@ import { AlertCircle, Clock, Loader2, MessageSquarePlus, RefreshCw, User, Users,
 import { formatDateTime } from '../../../utils/incidentFormat';
 import type { IncidentSupplementDto } from '../../../types/incident';
 import { useTranslation } from '../../../i18n';
+import { AudioEvidencePlayer } from '../../common/AudioEvidencePlayer';
+import { incidentService } from '../../../services/incidentService';
 
 const VIDEO_EXT = /\.(mp4|webm|mov|m4v|avi)(\?|$)/i;
 
@@ -92,6 +94,21 @@ export const IncidentSupplementList: React.FC<IncidentSupplementListProps> = ({ 
                       <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
                     )}
                   </a>
+                ))}
+              </div>
+            )}
+
+            {s.audioAttachments && s.audioAttachments.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                {s.audioAttachments.map((audio) => (
+                  <AudioEvidencePlayer
+                    key={audio.id}
+                    audio={audio}
+                    compact
+                    resolvePlaybackUrl={() =>
+                      incidentService.getSupplementAudioPlaybackUrl(s.targetIncidentId || s.incidentId, s.id, audio.id)
+                    }
+                  />
                 ))}
               </div>
             )}

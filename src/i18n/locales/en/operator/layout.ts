@@ -104,6 +104,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
         'Neither supporting AI (ResNet-50, YOLO11n) recognized the same incident type as TriageVL with enough confidence.',
       ensembleUnavailable: 'The two supporting AIs (ResNet-50, YOLO11n) could not run, so there were not enough votes to dispatch.',
       ensembleNoPhoto: 'The incident has no photo for the supporting AIs to vote on.',
+      audioTranscriptUnavailable: 'The voice recording has no usable transcript — please listen and handle manually.',
       other: 'The case does not qualify for AI auto-dispatch — please handle it manually.',
       skipped: 'AI tried to dispatch but skipped this case.',
       undecided: 'AI finished analysing but has not dispatched — please handle it manually.',

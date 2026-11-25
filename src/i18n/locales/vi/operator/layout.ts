@@ -101,6 +101,7 @@ export const layoutVi = {
         'Không AI phụ nào (ResNet-50, YOLO11n) nhận diện cùng loại sự cố với TriageVL ở độ tin cậy đạt ngưỡng.',
       ensembleUnavailable: 'Hai AI phụ (ResNet-50, YOLO11n) không chạy được, nên không đủ phiếu để tự điều phối.',
       ensembleNoPhoto: 'Sự cố không có ảnh để các AI phụ bỏ phiếu.',
+      audioTranscriptUnavailable: 'Bản ghi âm chưa có bản chép lời hợp lệ — hãy nghe lại và xử lý thủ công.',
       other: 'Ca không đủ điều kiện để AI tự điều phối — hãy xử lý thủ công.',
       skipped: 'AI đã thử điều phối nhưng bỏ qua ca này.',
       undecided: 'AI đã phân tích xong nhưng chưa tự điều phối được — hãy xử lý thủ công.',

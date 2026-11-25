@@ -71,6 +71,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
       ensembleNoMajority: 'No agreement among 3 AIs',
       ensembleUnavailable: 'Supporting AI votes missing',
       ensembleNoPhoto: 'No photo to vote on',
+      audioTranscriptUnavailable: 'Audio has no transcript',
       other: 'Handed over by AI',
       skipped: 'AI skipped',
       undecided: 'AI has not dispatched',

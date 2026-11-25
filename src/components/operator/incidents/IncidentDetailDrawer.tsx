@@ -25,6 +25,8 @@ import { ConfidenceBadge } from './ConfidenceBadge';
 import { IncidentAuditTimeline } from './IncidentAuditTimeline';
 import { IncidentMediaGallery } from './IncidentMediaGallery';
 import { IncidentSupplementList } from './IncidentSupplementList';
+import { AudioEvidencePlayer } from '../../common/AudioEvidencePlayer';
+import { incidentService } from '../../../services/incidentService';
 import { LinkedReportsPanel } from './LinkedReportsPanel';
 import { ReporterMedicalCard } from './ReporterMedicalCard';
 import { SeverityBadge } from './SeverityBadge';
@@ -432,6 +434,19 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
             {/* Cột trái — bằng chứng của người báo: không đóng khung, đọc như hồ sơ */}
             <div className="space-y-5 min-w-0">
               <IncidentMediaGallery key={incident.id} media={incident.media} title={incident.title} />
+
+              {incident.audioItems && incident.audioItems.length > 0 && (
+                <div className="space-y-2">
+                  {incident.audioItems.map((audio) => (
+                    <AudioEvidencePlayer
+                      key={audio.id}
+                      audio={audio}
+                      compact
+                      resolvePlaybackUrl={() => incidentService.getAudioPlaybackUrl(incident.id, audio.id)}
+                    />
+                  ))}
+                </div>
+              )}
 
               <section>
                 <h3 className={SECTION_HEADING}>{t('incidents.drawer.reporterDescription')}</h3>

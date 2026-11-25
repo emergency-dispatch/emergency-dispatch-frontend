@@ -29,9 +29,15 @@ export function circlePolygon(lat: number, lng: number, radiusKm: number): [numb
 }
 
 // §33: có đa giác ranh giới → vẽ đúng đa giác; không có → vòng tròn tâm + bán kính như trước.
-export const serviceAreaToFeatureCollection = (area: ServiceAreaDto | null) => {
-  if (!area || !area.enabled) return { type: 'FeatureCollection' as const, features: [] };
+export const serviceAreaToFeatureCollection = (
+  area: ServiceAreaDto | null,
+  options?: { showDisabledPolygon?: boolean }
+) => {
+  if (!area) return { type: 'FeatureCollection' as const, features: [] };
   const polygons = parseBoundary(area.boundaryGeoJson);
+  if (!area.enabled && !(options?.showDisabledPolygon && polygons.length > 0)) {
+    return { type: 'FeatureCollection' as const, features: [] };
+  }
   const properties = { name: area.name ?? '' };
   if (polygons.length > 0) {
     return {
