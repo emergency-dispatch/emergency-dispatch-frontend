@@ -241,7 +241,11 @@ let isMapboxGeocodeDisabled =
   typeof window !== 'undefined' &&
   import.meta.env.MODE !== 'test' &&
   sessionStorage.getItem('resq_mapbox_geocode_disabled') === 'true';
+let isMapboxDirectionsDisabled = false;
 const geocodeCache = new Map<string, string>();
+const drivingRouteCache = new Map<string, { coords: [number, number][]; ts: number }>();
+const drivingRoutePending = new Map<string, Promise<[number, number][]>>();
+const DRIVING_ROUTE_CACHE_TTL_MS = 60_000;
 
 export const mapboxService = {
   /**
@@ -357,7 +361,27 @@ export const mapboxService = {
       }
     }
 
-    // 3. Fallback: OpenStreetMap Nominatim chuẩn tiếng Việt (Không truyền custom User-Agent trong browser)
+    // 3. Fallback: Photon OSM (CORS thân thiện trên Vercel, hỗ trợ tốt địa danh/tòa nhà lẫn đường)
+    try {
+      const phUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&lat=10.8441&lon=106.8089&limit=3`;
+      const res = await fetch(phUrl);
+      if (res.ok) {
+        const data = await res.json();
+        const vnFeat = (data?.features || []).find(
+          (f: any) => !f?.properties?.countrycode || String(f.properties.countrycode).toUpperCase() === 'VN'
+        );
+        if (vnFeat?.geometry?.coordinates?.length >= 2) {
+          const p = vnFeat.properties || {};
+          const [lng, lat] = vnFeat.geometry.coordinates;
+          const label = [p.name, p.street, p.district || p.county, p.city || p.state].filter(Boolean).join(', ');
+          return { lat, lng, address: label || trimmed };
+        }
+      }
+    } catch {
+      // Fallback to Nominatim below
+    }
+
+    // 4. Fallback: OpenStreetMap Nominatim chuẩn tiếng Việt (Không truyền custom User-Agent trong browser)
     try {
       const osmUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmed)}&format=json&countrycodes=vn&limit=1&accept-language=vi`;
       const res = await fetch(osmUrl);
@@ -376,6 +400,107 @@ export const mapboxService = {
     }
 
     return null;
+  },
+
+  /**
+   * Lấy tuyến đường bộ thực tế ([lng, lat][]) qua Mapbox Directions, dự phòng OSRM.
+   * Không tự bịa đường thẳng nếu cả 2 nguồn lỗi.
+   */
+  async getDrivingRoute(
+    fromLat: number,
+    fromLng: number,
+    toLat: number,
+    toLng: number
+  ): Promise<[number, number][]> {
+    if (!fromLat || !fromLng || !toLat || !toLng) return [];
+    if (Math.abs(fromLat - toLat) < 0.0002 && Math.abs(fromLng - toLng) < 0.0002) return [];
+
+    const cacheKey = `${fromLat.toFixed(4)},${fromLng.toFixed(4)}->${toLat.toFixed(4)},${toLng.toFixed(4)}`;
+    const cached = drivingRouteCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < DRIVING_ROUTE_CACHE_TTL_MS) {
+      return cached.coords;
+    }
+
+    const pending = drivingRoutePending.get(cacheKey);
+    if (pending) return pending;
+
+    const req = (async (): Promise<[number, number][]> => {
+      if (MAPBOX_ACCESS_TOKEN && !MAPBOX_ACCESS_TOKEN.includes('dummy') && !isMapboxDirectionsDisabled) {
+        try {
+          const url =
+            `https://api.mapbox.com/directions/v5/mapbox/driving/${fromLng},${fromLat};${toLng},${toLat}` +
+            `?geometries=geojson&overview=full&access_token=${MAPBOX_ACCESS_TOKEN}`;
+          const res = await fetch(url);
+          if (res.status === 401 || res.status === 403) {
+            isMapboxDirectionsDisabled = true;
+          } else if (res.ok) {
+            const data = await res.json();
+            const coords = data?.routes?.[0]?.geometry?.coordinates;
+            if (Array.isArray(coords) && coords.length >= 2) {
+              drivingRouteCache.set(cacheKey, { coords, ts: Date.now() });
+              return coords;
+            }
+          }
+        } catch {
+          // Fallback to OSRM below
+        }
+      }
+
+      try {
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+        const res = await fetch(osrmUrl);
+        if (res.ok) {
+          const data = await res.json();
+          const coords = data?.routes?.[0]?.geometry?.coordinates;
+          if (Array.isArray(coords) && coords.length >= 2) {
+            drivingRouteCache.set(cacheKey, { coords, ts: Date.now() });
+            return coords;
+          }
+        }
+      } catch {
+        // Return empty when routing APIs fail
+      }
+      return [];
+    })().finally(() => {
+      drivingRoutePending.delete(cacheKey);
+    });
+
+    drivingRoutePending.set(cacheKey, req);
+    return req;
+  },
+
+  /**
+   * Chuẩn hóa lộ trình đường bộ cho bản đồ Citizen: chỉ ẩn khi đã hoàn thành/hủy,
+   * ưu tiên trajectory chuẩn từ backend và tự gọi chỉ đường khi backend trả rỗng hoặc đường ước lượng.
+   */
+  async resolveRoadRouteCoords(params: {
+    incidentStatus?: string;
+    dispatchStatus?: string;
+    routeTrajectory?: Array<{ latitude: number; longitude: number }>;
+    isApproximateRoute?: boolean;
+    vehicleLat?: number | null;
+    vehicleLng?: number | null;
+    incidentLat?: number | null;
+    incidentLng?: number | null;
+  }): Promise<[number, number][]> {
+    if (
+      params.incidentStatus === 'Completed' ||
+      params.incidentStatus === 'Cancelled' ||
+      params.dispatchStatus === 'Completed' ||
+      params.dispatchStatus === 'Cancelled'
+    ) {
+      return [];
+    }
+
+    if (!params.isApproximateRoute && params.routeTrajectory && params.routeTrajectory.length >= 2) {
+      return params.routeTrajectory.map((pt) => [pt.longitude, pt.latitude]);
+    }
+
+    if (params.vehicleLat && params.vehicleLng && params.incidentLat && params.incidentLng) {
+      return this.getDrivingRoute(params.vehicleLat, params.vehicleLng, params.incidentLat, params.incidentLng);
+    }
+
+    return [];
   },
 };
 

@@ -1,7 +1,9 @@
-import React, { Suspense, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { useDispatchStore } from '../../context/DispatchContext';
+import { useAuth } from '../../hooks/useAuth';
+import { usePlanProgress } from '../../hooks/usePlanProgress';
 import { useDispatchRoutes } from '../../hooks/useDispatchRoutes';
 import { useNow } from '../../hooks/useNow';
 import { DispatchIncidentList } from '../../components/operator/livemap/DispatchIncidentList';
@@ -16,6 +18,8 @@ import { useTeamByVehicle } from '../../hooks/useStationTeams';
 import { LiveMapView } from '../../components/operator/livemap/LiveMapView';
 import { CreateIncidentPanel, type IncidentCreatedInfo } from '../../components/operator/livemap/CreateIncidentPanel';
 import type { PickedPoint } from '../../components/operator/livemap/MapPickLocation';
+import { showToast } from '../../components/admin/common/toastStore';
+import { ASSIGNING_MANY } from '../../utils/dispatchPlan';
 import { findNearbyIncidents } from '../../utils/nearbyIncidents';
 import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
 import type { AssignOptions, TeamAssignTarget } from '../../context/DispatchContext';
@@ -60,7 +64,7 @@ export const LiveMapPage: React.FC = () => {
     assignTrafficJam,
     unassignTrafficJam,
     trafficAssignableUnits,
-    assignTeam,
+    assignTeams,
     cancelAssignment,
     rejectIncident,
     dismissResponseNotice,
@@ -101,6 +105,8 @@ export const LiveMapPage: React.FC = () => {
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
   const incidentsById = useMemo(() => new Map(incidents.map((i) => [i.id, i])), [incidents]);
   const routes = useDispatchRoutes(incidents, vehicles);
+  const { user } = useAuth();
+  const planProgressOf = usePlanProgress();
 
   // Nhịp chậm: chỉ để đếm, không vẽ lại cả trang (bản đồ) mỗi giây.
   const slowNow = useNow(15_000);
@@ -112,8 +118,9 @@ export const LiveMapPage: React.FC = () => {
       escalatedIds: escalatedIncidentIds,
       fieldRequestCounts,
       verdictOf: (incident) => autoDispatchVerdictAt(incident, autoDispatchSettings, slowNow),
+      missingOf: (incident) => planProgressOf(incident).missing,
     });
-  }, [incidents, fieldRequests, escalatedIncidentIds, autoDispatchSettings, slowNow]);
+  }, [incidents, fieldRequests, escalatedIncidentIds, autoDispatchSettings, slowNow, planProgressOf]);
 
   // Deep link từ banner leo thang / thông báo
   const focusIncidentId = (location.state as { focusIncidentId?: string } | null)?.focusIncidentId;
@@ -163,6 +170,19 @@ export const LiveMapPage: React.FC = () => {
     setServingRequestId(null);
     if (id) setSheetOpen(true);
   };
+
+  // Bấm lại icon Live Map ở thanh bên khi đang ở đây → về "Theo dõi ca" (đang tạo sự cố thì hỏi bỏ dữ liệu trước).
+  // Bản đồ giữ nguyên. Bỏ qua state còn lưu trong lịch sử khi vừa mở / tải lại trang.
+  const liveMapHome = !!(location.state as { liveMapHome?: boolean } | null)?.liveMapHome;
+  const initialLocationKeyRef = useRef(location.key);
+  const [closeCreateRequest, setCloseCreateRequest] = useState(0);
+  useEffect(() => {
+    if (!liveMapHome || location.key === initialLocationKeyRef.current) return;
+    if (createOpen) setCloseCreateRequest((n) => n + 1);
+    else handleSelectIncident(null);
+    // Chỉ chạy theo lần bấm (mỗi lần bấm là một location.key mới).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveMapHome, location.key]);
 
   const handleServeFieldRequest = (request: FieldRequestDto) => {
     setSelectedIncidentId(request.incidentId);
@@ -222,6 +242,7 @@ export const LiveMapPage: React.FC = () => {
       nearby={nearby}
       onViewIncident={handleViewNearby}
       onClose={closeCreate}
+      closeRequestKey={closeCreateRequest}
       onCreated={handleCreated}
     />
   ) : null;
@@ -230,13 +251,19 @@ export const LiveMapPage: React.FC = () => {
     setSelectedVehicleId((cur) => (cur === id ? null : id));
   };
 
-  const handleAssign = async (target: TeamAssignTarget, algorithm: DispatchAlgorithm, options?: AssignOptions) => {
-    if (!selectedIncidentId) return;
-    setAssigningTeamId(target.teamId);
+  const handleAssign = async (
+    targets: TeamAssignTarget[],
+    algorithm: DispatchAlgorithm,
+    options?: AssignOptions
+  ): Promise<boolean> => {
+    if (!selectedIncidentId) return false;
+    setAssigningTeamId(targets.length === 1 ? targets[0].teamId : ASSIGNING_MANY);
     setPanelError(null);
-    const result = await assignTeam(target, selectedIncidentId, algorithm, options);
+    const result = await assignTeams(targets, selectedIncidentId, algorithm, options);
     setAssigningTeamId(null);
     if (!result.ok) setPanelError(result.message ?? t('context.assignFailed'));
+    else if (targets.length > 1) showToast(t('liveMap.plan.assignedMany', { count: targets.length }));
+    return result.ok;
   };
 
   const handleCancelVehicle = async (vehicleId: string) => {
@@ -278,6 +305,7 @@ export const LiveMapPage: React.FC = () => {
         fieldRequest={servingRequest}
         onExitFieldRequest={() => setServingRequestId(null)}
         onBack={() => handleSelectIncident(null)}
+        onOpenIncident={handleSelectIncident}
         attentionCount={attentionCount}
         caseBody={
           <>
@@ -400,7 +428,7 @@ export const LiveMapPage: React.FC = () => {
         {!createOpen && <ReadyTeamsCard />}
         {GpsSimulatorPanel && (
           <Suspense fallback={null}>
-            <GpsSimulatorPanel vehicles={vehicles} />
+            <GpsSimulatorPanel vehicles={vehicles} stations={stations} myStationId={user?.stationId ?? null} />
           </Suspense>
         )}
       </div>

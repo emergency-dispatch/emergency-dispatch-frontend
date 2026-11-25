@@ -6,6 +6,8 @@ import {
   formatCitizenIncidentStatus,
   formatCountdown,
   formatDateTime,
+  formatShortId,
+  formatCrewRole,
   formatWaitDuration,
   getIncidentVisualMeta,
   maskPhone,
@@ -160,6 +162,63 @@ describe('incidentFormat', () => {
   ])('formatCitizenIncidentStatus(%s) → %s', (status: string | null, label: string) => {
     expect(formatCitizenIncidentStatus(status)).toBe(label);
   });
+
+  describe('formatShortId', () => {
+    it('rút gọn GUID dài thành 8 ký tự đầu viết hoa kèm prefix #', () => {
+      expect(formatShortId('64da9ab4-da11-4632-b2b2-df702031bfab')).toBe('#64DA9AB4');
+      expect(formatShortId('#64da9ab4-da11-4632-b2b2-df702031bfab')).toBe('#64DA9AB4');
+    });
+
+    it('hỗ trợ prefix tùy biến hoặc rỗng', () => {
+      expect(formatShortId('64da9ab4-da11-4632-b2b2-df702031bfab', '')).toBe('64DA9AB4');
+    });
+
+    it('giữ nguyên mã sự cố có định dạng INC-', () => {
+      expect(formatShortId('INC-2026-0012')).toBe('#INC-2026-0012');
+      expect(formatShortId('inc-42')).toBe('#INC-42');
+    });
+
+    it('giữ nguyên mã ngắn <= 8 ký tự', () => {
+      expect(formatShortId('m1')).toBe('#m1');
+      expect(formatShortId('report-1')).toBe('#report-1');
+    });
+
+    it('xử lý chuỗi rỗng và null an toàn', () => {
+      expect(formatShortId(null)).toBe('');
+      expect(formatShortId('')).toBe('');
+      expect(formatShortId(undefined)).toBe('');
+    });
+  });
+
+  describe('formatCrewRole', () => {
+    it('chuẩn hóa vai trò từ backend enum sang tiếng Việt', () => {
+      expect(formatCrewRole('Rescuer')).toBe('Chiến sĩ cứu hộ');
+      expect(formatCrewRole('rescuer')).toBe('Chiến sĩ cứu hộ');
+      expect(formatCrewRole('Driver')).toBe('Lái xe');
+      expect(formatCrewRole('driver')).toBe('Lái xe');
+      expect(formatCrewRole('Medic')).toBe('Y sĩ cấp cứu');
+      expect(formatCrewRole('medic')).toBe('Y sĩ cấp cứu');
+      expect(formatCrewRole('Commander')).toBe('Chỉ huy kíp');
+      expect(formatCrewRole('commander')).toBe('Chỉ huy kíp');
+      expect(formatCrewRole('Firefighter')).toBe('Chiến sĩ cứu hỏa');
+      expect(formatCrewRole('RescueStaff')).toBe('Cán bộ cứu hộ');
+      expect(formatCrewRole('Operator')).toBe('Điều phối viên');
+      expect(formatCrewRole('Admin')).toBe('Quản trị viên');
+    });
+
+    it('giữ nguyên chuỗi tiếng Việt đã dịch hoặc không xác định', () => {
+      expect(formatCrewRole('Chỉ Huy Xe Phản Ứng Cứu Hộ')).toBe('Chỉ Huy Xe Phản Ứng Cứu Hộ');
+      expect(formatCrewRole('Chiến sĩ cứu hộ')).toBe('Chiến sĩ cứu hộ');
+      expect(formatCrewRole('Chuyên gia')).toBe('Chuyên gia');
+    });
+
+    it('xử lý chuỗi rỗng và null an toàn', () => {
+      expect(formatCrewRole(null)).toBe('');
+      expect(formatCrewRole(undefined)).toBe('');
+      expect(formatCrewRole('')).toBe('');
+      expect(formatCrewRole('   ')).toBe('');
+    });
+  });
 });
 
 describe('nearbyIncidents.findNearbyIncidents', () => {
@@ -238,12 +297,13 @@ describe('serviceArea', () => {
       lat: DEFAULT_SERVICE_AREA.centerLat,
       lng: DEFAULT_SERVICE_AREA.centerLng,
       radiusKm: KCN_RADIUS_KM,
+      polygons: [],
     });
   });
 
   it('resolveServiceArea lấy tâm và bán kính từ cấu hình', () => {
     const area = resolveServiceArea({ enabled: true, name: 'X', centerLat: 10, centerLng: 106, radiusKm: 99 });
-    expect(area).toEqual({ name: 'X', lat: 10, lng: 106, radiusKm: 99 });
+    expect(area).toEqual({ name: 'X', lat: 10, lng: 106, radiusKm: 99, polygons: [] });
   });
 
   it('resolveServiceArea coi tọa độ 0 là chưa cấu hình', () => {

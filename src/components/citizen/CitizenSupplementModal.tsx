@@ -21,6 +21,7 @@ interface CitizenSupplementModalProps {
   isOpen: boolean;
   onClose: () => void;
   incidentId: string;
+  incidentCode?: string | null;
   incidentTitle?: string;
   isLinked?: boolean;
   onSuccess?: () => void;
@@ -30,6 +31,7 @@ export const CitizenSupplementModal: React.FC<CitizenSupplementModalProps> = ({
   isOpen,
   onClose,
   incidentId,
+  incidentCode,
   incidentTitle,
   isLinked,
   onSuccess,
@@ -188,7 +190,7 @@ export const CitizenSupplementModal: React.FC<CitizenSupplementModalProps> = ({
                 )}
               </h3>
               <p className="text-xs text-slate-500 font-mono">
-                Mã sự cố: #{incidentId.substring(0, 8).toUpperCase()}{' '}
+                Mã sự cố: {incidentCode || `#${incidentId.substring(0, 8).toUpperCase()}`}{' '}
                 {incidentTitle ? `• ${incidentTitle}` : ''}
               </p>
             </div>

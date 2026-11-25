@@ -31,6 +31,7 @@ import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } f
 import { dateLocale, useTranslation } from '../../../i18n';
 import { IncidentCode } from '../incidents/IncidentCode';
 import { AiWorkingMarkers } from './AiWorkingMarkers';
+import { gpsFarFromStationKm, readyAwayFromStationKm } from '../../../utils/vehicleLocation';
 
 // Bán kính gom cụm (px trên màn hình) — các xe nằm gần nhau hơn mức này ở zoom hiện tại sẽ gộp lại.
 const MAX_ZOOM = 18;
@@ -44,6 +45,7 @@ const boundsOf = (points: Array<{ lat: number; lng: number }>) =>
 
 interface MapCameraControllerProps {
   map: mapboxgl.Map;
+  /** Xe để nút định vị gom vào khung nhìn. */
   vehicles: Vehicle[];
   selectedVehicle: Vehicle | null;
   selectedIncident: Incident | null;
@@ -98,7 +100,10 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam
   trafficJam,
 }) => {
   const { t } = useTranslation();
-  const { unitTypeLabel, assignmentsByIncident } = useDispatchStore();
+  const { unitTypeLabel, assignmentsByIncident, stations } = useDispatchStore();
+  const station = stations.find((s) => s.id === vehicle.stationId);
+  const awayKm = readyAwayFromStationKm(vehicle, station);
+  const isFar = gpsFarFromStationKm(vehicle, station) !== null;
   // §34: đang làm nhiệm vụ → tổ chốt trên lượt điều xe (có thể là tổ trạm khác đi hỗ trợ); còn lại → tổ hiện tại của xe.
   const assignedTeam = useAssignmentTeam()(
     vehicle.id,
@@ -165,6 +170,13 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam
             <span className="font-semibold text-slate-800">{trafficJam.area}</span>
           </PopupRow>
         )}
+        {awayKm !== null && (
+          <PopupRow icon={MapPin}>
+            <span className={isFar ? 'font-semibold text-amber-700' : 'text-slate-800'}>
+              {t(isFar ? 'liveMap.readyTeams.gpsFar' : 'liveMap.map.notAtStation', { km: awayKm.toFixed(1) })}
+            </span>
+          </PopupRow>
+        )}
         <PopupRow icon={Clock}>
           {vehicle.incidentId && !vehicle.hasLiveGps
             ? t('liveMap.map.noGps')
@@ -182,13 +194,21 @@ const VehiclePopup: React.FC<{ vehicle: Vehicle; incident?: Incident; trafficJam
   );
 };
 
-// Xe đậu tại trạm xếp hàng ngay dưới nhà trạm (pixel), mỗi hàng tối đa PARKED_PER_ROW xe, đầu xe hướng lên như bãi đỗ.
-// Nhà trạm 3D 48px neo tâm (chân nhà ≈ +16px); xe 3D 48px neo tâm, thân dài ≈ 40px, rộng ≈ 20px
-// → tâm hàng đầu cách tâm trạm 40px, các xe cách nhau 28px, các hàng cách nhau 44px.
-const PARKED_PER_ROW = 3;
-const PARKED_SPACING_PX = 28;
-const PARKED_ROW_SPACING_PX = 44;
-const PARKED_TOP_PX = 40;
+// Bãi xe của trạm (pixel): ngay dưới nhà trạm, mỗi xe một chỗ cố định, đầu xe hướng lên. Nhà 3D 48px neo tâm
+// (chân nhà ≈ +16px); thân xe dài ≈ 40px, rộng ≈ 20px → hàng đầu cách tâm trạm 40px, xe cách nhau 28px, hàng cách 44px.
+const LOT_PER_ROW = 4;
+const LOT_SPACING_PX = 28;
+const LOT_ROW_SPACING_PX = 44;
+const LOT_TOP_PX = 40;
+// Phóng xa hơn mức này thì bãi xe thu thành nhãn "5/6 xe" để không che bản đồ.
+const LOT_MIN_ZOOM = 12;
+const LOT_LABEL_OFFSET: [number, number] = [0, 32];
+// Thứ tự trong bãi: chữa cháy (thang) → cứu hộ → cấp cứu.
+const LOT_TYPE_ORDER: Vehicle['type'][] = ['fire_truck', 'rescue', 'ambulance'];
+// Xe ở hiện trường xếp hàng: mỗi hàng tối đa SCENE_PER_ROW xe, cách nhau 28px, các hàng cách nhau 44px.
+const SCENE_PER_ROW = 3;
+const SCENE_SPACING_PX = 28;
+const SCENE_ROW_SPACING_PX = 44;
 // Xe tại hiện trường nấp một phần sau ghim sự cố (ghim 48px, z-index cao hơn xe): đầu xe lấn ~10px vào nửa dưới ghim
 // → nhìn như xe đỗ ngay tại hiện trường ở mọi mức zoom (dời pixel cố định, zoom xa mà cách xa thì trông như chỗ khác).
 // Chấm trạng thái ở góc xe vẫn lộ ra ngoài vòng ghim.
@@ -205,8 +225,19 @@ interface VehicleMarkersProps {
   onSelectVehicle: (id: string) => void;
 }
 
-/** Xe đứng tại trạm, trừ xe đang làm nhiệm vụ đã có GPS thật. Dùng chung cho marker, camera và chỉ đường. */
-const isParkedAtStation = (v: Vehicle) => !(v.incidentId && v.hasLiveGps);
+/**
+ * Xe đứng tại trạm, trừ xe đang làm nhiệm vụ đã có GPS thật và xe Sẵn sàng mà GPS lưu chưa ở trạm (vẽ đúng chỗ backend
+ * dùng để tính gợi ý, không che việc xe chưa về). Dùng chung cho marker, camera và chỉ đường.
+ */
+const isParkedAtStation = (v: Vehicle, station: Station) =>
+  !(v.incidentId && v.hasLiveGps) && readyAwayFromStationKm(v, station) === null;
+
+/** Xe Sẵn sàng ở quá xa trạm: thêm dấu "!" góc trên-trái marker (chấm trạng thái ở góc phải). */
+const withFarWarning = (html: string) => `
+  <div class="relative">
+    ${html}
+    <span class="absolute flex items-center justify-center rounded-full pointer-events-none text-white font-bold" style="left:0;top:0;width:15px;height:15px;font-size:11px;line-height:1;background:${VEHICLE_STATUS_META.unavailable.color};border:2px solid #FFFFFF;box-sizing:border-box;">!</span>
+  </div>`;
 
 /**
  * Xe tại hiện trường: xếp hàng ngay dưới ghim sự cố (không theo GPS — GPS lúc này trùng ghim sự cố, xe sẽ đè lên ghim;
@@ -215,7 +246,7 @@ const isParkedAtStation = (v: Vehicle) => !(v.incidentId && v.hasLiveGps);
 const isAtScene = (v: Vehicle, incidentsById: Map<string, Incident>) =>
   v.status === 'on_scene' && !!v.incidentId && incidentsById.has(v.incidentId);
 
-/** Hàng xe dưới một ghim (trạm / sự cố): dời theo pixel, tối đa PARKED_PER_ROW xe mỗi hàng, sắp theo biển số. */
+/** Hàng xe dưới ghim sự cố: dời theo pixel, tối đa SCENE_PER_ROW xe mỗi hàng, sắp theo biển số. */
 function stackUnderPin(
   result: Map<string, VehiclePlacement>,
   group: Vehicle[],
@@ -225,18 +256,48 @@ function stackUnderPin(
   [...group]
     .sort((a, b) => a.plate.localeCompare(b.plate))
     .forEach((v, index) => {
-      const row = Math.floor(index / PARKED_PER_ROW);
-      const inRow = Math.min(PARKED_PER_ROW, group.length - row * PARKED_PER_ROW);
-      const col = index % PARKED_PER_ROW;
+      const row = Math.floor(index / SCENE_PER_ROW);
+      const inRow = Math.min(SCENE_PER_ROW, group.length - row * SCENE_PER_ROW);
+      const col = index % SCENE_PER_ROW;
       result.set(v.id, {
         lat: pin.lat,
         lng: pin.lng,
-        offset: [(col - (inRow - 1) / 2) * PARKED_SPACING_PX, topPx + row * PARKED_ROW_SPACING_PX],
+        offset: [(col - (inRow - 1) / 2) * SCENE_SPACING_PX, topPx + row * SCENE_ROW_SPACING_PX],
       });
     });
 }
 
-/** Vị trí vẽ của một xe: tọa độ + (xe đậu) độ dời pixel để xếp hàng dưới ghim trạm. */
+/**
+ * Chỗ của từng xe trong bãi của trạm. Tính trên toàn bộ xe của trạm (kể cả xe đang đi, bảo trì) nên xe rời bãi thì chỗ
+ * để trống, các xe khác không dồn lại.
+ */
+function lotOffsets(fleet: Vehicle[]): Map<string, [number, number]> {
+  const byStation = new Map<string, Vehicle[]>();
+  fleet.forEach((v) => byStation.set(v.stationId, [...(byStation.get(v.stationId) ?? []), v]));
+  const offsets = new Map<string, [number, number]>();
+  byStation.forEach((group) => {
+    const columns = Math.min(LOT_PER_ROW, group.length);
+    [...group]
+      .sort(
+        (a, b) =>
+          LOT_TYPE_ORDER.indexOf(a.type) - LOT_TYPE_ORDER.indexOf(b.type) ||
+          a.unitType.localeCompare(b.unitType) ||
+          a.plate.localeCompare(b.plate)
+      )
+      .forEach((v, index) => {
+        const col = index % LOT_PER_ROW;
+        const row = Math.floor(index / LOT_PER_ROW);
+        offsets.set(v.id, [(col - (columns - 1) / 2) * LOT_SPACING_PX, LOT_TOP_PX + row * LOT_ROW_SPACING_PX]);
+      });
+  });
+  return offsets;
+}
+
+/** Nhãn số xe Sẵn sàng thay cho bãi xe khi phóng xa. */
+const lotLabelHtml = (label: string) =>
+  `<span class="block whitespace-nowrap rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold text-emerald-700 shadow-sm cursor-pointer">${label}</span>`;
+
+/** Vị trí vẽ của một xe: tọa độ + (xe đậu / ở hiện trường) độ dời pixel dưới ghim trạm / sự cố. */
 export interface VehiclePlacement {
   lat: number;
   lng: number;
@@ -244,16 +305,19 @@ export interface VehiclePlacement {
 }
 
 /**
- * Xe tại hiện trường xếp hàng dưới ghim sự cố; xe đậu xếp hàng dưới ghim trạm; xe đang chạy có GPS thật đứng tại
+ * Xe tại hiện trường xếp hàng dưới ghim sự cố; xe đậu đứng đúng chỗ trong bãi của trạm; xe đang chạy có GPS thật đứng tại
  * tọa độ GPS.
  */
 function computeVehiclePlacements(
   vehicles: Vehicle[],
+  /** Toàn bộ xe — để chỗ trong bãi không đổi theo xe nào đang được vẽ. */
+  fleet: Vehicle[],
   stations: Station[],
   incidentsById: Map<string, Incident>
 ): Map<string, VehiclePlacement> {
   const stationsById = new Map(stations.map((s) => [s.id, s]));
-  const parkedByStation = new Map<string, Vehicle[]>();
+  const lots = lotOffsets(fleet);
+  const result = new Map<string, VehiclePlacement>();
   const atSceneByIncident = new Map<string, Vehicle[]>();
   vehicles.forEach((v) => {
     if (isAtScene(v, incidentsById)) {
@@ -261,12 +325,11 @@ function computeVehiclePlacements(
       return;
     }
     // Đang làm nhiệm vụ mà đã có GPS thật → hiện theo GPS; còn lại (kể cả xe vừa được giao, chưa gửi GPS) đứng tại trạm.
-    if (!isParkedAtStation(v) || !stationsById.has(v.stationId)) return;
-    parkedByStation.set(v.stationId, [...(parkedByStation.get(v.stationId) ?? []), v]);
+    const station = stationsById.get(v.stationId);
+    if (!station || !isParkedAtStation(v, station)) return;
+    result.set(v.id, { lat: station.lat, lng: station.lng, offset: lots.get(v.id) });
   });
 
-  const result = new Map<string, VehiclePlacement>();
-  parkedByStation.forEach((parked, stationId) => stackUnderPin(result, parked, stationsById.get(stationId)!, PARKED_TOP_PX));
   atSceneByIncident.forEach((group, incidentId) =>
     stackUnderPin(result, group, incidentsById.get(incidentId)!, SCENE_TOP_PX)
   );
@@ -278,7 +341,7 @@ function computeVehiclePlacements(
 
 /**
  * Mỗi xe một marker (không gom cụm), icon theo loại xe, màu theo trạng thái.
- * Xe đứng tại trạm của nó, trừ xe đang làm nhiệm vụ đã có GPS thật (hiện theo vị trí GPS).
+ * Xe đứng tại trạm của nó, trừ xe đang làm nhiệm vụ đã có GPS thật và xe Sẵn sàng chưa ở trạm (hiện theo vị trí GPS).
  */
 const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
   map,
@@ -289,14 +352,17 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
   selectedVehicleId,
   onSelectVehicle,
 }) => {
+  const { stations } = useDispatchStore();
   return (
     <>
       {vehicles.map((vehicle) => {
-        const place = placements.get(vehicle.id)!;
+        const isFar = gpsFarFromStationKm(vehicle, stations.find((s) => s.id === vehicle.stationId)) !== null;
         const isSelected = vehicle.id === selectedVehicleId;
+        const markerHtml = vehicle3dMarkerHtml(vehicle.type, vehicle.status, isSelected);
+        const place = placements.get(vehicle.id)!;
         // Xe theo GPS thật (không bị dời xếp hàng) → xoay theo hướng chạy, nằm phẳng trên mặt đường khi nghiêng 3D.
-        // Xe đậu / ở hiện trường → đứng thẳng, đầu xe hướng lên cho hàng xe gọn.
-        const followsGps = !place.offset;
+        // Xe trong bãi / Sẵn sàng ngoài trạm / ở hiện trường → đứng thẳng, đầu xe hướng lên cho hàng xe gọn.
+        const followsGps = !place.offset && vehicle.status !== 'available';
         return (
           <MapMarker
             key={vehicle.id}
@@ -306,7 +372,7 @@ const VehicleMarkers: React.FC<VehicleMarkersProps> = ({
             offset={place.offset}
             rotation={followsGps ? vehicle.heading : 0}
             rotationAlignment={followsGps ? 'map' : 'viewport'}
-            html={vehicle3dMarkerHtml(vehicle.type, vehicle.status, isSelected)}
+            html={isFar ? withFarWarning(markerHtml) : markerHtml}
             zIndex={isSelected ? VEHICLE_Z_INDEX + 1 : VEHICLE_Z_INDEX}
             popupOffset={isSelected ? 28 : 24}
             onClick={() => onSelectVehicle(vehicle.id)}
@@ -407,9 +473,11 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
         return { ...v, lat: incident.lat, lng: incident.lng };
       }
       const station = stationsById.get(v.stationId);
-      return station && isParkedAtStation(v) ? { ...v, lat: station.lat, lng: station.lng } : v;
+      return station && isParkedAtStation(v, station) ? { ...v, lat: station.lat, lng: station.lng } : v;
     });
   }, [vehicles, stations, pinnedIncidentsById]);
+  const myStationId = user?.stationId ?? null;
+  const ownIncidentIds = useMemo(() => new Set(allIncidents.map((i) => i.id)), [allIncidents]);
   // Vẽ xe đang làm nhiệm vụ (đã nhận / đang đi / tại hiện trường); hình xe theo loại (vehicle3dMarkerHtml, xoay theo heading).
   const movingVehicles = useMemo(
     () =>
@@ -418,15 +486,49 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
           MAP_VISIBLE_VEHICLE_STATUSES.includes(v.status) &&
           // "Tại hiện trường" mà không còn lượt điều xe = trạng thái xe kẹt ở backend (VD lượt cập nhật GPS ghi đè
           // CoolDown sau nghiệm thu) → không vẽ, tránh hiện xe "ở hiện trường" đứng tại trạm.
-          (v.status !== 'on_scene' || !!v.incidentId)
+          (v.status !== 'on_scene' || !!v.incidentId) &&
+          // Backend trả / phát xe của mọi trạm cho Operator → chỉ vẽ xe trạm mình và xe trạm khác đang hỗ trợ ca của
+          // trạm mình (store chỉ có sự cố của trạm mình).
+          (v.stationId === myStationId || (!!v.incidentId && ownIncidentIds.has(v.incidentId)))
       ),
-    [mapVehicles]
+    [mapVehicles, myStationId, ownIncidentIds]
   );
-  const selectedVehicle = movingVehicles.find((v) => v.id === selectedVehicleId) ?? null;
+  // Xe Sẵn sàng của trạm mình: đậu trong bãi dưới nhà trạm để thấy trạm còn xe gì.
+  const readyVehicles = useMemo(
+    () => mapVehicles.filter((v) => v.status === 'available' && !!myStationId && v.stationId === myStationId),
+    [mapVehicles, myStationId]
+  );
+  // Phóng xa: ẩn các xe trong bãi (xe Sẵn sàng ngoài trạm vẫn vẽ), thay bằng nhãn dưới nhà trạm.
+  const [lotCollapsed, setLotCollapsed] = useState(false);
+  useEffect(() => {
+    if (!map) return;
+    const update = () => setLotCollapsed(map.getZoom() < LOT_MIN_ZOOM);
+    update();
+    map.on('zoom', update);
+    return () => {
+      map.off('zoom', update);
+    };
+  }, [map]);
+  const myStation = stations.find((s) => s.id === myStationId) ?? null;
+  const myFleetSize = vehicles.filter((v) => v.stationId === myStationId).length;
+  const drawnVehicles = useMemo(
+    () => [
+      ...movingVehicles,
+      ...readyVehicles.filter((v) => !lotCollapsed || (myStation && !isParkedAtStation(v, myStation))),
+    ],
+    [movingVehicles, readyVehicles, lotCollapsed, myStation]
+  );
+  // Nút định vị ưu tiên xe đang làm nhiệm vụ; không có thì về các xe đang ở trạm (bỏ xe lệch GPS để không thu nhỏ bản đồ).
+  const cameraVehicles = useMemo(() => {
+    if (movingVehicles.length > 0) return movingVehicles;
+    const stationsById = new Map(stations.map((s) => [s.id, s]));
+    return readyVehicles.filter((v) => gpsFarFromStationKm(v, stationsById.get(v.stationId)) === null);
+  }, [movingVehicles, readyVehicles, stations]);
+  const selectedVehicle = drawnVehicles.find((v) => v.id === selectedVehicleId) ?? null;
   // Xe không vẽ thì không có vị trí marker → đường đi (VD xe chờ đội xác nhận) bắt đầu từ điểm đầu của tuyến (trạm).
   const placements = useMemo(
-    () => computeVehiclePlacements(movingVehicles, stations, pinnedIncidentsById),
-    [movingVehicles, stations, pinnedIncidentsById]
+    () => computeVehiclePlacements(drawnVehicles, vehicles, stations, pinnedIncidentsById),
+    [drawnVehicles, vehicles, stations, pinnedIncidentsById]
   );
   const selectedIncident = dispatchIncidents.find((i) => i.id === selectedIncidentId) ?? null;
   const nearbyIds = useMemo(() => new Set(nearbyIncidents.map((i) => i.id)), [nearbyIncidents]);
@@ -510,7 +612,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
         <>
           <MapCameraController
             map={map}
-            vehicles={movingVehicles}
+            vehicles={cameraVehicles}
             selectedVehicle={selectedVehicle}
             selectedIncident={selectedIncident}
             recenterTrigger={recenterCount}
@@ -550,6 +652,18 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
             );
           })}
 
+          {lotCollapsed && myStation && myFleetSize > 0 && (
+            <MapMarker
+              map={map}
+              lat={myStation.lat}
+              lng={myStation.lng}
+              offset={LOT_LABEL_OFFSET}
+              html={lotLabelHtml(t('liveMap.map.lotLabel', { available: readyVehicles.length, total: myFleetSize }))}
+              zIndex={VEHICLE_Z_INDEX}
+              onClick={() => map.flyTo({ center: [myStation.lng, myStation.lat], zoom: 14, duration: 800 })}
+            />
+          )}
+
           {trafficJams.map((jam) => (
             <MapMarker
               key={jam.id}
@@ -573,7 +687,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
 
           <VehicleMarkers
             map={map}
-            vehicles={movingVehicles}
+            vehicles={drawnVehicles}
             placements={placements}
             incidentsById={incidentsById}
             trafficJamByUnit={trafficJamByUnit}

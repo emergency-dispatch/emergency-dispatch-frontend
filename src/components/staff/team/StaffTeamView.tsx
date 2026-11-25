@@ -19,6 +19,7 @@ import { userService } from '../../../services/userService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import type { StaffTeamResponseDto, TeamMemberSummaryDto, StationVehicleSummaryDto } from '../../../types/dispatch';
 import { useAuth } from '../../../hooks/useAuth';
+import { formatCrewRole } from '../../../utils/incidentFormat';
 
 export const StaffTeamView: React.FC = () => {
   const { user } = useAuth();
@@ -281,7 +282,7 @@ export const StaffTeamView: React.FC = () => {
                   </h2>
                   {teamData?.myCrewRole && (
                     <div className="text-xs text-red-600 font-semibold mt-0.5">
-                      Vai trò: {teamData.myCrewRole}
+                      Vai trò: {formatCrewRole(teamData.myCrewRole)}
                     </div>
                   )}
                 </div>

@@ -110,7 +110,7 @@ export const MapLegend: React.FC = () => {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-          {MAP_VISIBLE_VEHICLE_STATUSES.map((status) => (
+          {(['available', ...MAP_VISIBLE_VEHICLE_STATUSES] as const).map((status) => (
             <Item
               key={status}
               icon={<span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: VEHICLE_STATUS_META[status].color }} />}

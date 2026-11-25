@@ -113,12 +113,14 @@ function areaBbox({ lat, lng, radiusKm }: SearchArea): [number, number, number, 
 }
 
 // Search Box API có địa điểm (trường, công ty, nhà máy…) — Geocoding v5 ở VN chỉ có tên đường.
-async function searchMapboxPlaces(query: string, area: SearchArea, signal?: AbortSignal): Promise<AddressSuggestion[]> {
-  const bbox = areaBbox(area).join(',');
+async function searchMapboxPlaces(query: string, area: SearchArea | undefined, signal?: AbortSignal): Promise<AddressSuggestion[]> {
+  const proxLng = area ? area.lng : MAP_CENTER[1];
+  const proxLat = area ? area.lat : MAP_CENTER[0];
+  const bboxParam = area ? `&bbox=${areaBbox(area).join(',')}` : '';
   const url =
     `https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(query)}` +
     `&access_token=${MAPBOX_ACCESS_TOKEN}&country=vn&language=vi&limit=${LIMIT}` +
-    `&bbox=${bbox}&proximity=${area.lng},${area.lat}`;
+    `${bboxParam}&proximity=${proxLng},${proxLat}`;
   const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`Mapbox Search Box ${res.status}`);
   const data = (await res.json()) as {
@@ -133,6 +135,117 @@ async function searchMapboxPlaces(query: string, area: SearchArea, signal?: Abor
     const label = p.feature_type === 'poi' && p.name ? [p.name, address].filter(Boolean).join(', ') : address || p.name || '';
     return { label, lng: geometry.coordinates[0], lat: geometry.coordinates[1] };
   });
+}
+
+const citizenSearchCache = new Map<string, { items: AddressSuggestion[]; ts: number }>();
+const CITIZEN_CACHE_TTL_MS = 120_000;
+
+async function searchPhoton(query: string, signal?: AbortSignal): Promise<AddressSuggestion[]> {
+  const url =
+    `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}` +
+    `&lat=${MAP_CENTER[0]}&lon=${MAP_CENTER[1]}&limit=${LIMIT + 2}`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`Photon ${res.status}`);
+  const data = (await res.json()) as {
+    features?: Array<{
+      geometry?: { coordinates?: [number, number] };
+      properties?: {
+        name?: string;
+        street?: string;
+        housenumber?: string;
+        district?: string;
+        county?: string;
+        city?: string;
+        state?: string;
+        countrycode?: string;
+      };
+    }>;
+  };
+  return (data.features ?? [])
+    .filter((f) => !f.properties?.countrycode || f.properties.countrycode.toUpperCase() === 'VN')
+    .map((f) => {
+      const p = f.properties || {};
+      const coords = f.geometry?.coordinates;
+      if (!coords || coords.length < 2) return null;
+      const streetPart = p.housenumber && p.street ? `${p.housenumber} ${p.street}` : p.street;
+      const parts = [p.name, streetPart !== p.name ? streetPart : '', p.district || p.county, p.city || p.state]
+        .filter(Boolean);
+      const label = Array.from(new Set(parts)).join(', ');
+      return label ? { label, lat: coords[1], lng: coords[0] } : null;
+    })
+    .filter((x): x is AddressSuggestion => Boolean(x))
+    .slice(0, LIMIT);
+}
+
+/**
+ * Tìm địa chỉ / địa điểm cho Citizen SOS (trên Vercel dùng được cả tên đường lẫn tòa nhà/trường/công ty):
+ * - Ưu tiên Photon (hỗ trợ autocomplete HTTPS/CORS + ưu tiên gần SHTP) + Mapbox Search Box (nếu token cho phép).
+ * - Có cache 2 phút và chỉ fallback Nominatim khi 2 nguồn trên không có kết quả (hoặc bấm nút tìm) để tránh 429 trên Vercel.
+ */
+export async function searchCitizenAddress(
+  query: string,
+  signal?: AbortSignal,
+  options?: GeocodeSearchOptions
+): Promise<AddressSuggestion[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const allowNominatimFallback = options?.allowNominatim ?? true;
+  const cacheKey = `${trimmed.toLowerCase()}|${allowNominatimFallback ? 1 : 0}`;
+  const cached = citizenSearchCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CITIZEN_CACHE_TTL_MS) {
+    return cached.items;
+  }
+
+  const isMapboxDisabled =
+    typeof window !== 'undefined' && sessionStorage.getItem('resq_mapbox_geocode_disabled') === 'true';
+
+  const tasks: Promise<AddressSuggestion[]>[] = [
+    searchPhoton(trimmed, signal).catch((err: any) => {
+      if (signal?.aborted) throw err;
+      return [];
+    }),
+  ];
+
+  if (MAPBOX_ACCESS_TOKEN && !MAPBOX_ACCESS_TOKEN.includes('dummy') && !isMapboxDisabled) {
+    tasks.push(
+      searchMapboxPlaces(trimmed, undefined, signal).catch((err: any) => {
+        if (signal?.aborted) throw err;
+        if (err?.message?.includes('401') || err?.message?.includes('403')) {
+          try { sessionStorage.setItem('resq_mapbox_geocode_disabled', 'true'); } catch {}
+        }
+        return [];
+      })
+    );
+  }
+
+  const settled = await Promise.allSettled(tasks);
+  let merged = settled
+    .filter((r): r is PromiseFulfilledResult<AddressSuggestion[]> => r.status === 'fulfilled')
+    .reduce<AddressSuggestion[]>((acc, r) => mergeSuggestions(acc, r.value), []);
+
+  // Khi dán địa chỉ dài (nhiều dấu phẩy / mã bưu chính từ reverse-geocode) mà Photon chỉ trả về POI chung không khớp phần đầu (VD: "Đường D18"),
+  // tự fallback sang Nominatim ngay cả lúc gợi ý tự động vì Nominatim giải mã chuẩn chuỗi reverse-geocode của chính nó.
+  const firstPart = trimmed.split(',')[0].trim().toLowerCase();
+  const hasRelevantHit =
+    firstPart.length >= 3 &&
+    merged.some((m) => m.label.toLowerCase().includes(firstPart));
+  const looksLikeFullCopiedAddress = trimmed.includes(',') && firstPart.length >= 3;
+
+  if (((merged.length === 0 && allowNominatimFallback) || (!hasRelevantHit && looksLikeFullCopiedAddress)) && !signal?.aborted) {
+    try {
+      const nom = await searchNominatim(trimmed, signal);
+      // Đặt kết quả Nominatim lên trước khi chuỗi copy đầy đủ khớp chính xác hơn Photon
+      merged = !hasRelevantHit && nom.length > 0 ? mergeSuggestions(nom, merged) : mergeSuggestions(merged, nom);
+    } catch (err: any) {
+      if (signal?.aborted) throw err;
+    }
+  }
+
+  if (merged.length > 0) {
+    citizenSearchCache.set(cacheKey, { items: merged, ts: Date.now() });
+  }
+  return merged;
 }
 
 // Nominatim: viewbox + bounded=1 để chỉ lấy trong vùng chữ nhật bao quanh.

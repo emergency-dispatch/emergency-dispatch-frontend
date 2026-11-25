@@ -7,7 +7,7 @@ import { StaffQuickActionPanel } from '../../../components/staff/StaffQuickActio
 import { StaffFieldRequestSection } from '../../../components/staff/StaffFieldRequestSection';
 import { StaffTrafficTaskCard, type ActiveTrafficTask } from '../../../components/staff/StaffTrafficTaskCard';
 import { StaffIncidentCard } from './StaffIncidentCard';
-import { isGuid } from '../utils/staffMissionUtils';
+import { isGuid, formatShortId } from '../utils/staffMissionUtils';
 import type { FieldRequestDto, CreateFieldRequestDto } from '../../../types/fieldRequest';
 import type { IncidentSupplementDto } from '../../../types/incident';
 import type { ServiceAreaDto } from '../../../services/liveMapService';
@@ -190,8 +190,8 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
               </span>
             )}
 
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono text-slate-600 bg-slate-100 border border-slate-200">
-              Sự cố: <strong className="text-slate-900">#{mission.incidentId}</strong>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono text-slate-600 bg-slate-100 border border-slate-200" title={mission.incidentId}>
+              Sự cố: <strong className="text-slate-900">{formatShortId(mission.incidentCode || mission.incidentId)}</strong>
             </span>
 
             {mission.vehiclePlate && (

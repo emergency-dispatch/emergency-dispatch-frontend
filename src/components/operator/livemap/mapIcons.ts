@@ -7,9 +7,9 @@ import type { VehicleStatus, VehicleType } from '../../../types/vehicle';
 import type { IncidentCategory, SeverityLevel } from '../../../types/incident';
 
 /**
- * Live Map vẽ xe đang làm nhiệm vụ: đội đã nhận / đang di chuyển / tại hiện trường (xe tại hiện trường xếp hàng dưới
- * ghim sự cố để thấy ca đã có tổ tới). Xe đậu ở trạm, chờ đội xác nhận, hồi sức, bảo trì không vẽ — ghim trạm đã đại
- * diện (popup trạm vẫn ghi số xe sẵn sàng).
+ * Trạng thái nhiệm vụ Live Map vẽ xe: đội đã nhận / đang di chuyển / tại hiện trường (xe tại hiện trường xếp hàng dưới
+ * ghim sự cố để thấy ca đã có tổ tới). Xe Sẵn sàng của trạm mình vẽ riêng (LiveMapView `readyVehicles`); xe chờ đội
+ * xác nhận, hồi sức, bảo trì không vẽ.
  */
 export const MAP_VISIBLE_VEHICLE_STATUSES: VehicleStatus[] = ['accepted', 'en_route', 'on_scene'];
 

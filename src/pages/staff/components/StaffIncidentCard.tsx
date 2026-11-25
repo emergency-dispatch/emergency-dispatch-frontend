@@ -5,6 +5,7 @@ import { SEVERITY_META } from '../../../data/incidentMock';
 import { HazardTagBadge } from '../../../components/common/HazardTagBadge';
 import { incidentService } from '../../../services/incidentService';
 import { getApiErrorMessage } from '../../../services/apiClient';
+import { formatShortId } from '../../../utils/incidentFormat';
 import {
   MapPin,
   Phone,
@@ -81,8 +82,8 @@ export const StaffIncidentCard: React.FC<StaffIncidentCardProps> = ({
           >
             {severityMeta?.label || `Cấp độ ${mission.severity}`}
           </span>
-          <span className="text-xs text-slate-500 font-mono">
-            #{mission.incidentId}
+          <span className="text-xs text-slate-500 font-mono" title={mission.incidentId}>
+            {formatShortId(mission.incidentCode || mission.incidentId)}
           </span>
         </div>
 

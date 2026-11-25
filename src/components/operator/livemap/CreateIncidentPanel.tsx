@@ -16,6 +16,7 @@ import { mapboxService } from '../../../services/mapboxService';
 import { AddressSearchField } from '../../admin/stations/AddressSearchField';
 import { searchAddressInArea, searchOpenStreetMapInArea } from '../../../services/admin/geocodeService';
 import { distanceOutsideAreaKm, resolveServiceArea } from '../../../utils/serviceArea';
+import { scrollToFirstError } from '../../../utils/formErrors';
 import { mediaService } from '../../../services/mediaService';
 import { validatedInputClass, labelClass } from '../../admin/common/styles';
 import { INCIDENT_SOURCE_ICON } from '../../../data/incidentSourceMeta';
@@ -59,6 +60,8 @@ interface CreateIncidentPanelProps {
   nearby: NearbyIncident[];
   onViewIncident: (id: string) => void;
   onClose: () => void;
+  /** Tăng lên = trang yêu cầu đóng form (bấm lại icon Live Map) → như nút Hủy, có dữ liệu thì hỏi. */
+  closeRequestKey?: number;
   /** Tạo xong → trang chọn sự cố mới để mở gợi ý xe. */
   onCreated: (info: IncidentCreatedInfo) => void;
 }
@@ -69,7 +72,7 @@ const Section: React.FC<{ step: number; label: string; error?: string | null; ch
   error,
   children,
 }) => (
-  <section className="space-y-2">
+  <section data-field className="space-y-2">
     <p className={`${labelClass} flex items-center gap-2`}>
       <span className="w-4 h-4 rounded-full bg-slate-900 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
         {step}
@@ -95,6 +98,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
   nearby,
   onViewIncident,
   onClose,
+  closeRequestKey = 0,
   onCreated,
 }) => {
   const { createOperatorIncident, serviceArea } = useDispatchStore();
@@ -128,6 +132,12 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [duplicatesDismissed, setDuplicatesDismissed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  // Tăng mỗi lần bấm tạo mà còn lỗi → nhảy tới ô sai đầu tiên, sau khi lỗi đã hiện.
+  const [errorJump, setErrorJump] = useState(0);
+  useEffect(() => {
+    if (errorJump > 0) scrollToFirstError(bodyRef.current);
+  }, [errorJump]);
 
   // Ghim mới → tra ngược địa chỉ (chỉ khi Operator chưa tự gõ).
   useEffect(() => {
@@ -155,6 +165,15 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
     if (dirty && !submitting) setConfirmDiscard(true);
     else onClose();
   };
+
+  // Chỉ phản ứng với yêu cầu mới, không với số đã có từ lúc mở form.
+  const handledCloseRequestRef = useRef(closeRequestKey);
+  useEffect(() => {
+    if (closeRequestKey === handledCloseRequestRef.current) return;
+    handledCloseRequestRef.current = closeRequestKey;
+    if (!submitting) requestClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closeRequestKey]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -214,6 +233,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
     setAttempted(true);
     if (!valid || !position || !source || !category || !severity) {
       if (errors.phone) setReporterOpen(true);
+      setErrorJump((n) => n + 1);
       return;
     }
     setSubmitting(true);
@@ -237,6 +257,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
     setSubmitting(false);
     if (!result.ok) {
       setError({ message: result.message, errors: result.errors });
+      setErrorJump((n) => n + 1);
       return;
     }
     onCreated(
@@ -278,7 +299,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
       </div>
 
       {/* Body */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-5">
+      <div ref={bodyRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-5">
         {error && (
           <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs text-red-700">
             <p className="font-semibold">{error.message}</p>
@@ -494,7 +515,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
                 aria-label={t('liveMap.create.reporterName')}
                 className={validatedInputClass(false)}
               />
-              <div className="space-y-1">
+              <div data-field className="space-y-1">
                 <input
                   value={reporterPhone}
                   onChange={(e) => setReporterPhone(e.target.value.replace(/[^\d+]/g, ''))}

@@ -25,7 +25,7 @@ import type { StaffMission, TurnByTurnStep } from '../../types/staff';
 import type { ActiveTrafficTask } from './StaffTrafficTaskCard';
 import type { ServiceAreaDto } from '../../services/liveMapService';
 import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
-import { getDistanceFromLatLonInKm } from '../../pages/staff/utils/staffMissionUtils';
+import { getDistanceFromLatLonInKm, formatShortId } from '../../pages/staff/utils/staffMissionUtils';
 import {
   MAPBOX_ACCESS_TOKEN,
   createStaffBaseMapStyle,
@@ -987,7 +987,9 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
             <div className="text-xs font-mono font-bold text-red-400 mt-0.5 flex items-center gap-2">
               <span>{mission.vehiclePlate}</span>
               <span className="text-slate-500">•</span>
-              <span className="text-white">#{mission.incidentId}</span>
+              <span className="text-white" title={`Mã sự cố đầy đủ: ${mission.incidentId}`}>
+                {formatShortId(mission.incidentCode || mission.incidentId)}
+              </span>
             </div>
           </div>
         </div>

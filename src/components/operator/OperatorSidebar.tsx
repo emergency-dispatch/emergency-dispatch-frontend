@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ShieldAlert } from 'lucide-react';
 import { COMPLETION_PATH, dashboardNavGroups } from '../../data/dashboardMock';
 import { useDispatchStore } from '../../context/DispatchContext';
@@ -9,6 +9,7 @@ import { useNow } from '../../hooks/useNow';
 import { useTranslation } from '../../i18n';
 
 const QUEUE_PATH = '/dashboard/command-center/incidents';
+const LIVE_MAP_PATH = '/dashboard/command-center/live-map';
 
 const NAV_LABEL_KEY = {
   '/dashboard/command-center/live-map': 'layout.nav.liveMap',
@@ -36,6 +37,16 @@ export const OperatorSidebar: React.FC = () => {
     (i) => i.status === 'approved' && hasPendingCompletion(assignmentsByIncident.get(i.id))
   ).length;
 
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Đang ở Live Map mà bấm lại icon → về "Theo dõi ca". Giữ query (VD ?create=1) để trang tự hỏi trước khi bỏ form.
+  const handleNavClick = (e: React.MouseEvent, path: string) => {
+    if (path !== LIVE_MAP_PATH || location.pathname !== LIVE_MAP_PATH) return;
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: { liveMapHome: true } });
+  };
+
   return (
     <aside className="flex flex-col h-full w-16 shrink-0 bg-white border-r border-slate-200">
       {/* Logo */}
@@ -57,6 +68,7 @@ export const OperatorSidebar: React.FC = () => {
               <NavLink
                 key={item.path}
                 to={item.path}
+                onClick={(e) => handleNavClick(e, item.path)}
                 title={item.path in NAV_LABEL_KEY ? t(NAV_LABEL_KEY[item.path as keyof typeof NAV_LABEL_KEY]) : item.label}                className={({ isActive }) =>
                   `relative flex items-center justify-center w-10 h-10 rounded-xl border transition-all ${
                     isActive

@@ -15,6 +15,8 @@ interface RecommendedTeamLabelProps {
   /** Tên tổ trưởng (chỉ biết với tổ của trạm mình). */
   leaderName?: string;
   disabled?: boolean;
+  /** Tổ một chức năng nằm trong nhóm đã ghi chức năng → ẩn nhãn. */
+  hideFunction?: boolean;
   /** Dòng phụ đứng sau biển số xe (khoảng cách, ETA…). */
   detail?: React.ReactNode;
 }
@@ -29,6 +31,7 @@ export const RecommendedTeamLabel: React.FC<RecommendedTeamLabelProps> = ({
   onSelectOption,
   leaderName,
   disabled = false,
+  hideFunction = false,
   detail,
 }) => {
   const { t } = useTranslation();
@@ -43,7 +46,7 @@ export const RecommendedTeamLabel: React.FC<RecommendedTeamLabelProps> = ({
       <div className="flex flex-wrap items-center gap-1 min-w-0">
         <span className="text-xs font-bold text-slate-900 truncate mr-0.5">{team.teamName}</span>
         {team.options.length === 1 ? (
-          <FunctionBadge meta={functionMeta(selected)} label={unitTypeLabel(selected.unitType)} active />
+          !hideFunction && <FunctionBadge meta={functionMeta(selected)} label={unitTypeLabel(selected.unitType)} active />
         ) : (
           <span role="radiogroup" aria-label={t('liveMap.teamLabel.chooseFunction')} className="contents">
             {team.options.map((option) => (

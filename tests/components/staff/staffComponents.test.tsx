@@ -129,9 +129,9 @@ describe('Staff – smoke render', () => {
     expect(container.ownerDocument.body.textContent!.length).toBeGreaterThan(0);
   });
 
-  it('ScheduleView: báo chưa có API ca trực', () => {
+  it('ScheduleView: báo chưa có dữ liệu ca trực', () => {
     wrap(<StaffScheduleView />);
-    expect(screen.getByText(/CHƯA CÓ API BACKEND/)).toBeInTheDocument();
+    expect(screen.getByText(/Chưa Có Dữ Liệu Lịch Ca/i)).toBeInTheDocument();
   });
 
   it('StatusStepper en_route → on_scene', async () => {

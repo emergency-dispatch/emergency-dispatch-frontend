@@ -1,10 +1,10 @@
 export const citizenReportsVi = {
   modalTitle: 'Lịch sử báo cáo sự cố của tôi',
-  modalSubtitle: 'Theo dõi tiến trình xử lý và lộ trình xe cứu hộ realtime',
+  modalSubtitle: 'Theo dõi tiến trình xử lý và lộ trình xe cứu hộ',
   loading: 'Đang tải danh sách lịch sử sự cố từ máy chủ...',
   emptyTitle: 'Bạn chưa có báo cáo sự cố nào',
   emptyDesc: 'Khi bạn bấm nút "Phát tín hiệu cứu nạn SOS", thông tin sự cố và tiến trình xử lý của lực lượng cứu hộ sẽ được lưu lại tại đây.',
-  trackLiveBtn: 'Theo dõi xe cứu hộ realtime',
+  trackLiveBtn: 'Theo dõi xe cứu hộ',
   close: 'Đóng',
   sceneAssessment: 'Đánh giá hiện trường:',
   status: {
@@ -45,7 +45,7 @@ export const citizenReportsVi = {
   unidentified: 'Chưa định danh',
   rescueUnitDefault: 'Xe Cứu Hộ',
   cadStationDefault: 'Trạm CAD',
-  trackingModalTitle: 'Theo dõi lực lượng ứng cứu Realtime',
+  trackingModalTitle: 'Theo dõi lực lượng ứng cứu',
   trackingIncidentCode: 'Mã sự cố:',
   followingVehicle: 'Đang bám theo xe',
   followVehicle: 'Bám theo xe',

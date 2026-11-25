@@ -43,6 +43,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [featuresDropdownOpen, setFeaturesDropdownOpen] = useState(false);
+  const [isHeroMapExpanded, setIsHeroMapExpanded] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      setIsHeroMapExpanded(Boolean((e as CustomEvent<boolean>).detail));
+    };
+    window.addEventListener('resq_hero_map_fullscreen', handler);
+    return () => window.removeEventListener('resq_hero_map_fullscreen', handler);
+  }, []);
 
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const featuresDropdownRef = useRef<HTMLDivElement>(null);
@@ -135,10 +144,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-out ${
+          isHeroMapExpanded
+            ? '-translate-y-full opacity-0 pointer-events-none'
+            : 'translate-y-0 opacity-100'
+        } ${
+          isScrolled
             ? 'bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm py-3'
             : 'bg-white/90 backdrop-blur-sm border-b border-slate-200/60 py-3.5'
-          }`}
+        }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-11">

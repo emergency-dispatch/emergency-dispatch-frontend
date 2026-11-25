@@ -109,10 +109,12 @@ export const dispatchService = {
    */
   async getRecommendations(
     incidentId: string,
-    algorithm: BackendDispatchAlgorithm = 'NearestAvailable'
+    algorithm: BackendDispatchAlgorithm = 'NearestAvailable',
+    /** `unitType`: chỉ tìm một chức năng. `maxDistanceKm`: quét đúng một bán kính, bỏ qua các nấc tự mở rộng. */
+    options: { unitType?: string; maxDistanceKm?: number } = {}
   ): Promise<ApiResponse<RecommendedUnitResponseDto[]>> {
     const response = await apiClient.get<ApiResponse<RecommendedUnitResponseDto[]>>('/dispatch/recommend', {
-      params: { incidentId, algorithm },
+      params: { incidentId, algorithm, ...options },
     });
     return response.data;
   },

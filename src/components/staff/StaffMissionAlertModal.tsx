@@ -24,6 +24,7 @@ import { HazardTagBadge } from '../common/HazardTagBadge';
 import { staffAudioService } from '../../services/staffAudioService';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_REALISTIC_STYLE } from '../../services/mapboxService';
 import { routingService } from '../../services/routingService';
+import { formatShortId } from '../../utils/incidentFormat';
 
 import type { RejectionReason } from '../../types/dispatch';
 
@@ -346,8 +347,8 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
                   {mission.isAiDispatched && <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />}
                   {mission.isAiDispatched ? 'LỆNH TỰ ĐIỀU ĐỘNG TỪ AI' : 'LỆNH ĐIỀU ĐỘNG TỔNG ĐÀI CAD'}
                 </span>
-                <span className="px-2 py-0.5 rounded bg-black/20 text-[11px] font-mono font-bold text-white">
-                  #{mission.incidentId}
+                <span className="px-2 py-0.5 rounded bg-black/20 text-[11px] font-mono font-bold text-white" title={mission.incidentId}>
+                  {formatShortId(mission.incidentCode || mission.incidentId)}
                 </span>
               </div>
               <h2 className="text-lg sm:text-xl font-black text-white leading-tight">
@@ -383,8 +384,8 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
                 <ShieldAlert className="w-3.5 h-3.5" />
                 MỨC ĐỘ NGUY HIỂM: CẤP {mission.severity} ({severityMeta.label})
               </span>
-              <span className="text-xs text-slate-500 font-mono-data">
-                Sự cố #{mission.incidentId}
+              <span className="text-xs text-slate-500 font-mono-data" title={mission.incidentId}>
+                Sự cố {formatShortId(mission.incidentCode || mission.incidentId)}
               </span>
             </div>
 

@@ -2,6 +2,8 @@ import type { StaffMission, MissionStatus, DigitalClosureReport } from '../../..
 import type { DispatchAssignmentResponseDto } from '../../../types/dispatch';
 import type { RouteResult } from '../../../services/routingService';
 
+export { formatShortId } from '../../../utils/incidentFormat';
+
 export const isGuid = (val?: string): boolean =>
   typeof val === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
@@ -212,6 +214,7 @@ export function mapAssignmentDtoToMission(
   return {
     id: dto.id,
     incidentId: dto.incidentId,
+    incidentCode: incidentDetails?.code || (dto as any).incidentCode,
     title: dto.incidentTitle || 'Nhiệm vụ cứu hộ khẩn cấp',
     description: dto.notes || 'Lực lượng phản ứng nhanh tiếp cận hiện trường và xử lý cứu hộ.',
     severity: sev,

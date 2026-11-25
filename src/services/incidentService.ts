@@ -44,6 +44,7 @@ export interface RoutePoint {
 
 export interface CitizenTrackingDto {
   incidentId: string;
+  incidentCode?: string;
   incidentTitle: string;
   incidentAddress: string;
   incidentLat: number;

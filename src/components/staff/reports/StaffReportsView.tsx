@@ -29,6 +29,7 @@ import { SEVERITY_META } from '../../../data/incidentMock';
 import { dispatchService } from '../../../services/dispatchService';
 import {
   isGuid,
+  formatShortId,
   getSavedClosureReports,
   saveClosureReportLocally,
   mapCompletionReportDtoToClosureReport,
@@ -417,8 +418,8 @@ export const StaffReportsView: React.FC<StaffReportsViewProps> = ({
                     }`}
                 >
                   <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="font-mono font-bold text-xs text-red-600 truncate">
-                      {m.id}
+                    <span className="font-mono font-bold text-xs text-red-600 truncate" title={`Mã nhiệm vụ: ${m.id}`}>
+                      {formatShortId(m.id, '')}
                     </span>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border shrink-0 ${severityMeta?.badgeClass || ''}`}>
                       CẤP {m.severity}
@@ -515,8 +516,8 @@ export const StaffReportsView: React.FC<StaffReportsViewProps> = ({
                 </div>
 
                 <div className="text-right text-xs font-mono text-slate-500">
-                  <div>Mã nhiệm vụ: <strong className="text-slate-900">{selectedReport.id}</strong></div>
-                  <div>Sự cố: <strong className="text-red-600">#{selectedReport.incidentId}</strong></div>
+                  <div>Mã nhiệm vụ: <strong className="text-slate-900" title={selectedReport.id}>{formatShortId(selectedReport.id, '')}</strong></div>
+                  <div>Sự cố: <strong className="text-red-600" title={selectedReport.incidentId}>{formatShortId(selectedReport.incidentCode || selectedReport.incidentId)}</strong></div>
                   {(() => {
                     const mDate = getMissionDate(selectedReport);
                     if (!mDate) return null;

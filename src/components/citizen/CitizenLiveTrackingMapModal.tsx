@@ -7,25 +7,27 @@ import {
   AlertTriangle,
   PhoneCall,
   Clock,
-  Compass,
   Navigation,
-  LocateFixed,
   Maximize2,
-  RefreshCw,
-  CheckCircle2,
-  Shield,
+  Minimize2,
+  Layers,
+  Plus,
+  Minus,
   Radio,
   PlusCircle,
+  Shield,
 } from 'lucide-react';
 import {
   MAPBOX_ACCESS_TOKEN,
-  MAPBOX_STYLE,
+  applyStaffMapLayerMode,
+  createStaffBaseMapStyle,
   mapboxService,
 } from '../../services/mapboxService';
 import { incidentService, type CitizenTrackingDto } from '../../services/incidentService';
 import {
   trackingHubService,
   incidentHubService,
+  HubEvents,
 } from '../../services/realtime/incidentHubService';
 import { liveMapService } from '../../services/liveMapService';
 import {
@@ -38,6 +40,17 @@ import type { DispatchVehicleType, VehicleStatus } from '../../types/vehicle';
 import { haversineDistanceKm } from '../../utils/serviceArea';
 import { useTranslation } from '../../i18n';
 import { CitizenSupplementModal } from './CitizenSupplementModal';
+import { useMapExpandAnimation } from '../../hooks/useMapExpandAnimation';
+
+function computeBearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLon = toRad(lng2 - lng1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x =
+    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
 
 interface CitizenLiveTrackingMapModalProps {
   incident: IncidentResponseDto;
@@ -58,98 +71,167 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
   const vehicleMarkerElRef = useRef<HTMLDivElement | null>(null);
   const stationMarkersRef = useRef<mapboxgl.Marker[]>([]);
 
+  const [liveIncident, setLiveIncident] = useState<IncidentResponseDto>(incident);
+  useEffect(() => {
+    setLiveIncident(incident);
+  }, [incident]);
+
+  const isDuplicateReporterView = Boolean(
+    incident.viewedAsDuplicateReporter || liveIncident.viewedAsDuplicateReporter
+  );
+
   const [trackingData, setTrackingData] = useState<CitizenTrackingDto | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // Live vehicle metrics from SignalR
+  // Live vehicle metrics from SignalR / polling
   const [liveVehicle, setLiveVehicle] = useState<{
     lat: number;
     lng: number;
     heading: number;
     speedKmh: number;
+    at: number;
   } | null>(null);
+  const liveVehicleRef = useRef(liveVehicle);
+  liveVehicleRef.current = liveVehicle;
+  const lastSignalRAtRef = useRef<number>(0);
 
   const [mapLoaded, setMapLoaded] = useState<boolean>(false);
   const [isFollowingVehicle, setIsFollowingVehicle] = useState<boolean>(false);
+  const isFollowingRef = useRef(isFollowingVehicle);
+  isFollowingRef.current = isFollowingVehicle;
+  const [mapLayerMode, setMapLayerMode] = useState<'satellite' | 'streets' | 'dark'>('satellite');
+  const {
+    slotRef: mapSlotRef,
+    isExpanded: isMapExpanded,
+    isFixedLayer: isMapFixedLayer,
+    boxStyle: mapExpandStyle,
+    toggleExpanded: toggleMapExpanded,
+  } = useMapExpandAnimation(() => mapRef.current?.resize(), { collapsedRadius: '0px' });
   const [showSupplementModal, setShowSupplementModal] = useState<boolean>(false);
   const isPollingStoppedRef = useRef<boolean>(false);
 
-  // Fetch initial tracking data
+  const handleChangeMapLayer = (mode: 'satellite' | 'streets' | 'dark') => {
+    setMapLayerMode(mode);
+    if (mapRef.current) {
+      applyStaffMapLayerMode(mapRef.current, mode);
+    }
+  };
+
+  // Fetch initial tracking data + latest redacted incident status
   const fetchTracking = useCallback(async (isSilent = false) => {
     if (isPollingStoppedRef.current && isSilent) return;
     try {
       if (!isSilent) setIsLoading(true);
-      const res = await incidentService.getTracking(incident.id);
-      if (res.data) {
-        setTrackingData(res.data);
-        setErrorMsg('');
-        if (res.data.vehicleLat && res.data.vehicleLng) {
-          setLiveVehicle((prev) => ({
-            lat: res.data.vehicleLat!,
-            lng: res.data.vehicleLng!,
-            heading: prev?.heading || 0,
-            speedKmh: prev?.speedKmh || 0,
-          }));
-        }
-      } else if (!isSilent) {
-        setErrorMsg('Chưa có thông tin xe cứu hộ đang di chuyển.');
+      const [trackRes, incRes] = await Promise.allSettled([
+        incidentService.getTracking(incident.id),
+        incidentService.getById(incident.id),
+      ]);
+
+      if (incRes.status === 'fulfilled' && incRes.value?.success && incRes.value.data) {
+        setLiveIncident((prev) => ({
+          ...incRes.value.data,
+          viewedAsDuplicateReporter:
+            incRes.value.data.viewedAsDuplicateReporter ?? prev.viewedAsDuplicateReporter,
+        }));
       }
-    } catch (err: any) {
-      if (err?.response?.status === 403) {
-        isPollingStoppedRef.current = true;
-        setErrorMsg(
-          err?.response?.data?.message ||
-          'Bạn chưa có quyền theo dõi trực tiếp sự cố gốc này (Backend chưa phân quyền cho tài khoản báo cáo trùng).'
-        );
-      } else if (err?.response?.status === 401) {
-        isPollingStoppedRef.current = true;
-      } else if (!isSilent) {
-        const msg = err?.response?.data?.message || err?.message || 'Chưa thể lấy thông tin điều phối xe.';
-        setErrorMsg(msg);
+
+      if (trackRes.status === 'fulfilled') {
+        const res = trackRes.value;
+        if (res.data) {
+          setTrackingData(res.data);
+          setErrorMsg('');
+          if (res.data.vehicleLat && res.data.vehicleLng) {
+            const now = Date.now();
+            // Cập nhật khi chưa có SignalR hoặc dữ liệu SignalR đã cũ > 2.5s (tránh kẹt toạ độ cũ)
+            if (!lastSignalRAtRef.current || now - lastSignalRAtRef.current > 2500) {
+              setLiveVehicle((prev) => {
+                const moved =
+                  prev &&
+                  Math.hypot(res.data.vehicleLat! - prev.lat, res.data.vehicleLng! - prev.lng) > 0.00003;
+                const nextHeading = moved
+                  ? computeBearingDeg(prev!.lat, prev!.lng, res.data.vehicleLat!, res.data.vehicleLng!)
+                  : prev?.heading || 0;
+                return {
+                  lat: res.data.vehicleLat!,
+                  lng: res.data.vehicleLng!,
+                  heading: nextHeading,
+                  speedKmh: prev?.speedKmh || 0,
+                  at: now,
+                };
+              });
+            }
+          }
+        } else if (!isSilent) {
+          setErrorMsg('');
+        }
+      } else {
+        const err: any = trackRes.reason;
+        if (err?.response?.status === 403) {
+          isPollingStoppedRef.current = true;
+          setErrorMsg(
+            err?.response?.data?.message ||
+            'Bạn chưa có quyền theo dõi sự cố gốc này cho đến khi điều phối viên xác nhận trùng.'
+          );
+        } else if (err?.response?.status === 401) {
+          isPollingStoppedRef.current = true;
+        } else if (!isSilent && err?.response?.status !== 404) {
+          const msg = err?.response?.data?.message || err?.message || 'Chưa thể lấy thông tin điều phối xe.';
+          setErrorMsg(msg);
+        }
       }
     } finally {
       if (!isSilent) setIsLoading(false);
     }
   }, [incident.id]);
 
-  // Initial fetch and polling fallback
+  // Initial fetch and polling fallback (3s)
   useEffect(() => {
     isPollingStoppedRef.current = false;
+    setLiveVehicle(null);
+    lastSignalRAtRef.current = 0;
     fetchTracking(false);
     const interval = setInterval(() => {
       if (!isPollingStoppedRef.current) {
         fetchTracking(true);
       }
-    }, 4000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [fetchTracking]);
 
-  // SignalR Realtime Listeners for tracking & status
+  // SignalR Realtime Listeners for tracking & incident/assignment status (never torn down on follow toggle)
   useEffect(() => {
     let isSubscribed = false;
 
-    const setupSignalR = async () => {
+    const subscribeIncident = async () => {
       try {
         await trackingHubService.start();
-        // Ghi danh nhận tọa độ xe sự cố này
         await trackingHubService.invoke('SubscribeIncident', incident.id);
         isSubscribed = true;
-      } catch (err) {
-        console.info('SignalR TrackingHub subscribe notice (polling active):', err);
+      } catch {
+        // Fallback to polling
       }
-
       try {
         await incidentHubService.start();
+        await incidentHubService.invoke('SubscribeIncident', incident.id);
       } catch {
         // Ignore
       }
     };
 
-    setupSignalR();
+    subscribeIncident();
+
+    const unsubTrackingReconnected = trackingHubService.onReconnected(() => {
+      trackingHubService.invoke('SubscribeIncident', incident.id).catch(() => { });
+      fetchTracking(true);
+    });
+    const unsubIncidentReconnected = incidentHubService.onReconnected(() => {
+      incidentHubService.invoke('SubscribeIncident', incident.id).catch(() => { });
+      fetchTracking(true);
+    });
 
     // Lắng nghe tọa độ xe di chuyển thời gian thực từ TrackingHub
-    const unsubscribeLocation = trackingHubService.on('ReceiveRescueUnitLocation', (payload: any) => {
+    const unsubscribeLocation = trackingHubService.on(HubEvents.ReceiveRescueUnitLocation, (payload: any) => {
       if (!payload) return;
       const targetIncId = payload.incidentId || payload.IncidentId;
       if (targetIncId && targetIncId.toLowerCase() !== incident.id.toLowerCase()) {
@@ -158,17 +240,25 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
 
       const lat = payload.latitude ?? payload.Latitude;
       const lng = payload.longitude ?? payload.Longitude;
-      const heading = payload.headingDegrees ?? payload.HeadingDegrees ?? 0;
+      const rawHeading = payload.headingDegrees ?? payload.HeadingDegrees;
       const speed = payload.speedKmh ?? payload.SpeedKmh ?? 0;
 
       if (typeof lat === 'number' && typeof lng === 'number') {
-        setLiveVehicle({ lat, lng, heading, speedKmh: Math.round(speed) });
+        lastSignalRAtRef.current = Date.now();
+        const prev = liveVehicleRef.current;
+        const moved = prev && Math.hypot(lat - prev.lat, lng - prev.lng) > 0.00002;
+        const heading =
+          typeof rawHeading === 'number' && rawHeading > 0
+            ? rawHeading
+            : moved
+              ? computeBearingDeg(prev!.lat, prev!.lng, lat, lng)
+              : prev?.heading ?? 0;
+
+        setLiveVehicle({ lat, lng, heading, speedKmh: Math.round(speed), at: Date.now() });
 
         if (vehicleMarkerRef.current) {
           vehicleMarkerRef.current.setLngLat([lng, lat]);
-          if (typeof heading === 'number') {
-            vehicleMarkerRef.current.setRotation(heading);
-          }
+          vehicleMarkerRef.current.setRotation(heading);
         }
         if (vehicleMarkerElRef.current) {
           const arrowEl = vehicleMarkerElRef.current.querySelector('.vehicle-heading-arrow') as HTMLElement | null;
@@ -176,25 +266,48 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
             arrowEl.style.transform = `rotate(${heading}deg)`;
           }
         }
-        if (isFollowingVehicle && mapRef.current) {
-          mapRef.current.easeTo({ center: [lng, lat], zoom: 16, duration: 800 });
+        if (isFollowingRef.current && mapRef.current) {
+          mapRef.current.easeTo({ center: [lng, lat], zoom: 16, duration: 700 });
         }
       }
     });
 
-    // Lắng nghe cập nhật trạng thái phân công (Accepted, EnRoute, OnScene...)
-    const unsubscribeAssignment = incidentHubService.on('ReceiveAssignmentStatus', (payload: any) => {
-      fetchTracking(true);
+    // Lắng nghe cập nhật trạng thái phân công (Accepted, EnRoute, OnScene...) & trạng thái sự cố
+    const unsubscribeAssignment = incidentHubService.on(HubEvents.ReceiveAssignmentStatus, (payload: any) => {
+      const targetId = payload?.incidentId || payload?.IncidentId;
+      if (!targetId || targetId.toLowerCase() === incident.id.toLowerCase()) {
+        fetchTracking(true);
+      }
+    });
+    const unsubscribeIncidentStatus = incidentHubService.on(HubEvents.ReceiveIncidentStatus, (payload: any) => {
+      const targetId = payload?.incidentId || payload?.id || payload?.IncidentId;
+      if (!targetId || targetId.toLowerCase() === incident.id.toLowerCase()) {
+        fetchTracking(true);
+      }
+    });
+    const unsubscribeIncidentUpdate = incidentHubService.on(HubEvents.ReceiveIncidentUpdate, (updated: any) => {
+      if (updated?.id?.toLowerCase?.() === incident.id.toLowerCase()) {
+        setLiveIncident((prev) => ({
+          ...prev,
+          ...updated,
+          viewedAsDuplicateReporter: prev.viewedAsDuplicateReporter || updated.viewedAsDuplicateReporter,
+        }));
+      }
     });
 
     return () => {
       if (isSubscribed) {
         trackingHubService.invoke('UnsubscribeIncident', incident.id).catch(() => { });
+        incidentHubService.invoke('UnsubscribeIncident', incident.id).catch(() => { });
       }
+      unsubTrackingReconnected();
+      unsubIncidentReconnected();
       unsubscribeLocation();
       unsubscribeAssignment();
+      unsubscribeIncidentStatus();
+      unsubscribeIncidentUpdate();
     };
-  }, [incident.id, isFollowingVehicle, fetchTracking]);
+  }, [incident.id, fetchTracking]);
 
   // Fit bounds helper
   const fitRouteBounds = useCallback(() => {
@@ -238,7 +351,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: MAPBOX_STYLE,
+      style: createStaffBaseMapStyle('satellite'),
       center: initialCenter,
       zoom: 14,
       attributionControl: false,
@@ -312,7 +425,7 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
     if (!mapRef.current || !mapLoaded) return;
     const map = mapRef.current;
 
-    if (incident.status === 'Cancelled' || incident.status === 'Completed') {
+    if (liveIncident.status === 'Cancelled' || liveIncident.status === 'Completed') {
       if (incidentMarkerRef.current) {
         incidentMarkerRef.current.remove();
         incidentMarkerRef.current = null;
@@ -320,35 +433,35 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
       return;
     }
 
-    if (!incidentMarkerRef.current && incident.latitude && incident.longitude) {
+    if (!incidentMarkerRef.current && liveIncident.latitude && liveIncident.longitude) {
       const el = document.createElement('div');
       const isFire =
-        incident.title?.toLowerCase().includes('cháy') ||
-        incident.description?.toLowerCase().includes('cháy');
+        liveIncident.title?.toLowerCase().includes('cháy') ||
+        liveIncident.description?.toLowerCase().includes('cháy');
       const isAccident =
-        incident.title?.toLowerCase().includes('tai nạn') ||
-        incident.description?.toLowerCase().includes('tai nạn') ||
-        incident.title?.toLowerCase().includes('va chạm');
+        liveIncident.title?.toLowerCase().includes('tai nạn') ||
+        liveIncident.description?.toLowerCase().includes('tai nạn') ||
+        liveIncident.title?.toLowerCase().includes('va chạm');
       const category: IncidentCategory = isFire ? 'fire' : isAccident ? 'accident' : 'unknown';
       const severity: SeverityLevel =
-        incident.severity === 'Level3' ? 3 : incident.severity === 'Level2' ? 2 : 1;
+        liveIncident.severity === 'Level3' ? 3 : liveIncident.severity === 'Level2' ? 2 : 1;
 
       el.innerHTML = glowIncidentMarkerHtml(category, severity, true);
 
       const popup = new mapboxgl.Popup({ offset: 22, closeButton: false }).setHTML(`
         <div style="font-family: inherit; font-size: 11px; padding: 4px; min-width: 160px; color: #0F172A;">
           <p style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: #DC2626; margin: 0 0 2px 0;">Điểm báo sự cố</p>
-          <p style="font-size: 12px; font-weight: 700; color: #0F172A; margin: 0 0 2px 0;">${incident.title || 'Hiện trường SOS'}</p>
-          <p style="font-size: 11px; color: #64748B; margin: 0; line-height: 1.3;">${incident.locationAddress || 'Hiện trường'}</p>
+          <p style="font-size: 12px; font-weight: 700; color: #0F172A; margin: 0 0 2px 0;">${liveIncident.title || 'Hiện trường SOS'}</p>
+          <p style="font-size: 11px; color: #64748B; margin: 0; line-height: 1.3;">${liveIncident.locationAddress || 'Hiện trường'}</p>
         </div>
       `);
 
       incidentMarkerRef.current = new mapboxgl.Marker({ element: el })
-        .setLngLat([incident.longitude, incident.latitude])
+        .setLngLat([liveIncident.longitude, liveIncident.latitude])
         .setPopup(popup)
         .addTo(map);
     }
-  }, [mapLoaded, incident]);
+  }, [mapLoaded, liveIncident]);
 
   // Draw or update Vehicle Pin using standard vehicleMarkerHtml
   useEffect(() => {
@@ -402,96 +515,79 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
     }
   }, [mapLoaded, liveVehicle, trackingData]);
 
-  // Draw Route Polyline
+  // Draw Route Polyline (luôn vẽ tuyến đường bộ thực tế; chỉ xóa tuyến khi đã hoàn thành / hủy)
+  const hasFittedRouteRef = useRef(false);
+  useEffect(() => {
+    hasFittedRouteRef.current = false;
+  }, [incident.id]);
+
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return;
     const map = mapRef.current;
+    let cancelled = false;
 
-    const coords: [number, number][] = [];
-    if (trackingData?.routeTrajectory && trackingData.routeTrajectory.length > 0) {
-      trackingData.routeTrajectory.forEach((p) => {
-        coords.push([p.longitude, p.latitude]);
-      });
-    } else if (trackingData?.vehicleLng && trackingData?.vehicleLat && incident.longitude && incident.latitude) {
-      coords.push([trackingData.vehicleLng, trackingData.vehicleLat]);
-      coords.push([incident.longitude, incident.latitude]);
-    }
+    const sourceId = 'citizen-dispatch-route-source';
+    const lineGlowId = 'citizen-dispatch-route-glow';
+    const lineId = 'citizen-dispatch-route-line';
 
-    if (coords.length >= 2) {
+    const renderRoute = (coords: [number, number][]) => {
+      if (cancelled || !mapRef.current) return;
       const geojson: any = {
         type: 'Feature',
         properties: {},
         geometry: {
           type: 'LineString',
-          coordinates: coords,
+          coordinates: coords.length >= 2 ? coords : [],
         },
       };
 
-      const sourceId = 'citizen-dispatch-route-source';
-      const lineGlowId = 'citizen-dispatch-route-glow';
-      const lineId = 'citizen-dispatch-route-line';
-
       const existingSource = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
-      const isApprox = !!trackingData?.isApproximateRoute;
-
       if (existingSource) {
         existingSource.setData(geojson);
         if (map.getLayer(lineId)) {
-          if (isApprox) {
-            map.setPaintProperty(lineId, 'line-dasharray', [2, 2]);
-          } else {
-            // Reset to solid line in Mapbox GL
-            map.setPaintProperty(lineId, 'line-dasharray', [1, 0]);
-          }
+          map.setPaintProperty(lineId, 'line-dasharray', [1, 0]);
         }
-      } else {
-        map.addSource(sourceId, {
-          type: 'geojson',
-          data: geojson,
-        });
-
-        // Glow effect layer
+      } else if (coords.length >= 2) {
+        map.addSource(sourceId, { type: 'geojson', data: geojson });
         map.addLayer({
           id: lineGlowId,
           type: 'line',
           source: sourceId,
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': '#38BDF8',
-            'line-width': 8,
-            'line-opacity': 0.35,
-            'line-blur': 3,
-          },
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: { 'line-color': '#38BDF8', 'line-width': 8, 'line-opacity': 0.35, 'line-blur': 3 },
         });
-
-        // Main trajectory line - solid road route by default, dashed when approximate
-        const mainLinePaint: any = {
-          'line-color': '#0284C7',
-          'line-width': 4.5,
-          'line-opacity': 0.95,
-        };
-        if (isApprox) {
-          mainLinePaint['line-dasharray'] = [2, 2];
-        }
-
         map.addLayer({
           id: lineId,
           type: 'line',
           source: sourceId,
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: mainLinePaint,
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: { 'line-color': '#0284C7', 'line-width': 4.5, 'line-opacity': 0.95 },
         });
       }
 
-      fitRouteBounds();
-    }
-  }, [mapLoaded, trackingData, incident, fitRouteBounds]);
+      if (coords.length >= 2 && !hasFittedRouteRef.current) {
+        hasFittedRouteRef.current = true;
+        fitRouteBounds();
+      }
+    };
+
+    void mapboxService
+      .resolveRoadRouteCoords({
+        incidentStatus: liveIncident.status,
+        dispatchStatus: trackingData?.dispatchStatus,
+        routeTrajectory: trackingData?.routeTrajectory,
+        isApproximateRoute: trackingData?.isApproximateRoute,
+        vehicleLat: liveVehicle?.lat ?? trackingData?.vehicleLat,
+        vehicleLng: liveVehicle?.lng ?? trackingData?.vehicleLng,
+        incidentLat: liveIncident.latitude,
+        incidentLng: liveIncident.longitude,
+      })
+      .then(renderRoute);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mapLoaded, trackingData, liveIncident, liveVehicle?.lat, liveVehicle?.lng, fitRouteBounds]);
 
   const dispatchStatus = trackingData?.dispatchStatus;
   const isEnRoute = dispatchStatus === 'EnRoute' || dispatchStatus === 'Dispatched' || dispatchStatus === 'Accepted';
@@ -541,14 +637,16 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
               </div>
               <p className="text-xs text-slate-500 font-medium line-clamp-1 mt-0.5">
                 {t('citizen.reports.trackingIncidentCode')}{' '}
-                <span className="text-red-600 font-bold font-mono">{incident.code || `#INC-${incident.id.substring(0, 8).toUpperCase()}`}</span>
-                {incident.title ? ` · ${incident.title}` : ''}
+                <span className="text-red-600 font-bold font-mono">
+                  {liveIncident.code || `#INC-${liveIncident.id.substring(0, 8).toUpperCase()}`}
+                </span>
+                {liveIncident.title ? ` · ${liveIncident.title}` : ''}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2.5">
-            {incident.status !== 'Completed' && incident.status !== 'Cancelled' && (
+            {!isDuplicateReporterView && liveIncident.status !== 'Completed' && liveIncident.status !== 'Cancelled' && (
               <button
                 type="button"
                 onClick={() => setShowSupplementModal(true)}
@@ -585,41 +683,104 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row relative overflow-hidden">
 
           {/* Map View Area */}
-          <div className="relative h-[320px] sm:h-[400px] lg:h-full w-full bg-slate-100 shrink-0 lg:shrink lg:flex-1 overflow-hidden">
-            <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+          <div
+            ref={mapSlotRef}
+            className="relative h-[320px] sm:h-[400px] lg:h-full w-full shrink-0 lg:shrink lg:flex-1"
+          >
+            <div
+              style={mapExpandStyle}
+              className={
+                isMapFixedLayer
+                  ? 'fixed inset-0 z-[10050] rounded-none bg-slate-900 border-0 shadow-none overflow-hidden'
+                  : 'relative w-full h-full bg-slate-100 overflow-hidden'
+              }
+            >
+              <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
-            {/* Floating Top Controls inside Map */}
-            <div className="absolute top-4 left-4 z-10 flex items-center gap-2.5 pointer-events-auto">
+              {/* Floating Top Controls inside Map */}
+              <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-2 pointer-events-auto max-w-[calc(100%-64px)]">
+                <div className="flex items-center gap-0.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-1 rounded-xl shadow-md">
+                  {(
+                    [
+                      { id: 'satellite', label: 'Vệ tinh' },
+                      { id: 'streets', label: 'Đường phố' },
+                      { id: 'dark', label: 'CAD Tối' },
+                    ] as const
+                  ).map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => handleChangeMapLayer(mode.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1 ${mapLayerMode === mode.id
+                        ? 'bg-red-600 text-white shadow-xs'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                        }`}
+                    >
+                      {mode.id === 'satellite' && <Layers className="w-3 h-3" />}
+                      <span>{mode.label}</span>
+                    </button>
+                  ))}
+                </div>
 
-              {liveVehicle && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsFollowingVehicle((v) => !v);
-                    if (mapRef.current) {
-                      mapRef.current.easeTo({
-                        center: [liveVehicle.lng, liveVehicle.lat],
-                        zoom: 16,
-                        duration: 800,
-                      });
-                    }
-                  }}
-                  className={`px-3.5 py-2 rounded-xl backdrop-blur-md text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer active:scale-95 ${isFollowingVehicle
-                    ? 'bg-blue-600 text-white border border-blue-500 shadow-blue-500/20'
-                    : 'bg-white/95 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200/90'
-                    }`}
+                  onClick={toggleMapExpanded}
+                  className="px-2.5 py-1.5 rounded-xl bg-white/95 hover:bg-white text-slate-800 border border-slate-200 shadow-md text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+                  title={isMapExpanded ? 'Thu gọn bản đồ' : 'Phóng to bản đồ'}
                 >
-                  <Navigation className={`w-3.5 h-3.5 ${isFollowingVehicle ? 'text-white' : 'text-blue-600'}`} />
-                  <span>{isFollowingVehicle ? t('citizen.reports.followingVehicle') : t('citizen.reports.followVehicle')}</span>
+                  {isMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">{isMapExpanded ? 'Thu nhỏ' : 'Mở rộng'}</span>
                 </button>
-              )}
+
+                {liveVehicle && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsFollowingVehicle((v) => !v);
+                      if (mapRef.current) {
+                        mapRef.current.easeTo({
+                          center: [liveVehicle.lng, liveVehicle.lat],
+                          zoom: 16,
+                          duration: 800,
+                        });
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-xl backdrop-blur-md text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer active:scale-95 ${isFollowingVehicle
+                      ? 'bg-blue-600 text-white border border-blue-500 shadow-blue-500/20'
+                      : 'bg-white/95 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200/90'
+                      }`}
+                  >
+                    <Navigation className={`w-3.5 h-3.5 ${isFollowingVehicle ? 'text-white' : 'text-blue-600'}`} />
+                    <span>{isFollowingVehicle ? t('citizen.reports.followingVehicle') : t('citizen.reports.followVehicle')}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Bottom-right quick zoom controls */}
+              <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-1.5 pointer-events-auto">
+                <button
+                  type="button"
+                  onClick={() => mapRef.current?.zoomIn({ duration: 250 })}
+                  className="w-8 h-8 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 flex items-center justify-center shadow-md cursor-pointer"
+                  aria-label="Phóng to bản đồ"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => mapRef.current?.zoomOut({ duration: 250 })}
+                  className="w-8 h-8 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 flex items-center justify-center shadow-md cursor-pointer"
+                  aria-label="Thu nhỏ bản đồ"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Right Detail Panel */}
           <div className="w-full lg:w-[400px] xl:w-[420px] shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-slate-50/70 p-5 sm:p-6 flex flex-col justify-between overflow-y-auto space-y-5">
             <div className="space-y-4">
-
               {/* Unit Info Card */}
               <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3.5">
                 <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
@@ -769,14 +930,17 @@ export const CitizenLiveTrackingMapModal: React.FC<CitizenLiveTrackingMapModalPr
         </div>
       </div>
 
-      {/* Citizen Supplement Modal */}
-      <CitizenSupplementModal
-        isOpen={showSupplementModal}
-        onClose={() => setShowSupplementModal(false)}
-        incidentId={incident.id}
-        incidentTitle={incident.title}
-        isLinked={incident.status === 'Linked'}
-      />
+      {/* Citizen Supplement Modal (chỉ người báo gốc mới được bổ sung) */}
+      {!isDuplicateReporterView && (
+        <CitizenSupplementModal
+          isOpen={showSupplementModal}
+          onClose={() => setShowSupplementModal(false)}
+          incidentId={incident.id}
+          incidentCode={liveIncident.code || trackingData?.incidentCode}
+          incidentTitle={liveIncident.title}
+          isLinked={liveIncident.status === 'Linked'}
+        />
+      )}
     </div>
   );
 };

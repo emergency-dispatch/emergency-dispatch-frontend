@@ -19,6 +19,7 @@ import type {
   ShiftLeaveRequest,
 } from '../../../types/staff';
 import { SHIFT_TYPE_CONFIG } from './ShiftMonthCalendar';
+import { formatShortId } from '../../../utils/incidentFormat';
 
 interface ShiftRequestsManagerProps {
   registrationRequests: ShiftRegistrationRequest[];
@@ -191,8 +192,8 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                       <span className="font-bold text-slate-900 text-xs">
                         Đăng Ký {req.registrationType === 'overtime' ? 'Trực Tăng Cường OT' : 'Ca Trực Mới'}
                       </span>
-                      <span className="text-[11px] font-mono-data text-slate-400 ml-2">
-                        #{req.id}
+                      <span className="text-[11px] font-mono-data text-slate-400 ml-2" title={req.id}>
+                        {formatShortId(req.id)}
                       </span>
                     </div>
                   </div>
@@ -302,8 +303,8 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                   </span>
                   <div>
                     <span className="font-bold text-slate-900 text-xs">Yêu Cầu Hoán Đổi Ca Trực</span>
-                    <span className="text-[11px] font-mono-data text-slate-400 ml-2">
-                      #{req.id}
+                    <span className="text-[11px] font-mono-data text-slate-400 ml-2" title={req.id}>
+                      {formatShortId(req.id)}
                     </span>
                   </div>
                 </div>
@@ -388,8 +389,8 @@ export const ShiftRequestsManager: React.FC<ShiftRequestsManagerProps> = ({
                     <span className="font-bold text-slate-900 text-xs">
                       Đơn Xin Nghỉ Phép / Nghỉ Bù ({req.totalDays} ngày)
                     </span>
-                    <span className="text-[11px] font-mono-data text-slate-400 ml-2">
-                      #{req.id}
+                    <span className="text-[11px] font-mono-data text-slate-400 ml-2" title={req.id}>
+                      {formatShortId(req.id)}
                     </span>
                   </div>
                 </div>
