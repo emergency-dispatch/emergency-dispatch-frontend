@@ -390,7 +390,7 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                       })}
                     </ol>
 
-                    {suggestion && <DispatchShortages shortages={suggestion.shortages} />}
+                    {suggestion && <DispatchShortages shortages={suggestion.shortages} incidentId={incidentId} />}
                   </>
                 )}
               </div>

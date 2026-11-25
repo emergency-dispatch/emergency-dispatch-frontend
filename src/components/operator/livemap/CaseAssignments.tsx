@@ -9,6 +9,7 @@ import type { Incident, OperatorCancellationCode } from '../../../types/incident
 import type { DispatchAssignmentResponseDto } from '../../../types/dispatch';
 import type { Vehicle } from '../../../types/vehicle';
 import { findVehicleAssignment, type CompletionProgress } from '../completion/completionGroups';
+import { usePlanProgress } from '../../../hooks/usePlanProgress';
 import { useAssignmentTeam } from '../../../hooks/useStationTeams';
 import { useTranslation } from '../../../i18n';
 
@@ -52,6 +53,8 @@ export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
   // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
   const vehicleLimit = vehicleLimitFor(incident);
   const maxVehicles = vehicleLimit.max;
+  // Còn thiếu tổ → danh sách gợi ý bên dưới đã ghi số cần từng loại, không cần thêm khung "Chưa giao tổ".
+  const planShort = usePlanProgress()(incident).missing.length > 0;
   const assigned = incident.assignedVehicleIds.map((id) => vehiclesById.get(id)).filter((v): v is Vehicle => !!v);
   const activeCount = assigned.filter((v) => !incident.reportedVehicleIds.includes(v.id)).length;
   const isCompleted = incident.status === 'completed';
@@ -137,7 +140,7 @@ export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
           <DispatchPlanHint limit={vehicleLimit} />
 
           {assigned.length === 0 ? (
-            <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">
+            !planShort && <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">
               <span className="relative flex h-1.5 w-1.5 shrink-0">
                 <span className="animate-ping motion-reduce:animate-none absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -15,6 +15,10 @@ import {
 } from 'lucide-react';
 import { ChangeSeverityDialog } from './ChangeSeverityDialog';
 import { DispatchShortages } from './DispatchShortages';
+import { GpsFarNote } from './GpsFarNote';
+import { OffPlanTeams } from './OffPlanTeams';
+import { PlanTeamGroups } from './PlanTeamGroups';
+import { SupportConfirmDialog, type SupportRow } from './SupportConfirmDialog';
 import { RecommendedTeamLabel } from '../teams/RecommendedTeamLabel';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
 import { IncidentSupplementList } from '../incidents/IncidentSupplementList';
@@ -26,6 +30,7 @@ import { DISPATCH_ALGORITHM_META } from '../../../data/dispatchConfig';
 import { useDispatchStore, type AssignOptions, type TeamAssignTarget } from '../../../context/DispatchContext';
 import { useDispatchNeeds } from '../../../hooks/useDispatchNeeds';
 import { useDispatchRecommendations } from '../../../hooks/useDispatchRecommendations';
+import { usePlanProgress } from '../../../hooks/usePlanProgress';
 import { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import type { DispatchAlgorithm, DispatchCandidate, DispatchTeamCandidate } from '../../../types/vehicle';
@@ -37,10 +42,13 @@ import { IncidentCode } from '../incidents/IncidentCode';
 
 interface DispatchRecommendPanelProps {
   selectedIncidentId: string | null;
-  /** Tổ đang được giao (hiện vòng xoay, khóa các nút giao khác). */
+  /** Tổ đang được giao, `ASSIGNING_MANY` = nhiều tổ một lệnh (hiện vòng xoay, khóa các nút giao khác). */
   assigningTeamId: string | null;
-  /** Tổ + chức năng + thuật toán đang chọn — để LiveMapPage gọi đúng thuật toán; options khi giao thêm tổ cho Cấp 1–2. */
-  onAssign: (target: TeamAssignTarget, algorithm: DispatchAlgorithm, options?: AssignOptions) => void;
+  /**
+   * Các tổ + chức năng + thuật toán đang chọn — để LiveMapPage gọi đúng thuật toán; options khi giao thêm tổ cho
+   * Cấp 1–2 hoặc giao ngoài kế hoạch. Trả true khi giao xong.
+   */
+  onAssign: (targets: TeamAssignTarget[], algorithm: DispatchAlgorithm, options?: AssignOptions) => Promise<boolean>;
   /**
    * §21.2: yêu cầu chi viện (Backup) đang được đáp ứng cho sự cố đang chọn → chọn nhiều tổ, giao một lần kèm
    * fieldRequestId (vượt giới hạn Cấp 1–2 không cần lý do; Cấp 3 vẫn tối đa 5 xe).
@@ -49,6 +57,8 @@ interface DispatchRecommendPanelProps {
   onExitFieldRequest?: () => void;
   /** Quay về danh sách ca (panel trái 2 tầng của Live Map). */
   onBack: () => void;
+  /** Mở ca khác (ca đang giữ xe mà ca này thiếu). */
+  onOpenIncident?: (incidentId: string) => void;
   /** Số ca đang cần xử lý — hiện cạnh nút quay lại để Operator biết còn việc khác. */
   attentionCount: number;
   /** Phần ca: thông báo đội, tổ đã giao (thu hồi), hủy ca, nghiệm thu — đặt trên gợi ý xe. */
@@ -62,6 +72,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   fieldRequest = null,
   onExitFieldRequest,
   onBack,
+  onOpenIncident,
   attentionCount,
   caseBody,
 }) => {
@@ -99,6 +110,14 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     selectedIncidentId ? supplementVersions.get(selectedIncidentId) ?? 0 : 0
   );
   const teamByVehicle = useTeamByVehicle();
+  // Lệnh có tổ trạm khác đang chờ Operator xác nhận; `resolve` trả kết quả về nơi bấm giao.
+  const [supportConfirm, setSupportConfirm] = useState<{ rows: SupportRow[]; totalCount: number } | null>(null);
+  const supportResolveRef = useRef<((confirmed: boolean) => void) | null>(null);
+  const answerSupport = (confirmed: boolean) => {
+    setSupportConfirm(null);
+    supportResolveRef.current?.(confirmed);
+    supportResolveRef.current = null;
+  };
   const { t } = useTranslation();
   const { incidentKindLabel } = useDispatchStore();
   const { unitTypeLabel } = useDispatchStore();
@@ -112,6 +131,10 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     setSeverityOpen(false);
     setSupplementsOpen(false);
     setOptionByTeam({});
+    // Đổi ca lúc đang hỏi → coi như không điều.
+    setSupportConfirm(null);
+    supportResolveRef.current?.(false);
+    supportResolveRef.current = null;
   }, [selectedIncidentId]);
 
   const selectedIncident = useMemo(
@@ -119,6 +142,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     [incidents, selectedIncidentId]
   );
 
+  const progressOf = usePlanProgress();
+  const progress = selectedIncident ? progressOf(selectedIncident) : null;
   // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
   const maxVehicles = selectedIncident ? vehicleLimitFor(selectedIncident).max : 1;
   const activeCount = selectedIncident
@@ -134,8 +159,11 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   // Cấp 3 không vượt được 5 xe kể cả theo yêu cầu chi viện; Cấp 1–2 giao đủ số xe đội xin.
   const level3Remaining = selectedIncident?.severity === 3 ? Math.max(0, maxVehicles - activeCount) : Infinity;
   const pickMax = fieldRequest ? Math.min(fieldRequest.quantity, level3Remaining) : 0;
-  // Cần xe ngay: chưa có xe nào, hoặc có đội từ chối / không phản hồi → mở gợi ý sẵn; còn lại chờ Operator bấm.
-  const needsVehicles = !!selectedIncident && (activeCount === 0 || selectedIncident.responseNotices.length > 0);
+  // Cần xe ngay: chưa có xe nào, chưa đủ tổ theo kế hoạch, hoặc có đội từ chối / không phản hồi → mở gợi ý sẵn; còn lại
+  // chờ Operator bấm.
+  const planShort = !!progress && progress.missing.length > 0;
+  const needsVehicles =
+    !!selectedIncident && (activeCount === 0 || planShort || selectedIncident.responseNotices.length > 0);
   const wantsSuggestions = serving || needsVehicles || recommendOpen || extraMode;
   const showSuggestions =
     !isCompleted && wantsSuggestions && (serving ? pickMax > 0 : !isFull || (canAddExtra && extraMode));
@@ -168,6 +196,22 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     teamName: team.teamName,
     unitType: optionOf(team).unitType,
   });
+  /** Hỏi xác nhận khi lệnh có tổ trạm khác; không có thì cho qua. */
+  const confirmSupport = (targets: TeamAssignTarget[]): Promise<boolean> => {
+    const rows = targets.flatMap((target) => {
+      const team = teams.find((item) => item.teamId === target.teamId && item.isSupportUnit);
+      const option = team?.options.find((o) => o.unitType === target.unitType);
+      return team && option ? [{ team, option }] : [];
+    });
+    if (rows.length === 0) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      supportResolveRef.current?.(false);
+      supportResolveRef.current = resolve;
+      setSupportConfirm({ rows, totalCount: targets.length });
+    });
+  };
+  const assignTargets = async (targets: TeamAssignTarget[]): Promise<boolean> =>
+    (await confirmSupport(targets)) && onAssign(targets, algorithm, assignOptions);
   const selectedForRequest =
     fieldRequest && requestSelection.requestId === fieldRequest.id
       ? requestSelection.ids.filter((id) => teams.some((team) => team.teamId === id))
@@ -188,6 +232,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   const handleServeRequest = async () => {
     if (!fieldRequest || !selectedIncident || selectedForRequest.length === 0) return;
     const targets = teams.filter((team) => selectedForRequest.includes(team.teamId)).map(targetOf);
+    if (!(await confirmSupport(targets))) return;
     setRequestBusy(true);
     setRequestError(null);
     const res = await assignForFieldRequest(fieldRequest.id, selectedIncident.id, targets, algorithm);
@@ -202,6 +247,8 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   const assignOptions: AssignOptions | undefined =
     isFull && extraMode ? { allowExtraUnits: true, notes: extraReason.trim() } : undefined;
   const assignBlocked = isFull && extraMode && !extraReasonValid;
+  // Có kế hoạch → chia nhóm theo chức năng, giao nhiều tổ một lệnh; đáp ứng chi viện giữ danh sách chọn riêng.
+  const grouped = !serving && !!progress && progress.items.length > 0;
 
 
   return (
@@ -315,6 +362,14 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
           </div>
         </div>
       )}
+      {supportConfirm && (
+        <SupportConfirmDialog
+          rows={supportConfirm.rows}
+          totalCount={supportConfirm.totalCount}
+          onCancel={() => answerSupport(false)}
+          onConfirm={() => answerSupport(true)}
+        />
+      )}
       {severityOpen && selectedIncident && (
         <ChangeSeverityDialog
           key={selectedIncident.id}
@@ -345,13 +400,15 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
         </button>
         {selectedIncident && category ? (
           <>
-            <div className="flex items-center gap-1.5 mb-1">
-              <category.icon className="w-3.5 h-3.5 shrink-0" style={{ color: category.color }} />
-              <span className="text-[10px] font-bold" style={{ color: category.color }}>{incidentKindLabel(selectedIncident)}</span>
+            <div className="flex flex-wrap items-center gap-1.5 mb-1">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold" style={{ color: category.color }}>
+                <category.icon className="w-3.5 h-3.5 shrink-0" />
+                {incidentKindLabel(selectedIncident)}
+              </span>
               <SeverityBadge severity={selectedIncident.severity} unclassified={selectedIncident.aiUnclassified} />
               <SourceChip source={selectedIncident.source} />
               {isEscalated && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-600 text-[9px] font-bold text-white uppercase animate-pulse">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-600 whitespace-nowrap text-[9px] font-bold text-white uppercase animate-pulse">
                   {t('liveMap.recommend.escalated')}
                 </span>
               )}
@@ -569,7 +626,23 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
 
             {suggestionError && <p className="text-[11px] text-red-600">{suggestionError}</p>}
 
-            {teams.map((team, index) => {
+            {suggestion && grouped && progress && (
+              <PlanTeamGroups
+                key={selectedIncident.id}
+                incidentId={selectedIncident.id}
+                onOpenIncident={onOpenIncident}
+                suggestion={suggestion}
+                items={progress.items}
+                slotsLeft={Math.max(0, maxVehicles - activeCount)}
+                assignedVehicleIds={selectedIncident.assignedVehicleIds}
+                algorithm={algorithm}
+                assigningTeamId={assigningTeamId}
+                assignBlocked={assignBlocked}
+                onAssign={assignTargets}
+              />
+            )}
+
+            {!grouped && teams.map((team, index) => {
               const option = optionOf(team);
               const isAssigning = assigningTeamId === team.teamId;
               const isPicked = selectedForRequest.includes(team.teamId);
@@ -585,7 +658,15 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
               return (
                 <div
                   key={team.teamId}
-                  className={`flex items-center gap-2 border rounded-lg px-2.5 py-2 transition-colors ${
+                  // Đáp ứng chi viện: bấm thẻ = chọn tổ (ô chọn / nút chức năng bên trong xử lý riêng).
+                  onClick={
+                    serving && !requestBusy && (isPicked || selectedForRequest.length < pickMax)
+                      ? (e) => {
+                          if (!(e.target as HTMLElement).closest('button, label, input')) toggleRequestTeam(team.teamId);
+                        }
+                      : undefined
+                  }
+                  className={`flex items-center gap-2 border rounded-lg px-2.5 py-2 transition-colors ${serving ? 'cursor-pointer ' : ''}${
                     isPicked
                       ? 'border-orange-300 bg-orange-50'
                       : 'bg-white border-slate-200 hover:border-red-200 hover:bg-red-50/30'
@@ -619,6 +700,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                       disabled={!!assigningTeamId || requestBusy}
                       detail={distanceLabel}
                     />
+                    <GpsFarNote option={option} />
                   </div>
                   {serving ? (
                     <label className="flex items-center gap-1 px-2 py-1.5 rounded-md border border-orange-200 bg-white text-[10px] font-bold text-orange-700 shrink-0 cursor-pointer has-[:disabled]:opacity-50 has-[:disabled]:cursor-not-allowed">
@@ -633,19 +715,46 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                     </label>
                   ) : (
                     <button
-                      onClick={() => onAssign(targetOf(team), algorithm, assignOptions)}
+                      onClick={() => assignTargets([targetOf(team)])}
                       disabled={!!assigningTeamId || assignBlocked}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold shrink-0 transition-colors disabled:opacity-60"
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold shrink-0 transition-colors disabled:opacity-60 ${
+                        team.isSupportUnit
+                          ? 'border border-blue-200 text-blue-700 hover:bg-blue-50'
+                          : 'bg-red-600 hover:bg-red-500 text-white'
+                      }`}
                     >
                       {isAssigning && <Loader2 className="w-3 h-3 animate-spin" />}
-                      {t('liveMap.recommend.assign')}
+                      {t(team.isSupportUnit ? 'liveMap.support.assign' : 'liveMap.recommend.assign')}
                     </button>
                   )}
                 </div>
               );
             })}
 
-            {suggestion && <DispatchShortages shortages={suggestion.shortages} />}
+            {suggestion && !grouped && (
+              <DispatchShortages
+                shortages={suggestion.shortages}
+                incidentId={selectedIncident.id}
+                onOpenIncident={onOpenIncident}
+              />
+            )}
+
+            {suggestion && progress && !serving && (
+              <OffPlanTeams
+                key={`off-plan-${selectedIncident.id}`}
+                incidentId={selectedIncident.id}
+                suggestion={suggestion}
+                items={progress.items}
+                maxVehicles={maxVehicles}
+                isFull={isFull}
+                algorithm={algorithm}
+                refreshKey={refreshKey}
+                assigningTeamId={assigningTeamId}
+                onAssign={(target, reason) =>
+                  onAssign([target], algorithm, { notes: reason, ...(isFull ? { allowExtraUnits: true } : {}) })
+                }
+              />
+            )}
 
             {serving && teams.length > 0 && (
               <div className="sticky bottom-0 -mx-3 -mb-3 px-3 py-2 bg-white/95 border-t border-orange-200 flex items-center justify-between gap-2">

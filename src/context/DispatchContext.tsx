@@ -265,7 +265,10 @@ export interface TeamAssignTarget {
   unitType: string;
 }
 
-/** Giao thêm tổ cho sự cố Cấp 1–2 (backend cho phép khi có lý do ≥ 5 ký tự). */
+/**
+ * `allowExtraUnits`: giao thêm tổ cho sự cố Cấp 1–2 (backend cho phép khi có lý do ≥ 5 ký tự ở `notes`).
+ * `notes` đi một mình = lý do giao tổ ngoài kế hoạch (lưu vào lượt điều xe).
+ */
 export interface AssignOptions {
   allowExtraUnits?: boolean;
   notes?: string;
@@ -416,6 +419,13 @@ interface DispatchContextValue {
    */
   assignTeam: (
     target: TeamAssignTarget,
+    incidentId: string,
+    algorithm?: DispatchAlgorithm,
+    options?: AssignOptions
+  ) => Promise<ActionResult>;
+  /** Giao nhiều tổ trong một lệnh — backend nhận tất cả hoặc không tổ nào. */
+  assignTeams: (
+    targets: TeamAssignTarget[],
     incidentId: string,
     algorithm?: DispatchAlgorithm,
     options?: AssignOptions
@@ -1512,14 +1522,14 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const assignTeam = async (
-    target: TeamAssignTarget,
+  const assignTeams = async (
+    targets: TeamAssignTarget[],
     incidentId: string,
     algorithm: DispatchAlgorithm = 'nearest',
     options: AssignOptions = {}
   ): Promise<ActionResult> => {
     const incident = incidents.find((i) => i.id === incidentId);
-    if (!incident) return { ok: false, message: i18n.t('context.incidentOrVehicleNotFound') };
+    if (!incident || targets.length === 0) return { ok: false, message: i18n.t('context.incidentOrVehicleNotFound') };
     // Tổ không có nhân viên / đang bận / không còn xe đúng loại: backend kiểm tra và trả câu lỗi (400 / 409).
 
     // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
@@ -1527,7 +1537,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const activeCount = incident.assignedVehicleIds.length - incident.reportedVehicleIds.length;
     // Cấp 1–2 được giao thêm khi có lý do; Cấp 3 tối đa 5 xe, không vượt được.
     const extraAllowed = !!options.allowExtraUnits && incident.severity !== 3;
-    if (activeCount >= maxVehicles && !extraAllowed) {
+    if (activeCount + targets.length > maxVehicles && !extraAllowed) {
       return {
         ok: false,
         message:
@@ -1537,23 +1547,29 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       };
     }
 
+    // Một tổ → kèm tên tổ vào câu lỗi; nhiều tổ thì câu của backend đã nêu tổ / xe bị vướng.
+    const suffix = targets.length === 1 ? ` (${targets[0].teamName})` : '';
     try {
       const res = await dispatchService.assignUnit({
         incidentId,
-        teams: [{ teamId: target.teamId, unitType: target.unitType }],
+        teams: targets.map((target) => ({ teamId: target.teamId, unitType: target.unitType })),
         algorithm: BACKEND_ALGORITHM[algorithm],
-        ...(extraAllowed ? { allowExtraUnits: true, notes: options.notes?.trim() } : {}),
+        ...(extraAllowed ? { allowExtraUnits: true } : {}),
+        ...(options.notes?.trim() ? { notes: options.notes.trim() } : {}),
       });
-      if (!res.success) return { ok: false, message: `${res.message || i18n.t('context.assignFailed')} (${target.teamName})` };
+      if (!res.success) return { ok: false, message: `${res.message || i18n.t('context.assignFailed')}${suffix}` };
       setAssignments((prev) => upsert(prev, res.data));
       return { ok: true };
     } catch (err) {
       // HTTP 409: tổ vừa được Operator khác giao / đang bận, hoặc sự cố vừa bị người khác sửa → tải lại xe và sự cố.
       refreshUnits();
       if (isConflict(err)) refreshBoard();
-      return { ok: false, message: `${getApiErrorMessage(err, i18n.t('context.assignFailed'))} (${target.teamName})` };
+      return { ok: false, message: `${getApiErrorMessage(err, i18n.t('context.assignFailed'))}${suffix}` };
     }
   };
+
+  const assignTeam: DispatchContextValue['assignTeam'] = (target, incidentId, algorithm, options) =>
+    assignTeams([target], incidentId, algorithm, options);
 
   const assignForFieldRequest = async (
     requestId: string,
@@ -1733,6 +1749,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         fulfillFieldRequest,
         declineFieldRequest,
         assignForFieldRequest,
+        assignTeams,
         setVehicleStatus,
         saveVehicle,
         escalationSettings,

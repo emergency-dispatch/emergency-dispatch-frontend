@@ -1,4 +1,5 @@
 import type { Incident } from '../../../types/incident';
+import type { PlanProgressItem } from '../../../utils/dispatchPlan';
 import type { AutoDispatchVerdict, HandoverReason } from '../incidents/autoDispatchVerdict';
 
 export type CaseGroup = 'attention' | 'active' | 'completed';
@@ -10,6 +11,8 @@ export type AttentionReason =
   | { kind: 'rejected'; plate: string; timeout: boolean }
   | { kind: 'field_request'; count: number }
   | { kind: 'no_vehicle' }
+  /** Đã có tổ nhưng chưa đủ kế hoạch (Operator mới giao một phần / AI giao chưa đủ tổ). */
+  | { kind: 'plan_short'; missing: PlanProgressItem[] }
   | { kind: 'escalated' };
 
 interface CaseContext {
@@ -18,11 +21,14 @@ interface CaseContext {
   fieldRequestCounts: Map<string, number>;
   /** Giai đoạn AI của ca chờ duyệt (xem `usePendingTriage` / `autoDispatchVerdictAt`). */
   verdictOf: (incident: Incident) => AutoDispatchVerdict;
+  /** Chức năng còn thiếu tổ theo kế hoạch (`usePlanProgress`). */
+  missingOf: (incident: Incident) => PlanProgressItem[];
 }
 
 /**
  * Panel "Theo dõi ca" gồm mọi ca của trạm, xếp theo việc cần làm: ca AI chuyển cho người (thẩm định ở Hàng đợi), đội từ
- * chối / không phản hồi, đội xin chi viện, đã duyệt mà chưa có xe ("Để sau" / giao lỗi), leo thang.
+ * chối / không phản hồi, đội xin chi viện, đã duyệt mà chưa có xe ("Để sau" / giao lỗi), chưa đủ tổ theo
+ * kế hoạch, leo thang.
  */
 export function getAttentionReason(incident: Incident, ctx: CaseContext): AttentionReason | null {
   if (incident.status === 'pending') {
@@ -39,6 +45,8 @@ export function getAttentionReason(incident: Incident, ctx: CaseContext): Attent
   if (requests > 0) return { kind: 'field_request', count: requests };
   const active = incident.assignedVehicleIds.length - incident.reportedVehicleIds.length;
   if (active <= 0 && incident.reportedVehicleIds.length === 0) return { kind: 'no_vehicle' };
+  const missing = ctx.missingOf(incident);
+  if (missing.length > 0) return { kind: 'plan_short', missing };
   if (ctx.escalatedIds.has(incident.id)) return { kind: 'escalated' };
   return null;
 }

@@ -131,6 +131,23 @@ async function loadSuggestion(
   };
 }
 
+/** Tổ của một trạm đủ điều kiện theo từng chức năng chỉ định (backend tự mở rộng bán kính cho mỗi chức năng). */
+export async function loadTypeCandidates(
+  incidentId: string,
+  algorithm: DispatchAlgorithm,
+  unitTypes: readonly string[],
+  stationId: string | null
+): Promise<DispatchTeamCandidate[]> {
+  const rows = await Promise.all(
+    unitTypes.map(async (unitType) => {
+      const res = await dispatchService.getRecommendations(incidentId, BACKEND_ALGORITHM[algorithm], { unitType });
+      if (!res.success) throw new Error(res.message);
+      return res.data;
+    })
+  );
+  return groupByTeam(rows.flat().filter((u) => u.stationId === stationId));
+}
+
 /**
  * Gợi ý tổ cho một sự cố (FR-OP-04, `GET /dispatch/recommend`). `refreshKey` đổi (VD xe vừa được giao, sự cố vừa leo
  * thang, xe vừa Sẵn sàng trở lại) → tải lại gợi ý. `neededTypes` = các mã loại xe sự cố còn cần (kế hoạch điều xe).

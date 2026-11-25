@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, BotOff, CheckCircle2, Radio, Route, Siren, Truck, UserX, Users, X } from 'lucide-react';
+import { AlertTriangle, BotOff, CheckCircle2, ListChecks, Radio, Route, Siren, Truck, UserX, Users, X } from 'lucide-react';
 import { IncidentThumbnail } from '../incidents/IncidentThumbnail';
 import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
@@ -11,6 +11,10 @@ import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { COMPLETION_PATH } from '../../../data/dashboardMock';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import { useDispatchStore } from '../../../context/DispatchContext';
+import { usePlanProgress } from '../../../hooks/usePlanProgress';
+import { useTeamByVehicle } from '../../../hooks/useStationTeams';
+import { useAuth } from '../../../hooks/useAuth';
+import { getBusyTeamIds } from '../../../utils/teamAvailability';
 import type { FieldRequestDto } from '../../../types/fieldRequest';
 import type { Incident } from '../../../types/incident';
 import type { Vehicle } from '../../../types/vehicle';
@@ -32,6 +36,8 @@ interface CaseCardProps {
   isEscalated: boolean;
   escalationTier: number;
   now: number;
+  /** Loại xe mà trạm mình còn tổ giao được. */
+  readyTypes: Set<string>;
   onOpen: () => void;
   onAction: () => void;
 }
@@ -45,11 +51,12 @@ const CaseCard: React.FC<CaseCardProps> = ({
   isEscalated,
   escalationTier,
   now,
+  readyTypes,
   onOpen,
   onAction,
 }) => {
   const { t } = useTranslation();
-  const { incidentKindLabel, autoDispatchSettings, currentOperatorId } = useDispatchStore();
+  const { incidentKindLabel, autoDispatchSettings, currentOperatorId, unitTypeLabel } = useDispatchStore();
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
   const waitMinutes = Math.max(0, Math.round((now - new Date(incident.createdAt).getTime()) / 60000));
@@ -106,6 +113,20 @@ const CaseCard: React.FC<CaseCardProps> = ({
           text: t('liveMap.cases.reason.noVehicle'),
           cta: t('liveMap.cases.cta.dispatch'),
         };
+      case 'plan_short': {
+        const units = reason.missing
+          .map((m) => t('liveMap.plan.teams', { count: m.missing, type: unitTypeLabel(m.unitType) }))
+          .join(' · ');
+        // Trạm hết tổ loại này → không thúc Operator bằng nút đỏ (có thể còn tổ trạm khác, mở ca để xem).
+        const exhausted = reason.missing.every((m) => !readyTypes.has(m.unitType));
+        return {
+          icon: ListChecks,
+          className: exhausted ? 'text-slate-600' : 'text-amber-700',
+          text: t(exhausted ? 'liveMap.cases.reason.planShortNoTeam' : 'liveMap.cases.reason.planShort', { units }),
+          cta: t(exhausted ? 'liveMap.cases.cta.open' : 'liveMap.cases.cta.dispatchMore'),
+          quiet: exhausted,
+        };
+      }
       case 'escalated':
         return {
           icon: Siren,
@@ -198,7 +219,11 @@ const CaseCard: React.FC<CaseCardProps> = ({
               </span>
               <button
                 onClick={onAction}
-                className="ml-auto shrink-0 px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-red-500"
+                className={`ml-auto shrink-0 px-2.5 py-1 rounded-md text-[11px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-red-500 ${
+                  'quiet' in reasonView && reasonView.quiet
+                    ? 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+                    : 'bg-red-600 hover:bg-red-500 text-white'
+                }`}
               >
                 {reasonView.cta}
               </button>
@@ -257,6 +282,20 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
   const { t } = useTranslation();
 
   const vehiclesById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
+  const progressOf = usePlanProgress();
+  const { user } = useAuth();
+  const teamByVehicle = useTeamByVehicle();
+  const readyTypes = useMemo(() => {
+    const busy = getBusyTeamIds(vehicles, teamByVehicle);
+    return new Set(
+      vehicles
+        .filter((v) => {
+          const team = teamByVehicle.get(v.id);
+          return v.status === 'available' && v.stationId === user?.stationId && !!team?.canBeAssigned && !busy.has(team.id);
+        })
+        .map((v) => v.unitType)
+    );
+  }, [vehicles, teamByVehicle, user?.stationId]);
   // Chỉ sự cố đang xử lý của trạm mình mới giao thêm xe được (backend kiểm trạm phụ trách).
   const boardIncidentIds = useMemo(
     () => new Set(incidents.filter((i) => i.status === 'approved').map((i) => i.id)),
@@ -279,6 +318,7 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
     escalatedIds: escalatedIncidentIds,
     fieldRequestCounts,
     verdictOf: (incident: Incident) => pendingById.get(incident.id)?.verdict ?? ({ phase: 'manual' } as const),
+    missingOf: (incident: Incident) => progressOf(incident).missing,
   };
   const groups: Record<CaseGroup, { incident: Incident; reason: AttentionReason | null }[]> = {
     attention: [],
@@ -399,6 +439,7 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
                   isEscalated={escalatedIncidentIds.has(incident.id)}
                   escalationTier={escalationTiers.get(incident.id) ?? 1}
                   now={now}
+                  readyTypes={readyTypes}
                   onOpen={() => handleOpen(incident)}
                   onAction={() => handleAction(incident, reason)}
                 />
