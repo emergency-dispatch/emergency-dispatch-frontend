@@ -17,7 +17,7 @@ export const adminLayoutVi = {
     monitoring: 'Giám sát',
   },
   pageTitles: {
-    citizenReports: 'Báo cáo & thông báo người dân',
+    serviceArea: 'Khu vực phục vụ & báo cáo người dân',
   },
   nav: {
     overview: 'Tổng quan',
@@ -30,8 +30,7 @@ export const adminLayoutVi = {
     citizens: 'Tài khoản Citizen',
     blockedNumbers: 'Số bị chặn',
     escalation: 'Điều phối & leo thang',
-    serviceArea: 'Khu vực phục vụ',
-    citizenReports: 'Báo cáo & thông báo',
+    serviceArea: 'Khu vực & báo cáo',
     reports: 'Báo cáo sự cố',
     completionReports: 'Báo cáo nghiệm thu',
     auditTrail: 'Nhật ký thao tác',

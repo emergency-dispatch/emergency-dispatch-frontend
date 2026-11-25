@@ -20,6 +20,7 @@ export const adminCommonEn: Messages<typeof adminCommonVi> = {
     last30Days: '30 days',
   },
   settings: {
+    unsaved: 'Unsaved changes',
     on: 'On',
     off: 'Off',
     restoreDefaults: 'Restore defaults',

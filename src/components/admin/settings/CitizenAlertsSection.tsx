@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { CompactSettingsForm } from './CompactSettingsForm';
 import { ConfirmModal, Notice, type NoticeState } from '../common/ui';
@@ -12,7 +12,7 @@ import { dateLocale, useTranslation } from '../../../i18n';
  * §49 — bật / tắt thông báo "Có sự cố tại …" cho mọi người dân (GET/PUT /api/settings/citizen-incident-alerts).
  * Mốc bắt đầu do server đặt khi bật: sự cố xác nhận trước đó không bị phát lại.
  */
-export const CitizenAlertsSection: React.FC = () => {
+export const CitizenAlertsSection: React.FC<{ onDirtyChange: (dirty: boolean) => void }> = ({ onDirtyChange }) => {
   const { t } = useTranslation();
   const query = useServiceQuery(() => adminSettingsService.getCitizenIncidentAlerts(), 'citizen-incident-alerts-settings');
 
@@ -29,6 +29,7 @@ export const CitizenAlertsSection: React.FC = () => {
     <CitizenAlertsForm
       key={query.data.updatedAt ?? 'default'}
       record={query.data}
+      onDirtyChange={onDirtyChange}
       onSaved={(message) => {
         showToast(message);
         query.reload();
@@ -63,8 +64,9 @@ const AlertPreview: React.FC<{ active: boolean }> = ({ active }) => {
 
 const CitizenAlertsForm: React.FC<{
   record: SettingsRecord<CitizenIncidentAlertSettings>;
+  onDirtyChange: (dirty: boolean) => void;
   onSaved: (message: string) => void;
-}> = ({ record, onSaved }) => {
+}> = ({ record, onDirtyChange, onSaved }) => {
   const { t } = useTranslation();
   const [enabled, setEnabled] = useState(record.values.enabled);
   const [saving, setSaving] = useState(false);
@@ -73,6 +75,7 @@ const CitizenAlertsForm: React.FC<{
 
   const dirty = enabled !== record.values.enabled;
   useUnsavedChangesGuard(dirty);
+  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
   const save = async () => {
     setSaving(true);

@@ -7,7 +7,6 @@ import {
   Building2,
   LayoutDashboard,
   ListTree,
-  Megaphone,
   Package,
   ScrollText,
   Siren,
@@ -66,8 +65,8 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       // Gồm cả tham số điều phối (đường dẫn cũ /admin/settings/dispatch chuyển về đây).
       { key: 'escalation', path: '/admin/settings/escalation', icon: Siren },
-      { key: 'serviceArea', path: '/admin/settings/service-area', icon: CircleDashed },
-      { key: 'citizenReports', titleKey: 'citizenReports', path: '/admin/settings/citizen-reports', icon: Megaphone },
+      // Gồm cả gộp báo cáo trùng + thông báo người dân (tab).
+      { key: 'serviceArea', titleKey: 'serviceArea', path: '/admin/settings/service-area', icon: CircleDashed },
     ],
   },
   {

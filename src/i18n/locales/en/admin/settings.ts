@@ -167,6 +167,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     notifyRole: { Operator: 'Operator', Admin: 'Administrator', RescueStaff: 'Rescue staff' },
   },
   serviceArea: {
+    tabs: { area: 'Area', merge: 'Merge reports', alerts: 'Alerts' },
     savedEnabled: 'Service area saved. SOS reports outside the area will be flagged and reported to Operators / Admins.',
     savedReject: 'Service area saved. Citizen SOS reports outside the area will be rejected.',
     savedDisabled: 'Service area saved (checking is disabled).',

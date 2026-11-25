@@ -21,7 +21,7 @@ interface CompactSettingsFormProps {
   children: React.ReactNode;
 }
 
-/** Form cài đặt gọn, đặt cạnh nhau trong một khung: công tắc ở đầu, nút Lưu / Hủy chỉ hiện khi có thay đổi. */
+/** Form cài đặt gọn trong một tab: công tắc ở đầu, nút Lưu / Hủy chỉ hiện khi có thay đổi. */
 export const CompactSettingsForm: React.FC<CompactSettingsFormProps> = ({
   title,
   description,
@@ -43,6 +43,7 @@ export const CompactSettingsForm: React.FC<CompactSettingsFormProps> = ({
   const [confirmRestore, setConfirmRestore] = useState(false);
 
   return (
+    <>
     <form
       noValidate
       onSubmit={(e) => {
@@ -99,7 +100,9 @@ export const CompactSettingsForm: React.FC<CompactSettingsFormProps> = ({
           </div>
         )}
       </div>
+    </form>
 
+    {/* Ngoài <form>: nút trong hộp thoại không được kích hoạt gửi form. */}
       {confirmRestore && onRestoreDefaults && (
         <ConfirmModal
           title={t('admin.common.settings.restoreTitle')}
@@ -113,6 +116,6 @@ export const CompactSettingsForm: React.FC<CompactSettingsFormProps> = ({
           <p>{t('admin.common.settings.restoreBody')}</p>
         </ConfirmModal>
       )}
-    </form>
+    </>
   );
 };

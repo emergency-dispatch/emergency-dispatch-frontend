@@ -30,6 +30,13 @@ interface SettingsFormProps {
    * form là cột trái cố định độ rộng (cuộn riêng), vùng này chiếm phần còn lại. Màn < xl (1280px): xếp trên form.
    */
   aside?: React.ReactNode;
+  /** Bố cục có `aside`: thanh tab ở đầu cột form và các khung của tab khác (luôn giữ trên cây để không mất phần đang sửa). */
+  sideTabs?: React.ReactNode;
+  sidePanels?: React.ReactNode;
+  /** Đang xem tab khác → ẩn form này (vẫn giữ trạng thái). */
+  formHidden?: boolean;
+  /** id + nhãn của khung form khi nó là một tab. */
+  formPanelProps?: { id: string; 'aria-labelledby': string };
   /** Bỏ giới hạn độ rộng (max-w-3xl) — form tự chia cột bên trong để lấp chiều ngang. */
   wide?: boolean;
   children: React.ReactNode;
@@ -51,6 +58,10 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
   onDiscard,
   onRestoreDefaults,
   aside,
+  sideTabs,
+  sidePanels,
+  formHidden = false,
+  formPanelProps,
   wide = false,
   children,
 }) => {
@@ -121,13 +132,19 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
         <div className="p-4 sm:p-6 flex flex-col gap-4 xl:h-full xl:min-h-[600px]">
           {header}
           <div className="flex-1 min-h-0 flex flex-col xl:flex-row rounded-xl border border-slate-200 bg-white shadow-xs overflow-hidden">
-            <form
-              onSubmit={handleSubmit}
-              className="flex flex-col min-h-0 xl:w-[440px] 2xl:w-[480px] shrink-0 xl:border-r border-slate-200"
-            >
-              <div className="flex-1 min-h-0 xl:overflow-y-auto p-4 sm:p-5 space-y-5">{children}</div>
-              {footer}
-            </form>
+            <div className="flex flex-col min-h-0 xl:w-[440px] 2xl:w-[480px] shrink-0 xl:border-r border-slate-200">
+              {sideTabs}
+              <form
+                onSubmit={handleSubmit}
+                role={formPanelProps ? 'tabpanel' : undefined}
+                {...formPanelProps}
+                className={formHidden ? 'hidden' : 'flex-1 flex flex-col min-h-0'}
+              >
+                <div className="flex-1 min-h-0 xl:overflow-y-auto p-4 sm:p-5 space-y-5">{children}</div>
+                {footer}
+              </form>
+              {sidePanels}
+            </div>
             <div className="order-first xl:order-none relative h-80 sm:h-96 xl:h-auto xl:flex-1 min-w-0 border-b xl:border-b-0 border-slate-200">
               {aside}
             </div>

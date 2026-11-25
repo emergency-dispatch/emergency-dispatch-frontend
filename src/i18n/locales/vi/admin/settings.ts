@@ -166,6 +166,7 @@ export const adminSettingsVi = {
     notifyRole: { Operator: 'Điều phối viên', Admin: 'Quản trị viên', RescueStaff: 'Đội cứu hộ' },
   },
   serviceArea: {
+    tabs: { area: 'Khu vực', merge: 'Gộp báo cáo', alerts: 'Thông báo' },
     savedEnabled: 'Đã lưu khu vực phục vụ. SOS ngoài vùng sẽ được gắn cờ và báo cho Operator / Admin.',
     savedReject: 'Đã lưu khu vực phục vụ. SOS của người dân ngoài vùng sẽ bị từ chối.',
     savedDisabled: 'Đã lưu khu vực phục vụ (đang tắt kiểm tra).',

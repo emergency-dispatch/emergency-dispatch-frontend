@@ -20,7 +20,7 @@ export const adminLayoutEn: Messages<typeof adminLayoutVi> = {
     monitoring: 'Monitoring',
   },
   pageTitles: {
-    citizenReports: 'Citizen reports & alerts',
+    serviceArea: 'Service area & citizen reports',
   },
   nav: {
     overview: 'Overview',
@@ -33,8 +33,7 @@ export const adminLayoutEn: Messages<typeof adminLayoutVi> = {
     citizens: 'Citizen accounts',
     blockedNumbers: 'Blocked numbers',
     escalation: 'Dispatch & escalation',
-    serviceArea: 'Service area',
-    citizenReports: 'Reports & alerts',
+    serviceArea: 'Area & reports',
     reports: 'Incident reports',
     completionReports: 'Completion reports',
     auditTrail: 'Audit Trail',

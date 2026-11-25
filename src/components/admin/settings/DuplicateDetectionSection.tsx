@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CompactSettingsForm } from './CompactSettingsForm';
 import { sameSettings, toNumber } from './settingsDraft';
 import { ConfirmModal, Notice, type NoticeState } from '../common/ui';
@@ -18,7 +18,7 @@ import { useTranslation } from '../../../i18n';
  * BR-07 — cấu hình tự gộp SOS trùng của người dân (GET/PUT /api/settings/duplicate-detection).
  * Backend ghi nhật ký hệ thống và phát ReceiveSettingsChanged khi lưu.
  */
-export const DuplicateDetectionSection: React.FC = () => {
+export const DuplicateDetectionSection: React.FC<{ onDirtyChange: (dirty: boolean) => void }> = ({ onDirtyChange }) => {
   const { t } = useTranslation();
   const query = useServiceQuery(() => adminSettingsService.getDuplicateDetection(), 'duplicate-detection-settings');
 
@@ -35,6 +35,7 @@ export const DuplicateDetectionSection: React.FC = () => {
     <DuplicateDetectionForm
       key={query.data.updatedAt ?? 'default'}
       record={query.data}
+      onDirtyChange={onDirtyChange}
       onSaved={(message) => {
         showToast(message);
         query.reload();
@@ -64,8 +65,9 @@ const toSettings = (d: DuplicateDetectionDraft): DuplicateDetectionSettings => (
 
 const DuplicateDetectionForm: React.FC<{
   record: SettingsRecord<DuplicateDetectionSettings>;
+  onDirtyChange: (dirty: boolean) => void;
   onSaved: (message: string) => void;
-}> = ({ record, onSaved }) => {
+}> = ({ record, onDirtyChange, onSaved }) => {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<DuplicateDetectionDraft>(() => toDraft(record.values));
   const [saving, setSaving] = useState(false);
@@ -78,6 +80,7 @@ const DuplicateDetectionForm: React.FC<{
   const dirty = !sameSettings(values, toSettings(toDraft(record.values)));
   const canSave = dirty && Object.keys(errors).length === 0;
   useUnsavedChangesGuard(dirty);
+  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
   const { radiusMeters: radiusLimit, windowMinutes: windowLimit } = DUPLICATE_DETECTION_LIMITS;
 
