@@ -2,7 +2,7 @@ import type { Messages } from '../../types';
 import type { contextVi } from '../../vi/operator/context';
 
 export const contextEn: Messages<typeof contextVi> = {
-  loadQueueFailed: 'Could not load the incident queue.',
+  loadQueueFailed: 'Could not load the case list.',
   stationNotAssigned: 'An Admin has not assigned you a station yet.',
   sessionEnded: 'Your session has ended.',
   verifyFailed: 'Failed to verify the incident.',

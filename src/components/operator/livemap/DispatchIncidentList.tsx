@@ -16,13 +16,14 @@ import { usePlanProgress } from '../../../hooks/usePlanProgress';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { useAuth } from '../../../hooks/useAuth';
 import { getBusyTeamIds } from '../../../utils/teamAvailability';
-import { formatCountdown } from '../../../utils/incidentFormat';
+import { formatCountdown, formatDateTime, formatWaitDuration } from '../../../utils/incidentFormat';
 import type { FieldRequestDto } from '../../../types/fieldRequest';
 import type { Incident } from '../../../types/incident';
 import type { Vehicle } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
 import { AutoDispatchBadge } from '../incidents/AutoDispatchInfo';
 import { IncidentCode } from '../incidents/IncidentCode';
+import { useHandoverReasonText } from '../incidents/useHandoverReasonText';
 import { isAiWorkingUnheld, usePendingTriage, type AiWorkingItem } from '../incidents/incomingTriage';
 
 const GROUP_ORDER: CaseGroup[] = ['attention', 'active', 'completed'];
@@ -63,7 +64,8 @@ const CaseCard: React.FC<CaseCardProps> = ({
   const { incidentKindLabel, autoDispatchSettings, currentOperatorId, unitTypeLabel } = useDispatchStore();
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
-  const waitMinutes = Math.max(0, Math.round((now - new Date(incident.createdAt).getTime()) / 60000));
+  const handoverReasonText = useHandoverReasonText();
+  const threshold = Math.round((autoDispatchSettings?.minConfidence ?? 0) * 100);
   const { vehicleLimitFor } = useDispatchStore();
   // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
   const maxVehicles = vehicleLimitFor(incident).max;
@@ -93,10 +95,12 @@ const CaseCard: React.FC<CaseCardProps> = ({
               ? t('liveMap.cases.reason.handover', {
                   reason: t(`incidents.row.handover.${reason.handover}`, {
                     confidence: incident.confidenceScore,
-                    threshold: Math.round((autoDispatchSettings?.minConfidence ?? 0) * 100),
+                    threshold,
                   }),
                 })
               : t('liveMap.cases.reason.waitingReview'),
+          // Câu ngắn trên thẻ, rê chuột xem câu đầy đủ.
+          title: reason.handover ? handoverReasonText(incident, reason.handover, threshold) : undefined,
           cta: t(heldByOther ? 'liveMap.cases.cta.view' : 'liveMap.cases.cta.review'),
           quiet: heldByOther,
         };
@@ -170,7 +174,15 @@ const CaseCard: React.FC<CaseCardProps> = ({
               <span className="truncate">{incidentKindLabel(incident)}</span>
             </span>
             <span className="shrink-0">
-              <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+              {incident.aiPending ? (
+                // AI chưa xong → chưa có cấp; "Chưa phân loại" chỉ dành cho ca AI đã chạy mà không phân loại được.
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-indigo-200 bg-indigo-50 text-[11px] font-bold text-indigo-700 whitespace-nowrap">
+                  <Loader2 className="w-3 h-3 motion-safe:animate-spin" />
+                  {t('liveMap.cases.aiAnalyzing')}
+                </span>
+              ) : (
+                <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+              )}
             </span>
             {/* Lý do cần xử lý đã là leo thang thì dòng dưới đã ghi → không lặp nhãn. */}
             {isEscalated && reason?.kind !== 'escalated' && (
@@ -178,8 +190,11 @@ const CaseCard: React.FC<CaseCardProps> = ({
                 {t('liveMap.recommend.escalated')}
               </span>
             )}
-            <span className="ml-auto shrink-0 text-[11px] font-mono-data text-slate-400 whitespace-nowrap">
-              {t('liveMap.incidentList.minutesShort', { count: waitMinutes })}
+            <span
+              title={t('incidents.row.receivedAt', { time: formatDateTime(incident.createdAt) })}
+              className="ml-auto shrink-0 text-[11px] text-slate-400 whitespace-nowrap"
+            >
+              {formatWaitDuration(now - new Date(incident.createdAt).getTime())}
             </span>
           </div>
           <p className="mt-1 text-sm font-semibold text-slate-900 truncate leading-snug">{incident.title}</p>
@@ -225,9 +240,12 @@ const CaseCard: React.FC<CaseCardProps> = ({
             </span>
           ) : reasonView ? (
             <>
-              <span className={`inline-flex items-center gap-1 min-w-0 text-[11px] font-semibold ${reasonView.className}`}>
-                <reasonView.icon className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{reasonView.text}</span>
+              <span
+                title={('title' in reasonView && reasonView.title) || reasonView.text}
+                className={`inline-flex items-start gap-1 min-w-0 text-[11px] leading-snug font-semibold ${reasonView.className}`}
+              >
+                <reasonView.icon className="w-3.5 h-3.5 shrink-0 mt-px" />
+                <span className="line-clamp-2">{reasonView.text}</span>
               </span>
               <button
                 onClick={onAction}

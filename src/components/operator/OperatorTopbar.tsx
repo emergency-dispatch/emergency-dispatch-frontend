@@ -61,8 +61,7 @@ export const OperatorTopbar: React.FC = () => {
     if (!notification.incidentId) return;
     setNotifOpen(false);
     const incident = incidents.find((i) => i.id === notification.incidentId);
-    if (incident?.status === 'pending') navigate('/dashboard/command-center/incidents');
-    else if (incident) navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: incident.id } });
+    if (incident) navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: incident.id } });
   };
 
   // Tạo sự cố từ tin báo ngoài app: mở form trên Live Map.

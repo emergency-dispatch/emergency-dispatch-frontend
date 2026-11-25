@@ -365,11 +365,9 @@ interface DispatchContextValue {
   incidentsError: string | null;
   /** Sự cố backend đã leo thang (status Escalated). */
   escalatedIncidentIds: Set<string>;
-  /** Drawer chi tiết sự cố đang mở — banner leo thang tự thu gọn để không che Drawer. */
+  /** Live Map đang mở thẩm định / Hồ sơ ca — banner leo thang tự thu gọn và né sang phần bản đồ. */
   incidentDrawerOpen: boolean;
-  /** `left` = panel trái của Live Map, `right` = drawer phủ từ bên phải (banner leo thang né theo phía đó). */
-  incidentDrawerSide: 'left' | 'right';
-  setIncidentDrawerOpen: (open: boolean, side?: 'left' | 'right') => void;
+  setIncidentDrawerOpen: (open: boolean) => void;
   /**
    * Duyệt sự cố. `category` bắt buộc khi sự cố chưa có loại đã xác nhận (Incident.needsEventType) → gửi
    * confirmedEventType.
@@ -415,19 +413,14 @@ interface DispatchContextValue {
   releaseIncident: (id: string) => void;
   /** Operator tự tạo sự cố (tin báo qua điện thoại, bộ đàm, camera…) — sự cố được xác minh ngay. */
   createOperatorIncident: (dto: CreateOperatorIncidentDto) => Promise<CreateIncidentResult>;
+  /** Ghi chú của Operator: nội dung tin báo (ca Operator tạo) hoặc căn cứ lúc duyệt; null = không có. */
+  operatorNotesOf: (id: string) => string | null;
   /** Số điện thoại đầy đủ (backend ghi vết), null nếu thất bại. */
   revealReporterPhone: (id: string) => Promise<string | null>;
   /**
-   * §34: giao một tổ cho sự cố — backend chọn xe sẵn sàng gần nhất đúng chức năng của tổ. Số tổ tối đa theo
-   * kế hoạch điều xe (BR-14); Cấp 3 gọi nhiều lần, tối đa 5 tổ.
+   * §34: giao các tổ cho sự cố trong một lệnh (tất cả hoặc không tổ nào) — backend chọn xe sẵn sàng gần nhất đúng chức
+   * năng của tổ. Số tổ tối đa theo kế hoạch điều xe (BR-14); Cấp 3 tối đa 5 tổ.
    */
-  assignTeam: (
-    target: TeamAssignTarget,
-    incidentId: string,
-    algorithm?: DispatchAlgorithm,
-    options?: AssignOptions
-  ) => Promise<ActionResult>;
-  /** Giao nhiều tổ trong một lệnh — backend nhận tất cả hoặc không tổ nào. */
   assignTeams: (
     targets: TeamAssignTarget[],
     incidentId: string,
@@ -515,11 +508,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [highlightIncidentIds, setHighlightIncidentIds] = useState<Set<string>>(new Set());
   const [incidentsLoading, setIncidentsLoading] = useState(true);
   const [incidentsError, setIncidentsError] = useState<string | null>(null);
-  const [incidentDrawerSide, setIncidentDrawerSide] = useState<'left' | 'right' | null>(null);
-  const setIncidentDrawerOpen = useCallback(
-    (open: boolean, side: 'left' | 'right' = 'right') => setIncidentDrawerSide(open ? side : null),
-    []
-  );
+  const [incidentDrawerOpen, setIncidentDrawerOpen] = useState(false);
   const [incomingIds, setIncomingIds] = useState<string[]>([]);
   const [escalationTiers, setEscalationTiers] = useState<Map<string, number>>(new Map());
   const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(null);
@@ -566,7 +555,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, HIGHLIGHT_DURATION_MS);
   }, []);
 
-  /** Sự cố mới báo tới → hiện thông báo nổi + bíp (Operator có thể đang ở Live Map, không nhìn hàng đợi). */
+  /** Sự cố mới báo tới → hiện thông báo nổi + bíp (Operator có thể đang ở trang khác). */
   const announceIncoming = useCallback((ids: string[]) => {
     if (ids.length === 0) return;
     setIncomingIds((prev) => [...ids.filter((id) => !prev.includes(id)), ...prev]);
@@ -1053,7 +1042,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const previousStatus = assignmentsRef.current.get(a.id)?.status;
         const wasCompleted = previousStatus === 'Completed';
         const incident = incidentDtosRef.current.get(a.incidentId);
-        // BR-21: đội vừa từ chối / không phản hồi → báo ở mọi trang (Operator thường đã quay về Hàng đợi sau khi giao).
+        // BR-21: đội vừa từ chối / không phản hồi → báo ở mọi trang (Operator có thể đang xem ca khác).
         if (a.status === 'Rejected' && previousStatus !== 'Rejected' && incident) {
           // §35: tổ cuối từ chối → backend tự xét sự cố: đã có tổ nghiệm thu → tự đóng; chưa → cần giao tổ thay thế.
           const others = [...assignmentsRef.current.values()].filter((x) => x.incidentId === a.incidentId && x.id !== a.id);
@@ -1398,7 +1387,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         confirmedTrafficJamStatus: trafficJam,
       });
       if (!res.success) return { ok: false, message: res.message || i18n.t('context.verifyFailed') };
-      // Không tự gán xe: Operator chọn xe ở bước "Điều xe" của Hàng đợi (hoặc sau đó trên Live Map).
+      // Không tự giao: Operator chọn tổ ở Chi tiết ca.
       upsertIncidents([res.data]);
       return { ok: true };
     } catch (err) {
@@ -1545,6 +1534,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const operatorNotesOf = (id: string) => incidentDtos.get(id)?.operatorNotes?.trim() || null;
+
   const revealReporterPhone = async (id: string): Promise<string | null> => {
     try {
       const res = await incidentService.revealPhone(id);
@@ -1599,9 +1590,6 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { ok: false, message: `${getApiErrorMessage(err, i18n.t('context.assignFailed'))}${suffix}` };
     }
   };
-
-  const assignTeam: DispatchContextValue['assignTeam'] = (target, incidentId, algorithm, options) =>
-    assignTeams([target], incidentId, algorithm, options);
 
   const assignForFieldRequest = async (
     requestId: string,
@@ -1791,8 +1779,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incidentsLoading,
         incidentsError,
         escalatedIncidentIds,
-        incidentDrawerOpen: incidentDrawerSide !== null,
-        incidentDrawerSide: incidentDrawerSide ?? 'right',
+        incidentDrawerOpen,
         setIncidentDrawerOpen,
         approveIncident,
         reviewTrafficJam,
@@ -1803,8 +1790,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         lockIncident,
         releaseIncident,
         createOperatorIncident,
+        operatorNotesOf,
         revealReporterPhone,
-        assignTeam,
         cancelAssignment,
         dismissResponseNotice,
         incomingIncidents,

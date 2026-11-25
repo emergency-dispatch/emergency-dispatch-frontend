@@ -52,7 +52,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
         "The system verifies the incident and dispatches vehicles according to the incident type's dispatch plan without waiting for an Operator. Applies only to fire / traffic accident SOS at Level 1–3 inside the service area, when the reporter did not choose \"Other\", no Operator has the case open, and the confidence is a measured probability from the TriageVL model.",
       enable: 'Enable AI auto-dispatch',
       enableHint:
-        'When off, every incident waits for Operator review. Skipped cases (suspected duplicate, no vehicles…) still enter the queue with the reason.',
+        'When off, every incident waits for Operator review. Skipped cases (suspected duplicate, no vehicles…) still go to the Operator with the reason.',
       mode: 'How AI decides',
       modeDefault: 'default',
       modes: { Ensemble: '3-AI vote', Single: 'TriageVL only' },
@@ -178,7 +178,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
       reject: 'Reject',
       rejectHint: 'No incident is created; the citizen is told they are outside the service area.',
       flag: 'Accept and flag',
-      flagHint: 'The incident enters the queue flagged "outside area" with a realtime alert to Operators / Admins.',
+      flagHint: 'The incident waits for Operator review, flagged "outside area" with a realtime alert to Operators / Admins.',
       default: 'default',
     },
     outsideNote: 'Applies to citizen SOS only; incidents created by Operators are never rejected.',
@@ -247,7 +247,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
   duplicateDetection: {
     scopeNote: 'When several people report the same event, the Operator handles one case. Does not apply to Operator-created incidents.',
     enable: 'Merge duplicate reports',
-    enableHint: 'Off: every SOS report enters the queue as a separate incident.',
+    enableHint: 'Off: every SOS report becomes a separate incident.',
     radius: 'Merge radius',
     window: 'Time window',
     sentenceBefore: 'Merge an SOS that is within',
@@ -258,7 +258,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     savedDisabled: 'Duplicate report merging saved (turned off).',
     disableTitle: 'Turn off duplicate report merging?',
     disableBody:
-      'Once turned off, every citizen SOS enters the queue as a separate incident, even when several people report the same event. Applies immediately to all stations.',
+      'Once turned off, every citizen SOS becomes a separate incident, even when several people report the same event. Applies immediately to all stations.',
     disableConfirm: 'Turn off and save',
   },
 };

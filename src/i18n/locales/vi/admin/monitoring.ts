@@ -234,7 +234,7 @@ export const adminMonitoringVi = {
       ReportUnlinked: 'Tách khỏi sự cố gốc',
       DuplicateConfirmed: 'Xác nhận báo cáo trùng',
       SupplementAdded: 'Người báo bổ sung thông tin',
-      LinkedReportsRestored: 'Trả báo cáo đã gom về hàng đợi',
+      LinkedReportsRestored: 'Trả báo cáo đã gom về danh sách chờ',
       AutoDispatched: 'AI tự điều phối',
       AutoDispatchSkipped: 'AI bỏ qua tự điều phối',
     },

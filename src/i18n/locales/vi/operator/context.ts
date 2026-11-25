@@ -1,6 +1,6 @@
 // Thông báo do DispatchContext tạo (lỗi dự phòng khi backend không trả message, kiểm tra phía client).
 export const contextVi = {
-  loadQueueFailed: 'Không thể tải hàng đợi sự cố.',
+  loadQueueFailed: 'Không thể tải danh sách ca.',
   stationNotAssigned: 'Bạn chưa được Admin phân công trạm phụ trách.',
   sessionEnded: 'Phiên đăng nhập đã kết thúc.',
   verifyFailed: 'Xác minh sự cố thất bại.',

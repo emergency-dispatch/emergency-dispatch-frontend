@@ -31,7 +31,7 @@ import type { BlockDuration, Incident } from '../../../types/incident';
 import { dateLocale, useTranslation } from '../../../i18n';
 
 /**
- * Các khối của hồ sơ một ca, dùng chung cho drawer thẩm định (Hàng đợi), panel thẩm định và "Hồ sơ ca" (Live Map):
+ * Các khối của hồ sơ một ca, dùng chung cho panel thẩm định và "Hồ sơ ca" (Live Map):
  * bằng chứng của người báo, kết quả AI, phần nhập lý do hủy ca.
  */
 
@@ -56,14 +56,20 @@ export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
 }) => {
   const { t } = useTranslation();
   const hasPhone = hasReporterPhone(incident);
+  // Ca Operator tạo từ điện thoại / bộ đàm…: không có người báo qua app nên thiếu ảnh, mô tả, số là bình thường → không để ô trống.
+  const fromCitizen = incident.source === 'CitizenApp';
   return (
     <div className="space-y-5 min-w-0">
-      <IncidentMediaGallery key={incident.id} media={incident.media} title={incident.title} />
+      {(fromCitizen || incident.media.length > 0) && (
+        <IncidentMediaGallery key={incident.id} media={incident.media} title={incident.title} />
+      )}
 
-      <section>
-        <h3 className={SECTION_HEADING}>{t('incidents.drawer.reporterDescription')}</h3>
-        <p className="text-sm text-slate-600 leading-relaxed">{incident.description}</p>
-      </section>
+      {(fromCitizen || incident.description) && (
+        <section>
+          <h3 className={SECTION_HEADING}>{t('incidents.drawer.reporterDescription')}</h3>
+          <p className="text-sm text-slate-600 leading-relaxed">{incident.description}</p>
+        </section>
+      )}
 
       {/* §21.4: chỉ hiện khi người báo đã gửi thêm (hoặc tải lỗi). */}
       {(supplements.items.length > 0 || supplements.error) && (
@@ -86,25 +92,27 @@ export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
             <User className="w-4 h-4 text-slate-400 shrink-0" />
             <span className="truncate">{incident.reporterName}</span>
           </li>
-          <li className="flex items-center gap-2.5 py-2 min-w-0">
-            <Phone className="w-4 h-4 text-slate-400 shrink-0" />
-            <span className="font-mono-data truncate">{phone.revealed?.phone ?? incident.reporterPhone}</span>
-            {hasPhone && !phone.revealed && (
-              <button
-                onClick={phone.reveal}
-                disabled={phone.revealing || revealDisabled}
-                className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 shrink-0"
-              >
-                {phone.revealing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
-                {t('incidents.drawer.revealPhone')}
-              </button>
-            )}
-            {phone.revealed && (
-              <span className="ml-auto text-[11px] text-slate-400 shrink-0">
-                {t('incidents.drawer.phoneRevealedAt', { time: phone.revealed.at.toLocaleTimeString(dateLocale()) })}
-              </span>
-            )}
-          </li>
+          {(fromCitizen || hasPhone) && (
+            <li className="flex items-center gap-2.5 py-2 min-w-0">
+              <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="font-mono-data truncate">{phone.revealed?.phone ?? incident.reporterPhone}</span>
+              {hasPhone && !phone.revealed && (
+                <button
+                  onClick={phone.reveal}
+                  disabled={phone.revealing || revealDisabled}
+                  className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 shrink-0"
+                >
+                  {phone.revealing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                  {t('incidents.drawer.revealPhone')}
+                </button>
+              )}
+              {phone.revealed && (
+                <span className="ml-auto text-[11px] text-slate-400 shrink-0">
+                  {t('incidents.drawer.phoneRevealedAt', { time: phone.revealed.at.toLocaleTimeString(dateLocale()) })}
+                </span>
+              )}
+            </li>
+          )}
           <li className="flex items-start gap-2.5 py-2 min-w-0">
             <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
             <span className="break-words">{incident.area}</span>
@@ -138,7 +146,7 @@ export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
 
 interface AiFindingsProps {
   incident: Incident;
-  /** Ca đã duyệt (người hoặc AI): bỏ các cảnh báo chỉ dành cho lúc thẩm định, cấp độ là cấp đã chốt. */
+  /** Ca đã duyệt (người hoặc AI): bỏ cảnh báo chỉ dành cho lúc thẩm định, bỏ loại + cấp (đã chốt, hiện ở đầu hồ sơ, không còn là ý kiến AI). */
   verified?: boolean;
 }
 
@@ -216,16 +224,18 @@ export const AiFindings: React.FC<AiFindingsProps> = ({ incident, verified = fal
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-            <div>
-              <p className="text-slate-500 mb-1">{t('incidents.drawer.eventType')}</p>
-              <span className="inline-flex items-center gap-1 font-bold" style={{ color: category.color }}>
-                <CategoryIcon className="w-3.5 h-3.5" />
-                {incidentKindLabel(incident)}
-              </span>
-              {incident.needsEventType && incident.category !== 'unknown' && (
-                <p className="text-[11px] text-slate-400 mt-0.5">{t('incidents.drawer.suggestedFromSos')}</p>
-              )}
-            </div>
+            {!verified && (
+              <div>
+                <p className="text-slate-500 mb-1">{t('incidents.drawer.eventType')}</p>
+                <span className="inline-flex items-center gap-1 font-bold" style={{ color: category.color }}>
+                  <CategoryIcon className="w-3.5 h-3.5" />
+                  {incidentKindLabel(incident)}
+                </span>
+                {incident.needsEventType && incident.category !== 'unknown' && (
+                  <p className="text-[11px] text-slate-400 mt-0.5">{t('incidents.drawer.suggestedFromSos')}</p>
+                )}
+              </div>
+            )}
             <div>
               <p className="text-slate-500 mb-1">{t('incidents.drawer.aiConfidence')}</p>
               {aiFailed ? (
@@ -238,14 +248,16 @@ export const AiFindings: React.FC<AiFindingsProps> = ({ incident, verified = fal
                 />
               )}
             </div>
-            <div>
-              <p className="text-slate-500 mb-1">{t(verified ? 'incidents.drawer.levelLabel' : 'incidents.drawer.suggestedLevel')}</p>
-              {aiFailed ? (
-                <span className="text-slate-400">—</span>
-              ) : (
-                <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
-              )}
-            </div>
+            {!verified && (
+              <div>
+                <p className="text-slate-500 mb-1">{t('incidents.drawer.suggestedLevel')}</p>
+                {aiFailed ? (
+                  <span className="text-slate-400">—</span>
+                ) : (
+                  <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+                )}
+              </div>
+            )}
             {incident.aiEngine && (
               <div className="min-w-0">
                 <p className="text-slate-500 mb-1">{t('incidents.engine.label')}</p>

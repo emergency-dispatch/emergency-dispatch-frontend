@@ -4,7 +4,6 @@ import type { layoutVi } from '../../vi/operator/layout';
 export const layoutEn: Messages<typeof layoutVi> = {
   nav: {
     liveMap: 'Live Map',
-    incidentQueue: 'Incident Queue',
     stationTeams: 'Station Teams',
     vehicles: 'Fleet & Equipment',
     completion: 'Completion',
@@ -79,7 +78,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
     location: 'Location',
     waitTime: 'Waiting time',
     reporter: 'Reporter:',
-    skip: 'Keep in queue',
+    skip: 'Later',
     verifyNow: 'Verify now',
     transferredKicker: 'INCIDENT TRANSFERRED TO YOUR STATION',
     transferredFrom: 'Transferred from {{station}}{{by}}',

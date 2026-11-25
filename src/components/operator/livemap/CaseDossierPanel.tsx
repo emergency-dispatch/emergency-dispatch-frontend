@@ -10,7 +10,6 @@ import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
 import { TrafficJamReview } from '../incidents/TrafficJamReview';
 import { blockDurationOf, EMPTY_CANCEL_INPUT } from '../incidents/cancelCaseInput';
-import { DispatchPlanHint } from './DispatchPlanHint';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
@@ -35,8 +34,8 @@ interface CaseDossierPanelProps {
 }
 
 /**
- * Hồ sơ của ca đã duyệt / đã điều (người hoặc AI) trong panel trái Live Map: ảnh, người báo, kết quả AI, các lượt điều,
- * lịch sử. Không giữ khóa mềm. Hủy ca làm ở đây để Operator xem lại bằng chứng và chặn được số báo khống.
+ * Hồ sơ của ca đã duyệt / đã điều (người hoặc AI) trong panel trái Live Map: ảnh, người báo, kết quả AI; tab Lịch sử có
+ * các lượt điều. Chỉ để xem — điều tổ làm ở Chi tiết ca. Không giữ khóa mềm. Hủy ca làm ở đây để Operator xem lại bằng chứng và chặn được số báo khống.
  */
 export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
   incident,
@@ -48,7 +47,7 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
   onCancelCase,
 }) => {
   const { t } = useTranslation();
-  const { currentOperatorId, incidentKindLabel, vehicleLimitFor, revealReporterPhone, unlinkLinkedReport, supplementVersions } =
+  const { currentOperatorId, incidentKindLabel, operatorNotesOf, revealReporterPhone, unlinkLinkedReport, supplementVersions } =
     useDispatchStore();
   const supplements = useIncidentSupplements(incident.id, supplementVersions.get(incident.id) ?? 0);
   const phone = useRevealPhone(incident.id, revealReporterPhone);
@@ -60,9 +59,19 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
   const CategoryIcon = category.icon;
   const canCancel = incident.status === 'approved';
   const cancelling = canCancel && cancelOpen;
-  const activeCount = Math.max(0, incident.assignedVehicleIds.length - incident.reportedVehicleIds.length);
+  const notes = operatorNotesOf(incident.id);
   // Ca Operator tự tạo không qua AI → không có kết quả để hiện.
-  const hasAi = incident.source === 'CitizenApp' || !!incident.aiEngine || !!incident.aiSummary;
+  const fromCitizen = incident.source === 'CitizenApp';
+  const notesBlock = notes && (
+    <section>
+      <h3 className="text-[13px] font-semibold text-slate-700 mb-1.5">
+        {t(fromCitizen ? 'liveMap.dossier.reviewNotes' : 'liveMap.dossier.operatorReport')}
+      </h3>
+      <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line break-words">{notes}</p>
+    </section>
+  );
+  const hasAi = fromCitizen || !!incident.aiEngine || !!incident.aiSummary;
+  const hasAiColumn = hasAi || !!incident.autoDispatch || !!incident.trafficJam;
 
   const tabs: { key: DossierTab; label: string }[] = [
     { key: 'info', label: t('liveMap.dossier.tabInfo') },
@@ -120,8 +129,19 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
 
       <div className="flex-1 overflow-y-auto min-h-0">
         {tab === 'history' ? (
-          <div className="p-5">
-            <IncidentAuditTimeline incidentId={incident.id} />
+          <div className="p-5 space-y-6">
+            {assignments.length > 0 && (
+              <section className="space-y-2">
+                <h3 className="text-[13px] font-semibold text-slate-700">
+                  {t('liveMap.dossier.dispatches', { count: assignments.length })}
+                </h3>
+                <DispatchAssignmentList assignments={assignments} />
+              </section>
+            )}
+            <section className="space-y-2">
+              <h3 className="text-[13px] font-semibold text-slate-700">{t('liveMap.recommend.history')}</h3>
+              <IncidentAuditTimeline incidentId={incident.id} />
+            </section>
           </div>
         ) : tab === 'linked' ? (
           <div className="p-5">
@@ -133,28 +153,28 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
             />
           </div>
         ) : (
-          <div className="grid gap-6 p-5 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-            <ReporterEvidence incident={incident} supplements={supplements} phone={phone} />
-            <div className="space-y-4 min-w-0">
-              <AutoDispatchNotice incident={incident} />
-              {hasAi && <AiFindings incident={incident} verified />}
-              {!incident.aiPending && incident.trafficJam && (
-                <TrafficJamReview
-                  trafficJam={incident.trafficJam}
-                  currentOperatorId={currentOperatorId}
-                  decision={null}
-                  onDecisionChange={() => undefined}
-                  readOnly
-                />
-              )}
-              <section className="space-y-2">
-                <h3 className="text-[13px] font-semibold text-slate-700">
-                  {t('incidents.autoDispatched.teams', { count: activeCount })}
-                </h3>
-                <DispatchPlanHint limit={vehicleLimitFor(incident)} />
-                <DispatchAssignmentList assignments={assignments} />
-              </section>
+          <div className={`grid gap-6 p-5 ${hasAiColumn ? 'md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2' : ''}`}>
+            <div className="space-y-5 min-w-0">
+              {/* Ca Operator tạo: nội dung tin báo là phần chính nên đứng đầu; ca người dân thì sau bằng chứng. */}
+              {!fromCitizen && notesBlock}
+              <ReporterEvidence incident={incident} supplements={supplements} phone={phone} />
+              {fromCitizen && notesBlock}
             </div>
+            {hasAiColumn && (
+              <div className="space-y-4 min-w-0">
+                <AutoDispatchNotice incident={incident} />
+                {hasAi && <AiFindings incident={incident} verified />}
+                {!incident.aiPending && incident.trafficJam && (
+                  <TrafficJamReview
+                    trafficJam={incident.trafficJam}
+                    currentOperatorId={currentOperatorId}
+                    decision={null}
+                    onDecisionChange={() => undefined}
+                    readOnly
+                  />
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

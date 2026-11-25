@@ -14,7 +14,7 @@ import { DispatchRecommendPanel } from '../../components/operator/livemap/Dispat
 import { CaseAssignments } from '../../components/operator/livemap/CaseAssignments';
 import { ReadyTeamsCard } from '../../components/operator/livemap/ReadyTeamsCard';
 import { countAttentionCases } from '../../components/operator/livemap/caseGroups';
-import { autoDispatchVerdictAt } from '../../components/operator/incidents/autoDispatchVerdict';
+import { autoDispatchVerdictAt, needsOperator } from '../../components/operator/incidents/autoDispatchVerdict';
 import { groupCompletion, progressOf } from '../../components/operator/completion/completionGroups';
 import { COMPLETION_PATH } from '../../data/dashboardMock';
 import { useTeamByVehicle } from '../../hooks/useStationTeams';
@@ -157,8 +157,8 @@ export const LiveMapPage: React.FC = () => {
     });
   };
 
-  // "Tôi xử lý" ở dải AI / thẻ AI / marker AI → mở thẩm định. Chờ ca có trong danh sách rồi mới mở, xong thì xóa khỏi
-  // lịch sử để tải lại trang không tự giữ khóa ca cũ.
+  // "Tôi xử lý" ở dải AI / thẻ AI / marker AI, "Thẩm định ngay" ở modal tin báo mới → mở thẩm định. Chờ ca có trong danh
+  // sách rồi mới mở, xong thì xóa khỏi lịch sử để tải lại trang không tự giữ khóa ca cũ.
   const triageIncidentId = (location.state as { triageIncidentId?: string } | null)?.triageIncidentId;
   const triageTargetStatus = triageIncidentId ? incidentsById.get(triageIncidentId)?.status : undefined;
   useEffect(() => {
@@ -170,10 +170,21 @@ export const LiveMapPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [triageIncidentId, triageTargetStatus, location.key]);
 
-  // Deep link từ banner leo thang / thông báo
+  // Deep link từ banner leo thang / thông báo / chuông: ca đã duyệt → Chi tiết ca; ca chờ người → mở thẩm định; ca AI đang
+  // làm → chỉ bay tới (mở = giữ khóa = AI bỏ qua ca này, phải qua "Tôi xử lý").
   const focusIncidentId = (location.state as { focusIncidentId?: string } | null)?.focusIncidentId;
+  const [focusAiIncident, setFocusAiIncident] = useState<{ id: string; key: number } | null>(null);
   useEffect(() => {
-    if (focusIncidentId) handleSelectIncident(focusIncidentId);
+    if (!focusIncidentId) return;
+    const target = incidentsById.get(focusIncidentId);
+    if (target?.status !== 'pending') {
+      handleSelectIncident(focusIncidentId);
+      return;
+    }
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    const aiWorking = !target.lock && !needsOperator(autoDispatchVerdictAt(target, autoDispatchSettings, Date.now()));
+    if (aiWorking) setFocusAiIncident((prev) => ({ id: target.id, key: (prev?.key ?? 0) + 1 }));
+    else handleOpenTriage(target.id);
     // Chỉ chạy theo yêu cầu mới.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusIncidentId, location.key]);
@@ -187,7 +198,6 @@ export const LiveMapPage: React.FC = () => {
 
   // §31.E: dải AI → "Xem trên bản đồ": bay tới tin báo AI đang xử lý, không chọn / không mở ca (AI vẫn chạy).
   const focusAiIncidentId = (location.state as { focusAiIncidentId?: string } | null)?.focusAiIncidentId;
-  const [focusAiIncident, setFocusAiIncident] = useState<{ id: string; key: number } | null>(null);
   useEffect(() => {
     if (focusAiIncidentId) setFocusAiIncident((prev) => ({ id: focusAiIncidentId, key: (prev?.key ?? 0) + 1 }));
   }, [focusAiIncidentId, location.key]);
@@ -361,7 +371,7 @@ export const LiveMapPage: React.FC = () => {
   // Thẩm định / Hồ sơ ca cần hai cột → panel rộng; banner leo thang né sang phần bản đồ.
   const widePanel = !createOpen && (!!triage.incident || dossierOpen);
   useEffect(() => {
-    setIncidentDrawerOpen(widePanel, 'left');
+    setIncidentDrawerOpen(widePanel);
     return () => setIncidentDrawerOpen(false);
   }, [widePanel, setIncidentDrawerOpen]);
 
@@ -369,7 +379,6 @@ export const LiveMapPage: React.FC = () => {
     triage.incident ? (
       <IncidentDetailDrawer
         key={triage.incident.id}
-        variant="panel"
         incident={triage.incident}
         currentOperatorId={currentOperatorId}
         isEscalated={escalatedIncidentIds.has(triage.incident.id)}

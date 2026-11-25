@@ -1,7 +1,6 @@
 export const layoutVi = {
   nav: {
     liveMap: 'Bản đồ điều phối',
-    incidentQueue: 'Hàng đợi sự cố',
     stationTeams: 'Trạm & Tổ',
     vehicles: 'Đội xe & Thiết bị',
     completion: 'Nghiệm thu',
@@ -76,7 +75,7 @@ export const layoutVi = {
     location: 'Địa điểm',
     waitTime: 'Thời gian chờ',
     reporter: 'Người báo:',
-    skip: 'Giữ trong hàng đợi',
+    skip: 'Để sau',
     verifyNow: 'Thẩm định ngay',
     transferredKicker: 'SỰ CỐ ĐƯỢC CHUYỂN TỚI TRẠM BẠN',
     transferredFrom: 'Chuyển từ {{station}}{{by}}',
@@ -156,7 +155,7 @@ export const layoutVi = {
     fieldRequestBackupContent: 'cần thêm {{count}} xe {{type}}',
     teamCompletedTitle: 'Tổ đã nghiệm thu',
     teamCompletedMessage: '{{team}} đã ký nghiệm thu · {{incident}}',
-    // Đội từ chối / không phản hồi: báo ở mọi trang vì Operator thường đã quay về Hàng đợi sau khi giao xe.
+    // Đội từ chối / không phản hồi: báo ở mọi trang vì Operator có thể đang xem ca khác.
     crewRejectedTitle: 'Đội từ chối nhiệm vụ',
     crewTimeoutTitle: 'Đội không phản hồi',
     noResponseReason: 'Không phản hồi (hệ thống tự rút lệnh)',

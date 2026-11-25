@@ -8,12 +8,10 @@ import { autoDispatchVerdictAt, needsOperator } from './incidents/autoDispatchVe
 import { useNow } from '../../hooks/useNow';
 import { useTranslation } from '../../i18n';
 
-const QUEUE_PATH = '/dashboard/command-center/incidents';
 const LIVE_MAP_PATH = '/dashboard/command-center/live-map';
 
 const NAV_LABEL_KEY = {
   '/dashboard/command-center/live-map': 'layout.nav.liveMap',
-  '/dashboard/command-center/incidents': 'layout.nav.incidentQueue',
   '/dashboard/command-center/completion': 'layout.nav.completion',
   '/dashboard/command-center/station-teams': 'layout.nav.stationTeams',
   '/dashboard/command-center/vehicles': 'layout.nav.vehicles',
@@ -28,11 +26,11 @@ export const OperatorSidebar: React.FC = () => {
   // Chỉ để ca "AI chưa quyết" quá hạn rơi về đếm của người — không cần chính xác từng giây.
   const now = useNow(30_000);
   const { t } = useTranslation();
-  // §31.E: chỉ đếm ca cần Operator (AI đang phân tích / điều phối thì chưa tới lượt người) — khớp tab "Cần bạn xử lý".
+  // §31.E: chỉ đếm ca cần Operator (AI đang phân tích / điều phối thì chưa tới lượt người) — badge đỏ trên icon Live Map.
   const pendingCount = incidents.filter(
     (i) => i.status === 'pending' && needsOperator(autoDispatchVerdictAt(i, autoDispatchSettings, now))
   ).length;
-  // §26.2: sự cố đang xử lý còn tổ chưa ký nghiệm thu (badge vàng — không phải việc khẩn như hàng đợi).
+  // §26.2: sự cố đang xử lý còn tổ chưa ký nghiệm thu (badge vàng — không khẩn như ca chờ thẩm định).
   const awaitingCompletionCount = incidents.filter(
     (i) => i.status === 'approved' && hasPendingCompletion(assignmentsByIncident.get(i.id))
   ).length;
@@ -62,7 +60,7 @@ export const OperatorSidebar: React.FC = () => {
           group.items.map((item) => {
             const Icon = item.icon;
             const badge =
-              item.path === QUEUE_PATH ? pendingCount : item.path === COMPLETION_PATH ? awaitingCompletionCount : 0;
+              item.path === LIVE_MAP_PATH ? pendingCount : item.path === COMPLETION_PATH ? awaitingCompletionCount : 0;
             const badgeClass = item.path === COMPLETION_PATH ? 'bg-amber-500' : 'bg-red-600';
             return (
               <NavLink

@@ -236,7 +236,7 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       ReportUnlinked: 'Split from parent incident',
       DuplicateConfirmed: 'Duplicate report confirmed',
       SupplementAdded: 'Reporter added information',
-      LinkedReportsRestored: 'Merged reports returned to queue',
+      LinkedReportsRestored: 'Merged reports returned to the waiting list',
       AutoDispatched: 'AI auto-dispatched',
       AutoDispatchSkipped: 'AI auto-dispatch skipped',
     },

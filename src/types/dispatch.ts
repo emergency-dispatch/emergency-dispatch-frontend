@@ -222,7 +222,7 @@ export interface StaffTeamResponseDto {
 
 /**
  * §40–41: tên tổ / biển số của lượt điều xe kèm ghi chú khi tổ đã giải thể / xe đã xóa (tên tổ có thể đã được tổ mới
- * dùng lại nên phải ghi rõ). Dùng cho mọi nơi hiện lượt điều xe cũ (Chi tiết ca, Nghiệm thu, Hàng đợi).
+ * dùng lại nên phải ghi rõ). Dùng cho mọi nơi hiện lượt điều xe cũ (Chi tiết ca, Hồ sơ ca, Nghiệm thu).
  */
 export const teamNameLabel = (name: string, deleted: boolean | undefined) =>
   deleted ? i18n.t('incidents.assignmentLabel.teamDisbanded', { name }) : name;

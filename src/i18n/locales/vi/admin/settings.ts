@@ -51,7 +51,7 @@ export const adminSettingsVi = {
         'Hệ thống tự xác minh và điều xe theo kế hoạch điều xe của loại sự cố, không chờ Operator duyệt. Chỉ áp dụng cho SOS cháy nổ / tai nạn Cấp 1–3 trong khu vực phục vụ, người báo không chọn "Khác", không Operator nào đang mở ca, và độ tin cậy là xác suất đo thật từ model TriageVL.',
       enable: 'Bật AI tự điều phối',
       enableHint:
-        'Khi tắt, mọi sự cố đều chờ Operator duyệt. Ca bị bỏ qua (nghi trùng, hết xe…) vẫn vào hàng đợi kèm lý do.',
+        'Khi tắt, mọi sự cố đều chờ Operator duyệt. Ca bị bỏ qua (nghi trùng, hết xe…) vẫn chuyển Operator xử lý kèm lý do.',
       mode: 'Cách AI quyết định',
       modeDefault: 'mặc định',
       modes: { Ensemble: '3 AI bỏ phiếu', Single: 'Chỉ TriageVL' },
@@ -177,7 +177,7 @@ export const adminSettingsVi = {
       reject: 'Từ chối',
       rejectHint: 'Không tạo sự cố; người dân được báo là đang ở ngoài khu vực phục vụ.',
       flag: 'Vẫn tiếp nhận, gắn cờ',
-      flagHint: 'Sự cố vào hàng đợi kèm cờ "ngoài khu vực" và cảnh báo realtime cho Operator / Admin.',
+      flagHint: 'Sự cố chờ Operator thẩm định kèm cờ "ngoài khu vực" và cảnh báo realtime cho Operator / Admin.',
       default: 'mặc định',
     },
     outsideNote: 'Chỉ áp dụng cho SOS của người dân; sự cố do Operator tự tạo không bị từ chối.',
@@ -247,7 +247,7 @@ export const adminSettingsVi = {
   duplicateDetection: {
     scopeNote: 'Nhiều người cùng báo một vụ thì Operator chỉ phải xử lý một ca. Không áp dụng cho sự cố do Operator tạo.',
     enable: 'Gộp báo cáo trùng',
-    enableHint: 'Tắt: mọi SOS đều vào hàng đợi như một sự cố riêng.',
+    enableHint: 'Tắt: mọi SOS đều thành một sự cố riêng.',
     radius: 'Bán kính gộp',
     window: 'Khung thời gian',
     sentenceBefore: 'Gộp SOS khi cách sự cố đang mở không quá',
@@ -258,7 +258,7 @@ export const adminSettingsVi = {
     savedDisabled: 'Đã lưu cấu hình gộp báo cáo trùng (đang tắt).',
     disableTitle: 'Tắt tự gộp báo cáo trùng?',
     disableBody:
-      'Sau khi tắt, mọi SOS của người dân đều vào hàng đợi như sự cố riêng, kể cả nhiều người cùng báo một vụ. Áp dụng ngay cho tất cả các trạm.',
+      'Sau khi tắt, mọi SOS của người dân đều thành sự cố riêng, kể cả nhiều người cùng báo một vụ. Áp dụng ngay cho tất cả các trạm.',
     disableConfirm: 'Tắt và lưu',
   },
 } as const;

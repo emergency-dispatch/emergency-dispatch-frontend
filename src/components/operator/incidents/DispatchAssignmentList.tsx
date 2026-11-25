@@ -5,12 +5,13 @@ import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useAssignmentTeam } from '../../../hooks/useStationTeams';
 import { assignmentPlateLabel, type DispatchAssignmentResponseDto } from '../../../types/dispatch';
+import { formatDateTime } from '../../../utils/incidentFormat';
 import { useTranslation } from '../../../i18n';
 
 /** Mọi lượt điều của ca, kể cả lượt bị thu hồi / từ chối. */
 export const DispatchAssignmentList: React.FC<{ assignments: DispatchAssignmentResponseDto[] }> = ({ assignments }) => {
   const { t } = useTranslation();
-  if (assignments.length === 0) return <p className="text-sm text-slate-400">{t('incidents.dispatchStep.noneAssigned')}</p>;
+  if (assignments.length === 0) return <p className="text-sm text-slate-400">{t('incidents.autoDispatched.noneAssigned')}</p>;
   return (
     <ul className="divide-y divide-slate-100 border-y border-slate-100">
       {assignments.map((a) => (
@@ -49,7 +50,12 @@ const AssignmentRow: React.FC<{ assignment: DispatchAssignmentResponseDto }> = (
     statusEl = (
       <span className="inline-flex items-center gap-1 font-semibold text-slate-400">
         <Ban className="w-3.5 h-3.5" />
-        {assignment.status === 'Rejected' ? t('incidents.autoDispatched.rejected') : t('incidents.autoDispatched.recalled')}
+        {assignment.status !== 'Rejected'
+          ? t('incidents.autoDispatched.recalled')
+          : // §52: quá hạn không nhận lệnh, hệ thống tự rút — không phải đội bấm từ chối.
+            assignment.rejectionReason === 'NoResponse'
+            ? t('incidents.autoDispatched.noResponse')
+            : t('incidents.autoDispatched.rejected')}
       </span>
     );
   }
@@ -61,6 +67,7 @@ const AssignmentRow: React.FC<{ assignment: DispatchAssignmentResponseDto }> = (
         <p className="text-xs text-slate-500 truncate">
           <span className="font-mono-data">{plate}</span>
           {unitType && ` · ${unitTypeLabel(unitType)}`}
+          {` · ${formatDateTime(assignment.dispatchedAt)}`}
         </p>
       </div>
       <span className="shrink-0 text-xs">{statusEl}</span>

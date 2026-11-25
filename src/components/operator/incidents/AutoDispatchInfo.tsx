@@ -5,12 +5,13 @@ import { useDispatchStore } from '../../../context/DispatchContext';
 import type { Incident } from '../../../types/incident';
 import { aiVoteTally } from '../../../types/aiVote';
 import { autoDispatchVerdict, type HandoverReason } from './autoDispatchVerdict';
+import { useHandoverReasonText } from './useHandoverReasonText';
 import { useTranslation } from '../../../i18n';
 
 type AutoDispatchIncident = Pick<Incident, 'autoDispatch' | 'confidenceScore'>;
 
 /**
- * §31.E: nhãn ngắn trên dòng hàng đợi / danh sách ca. Dispatched: "AI tự điều phối · 93%"; Skipped: "AI bỏ qua".
+ * §31.E: nhãn ngắn trên danh sách ca. Dispatched: "AI tự điều phối · 93%"; Skipped: "AI bỏ qua".
  * Không áp dụng → không hiện gì.
  */
 export const AutoDispatchBadge: React.FC<{ incident: AutoDispatchIncident }> = ({ incident }) => {
@@ -161,22 +162,7 @@ export const HandoverReasonBox: React.FC<HandoverReasonBoxProps> = ({
   className = '',
 }) => {
   const { t } = useTranslation();
-  const { currentOperatorId } = useDispatchStore();
-  const lockName =
-    incident.lock?.operatorId === currentOperatorId
-      ? t('layout.incomingIncident.you')
-      : incident.lock?.operatorName || t('layout.incomingIncident.anotherOperator');
-  // §35: lý do "đang giữ ca" do backend lưu có thể đến sau khi khóa đã nhả → không biết ai giữ.
-  const reasonKey = reason === 'operatorHandling' && !incident.lock ? 'operatorHandlingNoName' : reason;
-  const backendNote =
-    reason === 'skipped' ? incident.autoDispatch?.note : reason === 'other' ? incident.autoDispatchNotEligibleNote : null;
-  const text = backendNote
-    ? backendNote
-    : t(`layout.incomingIncident.reasons.${reasonKey}`, {
-        confidence: incident.confidenceScore,
-        threshold: threshold ?? 0,
-        name: lockName,
-      });
+  const text = useHandoverReasonText()(incident, reason, threshold);
   // Thanh % chỉ có nghĩa khi lý do nằm ở độ tin cậy.
   const showBar = threshold !== null && (reason === 'belowThreshold' || reason === 'confidenceNotMeasured');
   return (

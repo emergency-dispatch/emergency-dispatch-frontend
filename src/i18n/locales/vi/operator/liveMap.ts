@@ -8,7 +8,6 @@ export const liveMapVi = {
     title: 'Điều phối sự cố',
     subtitle: 'Chọn sự cố để xem gợi ý tổ phù hợp',
     empty: 'Không có ca nào cần theo dõi',
-    minutesShort: '{{count}}ph',
     escalatedTier2: 'Leo thang cấp 2 — cần trạm khác hỗ trợ',
     escalated: 'Leo thang — chưa có đơn vị nhận',
     outOfArea: 'Ngoài khu vực phục vụ',
@@ -18,9 +17,7 @@ export const liveMapVi = {
     noticeSuffix: ' — giao tổ khác.',
     closed: 'Đã đóng — {{count}} tổ nộp báo cáo',
     confirmCancel: 'Hủy sự cố này? Xe đã giao sẽ trả về sẵn sàng.',
-    cancelReason: 'Lý do hủy',
     back: 'Quay lại',
-    confirm: 'Xác nhận hủy',
     assignedTeams: 'Tổ đã giao ({{active}}/{{max}})',
     cancelIncidentTitle: 'Hủy sự cố — AI phân loại sai / báo khống',
     noTeamAssigned: 'Chưa giao tổ',
@@ -30,7 +27,7 @@ export const liveMapVi = {
     recallTitle: 'Hủy giao tổ',
     dismissError: 'Đóng thông báo lỗi',
   },
-  // Panel trái 2 tầng (Live Map sau khi giao xe lần đầu đã chuyển vào Hàng đợi).
+  // Panel trái của Live Map.
   cases: {
     title: 'Theo dõi ca',
     subtitle: 'Mọi ca của trạm: AI đang làm, đội đang đi, ca cần bạn',
@@ -51,6 +48,7 @@ export const liveMapVi = {
     },
     cta: { dispatchMore: 'Giao tiếp', reassign: 'Giao lại', serve: 'Đáp ứng', dispatch: 'Giao tổ', open: 'Mở ca', review: 'Thẩm định', view: 'Xem' },
     loading: 'Đang tải danh sách ca…',
+    aiAnalyzing: 'AI đang phân tích',
     allReported: 'Các tổ đã nộp báo cáo',
     vehicleCount: '{{active}}/{{max}} tổ',
   },
@@ -72,6 +70,9 @@ export const liveMapVi = {
     title: 'Hồ sơ ca',
     back: 'Chi tiết ca',
     tabInfo: 'Hồ sơ',
+    dispatches: 'Các lượt điều tổ ({{count}})',
+    reviewNotes: 'Ghi chú lúc duyệt',
+    operatorReport: 'Nội dung tin báo (Operator ghi nhận)',
   },
   readyTeams: {
     title: 'Tổ sẵn sàng',
