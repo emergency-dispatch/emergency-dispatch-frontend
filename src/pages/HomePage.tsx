@@ -13,7 +13,6 @@ import {
   SosModal,
   CitizenReportsModal,
   CitizenPhoneModal,
-  CitizenLiveTrackingMapModal,
   CitizenRescueAlertModal,
   playCitizenRescueChime,
 } from '../components/citizen';
@@ -26,7 +25,7 @@ import { incidentService } from '../services/incidentService';
 import { notificationService } from '../services/notificationService';
 import { incidentHubService, HubEvents } from '../services/realtime/incidentHubService';
 import { mapboxService } from '../services/mapboxService';
-import { useTranslation } from '../i18n';
+import { getLanguage, useTranslation } from '../i18n';
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,7 +35,6 @@ export const HomePage: React.FC = () => {
   const [reportsModalOpen, setReportsModalOpen] = useState(false);
   const [phoneModalOpen, setPhoneModalOpen] = useState(false);
   const [rescueAlert, setRescueAlert] = useState<CitizenRescueAlertPayload | null>(null);
-  const [alertTrackingIncident, setAlertTrackingIncident] = useState<IncidentResponseDto | null>(null);
   const [areaAlertToast, setAreaAlertToast] = useState<{
     id: string;
     publicAlertId: string;
@@ -47,16 +45,22 @@ export const HomePage: React.FC = () => {
   const areaToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleOpenTrackFromAlert = useCallback(async (incidentId: string) => {
+    setRescueAlert(null);
+    let loaded: IncidentResponseDto | undefined;
     try {
       const res = await incidentService.getById(incidentId);
       if (res?.success && res.data) {
-        setAlertTrackingIncident(res.data);
-        return;
+        loaded = res.data;
       }
     } catch {
-      // Fallback sang mở lịch sử báo cáo nếu không tải trực tiếp được
+      // ignore — HeroRadarMap will fetch or fall back
     }
-    setReportsModalOpen(true);
+    window.dispatchEvent(
+      new CustomEvent('resq_focus_citizen_incident', {
+        detail: { incidentId, incident: loaded, expand: true },
+      })
+    );
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   const handleOpenSos = () => {
@@ -121,9 +125,10 @@ export const HomePage: React.FC = () => {
       }
     };
 
-    // Khi vừa đăng nhập: kiểm tra thông báo sự cố khu vực chưa đọc còn hiệu lực trên bản đồ Citizen
+    // Khi vừa đăng nhập hoặc SignalR nối lại / bản đồ công khai đổi: kiểm tra thông báo khu vực chưa đọc còn hiệu lực
     let cancelled = false;
-    if (typeof notificationService?.list === 'function') {
+    const syncUnreadAreaAlerts = () => {
+      if (typeof notificationService?.list !== 'function') return;
       notificationService
         .list(10)
         .then(async (page) => {
@@ -140,8 +145,11 @@ export const HomePage: React.FC = () => {
           for (const n of page.items) {
             if (n.isRead) continue;
             const d = parseAreaAlert(n);
+            const rawType = n.type as unknown;
             const isAreaType =
-              (n.type as string) === 'CitizenIncidentAlert' || d.type === 'citizen_incident_alert';
+              rawType === 'CitizenIncidentAlert' ||
+              rawType === 6 ||
+              d.type === 'citizen_incident_alert';
             if (!isAreaType || !d.publicAlertId || seenIds.has(d.publicAlertId)) continue;
             const activePin = await incidentService.getCitizenMapIncidentByAlert?.(d.publicAlertId);
             if (cancelled) return;
@@ -157,15 +165,26 @@ export const HomePage: React.FC = () => {
           }
         })
         .catch(() => {});
-    }
+    };
 
-    const unsubNotif = incidentHubService.on<any>(HubEvents.ReceiveNotification, (notif) => {
+    syncUnreadAreaAlerts();
+    const unsubReconn = incidentHubService.onReconnected(syncUnreadAreaAlerts);
+    const unsubCitizenMapChanged = incidentHubService.on(HubEvents.ReceiveCitizenMapChanged, syncUnreadAreaAlerts);
+    const onVisChange = () => {
+      if (document.visibilityState === 'visible') syncUnreadAreaAlerts();
+    };
+    document.addEventListener('visibilitychange', onVisChange);
+    const unreadFallbackTimer = setInterval(syncUnreadAreaAlerts, 15000);
+
+    const unsubNotif = incidentHubService.on<any>(HubEvents.ReceiveNotification, async (notif) => {
       if (!notif) return;
       const msg = String(notif.message || '');
       const title = String(notif.title || '');
       const text = `${title} ${msg}`.toLowerCase();
       let parsedData: {
         type?: string;
+        status?: string;
+        assignmentId?: string;
         publicAlertId?: string;
         parentIncidentId?: string;
         reportId?: string;
@@ -197,40 +216,84 @@ export const HomePage: React.FC = () => {
 
       const isDuplicateConfirmed =
         text.includes('trùng với sự cố') || text.includes('duplicate');
-      const isTeamAccepted =
-        notif.type === 'JobAssigned' ||
-        text.includes('nhận lệnh') ||
-        text.includes('accepted') ||
-        text.includes('đang đến') ||
-        text.includes('đã giao đội');
+      const statusNorm = String(parsedData.status || '').toLowerCase();
+      const isDispatchedPendingAccept =
+        statusNorm === 'dispatched' ||
+        text.includes('đang chờ đội xác nhận') ||
+        text.includes('đã giao sự cố') ||
+        text.includes('waiting for the team to accept');
+      const isAccepted =
+        !isDispatchedPendingAccept &&
+        (statusNorm === 'accepted' ||
+          text.includes('đã nhận lệnh') ||
+          text.includes('accepted'));
 
-      if (!isDuplicateConfirmed && !isTeamAccepted) return;
+      if (!isDuplicateConfirmed && !isAccepted) return;
 
       const targetIncidentId = parsedData.parentIncidentId || notif.incidentId || null;
+      if (!isDuplicateConfirmed && targetIncidentId) {
+        try {
+          const detailRes = await incidentService.getById(targetIncidentId);
+          if (detailRes.data?.viewedAsDuplicateReporter) return;
+        } catch {
+          // ignore if lookup fails
+        }
+      }
+
+      const alertDedupId = isDuplicateConfirmed
+        ? `notif-${notif.id}`
+        : `assign-${parsedData.assignmentId || targetIncidentId || notif.id}-accepted`;
+
+      const cleanRawMsg = msg.replace(/^\s*\[[^\]]+\]\s*/, '').trim();
+      const plateMatch = cleanRawMsg.match(/(?:Vehicle|Xe)\s+(.+?)\s+(?:has accepted|đã nhận lệnh)/i);
+      const resolvedPlate = parsedData.plateNumber || plateMatch?.[1]?.trim() || null;
+      const isVi = getLanguage() === 'vi';
+
       triggerAlert({
-        id: `notif-${notif.id}`,
+        id: alertDedupId,
         kind: isDuplicateConfirmed ? 'duplicate_confirmed' : 'accepted',
-        title: notif.title || (isDuplicateConfirmed ? 'Xác nhận báo cáo trùng' : 'Đội cứu hộ đã tiếp nhận'),
-        message: notif.message || 'Yêu cầu cứu hộ của bạn đã được cập nhật tiến độ xử lý.',
+        title: isDuplicateConfirmed
+          ? (isVi ? 'Sự cố đã có người báo cáo' : 'Incident already reported')
+          : (isVi ? 'Đội cứu hộ đã nhận lệnh' : 'Rescue team accepted'),
+        message: isDuplicateConfirmed
+          ? (isVi
+              ? 'Đã có người báo cáo sự cố này và trung tâm đang xử lý.'
+              : 'This incident has already been reported and dispatch is handling it.')
+          : (isVi
+              ? (resolvedPlate
+                  ? `Xe ${resolvedPlate} đã nhận lệnh và đang chuẩn bị xuất phát tới vị trí của bạn.`
+                  : 'Đội cứu hộ đã nhận lệnh và đang chuẩn bị xuất phát tới vị trí của bạn.')
+              : (resolvedPlate
+                  ? `Vehicle ${resolvedPlate} has accepted and is preparing to head to your location.`
+                  : 'Rescue team has accepted and is preparing to head to your location.')),
         incidentId: targetIncidentId,
         plateNumber: parsedData.plateNumber || null,
         stationName: parsedData.stationName || null,
       });
     });
 
-    const unsubAssign = incidentHubService.on<any>(HubEvents.ReceiveAssignmentStatus, (evt) => {
+    const unsubAssign = incidentHubService.on<any>(HubEvents.ReceiveAssignmentStatus, async (evt) => {
       if (!evt) return;
       const st = String(evt.status || evt.Status || '');
-      if (st !== 'Accepted' && st !== 'EnRoute') return;
+      if (st !== 'Accepted') return;
       const incId = evt.incidentId || evt.IncidentId;
+      const assignId = evt.assignmentId || evt.AssignmentId;
+      if (incId) {
+        try {
+          const detailRes = await incidentService.getById(incId);
+          if (detailRes.data?.viewedAsDuplicateReporter) return;
+        } catch {
+          // ignore if lookup fails
+        }
+      }
+      const isVi = getLanguage() === 'vi';
       triggerAlert({
-        id: `assign-${incId}-${st}`,
+        id: `assign-${assignId || incId}-accepted`,
         kind: 'accepted',
-        title: st === 'EnRoute' ? 'Xe cứu hộ đang xuất phát tới!' : 'Đội cứu hộ đã nhận lệnh!',
-        message:
-          st === 'EnRoute'
-            ? 'Đội cứu hộ đang di chuyển tới hiện trường theo lộ trình GPS thời gian thực.'
-            : 'Yêu cầu cứu hộ đã được đội trực chiến tiếp nhận và chuẩn bị xuất phát.',
+        title: isVi ? 'Đội cứu hộ đã nhận lệnh!' : 'Rescue team accepted!',
+        message: isVi
+          ? 'Yêu cầu cứu hộ đã được đội trực chiến tiếp nhận và chuẩn bị xuất phát.'
+          : 'Your rescue request has been accepted by the duty team and they are preparing to depart.',
         incidentId: incId || null,
         plateNumber: evt.plateNumber || evt.PlateNumber || null,
         stationName: evt.stationName || evt.StationName || null,
@@ -239,12 +302,16 @@ export const HomePage: React.FC = () => {
 
     return () => {
       cancelled = true;
+      clearInterval(unreadFallbackTimer);
+      document.removeEventListener('visibilitychange', onVisChange);
       if (areaToastTimerRef.current) {
         clearTimeout(areaToastTimerRef.current);
         areaToastTimerRef.current = null;
       }
       unsubNotif();
       unsubAssign();
+      unsubReconn();
+      unsubCitizenMapChanged();
     };
   }, [isAuthenticated, isCitizen, user?.id]);
 
@@ -353,7 +420,7 @@ export const HomePage: React.FC = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                      Cảnh báo sự cố khu vực
+                      {getLanguage() === 'en' ? 'Area Incident Alert' : 'Cảnh báo sự cố khu vực'}
                     </h4>
                     <p className="text-xs text-slate-700 mt-0.5 leading-snug text-pretty font-medium">
                       {areaAlertToast.message}
@@ -436,14 +503,6 @@ export const HomePage: React.FC = () => {
         onTrack={handleOpenTrackFromAlert}
         onDismiss={() => setRescueAlert(null)}
       />
-
-      {/* Live Tracking opened directly from Alert CTA */}
-      {alertTrackingIncident && (
-        <CitizenLiveTrackingMapModal
-          incident={alertTrackingIncident}
-          onClose={() => setAlertTrackingIncident(null)}
-        />
-      )}
 
       {/* Floating Back to Top Button */}
       <BackToTop />

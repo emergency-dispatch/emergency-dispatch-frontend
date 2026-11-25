@@ -1,23 +1,17 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CitizenPhoneModal } from '@/components/citizen/CitizenPhoneModal';
 import { CitizenReportsModal } from '@/components/citizen/CitizenReportsModal';
-import { CitizenLiveTrackingMapModal } from '@/components/citizen/CitizenLiveTrackingMapModal';
 import { AuthContext, type AuthContextType } from '@/contexts/AuthContext';
 import { incidentService } from '@/services/incidentService';
-import { trackingHubService } from '@/services/realtime/incidentHubService';
 import { UserRole } from '@/types/auth';
 import { t } from '../../setup/render';
 import type { IncidentResponseDto } from '@/types/incident';
 
-vi.mock('@/services/liveMapService', async (orig) => ({
-  ...(await orig<typeof import('@/services/liveMapService')>()),
-  liveMapService: { getStations: vi.fn().mockResolvedValue([]) },
-}));
 vi.mock('@/services/incidentService', () => ({
-  incidentService: { getIncidents: vi.fn(), getMyReports: vi.fn(), getById: vi.fn(), getTracking: vi.fn() },
+  incidentService: { getIncidents: vi.fn(), getMyReports: vi.fn(), getById: vi.fn() },
 }));
 
 const inc = vi.mocked(incidentService);
@@ -30,9 +24,6 @@ const dto = (o: Partial<IncidentResponseDto>): IncidentResponseDto =>
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.spyOn(trackingHubService, 'start').mockResolvedValue(false);
-  vi.spyOn(trackingHubService, 'invoke').mockResolvedValue(null);
-  vi.spyOn(trackingHubService, 'on').mockReturnValue(() => {});
 });
 
 describe('CitizenPhoneModal', () => {
@@ -118,29 +109,5 @@ describe('CitizenReportsModal', () => {
     await screen.findByText(t('citizen.reports.emptyTitle'));
     unmount();
     expect(document.body.style.overflow).toBe('');
-  });
-});
-
-describe('CitizenLiveTrackingMapModal', () => {
-  it('tải thông tin xe và đăng ký nhận vị trí realtime', async () => {
-    inc.getTracking.mockResolvedValue({
-      success: true,
-      message: '',
-      data: { incidentId: 'abcdef12-3456', vehicleLat: 10.85, vehicleLng: 106.81, plateNumber: '51A-999', estimatedArrivalMinutes: 6, distanceKm: 2.5, dispatchStatus: 'EnRoute', routeTrajectory: [] },
-    } as never);
-    vi.spyOn(trackingHubService, 'start').mockResolvedValue(true);
-    render(<CitizenLiveTrackingMapModal incident={dto({ status: 'Dispatched' })} onClose={vi.fn()} />);
-    await waitFor(() => expect(inc.getTracking).toHaveBeenCalledWith('abcdef12-3456'));
-    expect(await screen.findByText('51A-999')).toBeInTheDocument();
-    await waitFor(() => expect(trackingHubService.invoke).toHaveBeenCalledWith('SubscribeIncident', 'abcdef12-3456'));
-  });
-
-  it('lỗi tải thông tin xe không làm hỏng modal; đóng được', async () => {
-    inc.getTracking.mockRejectedValue(new Error('Chưa điều xe'));
-    const onClose = vi.fn();
-    render(<CitizenLiveTrackingMapModal incident={dto({})} onClose={onClose} />);
-    await waitFor(() => expect(inc.getTracking).toHaveBeenCalled());
-    // Ghi chú: errorMsg của modal hiện không được render ra UI.
-    expect(screen.queryByText('Chưa điều xe')).not.toBeInTheDocument();
   });
 });

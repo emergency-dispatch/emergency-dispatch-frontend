@@ -8,8 +8,8 @@ type Listener = (payload: any) => void;
 export type HubStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 
 const STOP_DELAY_MS = 300;
-// Lần kết nối đầu thất bại hoặc hết lượt tự nối lại → SignalR không tự thử nữa, client tự thử lại theo chu kỳ.
-const RETRY_DELAY_MS = 10000;
+// Lần kết nối đầu thất bại hoặc hết lượt tự nối lại → SignalR không tự thử nữa, client tự thử lại nhanh.
+const RETRY_DELAY_MS = 3000;
 type JobAssignedListener = (assignment: DispatchAssignmentResponseDto) => void;
 
 /** Tên sự kiện server → client (EmergencyDispatch.API.Realtime.RealtimeContract). */
@@ -133,7 +133,7 @@ class HubClient {
       .withUrl(this.getHubUrl(), {
         accessTokenFactory: () => localStorage.getItem(API_CONFIG.TOKEN_KEY) || '',
       })
-      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+      .withAutomaticReconnect([0, 1000, 2000, 5000, 10000])
       .configureLogging(LogLevel.Warning)
       .build();
     this.connection = connection;
@@ -265,3 +265,16 @@ export const incidentHubService = new HubClient('/hubs/incidents');
 
 /** Hub vị trí GPS: Operator nhận ReceiveRescueUnitLocation tại đây (không phát qua /hubs/incidents). */
 export const trackingHubService = new HubClient('/hubs/tracking');
+
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  const resumeHubs = () => {
+    if (document.visibilityState !== 'visible') return;
+    [incidentHubService, trackingHubService].forEach((hub) => {
+      if (!hub.isConnected() && localStorage.getItem(API_CONFIG.TOKEN_KEY)) {
+        void hub.start();
+      }
+    });
+  };
+  document.addEventListener('visibilitychange', resumeHubs);
+  window.addEventListener('online', resumeHubs);
+}
