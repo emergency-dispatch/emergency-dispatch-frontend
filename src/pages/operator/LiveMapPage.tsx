@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { useDispatchStore } from '../../context/DispatchContext';
@@ -171,6 +171,19 @@ export const LiveMapPage: React.FC = () => {
     if (id) setSheetOpen(true);
   };
 
+  // Bấm lại icon Live Map ở thanh bên khi đang ở đây → về "Theo dõi ca" (đang tạo sự cố thì hỏi bỏ dữ liệu trước).
+  // Bản đồ giữ nguyên. Bỏ qua state còn lưu trong lịch sử khi vừa mở / tải lại trang.
+  const liveMapHome = !!(location.state as { liveMapHome?: boolean } | null)?.liveMapHome;
+  const initialLocationKeyRef = useRef(location.key);
+  const [closeCreateRequest, setCloseCreateRequest] = useState(0);
+  useEffect(() => {
+    if (!liveMapHome || location.key === initialLocationKeyRef.current) return;
+    if (createOpen) setCloseCreateRequest((n) => n + 1);
+    else handleSelectIncident(null);
+    // Chỉ chạy theo lần bấm (mỗi lần bấm là một location.key mới).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveMapHome, location.key]);
+
   const handleServeFieldRequest = (request: FieldRequestDto) => {
     setSelectedIncidentId(request.incidentId);
     setServingRequestId(request.id);
@@ -229,6 +242,7 @@ export const LiveMapPage: React.FC = () => {
       nearby={nearby}
       onViewIncident={handleViewNearby}
       onClose={closeCreate}
+      closeRequestKey={closeCreateRequest}
       onCreated={handleCreated}
     />
   ) : null;

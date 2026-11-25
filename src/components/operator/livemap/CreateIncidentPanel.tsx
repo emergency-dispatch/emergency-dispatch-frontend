@@ -60,6 +60,8 @@ interface CreateIncidentPanelProps {
   nearby: NearbyIncident[];
   onViewIncident: (id: string) => void;
   onClose: () => void;
+  /** Tăng lên = trang yêu cầu đóng form (bấm lại icon Live Map) → như nút Hủy, có dữ liệu thì hỏi. */
+  closeRequestKey?: number;
   /** Tạo xong → trang chọn sự cố mới để mở gợi ý xe. */
   onCreated: (info: IncidentCreatedInfo) => void;
 }
@@ -96,6 +98,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
   nearby,
   onViewIncident,
   onClose,
+  closeRequestKey = 0,
   onCreated,
 }) => {
   const { createOperatorIncident, serviceArea } = useDispatchStore();
@@ -162,6 +165,15 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
     if (dirty && !submitting) setConfirmDiscard(true);
     else onClose();
   };
+
+  // Chỉ phản ứng với yêu cầu mới, không với số đã có từ lúc mở form.
+  const handledCloseRequestRef = useRef(closeRequestKey);
+  useEffect(() => {
+    if (closeRequestKey === handledCloseRequestRef.current) return;
+    handledCloseRequestRef.current = closeRequestKey;
+    if (!submitting) requestClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closeRequestKey]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
