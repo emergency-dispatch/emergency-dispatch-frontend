@@ -6,7 +6,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
 import type { NotificationDto } from '../../services/notificationService';
 import { incidentHubService, type HubStatus } from '../../services/realtime/incidentHubService';
-import { LANGUAGE_OPTIONS, dateLocale, getLanguage, setLanguage, useTranslation } from '../../i18n';
+import { LanguageSwitcher } from '../common/LanguageSwitcher';
+import { dateLocale, useTranslation } from '../../i18n';
 
 // Chấm trạng thái = kết nối realtime thật. Mất kết nối thì dữ liệu vẫn tự tải lại định kỳ (poll dự phòng).
 const HUB_STATUS_STYLE: Record<HubStatus, { dot: string; text: string; ping: boolean }> = {
@@ -224,24 +225,7 @@ export const OperatorTopbar: React.FC = () => {
           )}
         </div>
 
-        <div
-          role="group"
-          aria-label={t('layout.topbar.language')}
-          className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
-        >
-          {LANGUAGE_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setLanguage(option.value)}
-              aria-pressed={getLanguage() === option.value}
-              className={`px-2 py-1 rounded-md text-[11px] font-bold font-mono-data transition-colors ${
-                getLanguage() === option.value ? 'bg-white text-red-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <LanguageSwitcher label={t('layout.topbar.language')} />
 
         <div className="relative" ref={userRef}>
           <button

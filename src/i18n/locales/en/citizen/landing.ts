@@ -3,7 +3,9 @@ import type { citizenLandingVi } from '../../vi/citizen/landing';
 
 export const citizenLandingEn: Messages<typeof citizenLandingVi> = {
   heroTag: 'REAL-TIME EMERGENCY DISPATCH SYSTEM',
-  heroTitle: 'Emergency Dispatch & Real-Time Rescue Coordination',
+  heroTitle: 'Real-Time AI Emergency Rescue Dispatch & Severity Classification System',
+  heroTitleAccent: 'AI Emergency',
+  heroTitleMain: 'Dispatch & Real-Time Rescue Coordination',
   heroSubtitle: 'Real-time emergency dispatch and incident monitoring system powered by AI triage · High-Tech Park & Industrial Zones',
   pressHoldTip: 'Press & hold 2 seconds to send instant location',
   radarTitle: 'LIVE CAD INCIDENT RADAR',

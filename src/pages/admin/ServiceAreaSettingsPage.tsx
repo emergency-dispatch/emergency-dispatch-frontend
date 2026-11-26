@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Circle, FileUp, Hexagon, LocateFixed, RotateCcw } from 'lucide-react';
+import { AlertTriangle, Circle, FileUp, Hexagon, Loader2, LocateFixed, RotateCcw, Search, X } from 'lucide-react';
 import { CitizenAlertsSection } from '../../components/admin/settings/CitizenAlertsSection';
 import { DuplicateDetectionSection } from '../../components/admin/settings/DuplicateDetectionSection';
 import { SettingsForm } from '../../components/admin/settings/SettingsForm';
@@ -15,7 +15,9 @@ import {
   haversineKm,
   isValidBoundary,
   parseBoundary,
+  parseGeoJsonInput,
   pointInBoundary,
+  simplifyBoundary,
   type PolygonCoords,
 } from '../../components/admin/settings/serviceAreaBoundary';
 import { createBoundaryDraw, polygonsFromDraw } from '../../components/admin/settings/serviceAreaDraw';
@@ -32,6 +34,7 @@ import {
   type ServiceAreaSettings,
   type SettingsRecord,
 } from '../../services/admin/adminSettingsService';
+import { searchAdministrativeBoundaries, type AdministrativeBoundarySuggestion } from '../../services/admin/geocodeService';
 import { stationAdminService } from '../../services/admin/stationAdminService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { StationResponseDto } from '../../types/station';
@@ -154,6 +157,12 @@ const ServiceAreaForm: React.FC<{
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<NoticeState>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [searchingBoundary, setSearchingBoundary] = useState(false);
+  const [boundaryResults, setBoundaryResults] = useState<AdministrativeBoundarySuggestion[] | null>(null);
+  const [boundarySearchNote, setBoundarySearchNote] = useState<string | null>(null);
+  const boundaryAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => boundaryAbortRef.current?.abort(), []);
 
   // Lưu xong, dữ liệu mới về → làm lại bản nháp tại chỗ (không dựng lại cả trang, kẻo mất phần đang sửa ở tab khác).
   const loadedAtRef = useRef(record.updatedAt);
@@ -245,6 +254,74 @@ const ServiceAreaForm: React.FC<{
 
   const set = <K extends keyof ServiceAreaDraft>(key: K, value: ServiceAreaDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
+  const applyBoundaryResult = (item: AdministrativeBoundarySuggestion) => {
+    const nextName = (item.shortName || draft.name).trim().slice(0, NAME_MAX);
+    const parsed = item.geojson ? parseGeoJsonInput(JSON.stringify(item.geojson)) : [];
+    setBoundaryResults(null);
+    setNotice(null);
+
+    if (parsed.length > 0) {
+      const before = boundaryVertexCount(parsed);
+      const polygons = simplifyBoundary(parsed);
+      setDraft((d) => ({
+        ...d,
+        name: nextName || d.name,
+        shape: 'polygon',
+        polygons,
+        centerLat: item.lat,
+        centerLng: item.lng,
+      }));
+      setMapKey((k) => k + 1);
+      setBoundarySearchNote(null);
+      showToast(
+        t('admin.settings.serviceArea.boundarySearch.applied', {
+          name: nextName,
+          parts: polygons.length,
+          before,
+          after: boundaryVertexCount(polygons),
+        }),
+        { kind: 'info', long: true }
+      );
+      return;
+    }
+
+    setDraft((d) => ({
+      ...d,
+      name: nextName || d.name,
+      centerLat: item.lat,
+      centerLng: item.lng,
+    }));
+    setRecenterKey((k) => k + 1);
+    setBoundarySearchNote(t('admin.settings.serviceArea.boundarySearch.pointOnly', { name: nextName }));
+  };
+
+  const handleBoundarySearch = async () => {
+    const q = draft.name.trim();
+    if (!q) return;
+    boundaryAbortRef.current?.abort();
+    const controller = new AbortController();
+    boundaryAbortRef.current = controller;
+
+    setSearchingBoundary(true);
+    setBoundarySearchNote(null);
+    setBoundaryResults(null);
+    try {
+      const results = await searchAdministrativeBoundaries(q, controller.signal);
+      if (results.length === 0) {
+        setBoundarySearchNote(t('admin.settings.serviceArea.boundarySearch.empty'));
+      } else if (results.length === 1 && results[0]!.geojson) {
+        applyBoundaryResult(results[0]!);
+      } else {
+        setBoundaryResults(results);
+      }
+    } catch (err) {
+      if ((err as { name?: string })?.name === 'AbortError') return;
+      setBoundarySearchNote(t('admin.settings.serviceArea.boundarySearch.failed'));
+    } finally {
+      if (boundaryAbortRef.current === controller) setSearchingBoundary(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setNotice(null);
@@ -278,6 +355,8 @@ const ServiceAreaForm: React.FC<{
         setRecenterKey((k) => k + 1);
         setMapKey((k) => k + 1);
         setNotice(null);
+        setBoundaryResults(null);
+        setBoundarySearchNote(null);
       }}
       sideTabs={
         <SettingsTabs
@@ -402,14 +481,82 @@ const ServiceAreaForm: React.FC<{
       </fieldset>
 
       <div className="space-y-1.5">
-        <label className={labelClass}>{t('admin.settings.serviceArea.name')}</label>
-        <input
-          value={draft.name}
-          onChange={(e) => set('name', e.target.value)}
-          maxLength={NAME_MAX}
-          placeholder={t('admin.settings.serviceArea.namePlaceholder')}
-          className={`${inputClass} ${errors.name ? 'border-red-400' : ''}`}
-        />
+        <label htmlFor="service-area-name-input" className={labelClass}>{t('admin.settings.serviceArea.name')}</label>
+        <div className="flex items-stretch gap-2">
+          <input
+            id="service-area-name-input"
+            value={draft.name}
+            onChange={(e) => {
+              set('name', e.target.value);
+              if (boundarySearchNote) setBoundarySearchNote(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void handleBoundarySearch();
+              }
+            }}
+            maxLength={NAME_MAX}
+            placeholder={t('admin.settings.serviceArea.namePlaceholder')}
+            className={`${inputClass} flex-1 min-w-0 ${errors.name ? 'border-red-400' : ''}`}
+          />
+          <button
+            type="button"
+            onClick={() => void handleBoundarySearch()}
+            disabled={searchingBoundary || !draft.name.trim()}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:border-red-400 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {searchingBoundary ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+            {searchingBoundary
+              ? t('admin.settings.serviceArea.boundarySearch.searching')
+              : t('admin.settings.serviceArea.boundarySearch.button')}
+          </button>
+        </div>
+        {boundaryResults && boundaryResults.length > 0 && (
+          <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-200">
+              <span className="text-[11px] font-bold text-slate-600">
+                {t('admin.settings.serviceArea.boundarySearch.resultsTitle', { count: boundaryResults.length })}
+              </span>
+              <button
+                type="button"
+                onClick={() => setBoundaryResults(null)}
+                aria-label={t('admin.settings.serviceArea.boundarySearch.close')}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <ul className="max-h-48 overflow-y-auto divide-y divide-slate-100">
+              {boundaryResults.map((item, idx) => (
+                <li key={`${item.lat}-${item.lng}-${idx}`}>
+                  <button
+                    type="button"
+                    onClick={() => applyBoundaryResult(item)}
+                    className="w-full text-left px-3 py-2 hover:bg-red-50/60 transition-colors flex items-start justify-between gap-2"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-xs font-bold text-slate-900 truncate">{item.shortName}</span>
+                      <span className="block text-[11px] text-slate-500 line-clamp-2">{item.label}</span>
+                    </span>
+                    <span
+                      className={`shrink-0 mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        item.geojson ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {item.geojson
+                        ? t('admin.settings.serviceArea.boundarySearch.hasPolygon')
+                        : t('admin.settings.serviceArea.boundarySearch.pointOnlyBadge')}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {boundarySearchNote && (
+          <p className="text-[11px] text-amber-700">{boundarySearchNote}</p>
+        )}
         {errors.name ? (
           <p className="text-[11px] text-red-600">{errors.name}</p>
         ) : (

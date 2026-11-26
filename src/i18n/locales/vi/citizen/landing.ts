@@ -1,9 +1,11 @@
 export const citizenLandingVi = {
   heroTag: 'HỆ THỐNG ĐIỀU PHỐI CỨU HỘ KHẨN CẤP THỜI GIAN THỰC',
-  heroTitle: 'Điều Phối Cứu Hộ Khẩn Cấp & Giám Sát Thời Gian Thực',
+  heroTitle: 'Hệ thống điều phối cứu hộ khẩn cấp thời gian thực ứng dụng AI phân loại mức độ nguy hiểm sự cố',
+  heroTitleAccent: 'Điều phối cứu hộ khẩn cấp thời gian thực',
+  heroTitleMain: 'ứng dụng AI phân loại mức độ nguy hiểm sự cố',
   heroSubtitle: 'Hệ thống điều phối cứu hộ khẩn cấp thời gian thực ứng dụng AI phân loại mức độ nguy hiểm sự cố · Khu Công nghệ cao & KCN',
   pressHoldTip: 'Nhấn & giữ 2 giây để gửi vị trí tức thời',
-  radarTitle: 'LIVE CAD INCIDENT RADAR',
+  radarTitle: 'BẢN ĐỒ SỰ CỐ TRỰC TIẾP',
   radarTrackingEta: 'ETA: ~{{min}}p',
   radarFollowAction: 'Bấm theo dõi chi tiết',
   radarLocatingGps: 'Đang lấy vị trí GPS...',

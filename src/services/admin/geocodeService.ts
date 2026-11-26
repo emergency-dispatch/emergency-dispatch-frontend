@@ -30,6 +30,48 @@ export async function searchNominatim(query: string, signal?: AbortSignal): Prom
   return data.map((d) => ({ label: d.display_name, lat: Number(d.lat), lng: Number(d.lon) }));
 }
 
+export interface AdministrativeBoundarySuggestion extends AddressSuggestion {
+  /** Ranh giới hành chính từ Nominatim (`Polygon` / `MultiPolygon`), undefined nếu kết quả chỉ là điểm. */
+  geojson?: unknown;
+  shortName: string;
+}
+
+/**
+ * Tìm phường/xã/quận/huyện/tỉnh qua OpenStreetMap Nominatim kèm ranh giới đa giác (`polygon_geojson=1`).
+ * Chỉ gọi khi người dùng bấm nút tìm hoặc nhấn Enter (tuân thủ OSM Usage Policy).
+ */
+export async function searchAdministrativeBoundaries(
+  query: string,
+  signal?: AbortSignal
+): Promise<AdministrativeBoundarySuggestion[]> {
+  const url =
+    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}` +
+    `&format=jsonv2&polygon_geojson=1&countrycodes=vn&accept-language=vi&limit=${LIMIT}`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`Nominatim ${res.status}`);
+  const data = (await res.json()) as {
+    display_name: string;
+    name?: string;
+    lat: string;
+    lon: string;
+    geojson?: { type?: string };
+  }[];
+  return data
+    .map((d) => {
+      const type = d.geojson?.type;
+      const hasPolygon = type === 'Polygon' || type === 'MultiPolygon';
+      const shortName = (d.name?.trim() || d.display_name.split(',')[0]?.trim() || d.display_name).trim();
+      return {
+        label: d.display_name,
+        shortName,
+        lat: Number(d.lat),
+        lng: Number(d.lon),
+        geojson: hasPolygon ? d.geojson : undefined,
+      };
+    })
+    .sort((a, b) => Number(Boolean(b.geojson)) - Number(Boolean(a.geojson)));
+}
+
 export interface GeocodeSearchOptions {
   /**
    * Chỉ cho phép gọi OpenStreetMap Nominatim khi người dùng bấm nút tìm (explicit submit).

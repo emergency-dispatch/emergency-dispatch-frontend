@@ -58,9 +58,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
 
         {/* 1. Headline */}
         <div className="text-center pt-1 pb-1 shrink-0">
-          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-black text-slate-900 tracking-tight leading-tight max-w-5xl mx-auto">
-            <span className="text-red-600">AI Emergency</span> Dispatch &amp; Real-Time{' '}
-            <span className="text-slate-900">Rescue Coordination</span>
+          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight leading-tight max-w-5xl mx-auto">
+            <span className="text-red-600">{t('citizen.landing.heroTitleAccent')}</span>{' '}
+            <span className="text-slate-900">{t('citizen.landing.heroTitleMain')}</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 max-w-4xl mx-auto mt-1.5 font-medium">
             {t('citizen.landing.heroSubtitle')}
@@ -74,7 +74,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 text-xs font-mono-data shrink-0">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
-                <span className="text-red-600 font-bold tracking-wider">LIVE CAD INCIDENT RADAR</span>
+                <span className="text-red-600 font-bold tracking-wider">{t('citizen.landing.radarTitle')}</span>
               </div>
             </div>
 
