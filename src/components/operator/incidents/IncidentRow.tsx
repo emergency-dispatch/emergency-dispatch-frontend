@@ -1,0 +1,220 @@
+import React from 'react';
+import { BotOff, Loader2, Lock, MapPin, Siren, TrafficCone, Users } from 'lucide-react';
+import { HazardTagBadge } from '../../common/HazardTagBadge';
+import { IncidentThumbnail } from './IncidentThumbnail';
+import { ConfidenceBadge } from './ConfidenceBadge';
+import { SeverityBadge } from './SeverityBadge';
+import {
+  AI_PENDING_RAIL_COLOR,
+  AI_UNCLASSIFIED_RAIL,
+  INCIDENT_CATEGORY_META,
+  SEVERITY_LEVEL_COLOR,
+  TRAFFIC_JAM_STATUS_CLASS,
+} from '../../../data/incidentMock';
+import { QUEUE_COLUMNS } from './queueColumns';
+import { formatCountdown, formatDateTime, formatWaitDuration } from '../../../utils/incidentFormat';
+import { isAiFallbackTag, type Incident } from '../../../types/incident';
+import { useTranslation } from '../../../i18n';
+import { useDispatchStore } from '../../../context/DispatchContext';
+import { AutoDispatchBadge } from './AutoDispatchInfo';
+import type { HandoverReason } from './autoDispatchVerdict';
+import { IncidentCode } from './IncidentCode';
+
+// Lý do đã có chip / badge riêng trên dòng (Ngoài khu vực, Chưa phân loại, AI bỏ qua) → không lặp lại.
+const REASONS_WITH_OWN_CHIP: ReadonlySet<HandoverReason> = new Set(['outOfServiceArea', 'unclassified', 'skipped']);
+
+interface IncidentRowProps {
+  incident: Incident;
+  isNew: boolean;
+  isSelected: boolean;
+  isEscalated: boolean;
+  now: number;
+  currentOperatorId: string;
+  onClick: () => void;
+  /** §31.E: vì sao AI chuyển ca này cho người (tab "Cần bạn xử lý"); null = không áp dụng. */
+  handoverReason?: HandoverReason | null;
+  /** Ngưỡng tự điều phối (%), cho chip "Dưới ngưỡng". */
+  threshold?: number | null;
+}
+
+
+export const IncidentRow: React.FC<IncidentRowProps> = ({
+  incident,
+  isNew,
+  isSelected,
+  isEscalated,
+  now,
+  currentOperatorId,
+  onClick,
+  handoverReason = null,
+  threshold = null,
+}) => {
+  const { t } = useTranslation();
+  const { incidentKindLabel } = useDispatchStore();
+  const elapsedMs = now - new Date(incident.createdAt).getTime();
+  const category = INCIDENT_CATEGORY_META[incident.category];
+  const CategoryIcon = category.icon;
+
+  const lockRemainingMs = incident.lock ? new Date(incident.lock.expiresAt).getTime() - now : 0;
+  const activeLock = incident.lock && lockRemainingMs > 0 ? incident.lock : null;
+  const lockedByOther = !!activeLock && activeLock.operatorId !== currentOperatorId;
+
+  // Tag hệ thống đã được thể hiện bằng badge "Chưa phân loại" → không lặp lại dưới tiêu đề.
+  const visibleTags = incident.hazardTags.filter((tag) => !isAiFallbackTag(tag));
+  // Chỉ báo ùn tắc khi cần Operator thẩm định (nghi ngờ / bất đồng) hoặc đã xác nhận; bác bỏ / chưa xác minh không hiện.
+  const jamStatus = incident.trafficJam?.status;
+  const jamChip =
+    jamStatus === 'Suspected'
+      ? { label: t('incidents.row.trafficSuspected'), title: t('incidents.row.trafficNeedsReview') }
+      : jamStatus === 'Disputed'
+        ? { label: t('incidents.row.trafficDisputed'), title: t('incidents.row.trafficNeedsReview') }
+        : jamStatus === 'Confirmed'
+          ? { label: t('incidents.row.trafficConfirmed'), title: t('incidents.row.trafficConfirmedTitle') }
+          : null;
+  const railStyle: React.CSSProperties =
+    incident.aiPending
+      ? { background: AI_PENDING_RAIL_COLOR }
+      : incident.aiUnclassified
+        ? { background: AI_UNCLASSIFIED_RAIL }
+        : { background: SEVERITY_LEVEL_COLOR[incident.severity] };
+
+  return (
+    <button
+      onClick={onClick}
+      aria-current={isSelected ? 'true' : undefined}
+      className={`group relative w-full flex items-center gap-4 pl-6 pr-6 py-3.5 text-left border-b border-slate-100 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
+        isSelected ? 'bg-slate-100' : 'bg-white hover:bg-slate-50'
+      } ${lockedByOther ? 'opacity-60' : ''} ${isNew ? 'animate-queue-enter' : ''}`}
+    >
+      <span aria-hidden className="absolute left-0 top-0 bottom-0 w-1.5" style={railStyle} />
+
+      <IncidentThumbnail incident={incident} className={`${QUEUE_COLUMNS.thumbnail} h-12 shrink-0`} />
+
+      {/* Cái gì, ở đâu */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[15px] font-semibold text-slate-900 truncate">{incident.title}</p>
+        <div className="flex items-center gap-3 mt-1 text-xs min-w-0">
+          <IncidentCode code={incident.code} className="text-slate-500" />
+          <span className="inline-flex items-center gap-1 font-semibold shrink-0" style={{ color: category.color }}>
+            <CategoryIcon className="w-3.5 h-3.5" />
+            {incidentKindLabel(incident)}
+          </span>
+          <span className="inline-flex items-center gap-1 text-slate-500 min-w-0" title={incident.area}>
+            <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+            <span className="truncate">{incident.area}</span>
+          </span>
+          {incident.isOutOfServiceArea && (
+            <span className="inline-flex items-center px-1.5 py-px rounded bg-red-50 border border-red-200 text-[10px] font-bold text-red-700 shrink-0">
+              {t('incidents.row.outOfArea')}
+            </span>
+          )}
+          {incident.linkedReportCount > 0 && (
+            <span
+              title={t('incidents.row.linkedReportsTitle')}
+              className="inline-flex items-center gap-1 px-1.5 py-px rounded bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-700 shrink-0"
+            >
+              <Users className="w-3 h-3" />
+              {t('incidents.row.linkedReports', { count: incident.linkedReportCount })}
+            </span>
+          )}
+          <AutoDispatchBadge incident={incident} />
+          {handoverReason && !REASONS_WITH_OWN_CHIP.has(handoverReason) && (
+            <span
+              title={
+                (handoverReason === 'other' && incident.autoDispatchNotEligibleNote) ||
+                t(
+                  `layout.incomingIncident.reasons.${
+                    handoverReason === 'operatorHandling' && !activeLock ? 'operatorHandlingNoName' : handoverReason
+                  }`,
+                  {
+                    confidence: incident.confidenceScore,
+                    threshold: threshold ?? 0,
+                    name: activeLock?.operatorName ?? t('layout.incomingIncident.anotherOperator'),
+                  }
+                )
+              }
+              className="inline-flex items-center gap-1 px-1.5 py-px rounded border border-amber-300 bg-amber-50 text-[10px] font-bold text-amber-800 shrink-0"
+            >
+              <BotOff className="w-3 h-3" />
+              {t(`incidents.row.handover.${handoverReason}`, {
+                confidence: incident.confidenceScore,
+                threshold: threshold ?? 0,
+              })}
+            </span>
+          )}
+          {jamChip && jamStatus && (
+            <span
+              title={jamChip.title}
+              className={`inline-flex items-center gap-1 px-1.5 py-px rounded border text-[10px] font-bold shrink-0 ${TRAFFIC_JAM_STATUS_CLASS[jamStatus]}`}
+            >
+              <TrafficCone className="w-3 h-3" />
+              {jamChip.label}
+            </span>
+          )}
+        </div>
+        {visibleTags.length > 0 && (
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            {visibleTags.map((tag) => (
+              <HazardTagBadge key={tag} tag={tag} />
+            ))}
+          </div>
+        )}
+        {/* Màn hẹp: cột đánh giá AI bị ẩn → hiện cấp độ ngay dưới tiêu đề */}
+        {!incident.aiPending && (
+          <div className="md:hidden mt-1.5">
+            <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+          </div>
+        )}
+      </div>
+
+      {/* AI đánh giá thế nào */}
+      <div className={`hidden md:flex ${QUEUE_COLUMNS.ai} shrink-0 items-center gap-3`}>
+        {incident.aiPending ? (
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            {t('incidents.row.aiAnalyzing')}
+          </span>
+        ) : (
+          <>
+            <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+            {!incident.aiUnclassified && (
+              <ConfidenceBadge
+                score={incident.confidenceScore}
+                measured={incident.confidenceMeasured}
+                unreadable={incident.confidenceUnreadable}
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Đã chờ bao lâu */}
+      <div className={`${QUEUE_COLUMNS.wait} shrink-0 text-right`}>
+        <div
+          className={`text-sm font-semibold tabular-nums whitespace-nowrap ${isEscalated ? 'text-red-700' : 'text-slate-800'}`}
+          title={t('incidents.row.receivedAt', { time: formatDateTime(incident.createdAt) })}
+        >
+          {formatWaitDuration(elapsedMs)}
+        </div>
+        {isEscalated ? (
+          <div className="inline-flex items-center gap-1 mt-0.5 text-[11px] font-bold text-red-700">
+            <Siren className="w-3 h-3" />
+            {t('incidents.row.escalated')}
+          </div>
+        ) : (
+          <div className="mt-0.5 text-[11px] text-slate-400">{t('incidents.row.waiting')}</div>
+        )}
+        {activeLock && (
+          <div
+            className={`flex justify-end items-center gap-1 mt-1 text-[11px] font-semibold tabular-nums whitespace-nowrap ${
+              lockedByOther ? 'text-slate-500' : 'text-blue-700'
+            }`}
+          >
+            <Lock className="w-3 h-3" />
+            {lockedByOther ? activeLock.operatorName : t('incidents.row.youHandling')} {formatCountdown(lockRemainingMs)}
+          </div>
+        )}
+      </div>
+    </button>
+  );
+};
