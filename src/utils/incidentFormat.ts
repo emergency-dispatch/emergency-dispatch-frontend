@@ -186,6 +186,22 @@ export const isAudioMediaUrl = (url?: string | null): boolean => {
 export const isVideoMediaUrl = (url?: string | null): boolean =>
   Boolean(url && !isAudioMediaUrl(url) && /\.(mp4|mov|webm)$/.test(url.toLowerCase().split('?')[0]));
 
+export function getFirstIncidentPhotoUrl(
+  mediaItems?: Array<{ mediaUrl?: string | null; mediaType?: string | number | null }> | null
+): string | null {
+  const found = (mediaItems || []).find(
+    (m) =>
+      Boolean(m?.mediaUrl) &&
+      String(m?.mediaType) !== 'Audio' &&
+      m?.mediaType !== 2 &&
+      String(m?.mediaType) !== 'Video' &&
+      m?.mediaType !== 1 &&
+      !isAudioMediaUrl(m?.mediaUrl) &&
+      !isVideoMediaUrl(m?.mediaUrl)
+  );
+  return found?.mediaUrl || null;
+}
+
 export const isGuid = (val?: string | null): boolean =>
   typeof val === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());

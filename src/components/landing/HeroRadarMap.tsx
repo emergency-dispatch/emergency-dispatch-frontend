@@ -41,7 +41,12 @@ import {
   publicIncidentMarkerHtml,
 } from '../operator/livemap/glowMarkers';
 import type { IncidentResponseDto, IncidentCategory, SeverityLevel } from '../../types/incident';
-import { getIncidentVisualMeta, formatCitizenIncidentStatus, formatCitizenDispatchStatus } from '../../utils/incidentFormat';
+import {
+  getIncidentVisualMeta,
+  formatCitizenIncidentStatus,
+  formatCitizenDispatchStatus,
+  getFirstIncidentPhotoUrl,
+} from '../../utils/incidentFormat';
 import type { RescueUnitResponseDto } from '../../types/rescueUnit';
 import type { DispatchVehicleType, Station, VehicleStatus } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
@@ -1328,8 +1333,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       const tData = trackingByIncident[inc.id];
 
       const visual = getIncidentVisualMeta(inc);
-      const photoHtml = inc.mediaItems?.[0]?.mediaUrl
-        ? `<img src="${inc.mediaItems[0].mediaUrl}" style="width: 100%; height: 75px; object-fit: cover; border-radius: 6px; margin-bottom: 6px;" alt="${i18n.language === 'en' ? 'Incident scene' : 'Hiện trường'}" />`
+      const photoUrl = getFirstIncidentPhotoUrl(inc.mediaItems);
+      const photoHtml = photoUrl
+        ? `<img src="${photoUrl}" style="width: 100%; height: 75px; object-fit: cover; border-radius: 6px; margin-bottom: 6px;" alt="${i18n.language === 'en' ? 'Incident scene' : 'Hiện trường'}" />`
         : '';
       const isTypeKnown = visual.category === 'fire' || visual.category === 'accident';
       const displayTitle = isTypeKnown
@@ -1594,7 +1600,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       <div className="absolute top-2.5 left-2.5 z-30 animate-float-slow pointer-events-auto">
         {reportedIncident ? (() => {
           const visual = getIncidentVisualMeta(reportedIncident);
-          const hasPhoto = reportedIncident.mediaItems && reportedIncident.mediaItems.length > 0 && reportedIncident.mediaItems[0].mediaUrl;
+          const hudPhotoUrl = getFirstIncidentPhotoUrl(reportedIncident.mediaItems);
           const isAiKnown = reportedIncident.aiClassification?.isSuccess === true &&
             reportedIncident.aiClassification?.eventType !== 'None' &&
             Boolean(reportedIncident.aiClassification?.summary) &&
@@ -1647,9 +1653,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
               {/* Main Info: Thumbnail + Title & AI summary */}
               <div className="flex items-start gap-2">
-                {hasPhoto && (
+                {hudPhotoUrl && (
                   <img
-                    src={reportedIncident.mediaItems[0].mediaUrl}
+                    src={hudPhotoUrl}
                     alt={i18n.language === 'en' ? 'Incident scene' : 'Hiện trường'}
                     className="w-11 h-11 rounded-lg object-cover border border-slate-200 shrink-0 shadow-xs"
                   />
