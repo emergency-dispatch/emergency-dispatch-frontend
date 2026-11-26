@@ -255,6 +255,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
       needChoice: 'Choose a type and severity to see the teams that will be dispatched.',
       ready: 'ready: {{names}}',
       none: 'no team left at this station — consider transferring',
+      shortSummary: 'station is short of teams — consider transferring',
       short: '{{ready}} ready, {{short}} short',
       noPlan: 'No dispatch plan for this type — up to {{max}} team(s); {{ready}} team(s) ready at the station.',
       estimateNote: 'Estimated from the station’s ready teams; the exact teams are chosen when assigning after approval.',

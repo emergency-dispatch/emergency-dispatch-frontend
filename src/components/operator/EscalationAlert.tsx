@@ -32,10 +32,10 @@ export const EscalationAlert: React.FC = () => {
   const expand = () => (incidentDrawerOpen ? setPeekKey(key) : setCollapsedKey(null));
   const collapse = () => (incidentDrawerOpen ? setPeekKey(null) : setCollapsedKey(key));
 
-  // Drawer thẩm định của Hàng đợi chiếm tối đa 48rem bên phải → đặt banner giữa vùng còn trống bên trái để không che.
+  // Drawer thẩm định của Hàng đợi chiếm tối đa 56rem bên phải → đặt banner giữa vùng còn trống bên trái để không che.
   const besideRightDrawer = incidentDrawerOpen && incidentDrawerSide === 'right';
   const positionStyle = (halfWidth: string): React.CSSProperties =>
-    besideRightDrawer ? { left: `max(1rem, calc((100vw - 48rem) / 2 - ${halfWidth}))` } : {};
+    besideRightDrawer ? { left: `max(1rem, calc((100vw - 56rem) / 2 - ${halfWidth}))` } : {};
   // Panel trái Live Map đang rộng (thanh bên 80px + min(760px, 58vw)) → đặt banner giữa phần bản đồ còn lại.
   const centeredClass = besideRightDrawer
     ? ''

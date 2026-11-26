@@ -251,6 +251,7 @@ export const incidentsVi = {
       needChoice: 'Chọn loại và mức độ để xem lực lượng sẽ điều.',
       ready: 'sẵn: {{names}}',
       none: 'trạm hết tổ — cân nhắc chuyển trạm',
+      shortSummary: 'trạm thiếu tổ — cân nhắc chuyển trạm',
       short: 'sẵn {{ready}}, thiếu {{short}}',
       noPlan: 'Loại này chưa có kế hoạch điều tổ — giao tối đa {{max}} tổ; trạm còn {{ready}} tổ sẵn sàng.',
       estimateNote: 'Ước tính theo tổ sẵn sàng của trạm; tổ cụ thể chọn ở bước giao tổ sau khi duyệt.',

@@ -197,10 +197,13 @@ export const AutoDispatchNotice: React.FC<{
   incident: Incident;
   /** Dòng "3 AI bỏ phiếu: 2/3 đồng ý" — nơi không có chỗ cho bảng phiếu (panel ca Live Map). */
   showTally?: boolean;
+  /** Drawer thẩm định: bỏ các câu hướng dẫn (đưa vào tooltip) cho khối gọn. */
+  compact?: boolean;
   className?: string;
 }> = ({
   incident,
   showTally = false,
+  compact = false,
   className = '',
 }) => {
   const { t } = useTranslation();
@@ -215,16 +218,17 @@ export const AutoDispatchNotice: React.FC<{
   // Sự cố kia có thể không thuộc trạm mình / đã đóng → hiện mã ngắn.
   const duplicateLabel = duplicate?.title ?? (duplicateId ? `#${duplicateId.slice(0, 8)}` : '');
   const duplicateLink = duplicateId && (
-    <div className="pt-1 space-y-1">
+    <div className={compact ? '' : 'pt-1 space-y-1'}>
       <button
         type="button"
         onClick={() => navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: duplicateId } })}
+        title={compact ? t('incidents.autoDispatch.duplicateHint') : undefined}
         className="inline-flex items-center gap-1 font-bold underline underline-offset-2 hover:no-underline"
       >
         {t('incidents.autoDispatch.suspectedDuplicate', { title: duplicateLabel })}
         <ExternalLink className="w-3 h-3" />
       </button>
-      <p className="text-[11px] opacity-80">{t('incidents.autoDispatch.duplicateHint')}</p>
+      {!compact && <p className="text-[11px] opacity-80">{t('incidents.autoDispatch.duplicateHint')}</p>}
     </div>
   );
 
@@ -272,7 +276,7 @@ export const AutoDispatchNotice: React.FC<{
     <div
       className={`rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 space-y-1 ${className}`}
     >
-      <p className="flex items-center gap-1.5 font-bold">
+      <p className="flex items-center gap-1.5 font-bold" title={compact ? t('incidents.autoDispatch.skippedHint') : undefined}>
         <Icon className="w-3.5 h-3.5 shrink-0" />
         {t('incidents.autoDispatch.skippedTitle')}
       </p>
@@ -280,7 +284,7 @@ export const AutoDispatchNotice: React.FC<{
       {showTally && incident.aiVotes && (
         <p className="font-semibold">{t('incidents.aiVotes.summary', aiVoteTally(incident.aiVotes))}</p>
       )}
-      <p className="text-[11px] opacity-80">{t('incidents.autoDispatch.skippedHint')}</p>
+      {!compact && <p className="text-[11px] opacity-80">{t('incidents.autoDispatch.skippedHint')}</p>}
       {duplicateLink}
     </div>
   );
@@ -302,7 +306,7 @@ export const AutoDispatchBanner: React.FC<{
   const { t } = useTranslation();
   const { autoDispatchSettings } = useDispatchStore();
   const now = useNow();
-  if (incident.autoDispatch) return <AutoDispatchNotice incident={incident} className={className} />;
+  if (incident.autoDispatch) return <AutoDispatchNotice incident={incident} compact={compact} className={className} />;
   if (incident.status !== 'pending') return null;
   // Mở ca không còn giữ khóa (bỏ 2026-11-26) → AI vẫn có thể đang điều phối; tính theo thời gian từ lúc tiếp nhận.
   const verdict = autoDispatchVerdictAt(incident, autoDispatchSettings, now);

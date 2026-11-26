@@ -197,7 +197,7 @@ export const IncidentQueuePage: React.FC = () => {
       {triage.incident && (
         <>
           <div className="fixed inset-0 bg-black/60 z-[1400]" onClick={handleClose} />
-          <div className="fixed top-0 right-0 h-full w-full max-w-3xl z-[1401] border-l border-slate-200 shadow-2xl shadow-slate-900/20 animate-drawer-in">
+          <div className="fixed top-0 right-0 h-full w-full max-w-4xl z-[1401] border-l border-slate-200 shadow-2xl shadow-slate-900/20 animate-drawer-in">
             <IncidentDetailDrawer
               key={triage.incident.id}
               incident={triage.incident}
