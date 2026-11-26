@@ -3,6 +3,7 @@ import { UserRole, type ApiResponse } from '../../types/auth';
 import { ON_MISSION_UNIT_STATUSES } from '../../types/rescueUnit';
 import type { InternalRole } from '../../types/internalAccount';
 import type { AdminDashboardStatsDto, RecentIncidentSummaryDto } from '../../types/adminDashboard';
+import type { EquipmentDto } from '../../types/equipment';
 import { stationAdminService } from './stationAdminService';
 import { vehicleAdminService } from './vehicleAdminService';
 import { equipmentService } from '../equipmentService';
@@ -54,10 +55,10 @@ export const overviewAdminService = {
     const stations = stationPage.items;
     const countStatus = (match: (u: (typeof units)[number]) => boolean) => units.filter(match).length;
 
-    const eqList = Array.isArray(equipment)
+    const eqList: EquipmentDto[] | null = Array.isArray(equipment)
       ? equipment
-      : Array.isArray((equipment as any)?.items)
-      ? (equipment as any).items
+      : Array.isArray((equipment as { items?: unknown })?.items)
+      ? ((equipment as { items: EquipmentDto[] }).items)
       : null;
 
     return {
@@ -77,7 +78,7 @@ export const overviewAdminService = {
       citizenCount: stats.totalCitizens,
       equipment: eqList && {
         total: eqList.length,
-        maintenance: eqList.filter((e) => e.status === 'Maintenance').length,
+        maintenance: eqList.filter((e: EquipmentDto) => e.status === 'Maintenance').length,
       },
       incidents: {
         active: stats.activeIncidents,
