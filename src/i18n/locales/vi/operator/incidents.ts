@@ -317,7 +317,7 @@ export const incidentsVi = {
     noneAssigned: 'Chưa giao xe nào.',
     fullLevel12: 'Đã giao đủ tổ theo kế hoạch. Cần thêm tổ hoặc theo dõi đội: dùng Live Map.',
     fullLevel3: 'Đã giao đủ {{max}} tổ tối đa cho sự cố Cấp 3.',
-    level3Hint: 'Cấp 3: giao tối đa {{max}} tổ, mỗi lần một tổ. Giao xong bấm "Hoàn tất".',
+    level3Hint: 'Cấp 3: giao tối đa {{max}} tổ. Giao xong bấm "Hoàn tất".',
     unavailable: 'Sự cố không còn chờ điều xe (đã bị hủy, chuyển trạm hoặc hoàn tất).',
     later: 'Để sau',
     laterTitle: 'Đóng bước này. Sự cố đã duyệt nằm trên Live Map, chờ điều xe.',

@@ -322,7 +322,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     noneAssigned: 'No vehicle assigned yet.',
     fullLevel12: 'The planned teams have been assigned. To add teams or follow the crews, use the Live Map.',
     fullLevel3: 'The maximum of {{max}} teams for a Level 3 incident has been assigned.',
-    level3Hint: 'Level 3: up to {{max}} teams, one at a time. Press "Done" when finished.',
+    level3Hint: 'Level 3: up to {{max}} teams. Press "Done" when finished.',
     unavailable: 'This incident is no longer waiting for dispatch (cancelled, transferred or completed).',
     later: 'Later',
     laterTitle: 'Close this step. The approved incident stays on the Live Map, waiting for dispatch.',

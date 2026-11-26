@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -23,7 +23,13 @@ import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { DISPATCH_ALGORITHM_META } from '../../../data/dispatchConfig';
 import { DispatchPlanHint } from '../livemap/DispatchPlanHint';
 import { DispatchShortages } from '../livemap/DispatchShortages';
-import { useDispatchStore } from '../../../context/DispatchContext';
+import { OffPlanTeams } from '../livemap/OffPlanTeams';
+import { PlanTeamGroups } from '../livemap/PlanTeamGroups';
+import { SupportConfirmDialog, type SupportRow } from '../livemap/SupportConfirmDialog';
+import { showToast } from '../../admin/common/toastStore';
+import { usePlanProgress } from '../../../hooks/usePlanProgress';
+import { ASSIGNING_MANY } from '../../../utils/dispatchPlan';
+import { useDispatchStore, type TeamAssignTarget } from '../../../context/DispatchContext';
 import { useDispatchNeeds } from '../../../hooks/useDispatchNeeds';
 import { useDispatchRecommendations } from '../../../hooks/useDispatchRecommendations';
 import { useAssignmentTeam, useTeamByVehicle } from '../../../hooks/useStationTeams';
@@ -44,6 +50,9 @@ interface QueueDispatchDrawerProps {
 
 /**
  * FR-OP-04: bước "Điều xe" ngay sau khi duyệt trong Hàng đợi — giao xe lần đầu mà không phải sang Live Map.
+ * Chọn tổ giống Chi tiết ca của Live Map (§34): có kế hoạch điều xe → chia nhóm theo chức năng, chọn sẵn tổ trạm mình đầu
+ * bảng, giao nhiều tổ một lệnh (`PlanTeamGroups`); tổ khác chức năng giao kèm lý do (`OffPlanTeams`); tổ trạm khác hỏi xác
+ * nhận trước (`SupportConfirmDialog`). Chưa có kế hoạch → danh sách xếp hạng như cũ.
  * Không giữ khóa mềm (bỏ 2026-11-26: mỗi trạm một Operator mỗi ca làm).
  * Giao thêm xe vượt giới hạn Cấp 1–2, giao lại khi đội từ chối, chi viện... vẫn làm trên Live Map.
  */
@@ -92,17 +101,47 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
   const optionOf = (team: DispatchTeamCandidate): DispatchCandidate =>
     team.options.find((o) => o.unitType === optionByTeam[team.teamId]) ?? team.options[0];
 
-  const handleAssign = async (team: DispatchTeamCandidate) => {
-    setAssigningTeamId(team.teamId);
+  // Kế hoạch điều xe của ca (chức năng × số tổ, đã giao bao nhiêu) — cùng nguồn với Live Map.
+  const planProgressOf = usePlanProgress();
+  const progress = incident ? planProgressOf(incident) : null;
+  const grouped = !!progress && progress.items.length > 0;
+
+  // Lệnh có tổ trạm khác → hỏi xác nhận; `resolve` trả kết quả về nơi bấm giao.
+  const [supportConfirm, setSupportConfirm] = useState<{ rows: SupportRow[]; totalCount: number } | null>(null);
+  const supportResolveRef = useRef<((confirmed: boolean) => void) | null>(null);
+  const answerSupport = (confirmed: boolean) => {
+    setSupportConfirm(null);
+    supportResolveRef.current?.(confirmed);
+    supportResolveRef.current = null;
+  };
+  const confirmSupport = (targets: TeamAssignTarget[]): Promise<boolean> => {
+    const rows = targets.flatMap((target) => {
+      const team = teams.find((item) => item.teamId === target.teamId && item.isSupportUnit);
+      const option = team?.options.find((o) => o.unitType === target.unitType);
+      return team && option ? [{ team, option }] : [];
+    });
+    if (rows.length === 0) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      supportResolveRef.current?.(false);
+      supportResolveRef.current = resolve;
+      setSupportConfirm({ rows, totalCount: targets.length });
+    });
+  };
+
+  /** Giao một hoặc nhiều tổ trong một lệnh (backend nhận tất cả hoặc không tổ nào). */
+  const assignTargets = async (targets: TeamAssignTarget[], notes?: string): Promise<boolean> => {
+    if (targets.length === 0 || !(await confirmSupport(targets))) return false;
+    setAssigningTeamId(targets.length === 1 ? targets[0].teamId : ASSIGNING_MANY);
     setError(null);
-    const result = await assignTeams(
-      [{ teamId: team.teamId, teamName: team.teamName, unitType: optionOf(team).unitType }],
-      incidentId,
-      algorithm
-    );
+    const result = await assignTeams(targets, incidentId, algorithm, notes ? { notes } : undefined);
     setAssigningTeamId(null);
     if (!result.ok) setError(result.message ?? t('context.assignFailed'));
+    else if (targets.length > 1) showToast(t('liveMap.plan.assignedMany', { count: targets.length }));
+    return result.ok;
   };
+
+  const handleAssign = (team: DispatchTeamCandidate) =>
+    assignTargets([{ teamId: team.teamId, teamName: team.teamName, unitType: optionOf(team).unitType }]);
 
   const category = incident ? INCIDENT_CATEGORY_META[incident.category] : null;
   const busy = !!assigningTeamId;
@@ -315,7 +354,39 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
 
                     {suggestionError && <p className="text-sm text-red-600">{suggestionError}</p>}
 
-                    {/* Danh sách xếp hạng: số thứ tự là thứ hạng gợi ý thật, không phải trang trí */}
+                    {/* Có kế hoạch: nhóm theo chức năng, chọn sẵn tổ, giao nhiều tổ một lệnh — như Chi tiết ca ở Live Map. */}
+                    {suggestion && grouped && progress && (
+                      <>
+                        <PlanTeamGroups
+                          key={incidentId}
+                          incidentId={incidentId}
+                          suggestion={suggestion}
+                          items={progress.items}
+                          slotsLeft={Math.max(0, maxVehicles - activeCount)}
+                          assignedVehicleIds={incident.assignedVehicleIds}
+                          algorithm={algorithm}
+                          assigningTeamId={assigningTeamId}
+                          assignBlocked={false}
+                          onAssign={(targets) => assignTargets(targets)}
+                          onOpenIncident={onOpenLiveMap}
+                        />
+                        <OffPlanTeams
+                          key={`off-plan-${incidentId}`}
+                          incidentId={incidentId}
+                          suggestion={suggestion}
+                          items={progress.items}
+                          maxVehicles={maxVehicles}
+                          isFull={isFull}
+                          algorithm={algorithm}
+                          refreshKey={refreshKey}
+                          assigningTeamId={assigningTeamId}
+                          onAssign={(target, reason) => assignTargets([target], reason)}
+                        />
+                      </>
+                    )}
+
+                    {/* Chưa có kế hoạch: danh sách xếp hạng (số thứ tự là thứ hạng gợi ý thật, không phải trang trí). */}
+                    {!grouped && (
                     <ol className={`divide-y divide-slate-100 ${teams.length > 0 ? 'border-y border-slate-100' : ''}`}>
                       {teams.map((team, index) => {
                         const option = optionOf(team);
@@ -389,14 +460,24 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
                         );
                       })}
                     </ol>
+                    )}
 
-                    {suggestion && <DispatchShortages shortages={suggestion.shortages} incidentId={incidentId} />}
+                    {suggestion && !grouped && <DispatchShortages shortages={suggestion.shortages} incidentId={incidentId} />}
                   </>
                 )}
               </div>
             </div>
           )}
         </div>
+
+        {supportConfirm && (
+          <SupportConfirmDialog
+            rows={supportConfirm.rows}
+            totalCount={supportConfirm.totalCount}
+            onCancel={() => answerSupport(false)}
+            onConfirm={() => answerSupport(true)}
+          />
+        )}
 
         <div className="shrink-0 border-t border-slate-200 bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
           {error && (
