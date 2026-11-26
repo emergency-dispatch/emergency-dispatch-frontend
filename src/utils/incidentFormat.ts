@@ -173,6 +173,24 @@ export function formatCitizenDispatchStatus(dispatchStatus?: string | null): str
   }
 }
 
+/** Ưu tiên trạng thái tiến độ xe thực tế (`dispatchStatus`) khi sự cố đang được điều phối/cứu hộ. */
+export function resolveCitizenLiveStatusLabel(
+  incidentStatus?: string | null,
+  dispatchStatus?: string | null
+): string {
+  const isActiveDispatch = incidentStatus === 'Dispatched' || incidentStatus === 'InProgress';
+  if (
+    isActiveDispatch &&
+    dispatchStatus &&
+    dispatchStatus !== 'Completed' &&
+    dispatchStatus !== 'Cancelled' &&
+    dispatchStatus !== 'PendingDispatch'
+  ) {
+    return formatCitizenDispatchStatus(dispatchStatus);
+  }
+  return formatCitizenIncidentStatus(incidentStatus).toUpperCase();
+}
+
 export const isAudioMediaUrl = (url?: string | null): boolean => {
   if (!url) return false;
   const lower = url.toLowerCase().split('?')[0];
