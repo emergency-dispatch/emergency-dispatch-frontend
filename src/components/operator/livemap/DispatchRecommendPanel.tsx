@@ -43,6 +43,7 @@ import { showToast } from '../../admin/common/toastStore';
 import { useTranslation } from '../../../i18n';
 import { AutoDispatchNotice } from '../incidents/AutoDispatchInfo';
 import { IncidentCode } from '../incidents/IncidentCode';
+import { NewLinkedDot } from '../incidents/NewLinkedDot';
 
 interface DispatchRecommendPanelProps {
   selectedIncidentId: string | null;
@@ -69,6 +70,8 @@ interface DispatchRecommendPanelProps {
   attentionCount: number;
   /** Phần ca: thông báo đội, tổ đã giao (thu hồi), hủy ca, nghiệm thu — đặt trên gợi ý xe. */
   caseBody?: React.ReactNode;
+  /** Đổi giá trị → mở hộp Báo cáo trùng của ca đang chọn (thông báo "Thêm người cùng báo"). */
+  openLinkedKey?: number;
 }
 
 export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
@@ -82,11 +85,13 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   onOpenDossier,
   attentionCount,
   caseBody,
+  openLinkedKey,
 }) => {
   const {
     incidents,
     escalatedIncidentIds,
     unlinkLinkedReport,
+    markLinkedReportsSeen,
     changeIncidentSeverity,
     currentOperatorId,
     supplementVersions,
@@ -143,6 +148,14 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     supportResolveRef.current?.(false);
     supportResolveRef.current = null;
   }, [selectedIncidentId]);
+  // Chạy sau effect đặt lại ở trên (cùng lượt render) → mở được ngay khi vừa chọn ca từ thông báo.
+  useEffect(() => {
+    if (openLinkedKey) setLinkedOpen(true);
+  }, [openLinkedKey, selectedIncidentId]);
+  // Đã mở danh sách báo cáo trùng → bỏ chấm "mới".
+  useEffect(() => {
+    if (linkedOpen && selectedIncidentId) markLinkedReportsSeen(selectedIncidentId);
+  }, [linkedOpen, selectedIncidentId, markLinkedReportsSeen]);
 
   const selectedIncident = useMemo(
     () => incidents.find((i) => i.id === selectedIncidentId) ?? null,
@@ -490,6 +503,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                 >
                   <Users className="w-3 h-3" />
                   {t('liveMap.recommend.linkedReports', { count: selectedIncident.linkedReportCount })}
+                  <NewLinkedDot incidentId={selectedIncident.id} />
                 </button>
               )}
               {(supplements.items.length > 0 || supplements.error) && (

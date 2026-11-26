@@ -19,6 +19,7 @@ import { useDispatchStore } from '../../../context/DispatchContext';
 import { AutoDispatchBadge } from './AutoDispatchInfo';
 import type { HandoverReason } from './autoDispatchVerdict';
 import { IncidentCode } from './IncidentCode';
+import { NewLinkedDot } from './NewLinkedDot';
 
 // Lý do đã có chip / badge riêng trên dòng (Ngoài khu vực, Chưa phân loại, AI bỏ qua) → không lặp lại.
 const REASONS_WITH_OWN_CHIP: ReadonlySet<HandoverReason> = new Set(['outOfServiceArea', 'unclassified', 'skipped']);
@@ -115,6 +116,7 @@ export const IncidentRow: React.FC<IncidentRowProps> = ({
             >
               <Users className="w-3 h-3" />
               {t('incidents.row.linkedReports', { count: incident.linkedReportCount })}
+              <NewLinkedDot incidentId={incident.id} />
             </span>
           )}
           <AutoDispatchBadge incident={incident} />

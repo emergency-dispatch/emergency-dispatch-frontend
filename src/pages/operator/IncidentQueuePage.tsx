@@ -77,6 +77,9 @@ export const IncidentQueuePage: React.FC = () => {
 
   // Mở từ thông báo / dải AI / chuông ("Thẩm định ngay", "Mở ca") → mở sẵn ca đó. Chờ ca có trong danh sách rồi mới mở.
   const location = useLocation();
+  // Thông báo "Thêm người cùng báo" → drawer mở sẵn tab Báo cáo trùng của đúng ca đó.
+  const requestedDrawerTab = (location.state as { openTab?: 'linked' | 'history' } | null)?.openTab;
+  const [drawerTab, setDrawerTab] = useState<{ id: string; tab: 'linked' | 'history' } | null>(null);
   // "Xem ở Hàng đợi" (dải AI) / deep link ca AI đang làm → mở thẳng tab "AI đang phân tích".
   const [queueTab, setQueueTab] = useState<QueueTab>('human');
   const requestedTab = (location.state as { queueTab?: QueueTab } | null)?.queueTab;
@@ -90,6 +93,7 @@ export const IncidentQueuePage: React.FC = () => {
     if (!openKey || openedFromState === openKey) return;
     if (!pendingIncidents.some((inc) => inc.id === openIncidentId)) return;
     setOpenedFromState(openKey);
+    setDrawerTab(requestedDrawerTab ? { id: openIncidentId!, tab: requestedDrawerTab } : null);
     handleSelect(openIncidentId!);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openKey, pendingIncidents]);
@@ -214,6 +218,7 @@ export const IncidentQueuePage: React.FC = () => {
               isSubmitting={triage.submitting}
               errorMsg={triage.actionError}
               onDirtyChange={triage.setDirty}
+              initialTab={drawerTab?.id === triage.incident.id ? drawerTab.tab : 'review'}
               leavePrompt={
                 triage.leavePending && (
                   <div

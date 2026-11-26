@@ -21,6 +21,7 @@ import type { Vehicle } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
 import { AutoDispatchBadge } from '../incidents/AutoDispatchInfo';
 import { IncidentCode } from '../incidents/IncidentCode';
+import { NewLinkedDot } from '../incidents/NewLinkedDot';
 import { useNow } from '../../../hooks/useNow';
 
 const GROUP_ORDER: CaseGroup[] = ['attention', 'active', 'completed'];
@@ -186,6 +187,7 @@ const CaseCard: React.FC<CaseCardProps> = ({
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-700">
                   <Users className="w-2.5 h-2.5" />
                   {t('liveMap.incidentList.linkedReports', { count: incident.linkedReportCount })}
+                  <NewLinkedDot incidentId={incident.id} />
                 </span>
               )}
               <TrafficJamChip incident={incident} />

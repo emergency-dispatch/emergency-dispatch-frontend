@@ -73,6 +73,7 @@ export const incidentsVi = {
     outOfArea: 'Ngoài khu vực',
     linkedReports: '+{{count}} người cùng báo',
     linkedReportsTitle: 'Hệ thống đã tự gộp các SOS trùng (cùng chỗ, cùng lúc) vào sự cố này',
+    linkedNew: 'mới',
     aiAnalyzing: 'AI đang phân tích',
     escalated: 'Leo thang',
     waiting: 'đang chờ',

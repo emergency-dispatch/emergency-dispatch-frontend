@@ -14,6 +14,7 @@ import {
 import { IncidentAuditTimeline } from './IncidentAuditTimeline';
 import { AiInsightBlock, CancelCaseFields, ReporterEvidence } from './IncidentDossierSections';
 import { LinkedReportsPanel } from './LinkedReportsPanel';
+import { NewLinkedDot } from './NewLinkedDot';
 import { PlanForcePreview } from './PlanForcePreview';
 import { StaleChip } from './StaleChip';
 import { TrafficJamReview } from './TrafficJamReview';
@@ -90,6 +91,8 @@ interface IncidentDetailDrawerProps {
   onDirtyChange?: (dirty: boolean) => void;
   /** Dải hỏi "rời ca này?" ngay dưới phần đầu. */
   leavePrompt?: React.ReactNode;
+  /** Tab mở sẵn (VD thông báo "Thêm người cùng báo" → `linked`). */
+  initialTab?: 'review' | 'linked' | 'history';
 }
 
 /**
@@ -115,10 +118,11 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   attentionCount = 0,
   onDirtyChange,
   leavePrompt,
+  initialTab = 'review',
 }) => {
   const now = useNow();
   const { t } = useTranslation();
-  const { incidentKindLabel, vehicleLimitFor } = useDispatchStore();
+  const { incidentKindLabel, vehicleLimitFor, markLinkedReportsSeen } = useDispatchStore();
   const supplements = useIncidentSupplements(incident?.id ?? null, supplementVersion);
   const [confirmedSeverity, setConfirmedSeverity] = useState<SeverityLevel | null>(null);
   const [confirmedCategory, setConfirmedCategory] = useState<IncidentCategory | null>(null);
@@ -153,7 +157,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     );
     setOverrideReason('');
     setMode('review');
-    setTab('review');
+    setTab(initialTab);
     setCancelInput(EMPTY_CANCEL_INPUT);
     setTransferStationId('');
     setTransferReason('');
@@ -175,6 +179,12 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     // Chỉ báo khi trạng thái đổi (hàm truyền xuống đổi mỗi lần render).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirty]);
+
+  // Đã mở danh sách báo cáo trùng → bỏ chấm "mới".
+  const viewingLinkedId = tab === 'linked' ? incident?.id ?? null : null;
+  useEffect(() => {
+    if (viewingLinkedId) markLinkedReportsSeen(viewingLinkedId);
+  }, [viewingLinkedId, markLinkedReportsSeen]);
 
   if (!incident) return null;
 
@@ -343,6 +353,11 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
             }`}
           >
             {label}
+            {key === 'linked' && (
+              <span className="ml-1.5">
+                <NewLinkedDot incidentId={incident.id} />
+              </span>
+            )}
           </button>
         ))}
       </div>

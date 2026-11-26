@@ -12,6 +12,7 @@ import {
   TrafficCone,
   UserX,
   X,
+  Users,
 } from 'lucide-react';
 import { useDispatchStore, type OperatorAlert } from '../../context/DispatchContext';
 import { useTranslation } from '../../i18n';
@@ -23,7 +24,15 @@ const KIND_META: Record<
     icon: React.ElementType;
     className: string;
     iconClassName: string;
-    action?: 'verify' | 'viewOnMap' | 'viewDetail' | 'assignTrafficTeam' | 'openFieldRequest' | 'viewCompletion' | 'reassign';
+    action?:
+      | 'verify'
+      | 'viewOnMap'
+      | 'viewDetail'
+      | 'assignTrafficTeam'
+      | 'openFieldRequest'
+      | 'viewCompletion'
+      | 'reassign'
+      | 'viewLinked';
   }
 > = {
   out_of_area: {
@@ -98,6 +107,13 @@ const KIND_META: Record<
     iconClassName: 'text-amber-600',
     action: 'verify',
   },
+  // BR-07: hệ thống gộp thêm SOS trùng → mở thẳng danh sách báo cáo trùng (xác nhận / tách nếu gộp nhầm).
+  linked_report: {
+    icon: Users,
+    className: 'border-blue-200 bg-white text-slate-800',
+    iconClassName: 'text-blue-600',
+    action: 'viewLinked',
+  },
 };
 
 /**
@@ -131,6 +147,15 @@ export const OperatorAlerts: React.FC = () => {
     }
     // Sự cố chưa duyệt → mở drawer thẩm định ở Hàng đợi; đã duyệt → chọn trên Live Map.
     const incident = incidents.find((i) => i.id === alert.incidentId);
+    // BR-07: mở sẵn danh sách báo cáo trùng — tab trong drawer thẩm định (Hàng đợi) / hộp thoại ở Chi tiết ca (Live Map).
+    if (alert.kind === 'linked_report') {
+      if (incident?.status === 'pending') {
+        navigate(INCIDENT_QUEUE_PATH, { state: { openIncidentId: alert.incidentId, openTab: 'linked' } });
+      } else {
+        navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: alert.incidentId, openLinked: true } });
+      }
+      return;
+    }
     if (
       (alert.kind === 'out_of_area' || alert.kind === 'supplement' || alert.kind === 'auto_dispatch_skipped') &&
       incident?.status === 'pending'

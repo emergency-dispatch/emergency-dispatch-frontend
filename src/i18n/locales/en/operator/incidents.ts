@@ -76,6 +76,7 @@ export const incidentsEn: Messages<typeof incidentsVi> = {
     outOfArea: 'Out of area',
     linkedReports: '+{{count}} also reported',
     linkedReportsTitle: 'Duplicate SOS reports (same place, same time) were merged into this incident automatically',
+    linkedNew: 'new',
     aiAnalyzing: 'AI analyzing',
     escalated: 'Escalated',
     waiting: 'waiting',

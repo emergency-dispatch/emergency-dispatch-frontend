@@ -138,11 +138,15 @@ export const LiveMapPage: React.FC = () => {
   // Deep link từ banner leo thang / thông báo / chuông: ca đã duyệt → Chi tiết ca. Ca chờ duyệt không thuộc Live Map →
   // sang Hàng đợi: ca chờ người mở sẵn thẩm định, ca AI đang làm mở tab "AI đang phân tích" (để AI làm).
   const focusIncidentId = (location.state as { focusIncidentId?: string } | null)?.focusIncidentId;
+  // Thông báo "Thêm người cùng báo" (ca đã duyệt) → chọn ca rồi mở sẵn hộp Báo cáo trùng.
+  const openLinked = !!(location.state as { openLinked?: boolean } | null)?.openLinked;
+  const [linkedRequest, setLinkedRequest] = useState<{ id: string; key: number } | null>(null);
   useEffect(() => {
     if (!focusIncidentId) return;
     const target = incidentsById.get(focusIncidentId);
     if (target?.status !== 'pending') {
       handleSelectIncident(focusIncidentId);
+      if (openLinked) setLinkedRequest((prev) => ({ id: focusIncidentId, key: (prev?.key ?? 0) + 1 }));
       return;
     }
     const aiWorking = !target.lock && !needsOperator(autoDispatchVerdictAt(target, autoDispatchSettings, Date.now()));
@@ -347,6 +351,7 @@ export const LiveMapPage: React.FC = () => {
             onBack={() => handleSelectIncident(null)}
             onOpenIncident={handleSelectIncident}
             onOpenDossier={() => setDossier({ incidentId: selectedCase.id, cancelling: false })}
+            openLinkedKey={linkedRequest?.id === selectedCase.id ? linkedRequest.key : undefined}
             attentionCount={attentionCount}
             caseBody={
               <>
