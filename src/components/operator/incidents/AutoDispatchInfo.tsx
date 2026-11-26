@@ -264,7 +264,12 @@ export const AutoDispatchNotice: React.FC<{
  * - ca chờ duyệt, AI chuyển cho người → lý do + thanh độ tin cậy / ngưỡng + hướng dẫn.
  * Tự điều phối đang tắt → không hiện gì (luồng thẩm định cũ).
  */
-export const AutoDispatchBanner: React.FC<{ incident: Incident; className?: string }> = ({ incident, className = '' }) => {
+export const AutoDispatchBanner: React.FC<{
+  incident: Incident;
+  className?: string;
+  /** Cột quyết định của panel thẩm định: bỏ dải tiến trình (ở đây luôn là "chuyển cho bạn") và dòng hướng dẫn, chỉ giữ lý do. */
+  compact?: boolean;
+}> = ({ incident, className = '', compact = false }) => {
   const { t } = useTranslation();
   const { autoDispatchSettings } = useDispatchStore();
   if (incident.autoDispatch) return <AutoDispatchNotice incident={incident} className={className} />;
@@ -281,8 +286,8 @@ export const AutoDispatchBanner: React.FC<{ incident: Incident; className?: stri
         reason={verdict.reason}
         threshold={threshold}
         title={t('incidents.autoDispatch.handoverTitle')}
-        showStrip
-        hint={t('incidents.autoDispatch.handoverHint')}
+        showStrip={!compact}
+        hint={compact ? undefined : t('incidents.autoDispatch.handoverHint')}
         className={className}
       />
     );
@@ -293,7 +298,7 @@ export const AutoDispatchBanner: React.FC<{ incident: Incident; className?: stri
         <Loader2 className="w-4 h-4 shrink-0 motion-safe:animate-spin" />
         {t('incidents.autoDispatch.heldWhileAnalyzingTitle')}
       </p>
-      <AiProgressStrip phase={verdict.phase} />
+      {!compact && <AiProgressStrip phase={verdict.phase} />}
       <p className="text-xs leading-relaxed">{t('incidents.autoDispatch.heldWhileAnalyzingBody')}</p>
     </div>
   );
