@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
+import { useAuth } from '../../../hooks/useAuth';
 import { getBusyTeamIds } from '../../../utils/teamAvailability';
 import { gpsFarFromStationKm } from '../../../utils/vehicleLocation';
 
@@ -38,4 +39,25 @@ export function useReadyTeams() {
       blockedCount: blocked.size,
     };
   }, [vehicles, stations, teamByVehicle]);
+}
+
+/**
+ * Loại xe mà trạm mình còn tổ giao được (xe Sẵn sàng, tổ không bận, `canBeAssigned`). Dùng để nói "trạm hết tổ" thống nhất
+ * giữa thẻ ca ở "Theo dõi ca" và Chi tiết ca (không mở sẵn gợi ý khi chẳng còn tổ nào để chọn).
+ */
+export function useStationReadyUnitTypes(): Set<string> {
+  const { vehicles } = useDispatchStore();
+  const teamByVehicle = useTeamByVehicle();
+  const { user } = useAuth();
+  return useMemo(() => {
+    const busy = getBusyTeamIds(vehicles, teamByVehicle);
+    return new Set(
+      vehicles
+        .filter((v) => {
+          const team = teamByVehicle.get(v.id);
+          return v.status === 'available' && v.stationId === user?.stationId && !!team?.canBeAssigned && !busy.has(team.id);
+        })
+        .map((v) => v.unitType)
+    );
+  }, [vehicles, teamByVehicle, user?.stationId]);
 }

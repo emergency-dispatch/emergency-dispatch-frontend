@@ -32,7 +32,7 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
   },
   cases: {
     title: 'Case tracking',
-    subtitle: "All station cases: AI at work, crews on the way, cases that need you",
+    subtitle: "Approved station cases: crews on the way, cases that need your follow-up",
     groups: { attention: 'Needs action', active: 'In progress', completed: 'Just completed' },
     viewCompletion: 'View in Completion',
     ai: { unknownKind: 'SOS · waiting for AI' },

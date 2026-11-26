@@ -30,8 +30,6 @@ import { SourceChip } from '../incidents/SourceChip';
 import { MapLayerToggle, applyTileMode, createBaseMapStyle, type MapTileMode } from './MapLayerToggle';
 import { dateLocale, useTranslation } from '../../../i18n';
 import { IncidentCode } from '../incidents/IncidentCode';
-import { AiWorkingMarkers } from './AiWorkingMarkers';
-import { PendingCaseMarkers } from './PendingCaseMarkers';
 import { gpsFarFromStationKm, isGpsSignalLost, readyAwayFromStationKm } from '../../../utils/vehicleLocation';
 import { useNow } from '../../../hooks/useNow';
 import { trackingHubService } from '../../../services/realtime/incidentHubService';
@@ -428,10 +426,6 @@ interface LiveMapViewProps {
   trafficAssignableUnits?: RescueUnitResponseDto[];
   /** Bay tới + mở popup điểm ùn tắc (bấm cảnh báo leo thang §24); `key` đổi mỗi lần yêu cầu. */
   focusTrafficJam?: { id: string; key: number } | null;
-  /** §31.E: bay tới + mở popup tin báo AI đang xử lý ("Xem trên bản đồ" ở dải AI); `key` đổi mỗi lần yêu cầu. */
-  focusAiIncident?: { id: string; key: number } | null;
-  /** Bấm marker ca chờ người → mở thẩm định ở Hàng đợi. */
-  onOpenTriage?: (incidentId: string) => void;
   /** Lộ trình xe đang tới hiện trường. */
   routes?: DispatchRoute[];
   vehiclesById?: Map<string, Vehicle>;
@@ -458,8 +452,6 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
   onUnassignTrafficJam,
   trafficAssignableUnits = [],
   focusTrafficJam = null,
-  focusAiIncident = null,
-  onOpenTriage,
   routes = [],
   serviceArea = null,
   vehiclesById,
@@ -612,14 +604,6 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, focusTrafficJam?.key, !!focusJam]);
 
-  // Dải AI → "Xem trên bản đồ": bay tới tin báo (popup mở qua popupOpenKey). Ca vừa rời tay AI thì không còn marker.
-  const focusAi = focusAiIncident ? allIncidents.find((i) => i.id === focusAiIncident.id) : undefined;
-  useEffect(() => {
-    if (!map || !focusAi) return;
-    map.flyTo({ center: [focusAi.lng, focusAi.lat], zoom: Math.max(map.getZoom(), 16), duration: 800 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, focusAiIncident?.key, !!focusAi]);
-
   const handleOpenDirections = () => {
     if (!selectedVehicle) return;
     const targetIncident = selectedVehicle.incidentId ? incidentsById?.get(selectedVehicle.incidentId) : null;
@@ -768,11 +752,7 @@ export const LiveMapView: React.FC<LiveMapViewProps> = ({
             );
           })}
 
-          <AiWorkingMarkers map={map} focus={focusAiIncident} />
-          {/* Đang chọn vị trí tạo sự cố thì ẩn: bấm nhầm marker sẽ rời form đang nhập. */}
-          {!pickLocation && onOpenTriage && (
-            <PendingCaseMarkers map={map} openIncidentId={null} onOpen={onOpenTriage} />
-          )}
+          {/* Ca chờ duyệt (AI đang phân tích / chờ người) không vẽ ở đây: thẩm định thuộc Hàng đợi (FR-OP-02). */}
 
           {nearbyOffMap.map((incident) => (
             <MapMarker

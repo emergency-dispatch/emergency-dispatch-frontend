@@ -5,7 +5,6 @@ import { useDispatchStore } from '../../context/DispatchContext';
 import { useAuth } from '../../hooks/useAuth';
 import { usePlanProgress } from '../../hooks/usePlanProgress';
 import { useDispatchRoutes } from '../../hooks/useDispatchRoutes';
-import { useNow } from '../../hooks/useNow';
 import { CaseDossierPanel } from '../../components/operator/livemap/CaseDossierPanel';
 import { DispatchIncidentList } from '../../components/operator/livemap/DispatchIncidentList';
 import { DispatchRecommendPanel } from '../../components/operator/livemap/DispatchRecommendPanel';
@@ -113,8 +112,6 @@ export const LiveMapPage: React.FC = () => {
   const { user } = useAuth();
   const planProgressOf = usePlanProgress();
 
-  // Nhịp chậm: chỉ để đếm, không vẽ lại cả trang (bản đồ) mỗi giây.
-  const slowNow = useNow(15_000);
   // Danh sách ca là màn chính → không tự mở ca nào; số ca cần xử lý hiện cạnh nút quay lại ở Chi tiết ca.
   const attentionCount = useMemo(() => {
     const fieldRequestCounts = new Map<string, number>();
@@ -122,10 +119,9 @@ export const LiveMapPage: React.FC = () => {
     return countAttentionCases(incidents, {
       escalatedIds: escalatedIncidentIds,
       fieldRequestCounts,
-      verdictOf: (incident) => autoDispatchVerdictAt(incident, autoDispatchSettings, slowNow),
       missingOf: (incident) => planProgressOf(incident).missing,
     });
-  }, [incidents, fieldRequests, escalatedIncidentIds, autoDispatchSettings, slowNow, planProgressOf]);
+  }, [incidents, fieldRequests, escalatedIncidentIds, planProgressOf]);
 
   // Chọn ca trên Live Map (ca đã duyệt / đã hoàn tất → Chi tiết ca).
   const showIncident = (id: string | null) => {
@@ -138,13 +134,10 @@ export const LiveMapPage: React.FC = () => {
   };
 
   const handleSelectIncident = showIncident;
-  // Ca chờ duyệt ("Thẩm định" ở Theo dõi ca, marker ca chờ người) → mở thẩm định ở Hàng đợi.
-  const handleOpenTriage = (id: string) => navigate(INCIDENT_QUEUE_PATH, { state: { openIncidentId: id } });
 
-  // Deep link từ banner leo thang / thông báo / chuông: ca đã duyệt → Chi tiết ca; ca chờ người → thẩm định ở Hàng đợi; ca
-  // AI đang làm → chỉ bay tới (để AI làm; muốn xem thì bấm "Mở ca").
+  // Deep link từ banner leo thang / thông báo / chuông: ca đã duyệt → Chi tiết ca. Ca chờ duyệt không thuộc Live Map →
+  // sang Hàng đợi: ca chờ người mở sẵn thẩm định, ca AI đang làm mở tab "AI đang phân tích" (để AI làm).
   const focusIncidentId = (location.state as { focusIncidentId?: string } | null)?.focusIncidentId;
-  const [focusAiIncident, setFocusAiIncident] = useState<{ id: string; key: number } | null>(null);
   useEffect(() => {
     if (!focusIncidentId) return;
     const target = incidentsById.get(focusIncidentId);
@@ -152,10 +145,11 @@ export const LiveMapPage: React.FC = () => {
       handleSelectIncident(focusIncidentId);
       return;
     }
-    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
     const aiWorking = !target.lock && !needsOperator(autoDispatchVerdictAt(target, autoDispatchSettings, Date.now()));
-    if (aiWorking) setFocusAiIncident((prev) => ({ id: target.id, key: (prev?.key ?? 0) + 1 }));
-    else handleOpenTriage(target.id);
+    navigate(INCIDENT_QUEUE_PATH, {
+      replace: true,
+      state: aiWorking ? { queueTab: 'ai' } : { openIncidentId: target.id },
+    });
     // Chỉ chạy theo yêu cầu mới.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusIncidentId, location.key]);
@@ -166,12 +160,6 @@ export const LiveMapPage: React.FC = () => {
   useEffect(() => {
     if (focusTrafficJamId) setFocusTrafficJam((prev) => ({ id: focusTrafficJamId, key: (prev?.key ?? 0) + 1 }));
   }, [focusTrafficJamId, location.key]);
-
-  // §31.E: dải AI → "Xem trên bản đồ": bay tới tin báo AI đang xử lý, không chọn / không mở ca (AI vẫn chạy).
-  const focusAiIncidentId = (location.state as { focusAiIncidentId?: string } | null)?.focusAiIncidentId;
-  useEffect(() => {
-    if (focusAiIncidentId) setFocusAiIncident((prev) => ({ id: focusAiIncidentId, key: (prev?.key ?? 0) + 1 }));
-  }, [focusAiIncidentId, location.key]);
 
   // §21.2: thông báo yêu cầu hiện trường → làm nổi yêu cầu trong mục "Yêu cầu từ hiện trường".
   const focusFieldRequestId = (location.state as { focusFieldRequestId?: string } | null)?.focusFieldRequestId ?? null;
@@ -407,12 +395,10 @@ export const LiveMapPage: React.FC = () => {
       <DispatchIncidentList
         selectedIncidentId={selectedIncidentId}
         onSelectIncident={handleSelectIncident}
-        onOpenTriage={handleOpenTriage}
         panelError={panelError}
         onClearError={() => setPanelError(null)}
         onServeFieldRequest={handleServeFieldRequest}
         highlightFieldRequestId={highlightFieldRequestId}
-        onFocusAiIncident={(id) => setFocusAiIncident((prev) => ({ id, key: (prev?.key ?? 0) + 1 }))}
       />
     );
 
@@ -447,8 +433,6 @@ export const LiveMapPage: React.FC = () => {
           onUnassignTrafficJam={unassignTrafficJam}
           trafficAssignableUnits={trafficAssignableUnits}
           focusTrafficJam={focusTrafficJam}
-          focusAiIncident={focusAiIncident}
-          onOpenTriage={handleOpenTriage}
           routes={routes}
           vehiclesById={vehiclesById}
           incidentsById={incidentsById}

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Map as MapIcon, X } from 'lucide-react';
 import { IncidentDetailDrawer } from '../../components/operator/incidents/IncidentDetailDrawer';
-import { IncidentQueueList } from '../../components/operator/incidents/IncidentQueueList';
+import { IncidentQueueList, type QueueTab } from '../../components/operator/incidents/IncidentQueueList';
 import { QueueDispatchDrawer } from '../../components/operator/incidents/QueueDispatchDrawer';
 import { AutoDispatchedDrawer } from '../../components/operator/incidents/AutoDispatchedDrawer';
 import { StationNotAssigned } from '../../components/operator/StationNotAssigned';
@@ -77,6 +77,12 @@ export const IncidentQueuePage: React.FC = () => {
 
   // Mở từ thông báo / dải AI / chuông ("Thẩm định ngay", "Mở ca") → mở sẵn ca đó. Chờ ca có trong danh sách rồi mới mở.
   const location = useLocation();
+  // "Xem ở Hàng đợi" (dải AI) / deep link ca AI đang làm → mở thẳng tab "AI đang phân tích".
+  const [queueTab, setQueueTab] = useState<QueueTab>('human');
+  const requestedTab = (location.state as { queueTab?: QueueTab } | null)?.queueTab;
+  useEffect(() => {
+    if (requestedTab) setQueueTab(requestedTab);
+  }, [requestedTab, location.key]);
   const openIncidentId = (location.state as { openIncidentId?: string } | null)?.openIncidentId;
   const [openedFromState, setOpenedFromState] = useState<string | null>(null);
   const openKey = openIncidentId ? `${location.key}:${openIncidentId}` : null;
@@ -130,6 +136,8 @@ export const IncidentQueuePage: React.FC = () => {
         autoDispatchedIncidents={autoDispatchedIncidents}
         onOpenAutoDispatched={setPreviewId}
         previewId={previewId}
+        tab={queueTab}
+        onTabChange={setQueueTab}
       />
 
       {previewIncident && (

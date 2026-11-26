@@ -30,7 +30,7 @@ export const liveMapVi = {
   // Panel trái của Live Map.
   cases: {
     title: 'Theo dõi ca',
-    subtitle: 'Mọi ca của trạm: AI đang làm, đội đang đi, ca cần bạn',
+    subtitle: 'Ca đã duyệt của trạm: đội đang đi, ca cần bạn điều tiếp',
     groups: { attention: 'Cần xử lý', active: 'Đang diễn ra', completed: 'Vừa hoàn tất' },
     viewCompletion: 'Xem ở Nghiệm thu',
     ai: { unknownKind: 'SOS · chờ AI nhận diện' },

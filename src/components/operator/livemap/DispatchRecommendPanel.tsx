@@ -6,6 +6,7 @@ import {
   Gauge,
   HandHelping,
   History,
+  ListChecks,
   MessageSquarePlus,
   X,
   Loader2,
@@ -19,6 +20,7 @@ import { DispatchShortages } from './DispatchShortages';
 import { GpsFarNote } from './GpsFarNote';
 import { OffPlanTeams } from './OffPlanTeams';
 import { PlanTeamGroups } from './PlanTeamGroups';
+import { useStationReadyUnitTypes } from './readyTeams';
 import { SupportConfirmDialog, type SupportRow } from './SupportConfirmDialog';
 import { RecommendedTeamLabel } from '../teams/RecommendedTeamLabel';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
@@ -164,11 +166,15 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   // Cấp 3 không vượt được 5 xe kể cả theo yêu cầu chi viện; Cấp 1–2 giao đủ số xe đội xin.
   const level3Remaining = selectedIncident?.severity === 3 ? Math.max(0, maxVehicles - activeCount) : Infinity;
   const pickMax = fieldRequest ? Math.min(fieldRequest.quantity, level3Remaining) : 0;
-  // Cần xe ngay: chưa có xe nào, chưa đủ tổ theo kế hoạch, hoặc có đội từ chối / không phản hồi → mở gợi ý sẵn; còn lại
-  // chờ Operator bấm.
+  // Cần xe ngay: chưa có xe nào, chưa đủ tổ theo kế hoạch (trạm còn tổ đúng loại), hoặc có đội từ chối / không phản hồi →
+  // mở gợi ý sẵn; còn lại chờ Operator bấm. Thiếu kế hoạch mà trạm hết tổ loại còn thiếu (VD AI điều được một phần) → chỉ
+  // báo một dòng, không mở danh sách trống; Operator bấm "Giao thêm tổ" nếu muốn tìm tổ trạm khác / ngoài kế hoạch.
+  const readyTypes = useStationReadyUnitTypes();
   const planShort = !!progress && progress.missing.length > 0;
+  const stationExhausted = planShort && progress.missing.every((m) => !readyTypes.has(m.unitType));
   const needsVehicles =
-    !!selectedIncident && (activeCount === 0 || planShort || selectedIncident.responseNotices.length > 0);
+    !!selectedIncident &&
+    (activeCount === 0 || (planShort && !stationExhausted) || selectedIncident.responseNotices.length > 0);
   const wantsSuggestions = serving || needsVehicles || recommendOpen || extraMode;
   const showSuggestions =
     !isCompleted && wantsSuggestions && (serving ? pickMax > 0 : !isFull || (canAddExtra && extraMode));
@@ -571,6 +577,16 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
         ) : !showSuggestions ? (
           // Đang đáp ứng yêu cầu nhưng Cấp 3 đã đủ xe → banner phía trên đã giải thích.
           serving ? null : <div className="space-y-2 py-2">
+            {stationExhausted && !isCompleted && progress && (
+              <p className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] font-semibold text-amber-800">
+                <ListChecks className="w-3.5 h-3.5 shrink-0 mt-px" />
+                {t('liveMap.cases.reason.planShortNoTeam', {
+                  units: progress.missing
+                    .map((m) => t('liveMap.plan.teams', { count: m.missing, type: unitTypeLabel(m.unitType) }))
+                    .join(' · '),
+                })}
+              </p>
+            )}
             {(isFull || isCompleted) && (
               <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
                 <CheckCircle2 className="w-4 h-4" />

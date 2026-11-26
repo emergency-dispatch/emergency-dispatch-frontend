@@ -206,7 +206,7 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, verdict, threshold, tra
 
 /**
  * Tin báo mới từ người dân (§31.E — AI tự điều phối là luồng chính):
- * - AI đang phân tích / đang điều phối → hiện ở dải AI trên thanh trên cùng (`AiLane`) + marker có vòng trên Live Map,
+ * - AI đang phân tích / đang điều phối → dải AI trên thanh trên cùng (`AiLane`) + tab "AI đang phân tích" của Hàng đợi;
  *   không chặn màn hình, không giữ ca;
  * - AI chuyển cho người (hoặc tự điều phối đang tắt, ca chuyển trạm) → modal giữa màn hình, kèm lý do;
  * - AI đã điều phối → sự cố rời khỏi danh sách chờ duyệt, thông báo "AI đã điều phối" do OperatorAlerts hiện.

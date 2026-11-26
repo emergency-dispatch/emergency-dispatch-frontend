@@ -1,9 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Bot, Eye, Inbox, ListChecks, Loader2, Map as MapIcon, MapPin, Siren } from 'lucide-react';
 import { IncidentRow } from './IncidentRow';
+import { AiQueueCard } from './AiQueueCard';
+import { isAiWorkingUnheld, usePendingTriage, type AiWorkingItem } from './incomingTriage';
 import { IncidentThumbnail } from './IncidentThumbnail';
 import { AutoDispatchBadge } from './AutoDispatchInfo';
-import { autoDispatchVerdictAt, needsOperator, type HandoverReason } from './autoDispatchVerdict';
+import { autoDispatchVerdictAt, type HandoverReason } from './autoDispatchVerdict';
+
+/** Ca AI vừa điều xong nháy ở tab "AI đã điều phối" chừng này. */
+const JUST_DISPATCHED_MS = 8000;
 import { QUEUE_COLUMNS } from './queueColumns';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { useDispatchStore } from '../../../context/DispatchContext';
@@ -14,7 +19,7 @@ import { formatWaitDuration } from '../../../utils/incidentFormat';
 import { Trans, useTranslation } from '../../../i18n';
 import { IncidentCode } from './IncidentCode';
 
-type QueueTab = 'human' | 'ai' | 'dispatched';
+export type QueueTab = 'human' | 'ai' | 'dispatched';
 
 interface IncidentQueueListProps {
   incidents: Incident[];
@@ -36,6 +41,9 @@ interface IncidentQueueListProps {
   onOpenAutoDispatched?: (id: string) => void;
   /** Ca đang mở xem nhanh (tô nền dòng). */
   previewId?: string | null;
+  /** Tab đang xem (trang giữ để mở thẳng tab "AI đang phân tích" từ dải AI / Live Map). */
+  tab: QueueTab;
+  onTabChange: (tab: QueueTab) => void;
 }
 
 interface GroupHeaderProps {
@@ -71,28 +79,57 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
   autoDispatchedIncidents = [],
   onOpenAutoDispatched,
   previewId = null,
+  tab,
+  onTabChange,
 }) => {
   const now = useNow();
   const { t } = useTranslation();
-  const [tab, setTab] = useState<QueueTab>('human');
   const autoOn = !!autoDispatchSettings?.enabled;
   const threshold = autoDispatchSettings ? Math.round(autoDispatchSettings.minConfidence * 100) : null;
 
+  // Giai đoạn AI dùng chung với dải AI trên thanh trên cùng (cùng mốc "đang điều phối") → hai nơi luôn khớp nhau.
+  const triage = usePendingTriage();
+
   // Chia ca chờ duyệt theo ai đang cầm: người (kèm lý do AI chuyển) / AI (đang phân tích hoặc điều phối).
-  const { humanIncidents, aiIncidents, reasons } = useMemo(() => {
+  const { humanIncidents, aiItems, reasons } = useMemo(() => {
+    const itemById = new Map(triage.items.map((item) => [item.incident.id, item] as const));
     const human: Incident[] = [];
-    const ai: Incident[] = [];
+    const ai: AiWorkingItem[] = [];
     const why = new Map<string, HandoverReason>();
     for (const incident of incidents) {
-      const verdict = autoDispatchVerdictAt(incident, autoDispatchSettings, now);
-      if (!needsOperator(verdict)) ai.push(incident);
-      else {
-        human.push(incident);
-        if (verdict.phase === 'handover') why.set(incident.id, verdict.reason);
+      const item = itemById.get(incident.id);
+      if (item && isAiWorkingUnheld(item)) {
+        ai.push(item);
+        continue;
       }
+      const verdict = item?.verdict ?? autoDispatchVerdictAt(incident, autoDispatchSettings, now);
+      human.push(incident);
+      if (verdict.phase === 'handover') why.set(incident.id, verdict.reason);
     }
-    return { humanIncidents: human, aiIncidents: ai, reasons: why };
-  }, [incidents, autoDispatchSettings, now]);
+    // AI đang làm: ca nhận trước lên trước.
+    ai.sort((a, b) => a.incident.createdAt.localeCompare(b.incident.createdAt));
+    return { humanIncidents: human, aiItems: ai, reasons: why };
+  }, [incidents, triage.items, autoDispatchSettings, now]);
+  const aiIncidents = useMemo(() => aiItems.map((item) => item.incident), [aiItems]);
+
+  // Ca vừa rời tay AI mà đã được điều → nháy ở tab "AI đã điều phối" (thấy AI vừa làm xong).
+  const [justDispatched, setJustDispatched] = useState<Set<string>>(new Set());
+  const prevAiIdsRef = useRef<Set<string>>(new Set());
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const aiKey = aiIncidents.map((i) => i.id).join(',');
+  const dispatchedKey = autoDispatchedIncidents.map((i) => i.id).join(',');
+  useEffect(() => {
+    const prev = prevAiIdsRef.current;
+    prevAiIdsRef.current = new Set(aiKey ? aiKey.split(',') : []);
+    const fresh = autoDispatchedIncidents.filter((i) => prev.has(i.id)).map((i) => i.id);
+    if (fresh.length === 0) return;
+    setJustDispatched((s) => new Set([...s, ...fresh]));
+    timersRef.current.push(
+      setTimeout(() => setJustDispatched((s) => new Set([...s].filter((id) => !fresh.includes(id)))), JUST_DISPATCHED_MS)
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiKey, dispatchedKey]);
+  useEffect(() => () => timersRef.current.forEach(clearTimeout), []);
 
   // Tab đang xem (tự điều phối tắt → chỉ một danh sách như cũ).
   const activeTab: QueueTab = autoOn ? tab : 'human';
@@ -167,14 +204,18 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
               key={key}
               role="tab"
               aria-selected={activeTab === key}
-              onClick={() => setTab(key)}
+              onClick={() => onTabChange(key)}
               className={`inline-flex items-center gap-2 px-3 py-2.5 -mb-px border-b-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
                 activeTab === key ? 'border-red-600 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
               {key === 'ai' && <Bot className="w-4 h-4 text-indigo-600" />}
               {label}
-              <span className={`min-w-[1.25rem] px-1.5 rounded-full text-[11px] font-bold tabular-nums ${count > 0 ? tone : 'bg-slate-100 text-slate-400'}`}>
+              <span
+                className={`min-w-[1.25rem] px-1.5 rounded-full text-[11px] font-bold tabular-nums ${count > 0 ? tone : 'bg-slate-100 text-slate-400'} ${
+                  key === 'dispatched' && justDispatched.size > 0 ? 'ring-2 ring-indigo-300 motion-safe:animate-pulse' : ''
+                }`}
+              >
                 {count}
               </span>
             </button>
@@ -194,7 +235,7 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
         </div>
       )}
 
-      {!isLoading && activeTab !== 'dispatched' && listed.length > 0 && (
+      {!isLoading && activeTab === 'human' && listed.length > 0 && (
         <div className="shrink-0 hidden md:flex items-center gap-4 pl-6 pr-6 py-2 border-b border-slate-200 text-[11px] font-semibold text-slate-500">
           <span className={`${QUEUE_COLUMNS.thumbnail} shrink-0`} />
           <span className="flex-1">{t('incidents.queue.columnIncident')}</span>
@@ -222,6 +263,7 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
                 incident={incident}
                 now={now}
                 isSelected={incident.id === previewId}
+                isNew={justDispatched.has(incident.id)}
                 onOpen={() => onOpenAutoDispatched?.(incident.id)}
               />
             ))
@@ -234,7 +276,7 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
             </p>
             {activeTab === 'human' && aiIncidents.length > 0 && (
               <button
-                onClick={() => setTab('ai')}
+                onClick={() => onTabChange('ai')}
                 className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-700 hover:underline"
               >
                 <Bot className="w-4 h-4" />
@@ -251,6 +293,16 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
               </button>
             )}
           </div>
+        ) : activeTab === 'ai' ? (
+          aiItems.map((item) => (
+            <AiQueueCard
+              key={item.incident.id}
+              item={item}
+              now={triage.now}
+              isNew={highlightIds.has(item.incident.id)}
+              onOpen={() => onSelect(item.incident.id)}
+            />
+          ))
         ) : escalated.length === 0 ? (
           waiting.map(renderRow)
         ) : (
@@ -276,12 +328,14 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
  * Dòng ca AI đã tự điều phối (đang xử lý): để Operator giám sát — bấm mở xem nhanh (drawer chỉ xem); đổi mức độ /
  * thu hồi / giao thêm tổ làm trên Live Map.
  */
-const AutoDispatchedRow: React.FC<{ incident: Incident; now: number; isSelected: boolean; onOpen: () => void }> = ({
-  incident,
-  now,
-  isSelected,
-  onOpen,
-}) => {
+const AutoDispatchedRow: React.FC<{
+  incident: Incident;
+  now: number;
+  isSelected: boolean;
+  /** AI vừa điều xong (vừa rời tab "AI đang phân tích") → nháy nền chàm. */
+  isNew: boolean;
+  onOpen: () => void;
+}> = ({ incident, now, isSelected, isNew, onOpen }) => {
   const { t } = useTranslation();
   const { incidentKindLabel } = useDispatchStore();
   const category = INCIDENT_CATEGORY_META[incident.category];
@@ -292,7 +346,7 @@ const AutoDispatchedRow: React.FC<{ incident: Incident; now: number; isSelected:
       onClick={onOpen}
       aria-current={isSelected ? 'true' : undefined}
       className={`w-full flex items-center gap-4 pl-6 pr-6 py-3 text-left border-b border-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
-        isSelected ? 'bg-slate-100' : 'bg-white hover:bg-slate-50'
+        isSelected ? 'bg-slate-100' : isNew ? 'bg-indigo-50 animate-queue-enter' : 'bg-white hover:bg-slate-50'
       }`}
     >
       <IncidentThumbnail incident={incident} className={`${QUEUE_COLUMNS.thumbnail} h-12 shrink-0`} />
