@@ -375,7 +375,6 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 showLocation={false}
                 afterDescription={<AiInsightBlock key={incident.id} incident={incident} />}
                 compact
-                showMedical={false}
               />
             </div>
           )}
