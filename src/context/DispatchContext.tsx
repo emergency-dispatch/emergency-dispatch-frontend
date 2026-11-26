@@ -368,9 +368,11 @@ interface DispatchContextValue {
   incidentsError: string | null;
   /** Sự cố backend đã leo thang (status Escalated). */
   escalatedIncidentIds: Set<string>;
-  /** Live Map đang mở thẩm định / Hồ sơ ca — banner leo thang tự thu gọn và né sang phần bản đồ. */
+  /** Đang mở drawer thẩm định (Hàng đợi) / Hồ sơ ca (Live Map) — banner leo thang tự thu gọn và né sang chỗ trống. */
   incidentDrawerOpen: boolean;
-  setIncidentDrawerOpen: (open: boolean) => void;
+  /** `left` = panel trái của Live Map, `right` = drawer phủ từ bên phải (banner leo thang né theo phía đó). */
+  incidentDrawerSide: 'left' | 'right';
+  setIncidentDrawerOpen: (open: boolean, side?: 'left' | 'right') => void;
   /**
    * Duyệt sự cố. `category` bắt buộc khi sự cố chưa có loại đã xác nhận (Incident.needsEventType) → gửi
    * confirmedEventType.
@@ -511,7 +513,11 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [highlightIncidentIds, setHighlightIncidentIds] = useState<Set<string>>(new Set());
   const [incidentsLoading, setIncidentsLoading] = useState(true);
   const [incidentsError, setIncidentsError] = useState<string | null>(null);
-  const [incidentDrawerOpen, setIncidentDrawerOpen] = useState(false);
+  const [incidentDrawerSide, setIncidentDrawerSide] = useState<'left' | 'right' | null>(null);
+  const setIncidentDrawerOpen = useCallback(
+    (open: boolean, side: 'left' | 'right' = 'right') => setIncidentDrawerSide(open ? side : null),
+    []
+  );
   const [incomingIds, setIncomingIds] = useState<string[]>([]);
   const [escalationTiers, setEscalationTiers] = useState<Map<string, number>>(new Map());
   const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(null);
@@ -1798,7 +1804,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incidentsLoading,
         incidentsError,
         escalatedIncidentIds,
-        incidentDrawerOpen,
+        incidentDrawerOpen: incidentDrawerSide !== null,
+        incidentDrawerSide: incidentDrawerSide ?? 'right',
         setIncidentDrawerOpen,
         approveIncident,
         reviewTrafficJam,

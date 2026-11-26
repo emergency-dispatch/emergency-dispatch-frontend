@@ -8,7 +8,7 @@ import { isAiWorkingUnheld, usePendingTriage } from '../incidents/incomingTriage
 const PENDING_MARKER_Z_INDEX = 4;
 
 /**
- * Ca chờ người thẩm định trên Live Map (AI chuyển / tự điều phối tắt / có người đang giữ). Bấm là mở thẩm định; ca AI đang
+ * Ca chờ người thẩm định trên Live Map (AI chuyển / tự điều phối tắt / có người đang giữ). Bấm là mở thẩm định ở Hàng đợi; ca AI đang
  * làm do `AiWorkingMarkers` vẽ. Tách khỏi LiveMapView vì nguồn giai đoạn AI chạy mỗi giây — chỉ phần này vẽ lại.
  */
 export const PendingCaseMarkers: React.FC<{

@@ -14,6 +14,7 @@ import {
   type AiWorkingItem,
 } from './incidents/incomingTriage';
 import { useTranslation } from '../../i18n';
+import { INCIDENT_QUEUE_PATH } from '../../data/dashboardMock';
 import './aiLane.css';
 
 const LIVE_MAP_PATH = '/dashboard/command-center/live-map';
@@ -68,8 +69,8 @@ export const SegmentBar: React.FC<{ progress: AiProgress; className?: string; he
 };
 
 /**
- * "Mở ca" — mở thẩm định ca AI đang làm. Không giữ khóa nữa (bỏ 2026-11-26) nên không chặn được AI: AI điều xong trước khi
- * Operator duyệt thì ca tự rời panel.
+ * "Mở ca" — mở thẩm định ca AI đang làm ở Hàng đợi. Không giữ khóa nữa (bỏ 2026-11-26) nên không chặn được AI: AI điều xong
+ * trước khi Operator duyệt thì drawer thẩm định tự đóng.
  */
 export const AiTakeOver: React.FC<{ incidentId: string; onDone?: () => void }> = ({ incidentId, onDone }) => {
   const { t } = useTranslation();
@@ -82,7 +83,7 @@ export const AiTakeOver: React.FC<{ incidentId: string; onDone?: () => void }> =
       onClick={() => {
         dismissIncomingIncident(incidentId);
         onDone?.();
-        navigate(LIVE_MAP_PATH, { state: { triageIncidentId: incidentId } });
+        navigate(INCIDENT_QUEUE_PATH, { state: { openIncidentId: incidentId } });
       }}
       className="px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
     >

@@ -75,8 +75,6 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
   const now = useNow();
   const { t } = useTranslation();
   const [tab, setTab] = useState<QueueTab>('human');
-  // Ca AI đang xử lý mà Operator bấm mở → hỏi lại (mở = giữ ca = AI bỏ qua tự điều phối).
-  const [confirmTakeOverId, setConfirmTakeOverId] = useState<string | null>(null);
   const autoOn = !!autoDispatchSettings?.enabled;
   const threshold = autoDispatchSettings ? Math.round(autoDispatchSettings.minConfidence * 100) : null;
 
@@ -117,7 +115,8 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
       isEscalated={escalatedIds.has(incident.id)}
       now={now}
       currentOperatorId={currentOperatorId}
-      onClick={() => (activeTab === 'ai' ? setConfirmTakeOverId(incident.id) : onSelect(incident.id))}
+      // Mở ca AI đang làm không chặn AI (không còn khóa mềm): AI điều xong trước khi duyệt thì drawer tự đóng.
+      onClick={() => onSelect(incident.id)}
       handoverReason={reasons.get(incident.id) ?? null}
       threshold={threshold}
     />
@@ -133,7 +132,6 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
       tone: 'bg-slate-200 text-slate-700',
     },
   ];
-  const confirmIncident = confirmTakeOverId ? aiIncidents.find((i) => i.id === confirmTakeOverId) : undefined;
 
   return (
     <div className="h-full flex flex-col bg-white">
@@ -169,10 +167,7 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
               key={key}
               role="tab"
               aria-selected={activeTab === key}
-              onClick={() => {
-                setTab(key);
-                setConfirmTakeOverId(null);
-              }}
+              onClick={() => setTab(key)}
               className={`inline-flex items-center gap-2 px-3 py-2.5 -mb-px border-b-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
                 activeTab === key ? 'border-red-600 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
@@ -187,30 +182,8 @@ export const IncidentQueueList: React.FC<IncidentQueueListProps> = ({
         </div>
       )}
 
-      {activeTab === 'ai' && confirmIncident && (
-        <div role="alert" className="shrink-0 mx-5 mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 space-y-2">
-          <p>{t('incidents.queue.takeOver.body', { title: confirmIncident.title })}</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setConfirmTakeOverId(null);
-                onSelect(confirmIncident.id);
-              }}
-              className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white font-bold"
-            >
-              {t('incidents.queue.takeOver.confirm')}
-            </button>
-            <button
-              onClick={() => setConfirmTakeOverId(null)}
-              className="px-2.5 py-1 rounded-md border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50"
-            >
-              {t('incidents.queue.takeOver.cancel')}
-            </button>
-          </div>
-        </div>
-      )}
 
-      {activeTab === 'ai' && aiIncidents.length > 0 && !confirmIncident && (
+      {activeTab === 'ai' && aiIncidents.length > 0 && (
         <p className="shrink-0 mx-6 mt-3 text-xs text-slate-500">{t('incidents.queue.aiTabHint')}</p>
       )}
 

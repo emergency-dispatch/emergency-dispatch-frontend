@@ -13,13 +13,14 @@ import { IncidentCode } from './incidents/IncidentCode';
  * Escalated (Cấp 3 chưa có đội nhận quá ngưỡng cấu hình). Tự biến mất khi có đơn vị nhận.
  */
 export const EscalationAlert: React.FC = () => {
-  const { incidents, escalatedIncidentIds, incidentDrawerOpen, escalationSettings, escalationTiers } = useDispatchStore();
+  const { incidents, escalatedIncidentIds, incidentDrawerOpen, incidentDrawerSide, escalationSettings, escalationTiers } =
+    useDispatchStore();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const now = useNow(15000);
   // Thu gọn theo "bộ sự cố" hiện tại — có sự cố mới leo thang thì banner tự mở lại.
   const [collapsedKey, setCollapsedKey] = useState<string | null>(null);
-  // Khi panel thẩm định / Hồ sơ ca đang mở, banner mặc định thu gọn; bấm nút nhỏ để xem nhanh ("peek").
+  // Khi drawer thẩm định / Hồ sơ ca đang mở, banner mặc định thu gọn; bấm nút nhỏ để xem nhanh ("peek").
   const [peekKey, setPeekKey] = useState<string | null>(null);
 
   const escalated = incidents.filter((i) => escalatedIncidentIds.has(i.id));
@@ -31,20 +32,30 @@ export const EscalationAlert: React.FC = () => {
   const expand = () => (incidentDrawerOpen ? setPeekKey(key) : setCollapsedKey(null));
   const collapse = () => (incidentDrawerOpen ? setPeekKey(null) : setCollapsedKey(key));
 
+  // Drawer thẩm định của Hàng đợi chiếm tối đa 48rem bên phải → đặt banner giữa vùng còn trống bên trái để không che.
+  const besideRightDrawer = incidentDrawerOpen && incidentDrawerSide === 'right';
+  const positionStyle = (halfWidth: string): React.CSSProperties =>
+    besideRightDrawer ? { left: `max(1rem, calc((100vw - 48rem) / 2 - ${halfWidth}))` } : {};
   // Panel trái Live Map đang rộng (thanh bên 64px + min(760px, 58vw)) → đặt banner giữa phần bản đồ còn lại.
-  const centeredClass = incidentDrawerOpen
-    ? 'left-1/2 lg:left-[calc(50%+32px+min(380px,29vw))] -translate-x-1/2'
-    : 'left-1/2 -translate-x-1/2';
-  const widthClass = incidentDrawerOpen
-    ? 'w-[min(640px,calc(100%-2rem))] lg:w-[min(640px,calc(100vw-96px-min(760px,58vw)))]'
-    : 'w-[min(640px,calc(100%-2rem))]';
+  const centeredClass = besideRightDrawer
+    ? ''
+    : incidentDrawerOpen
+      ? 'left-1/2 lg:left-[calc(50%+32px+min(380px,29vw))] -translate-x-1/2'
+      : 'left-1/2 -translate-x-1/2';
+  const widthClass =
+    incidentDrawerOpen && !besideRightDrawer
+      ? 'w-[min(640px,calc(100%-2rem))] lg:w-[min(640px,calc(100vw-96px-min(760px,58vw)))]'
+      : 'w-[min(640px,calc(100%-2rem))]';
   const thresholdMinutes = escalationThresholdMinutes(now, escalationSettings);
   const thresholdLabel =
     t('layout.escalation.threshold', { minutes: thresholdMinutes.toLocaleString(dateLocale()) }) +
     (isNightShift(now, escalationSettings) ? t('layout.escalation.nightShift') : '');
 
-  const openIncident = (id: string) =>
-    navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: id } });
+  // Ca chờ duyệt → mở thẩm định ở Hàng đợi; ca đã duyệt → Chi tiết ca trên Live Map.
+  const openIncident = (id: string, status: string) => {
+    if (status === 'pending') navigate('/dashboard/command-center/incidents', { state: { openIncidentId: id } });
+    else navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: id } });
+  };
 
   return (
     <>
@@ -53,6 +64,7 @@ export const EscalationAlert: React.FC = () => {
       {collapsed ? (
         <button
           onClick={expand}
+          style={positionStyle('6rem')}
           className={`fixed top-20 ${centeredClass} z-[1501] px-3.5 py-2 rounded-full bg-red-600 text-white text-xs font-bold shadow-xl shadow-red-900/30 hover:bg-red-700`}
         >
           {/* Nhấp nháy bằng vòng lan ra phía sau — nền nút giữ đỏ đặc để chữ trắng luôn đọc được. */}
@@ -65,6 +77,7 @@ export const EscalationAlert: React.FC = () => {
       ) : (
         <div
           role="alert"
+          style={positionStyle('320px')}
           className={`fixed top-20 ${centeredClass} z-[1501] ${widthClass} rounded-xl bg-red-600 text-white shadow-2xl shadow-red-900/30`}
         >
           <div className="flex items-start gap-3 px-4 pt-3.5 pb-2">
@@ -117,7 +130,7 @@ export const EscalationAlert: React.FC = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => openIncident(incident.id)}
+                    onClick={() => openIncident(incident.id, incident.status)}
                     className="px-2.5 py-1 rounded-md bg-white text-red-700 text-[11px] font-bold hover:bg-red-50 shrink-0"
                   >
                     {incident.status === 'pending' ? t('layout.escalation.verify') : t('layout.escalation.dispatch')}

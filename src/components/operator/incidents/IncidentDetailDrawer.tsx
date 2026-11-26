@@ -93,9 +93,10 @@ interface IncidentDetailDrawerProps {
 }
 
 /**
- * Thẩm định một ca chờ duyệt trong panel trái Live Map (trạng thái mở / gửi do `useIncidentTriage` lo): cột trái là bằng chứng
- * (ảnh, ghi âm, mô tả người báo + AI mô tả ảnh), cột phải là quyết định (lý do AI chuyển ca, nhận định AI, loại, mức độ,
- * nút duyệt / hủy / chuyển trạm) luôn nằm trong tầm mắt. Panel hẹp → cột quyết định xuống đáy. Ca đã duyệt xem ở `CaseDossierPanel`.
+ * Thẩm định một ca chờ duyệt trong drawer của Hàng đợi (FR-OP-02/03; trạng thái mở / gửi do `useIncidentTriage` lo). Một cột:
+ * phần trên cuộn là bằng chứng (lý do AI chuyển ca, ảnh, ghi âm, mô tả người báo + nhận định AI), dải dưới đáy là quyết định
+ * (loại, mức độ, lực lượng sẽ điều, ghi đè, ùn tắc, nút duyệt / hủy / chuyển trạm) luôn nằm trong tầm mắt.
+ * Ca đã duyệt xem ở `CaseDossierPanel` (Live Map).
  */
 export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   incident,
@@ -346,8 +347,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
         ))}
       </div>
 
-      {/* Thân panel: cột trái = bằng chứng (cuộn riêng); cột phải = quyết định, luôn thấy. Panel hẹp → cột quyết định xuống đáy. */}
-      <div className="flex-1 min-h-0 flex flex-col xl:flex-row">
+      {/* Thân drawer một cột: bằng chứng cuộn riêng ở trên, dải quyết định dính đáy. */}
+      <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex-1 min-h-0 min-w-0 overflow-y-auto">
           {tab === 'history' ? (
             <div className="p-5">
@@ -366,8 +367,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
             </div>
           ) : (
             <div className="p-5">
-              {/* Panel hẹp: lý do AI chuyển ca đặt đầu cột (cột quyết định nằm dưới đáy). */}
-              <div className="xl:hidden mb-4 empty:hidden">
+              {/* Lý do AI chuyển ca đặt đầu phần bằng chứng. */}
+              <div className="mb-4 empty:hidden">
                 <AutoDispatchBanner incident={incident} compact />
               </div>
               <ReporterEvidence
@@ -383,9 +384,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
           )}
         </div>
 
-        {/* Cột quyết định của Điều phối viên */}
-        {/* Cả cột cuộn chung; hàng nút đi ngay sau nội dung, cột dài thì dính đáy (sticky) — không để khoảng trống giữa cột. */}
-        <div className="shrink-0 flex flex-col min-h-0 max-h-[50vh] xl:max-h-none xl:w-[300px] overflow-y-auto border-t xl:border-t-0 xl:border-l border-slate-200 bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.08)] xl:shadow-none">
+        {/* Dải quyết định của Điều phối viên: cuộn chung, hàng nút dính đáy (sticky). */}
+        <div className="shrink-0 flex flex-col min-h-0 max-h-[50vh] overflow-y-auto border-t border-slate-200 bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
           <div className="p-4 space-y-3.5">
             {mode === 'transfer' ? (
               <section className="space-y-2.5">
@@ -423,10 +423,6 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
               <CancelCaseFields incident={incident} value={cancelInput} onChange={setCancelInput} />
             ) : (
               <>
-                <div className="hidden xl:block xl:empty:hidden">
-                  <AutoDispatchBanner incident={incident} compact />
-                </div>
-
                 <div className="space-y-3.5">
                   {incident.needsEventType && (
                     <div>
@@ -475,7 +471,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                     <p className={DOCK_LABEL}>{t('incidents.drawer.levelLabel')}</p>
                     {/* Mỗi mức một hàng: vạch màu cấp + số tổ sẽ điều theo kế hoạch (BR-14) → thấy ngay hệ quả của lựa chọn. */}
                     <div
-                      className="grid gap-1.5 sm:grid-cols-3 xl:grid-cols-1"
+                      className="grid gap-1.5 sm:grid-cols-3"
                       role="radiogroup"
                       aria-label={t('incidents.drawer.confirmSeverity')}
                     >
@@ -580,7 +576,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
             )}
           </div>
 
-          {/* Hàng nút chốt: một hàng; cột dọc (xl) thì dòng gợi ý lên trên, nút chính giãn hết chỗ còn lại. */}
+          {/* Hàng nút chốt: một hàng — nút phụ bên trái, gợi ý còn thiếu ở giữa, nút chính bên phải. */}
           <div className="sticky bottom-0 z-10 shrink-0 flex flex-wrap items-center gap-2 px-4 py-3 border-t border-slate-100 bg-white">
             {mode === 'transfer' ? (
               <>
@@ -594,7 +590,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 <button
                   onClick={handleConfirmTransfer}
                   disabled={!canTransfer}
-                  className="order-2 ml-auto xl:ml-0 xl:flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+                  className="order-2 ml-auto flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
                   {t('incidents.drawer.confirmTransfer')}
@@ -612,7 +608,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 <button
                   onClick={handleConfirmReject}
                   disabled={isSubmitting || !canAct}
-                  className="order-2 ml-auto xl:ml-0 xl:flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm shadow-lg shadow-red-600/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500"
+                  className="order-2 ml-auto flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm shadow-lg shadow-red-600/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
                   {t('incidents.drawer.confirmReject')}
@@ -624,21 +620,20 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                   onClick={() => setMode('reject')}
                   disabled={isSubmitting || !canAct}
                   title={t('incidents.drawer.rejectTitle')}
-                  className="order-1 xl:order-2 flex items-center justify-center gap-2 px-3.5 py-3 rounded-xl border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 font-bold text-sm whitespace-nowrap transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+                  className="order-1 flex items-center justify-center gap-2 px-3.5 py-3 rounded-xl border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 font-bold text-sm whitespace-nowrap transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
                 >
                   <Ban className="w-4 h-4 shrink-0" />
-                  <span className="xl:hidden">{t('incidents.drawer.rejectTitle')}</span>
-                  <span className="hidden xl:inline">{t('incidents.drawer.rejectShort')}</span>
+                  {t('incidents.drawer.rejectTitle')}
                 </button>
                 {decisionHint && (
-                  <p role="status" className="order-2 xl:order-1 flex-1 xl:basis-full min-w-[10rem] text-right xl:text-left text-xs text-slate-500">
+                  <p role="status" className="order-2 flex-1 min-w-[10rem] text-right text-xs text-slate-500">
                     {decisionHint}
                   </p>
                 )}
                 <button
                   onClick={handleApprove}
                   disabled={!canApprove}
-                  className="order-3 ml-auto xl:ml-0 xl:flex-1 flex items-center justify-center gap-2 px-6 xl:px-3 py-3 min-w-[14rem] xl:min-w-0 whitespace-nowrap rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition-colors disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500"
+                  className="order-3 ml-auto flex items-center justify-center gap-2 px-6 py-3 min-w-[14rem] whitespace-nowrap rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition-colors disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CircleCheck className="w-4 h-4" />}
                   {t('incidents.drawer.approve')}

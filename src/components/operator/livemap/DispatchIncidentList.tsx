@@ -285,7 +285,7 @@ const CaseCard: React.FC<CaseCardProps> = ({
 interface DispatchIncidentListProps {
   selectedIncidentId: string | null;
   onSelectIncident: (id: string | null) => void;
-  /** Mở thẩm định ca chờ duyệt ngay trong panel. */
+  /** Mở thẩm định ca chờ duyệt ở Hàng đợi. */
   onOpenTriage: (id: string) => void;
   panelError: string | null;
   onClearError: () => void;
@@ -300,7 +300,7 @@ interface DispatchIncidentListProps {
 /**
  * Tầng 1 của panel trái Live Map — "Theo dõi ca": mọi ca của trạm, nhóm theo việc cần làm
  * (Cần xử lý → Đang diễn ra → Vừa hoàn tất). Ca AI đang phân tích / điều phối nằm đầu nhóm Đang diễn ra; ca AI chuyển cho
- * người nằm ở Cần xử lý, "Thẩm định" mở ngay trong panel. Thao tác chi tiết (thu hồi xe, hủy ca, giao thêm) ở Chi tiết ca.
+ * người nằm ở Cần xử lý, "Thẩm định" mở sang Hàng đợi. Thao tác chi tiết (thu hồi xe, hủy ca, giao thêm) ở Chi tiết ca.
  */
 export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
   selectedIncidentId,
@@ -395,7 +395,7 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
 
   const total = GROUP_ORDER.reduce((sum, g) => sum + countOf(g), 0);
 
-  // Ca chờ duyệt mở thẩm định; ca đã duyệt mở Chi tiết ca.
+  // Ca chờ duyệt mở thẩm định ở Hàng đợi; ca đã duyệt mở Chi tiết ca.
   const handleOpen = (incident: Incident) => {
     if (incident.status === 'pending') onOpenTriage(incident.id);
     else onSelectIncident(incident.id);

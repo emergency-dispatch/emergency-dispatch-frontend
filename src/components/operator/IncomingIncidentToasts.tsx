@@ -21,9 +21,9 @@ import { useNow } from '../../hooks/useNow';
 import { useDispatchStore, type IncomingTransferNote } from '../../context/DispatchContext';
 import type { Incident } from '../../types/incident';
 import { useTranslation } from '../../i18n';
+import { INCIDENT_QUEUE_PATH } from '../../data/dashboardMock';
 import { IncidentCode } from './incidents/IncidentCode';
 
-const LIVE_MAP_PATH = '/dashboard/command-center/live-map';
 
 interface ModalProps {
   incident: Incident;
@@ -234,7 +234,7 @@ export const IncomingIncidentToasts: React.FC = () => {
       onDismiss={() => dismissIncomingIncident(human.incident.id)}
       onReview={() => {
         dismissIncomingIncident(human.incident.id);
-        navigate(LIVE_MAP_PATH, { state: { triageIncidentId: human.incident.id } });
+        navigate(INCIDENT_QUEUE_PATH, { state: { openIncidentId: human.incident.id } });
       }}
     />
   );

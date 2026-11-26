@@ -44,11 +44,11 @@ interface QueueDispatchDrawerProps {
 
 /**
  * FR-OP-04: bước "Điều xe" ngay sau khi duyệt trong Hàng đợi — giao xe lần đầu mà không phải sang Live Map.
- * Operator vẫn giữ khóa mềm (duyệt không nhả khóa) nên không ai chen vào giao xe giữa hai bước.
+ * Không giữ khóa mềm (bỏ 2026-11-26: mỗi trạm một Operator mỗi ca làm).
  * Giao thêm xe vượt giới hạn Cấp 1–2, giao lại khi đội từ chối, chi viện... vẫn làm trên Live Map.
  */
 export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incidentId, onClose, onOpenLiveMap }) => {
-  const { incidents, vehicles, stations, escalatedIncidentIds, assignTeam, vehicleLimitFor, assignmentsByIncident } =
+  const { incidents, vehicles, stations, escalatedIncidentIds, assignTeams, vehicleLimitFor, assignmentsByIncident } =
     useDispatchStore();
   const assignmentTeam = useAssignmentTeam();
   const teamByVehicle = useTeamByVehicle();
@@ -95,8 +95,8 @@ export const QueueDispatchDrawer: React.FC<QueueDispatchDrawerProps> = ({ incide
   const handleAssign = async (team: DispatchTeamCandidate) => {
     setAssigningTeamId(team.teamId);
     setError(null);
-    const result = await assignTeam(
-      { teamId: team.teamId, teamName: team.teamName, unitType: optionOf(team).unitType },
+    const result = await assignTeams(
+      [{ teamId: team.teamId, teamName: team.teamName, unitType: optionOf(team).unitType }],
       incidentId,
       algorithm
     );
