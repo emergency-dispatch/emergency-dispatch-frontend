@@ -1,8 +1,61 @@
 import type { StaffMission, MissionStatus, DigitalClosureReport } from '../../../types/staff';
 import type { DispatchAssignmentResponseDto } from '../../../types/dispatch';
 import type { RouteResult } from '../../../services/routingService';
+import type { IncidentCategory, SeverityLevel } from '../../../types/incident';
+import type { DispatchVehicleType, VehicleStatus } from '../../../types/vehicle';
 
 export { formatShortId } from '../../../utils/incidentFormat';
+
+/** Phân loại danh mục sự cố sang IncidentCategory tương thích Live Map Operator */
+export function resolveIncidentCategory(
+  title?: string,
+  description?: string,
+  hazardTags?: string[]
+): IncidentCategory {
+  const text = `${title || ''} ${description || ''}`.toLowerCase();
+  if (
+    hazardTags?.some((h) => h.includes('fire') || h.includes('flame')) ||
+    text.includes('cháy') ||
+    text.includes('hỏa hoạn') ||
+    text.includes('khói') ||
+    text.includes('nổ') ||
+    text.includes('fire')
+  ) {
+    return 'fire';
+  }
+  if (
+    hazardTags?.some((h) => h.includes('accident') || h.includes('traffic')) ||
+    text.includes('tai nạn') ||
+    text.includes('va chạm') ||
+    text.includes('đâm') ||
+    text.includes('lật') ||
+    text.includes('accident')
+  ) {
+    return 'accident';
+  }
+  if (text.includes('sos') || text.includes('cứu hộ') || text.includes('mắc kẹt') || text.includes('chìm')) {
+    return 'unknown';
+  }
+  return 'other';
+}
+
+/** Chuyển đổi mã loại phương tiện sang DispatchVehicleType dùng icon 3D của Operator */
+export function resolveDispatchVehicleType(type?: string): DispatchVehicleType {
+  if (!type) return 'rescue';
+  const t = type.toLowerCase();
+  if (t.includes('fire') || t.includes('cháy') || t.includes('ladder')) return 'fire_truck';
+  if (t.includes('ambulance') || t.includes('thương') || t.includes('cấp cứu') || t.includes('y tế')) return 'ambulance';
+  return 'rescue';
+}
+
+/** Chuyển đổi trạng thái nhiệm vụ sang VehicleStatus hiển thị chấm trạng thái xe 3D */
+export function resolveDispatchVehicleStatus(status?: string): VehicleStatus {
+  if (status === 'on_scene') return 'on_scene';
+  if (status === 'en_route') return 'en_route';
+  if (status === 'accepted') return 'accepted';
+  if (status === 'completed') return 'recovering';
+  return 'en_route';
+}
 
 export const isGuid = (val?: string): boolean =>
   typeof val === 'string' &&
@@ -163,6 +216,7 @@ export function mapAssignmentDtoToMission(
   fallbackVehiclePlate?: string,
   routeResult?: RouteResult,
   incidentDetails?: {
+    code?: string | null;
     reporterName?: string | null;
     reporterPhone?: string | null;
     verifiedByName?: string | null;

@@ -74,6 +74,7 @@ describe('validateEscalationSettings', () => {
     radiusMultiplier: 2,
     maxRadiusKm: 30,
     fieldRequestThresholdMinutes: 5,
+    acceptTimeoutMinutes: 3,
   };
 
   it('hợp lệ', () => {
