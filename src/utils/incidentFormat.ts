@@ -173,6 +173,19 @@ export function formatCitizenDispatchStatus(dispatchStatus?: string | null): str
   }
 }
 
+export const isAudioMediaUrl = (url?: string | null): boolean => {
+  if (!url) return false;
+  const lower = url.toLowerCase().split('?')[0];
+  return (
+    lower.includes('/emergency_dispatch/audio/') ||
+    lower.includes('/video/authenticated/') ||
+    /\.(m4a|mp3|aac|wav|ogg|opus|weba)$/.test(lower)
+  );
+};
+
+export const isVideoMediaUrl = (url?: string | null): boolean =>
+  Boolean(url && !isAudioMediaUrl(url) && /\.(mp4|mov|webm)$/.test(url.toLowerCase().split('?')[0]));
+
 export const isGuid = (val?: string | null): boolean =>
   typeof val === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { incidentService } from '../../../services/incidentService';
-import { formatDateTime } from '../../../utils/incidentFormat';
+import { formatDateTime, isAudioMediaUrl } from '../../../utils/incidentFormat';
 import { CATEGORY_FROM_EVENT_TYPE, type BackendEventType, type LinkedReportDto } from '../../../types/incident';
 import { showToast } from '../../admin/common/toastStore';
 import i18n, { dateLocale, useTranslation } from '../../../i18n';
@@ -184,7 +184,8 @@ export const LinkedReportsPanel: React.FC<LinkedReportsPanelProps> = ({
             const isBusy = busyId === report.incidentId;
             const reportedType = eventTypeLabel(report.reportedEventType);
             const yoloType = eventTypeLabel(report.quickCheckEventType);
-            const extraMedia = report.mediaUrls.length - MAX_THUMBS;
+            const visualMediaUrls = report.mediaUrls.filter((u) => Boolean(u) && !isAudioMediaUrl(u));
+            const extraMedia = visualMediaUrls.length - MAX_THUMBS;
             return (
               <li
                 key={report.incidentId}
@@ -255,9 +256,9 @@ export const LinkedReportsPanel: React.FC<LinkedReportsPanelProps> = ({
                   </div>
                 )}
 
-                {report.mediaUrls.length > 0 && (
+                {visualMediaUrls.length > 0 && (
                   <div className="flex gap-1.5">
-                    {report.mediaUrls.slice(0, MAX_THUMBS).map((url) => (
+                    {visualMediaUrls.slice(0, MAX_THUMBS).map((url) => (
                       <a
                         key={url}
                         href={url}

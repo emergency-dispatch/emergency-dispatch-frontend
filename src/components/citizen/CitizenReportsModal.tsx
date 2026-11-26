@@ -29,7 +29,7 @@ import { incidentService } from '../../services/incidentService';
 import { incidentHubService, HubEvents } from '../../services/realtime/incidentHubService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { IncidentResponseDto } from '../../types/incident';
-import { getIncidentVisualMeta } from '../../utils/incidentFormat';
+import { getIncidentVisualMeta, isAudioMediaUrl, isVideoMediaUrl } from '../../utils/incidentFormat';
 import { CitizenSupplementModal } from './CitizenSupplementModal';
 import { AudioEvidencePlayer } from '../common/AudioEvidencePlayer';
 import { useTranslation } from '../../i18n';
@@ -100,27 +100,29 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
           linkedToIncidentId: item.linkedToIncidentId,
           linkedTo: item.linkedToIncidentId
             ? {
-                incidentId: item.linkedToIncidentId,
-                code: item.linkedToIncidentCode ?? undefined,
-                title: item.linkedToIncidentTitle ?? '',
-                locationAddress: item.linkedToIncidentAddress ?? '',
-                eventType: 'None',
-                status: item.linkedToIncidentStatus ?? 'Verified',
-                distanceMeters: 0,
-                assignedUnitPlates: [],
-              }
+              incidentId: item.linkedToIncidentId,
+              code: item.linkedToIncidentCode ?? undefined,
+              title: item.linkedToIncidentTitle ?? '',
+              locationAddress: item.linkedToIncidentAddress ?? '',
+              eventType: 'None',
+              status: item.linkedToIncidentStatus ?? 'Verified',
+              distanceMeters: 0,
+              assignedUnitPlates: [],
+            }
             : undefined,
           reportedEventType: item.reportedEventType,
           createdAt: item.reportedAt,
           updatedAt: item.reportedAt,
           verifiedAt: item.verifiedAt,
-          mediaItems: (item.mediaUrls || []).map((url, idx) => ({
-            id: `${item.id}-media-${idx}`,
-            incidentId: item.id,
-            mediaUrl: url,
-            mediaType: (url.toLowerCase().endsWith('.mp4') ? 'Video' : 'Image') as any,
-            uploadedAt: item.reportedAt,
-          })),
+          mediaItems: (item.mediaUrls || [])
+            .filter((url) => Boolean(url) && !isAudioMediaUrl(url))
+            .map((url, idx) => ({
+              id: `${item.id}-media-${idx}`,
+              incidentId: item.id,
+              mediaUrl: url,
+              mediaType: (isVideoMediaUrl(url) ? 'Video' : 'Image') as any,
+              uploadedAt: item.reportedAt,
+            })),
         } as IncidentResponseDto));
 
         // Chỉ gọi chi tiết bù nếu backend chưa trả linkedToIncidentId cho ca Linked / Cancelled (Duplicate)
@@ -220,7 +222,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
       try {
         await incidentHubService.start();
         for (const id of watchIds) {
-          await incidentHubService.invoke('SubscribeIncident', id).catch(() => {});
+          await incidentHubService.invoke('SubscribeIncident', id).catch(() => { });
         }
         subscribed = true;
       } catch {
@@ -248,7 +250,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
     return () => {
       if (subscribed) {
         watchIds.forEach((id) => {
-          incidentHubService.invoke('UnsubscribeIncident', id).catch(() => {});
+          incidentHubService.invoke('UnsubscribeIncident', id).catch(() => { });
         });
       }
       u1();
@@ -429,8 +431,8 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
               const displayTitle = isTypeKnown
                 ? visual.label
                 : incident.title && !incident.title.includes('Tín hiệu') && !incident.title.includes('SOS')
-                ? incident.title
-                : t('citizen.reports.incidentTypes.sosSignal');
+                  ? incident.title
+                  : t('citizen.reports.incidentTypes.sosSignal');
               const dateFormatted = new Date(incident.createdAt).toLocaleString(
                 i18n.language === 'en' ? 'en-US' : 'vi-VN',
                 {
@@ -523,30 +525,44 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
 
                   {/* Attached Media Photos & Audio (§55) */}
                   {(() => {
-                    const visualItems = (incident.mediaItems || []).filter((m) => m.mediaType !== 'Audio');
-                    const audioItems = (incident.mediaItems || []).filter((m) => m.mediaType === 'Audio');
+                    const isAudioItem = (m: IncidentResponseDto['mediaItems'][number]) =>
+                      String(m.mediaType) === 'Audio' || (m.mediaType as any) === 2 || isAudioMediaUrl(m.mediaUrl);
+                    const visualItems = (incident.mediaItems || []).filter((m) => Boolean(m.mediaUrl) && !isAudioItem(m));
+                    const audioItems = (incident.mediaItems || []).filter((m) => String(m.mediaType) === 'Audio' || (m.mediaType as any) === 2);
                     return (
                       <>
                         {visualItems.length > 0 && (
                           <div className="flex items-center gap-2 pt-1 overflow-x-auto">
-                            {visualItems.map((media) => (
-                              <a
-                                key={media.id}
-                                href={media.mediaUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="relative group shrink-0"
-                              >
-                                <img
-                                  src={media.mediaUrl}
-                                  alt="Media"
-                                  className="w-14 h-14 object-cover rounded-lg border border-slate-200 group-hover:opacity-85 transition-opacity"
-                                />
-                                <div className="absolute inset-0 bg-black/30 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
-                                  <ExternalLink className="w-4 h-4" />
-                                </div>
-                              </a>
-                            ))}
+                            {visualItems.map((media) => {
+                              const isVid = String(media.mediaType) === 'Video' || (media.mediaType as any) === 1 || isVideoMediaUrl(media.mediaUrl);
+                              return (
+                                <a
+                                  key={media.id}
+                                  href={media.mediaUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="relative group shrink-0"
+                                >
+                                  {isVid ? (
+                                    <video
+                                      src={media.mediaUrl}
+                                      preload="metadata"
+                                      muted
+                                      className="w-14 h-14 object-cover rounded-lg border border-slate-200 bg-black"
+                                    />
+                                  ) : (
+                                    <img
+                                      src={media.mediaUrl}
+                                      alt="Media"
+                                      className="w-14 h-14 object-cover rounded-lg border border-slate-200 group-hover:opacity-85 transition-opacity"
+                                    />
+                                  )}
+                                  <div className="absolute inset-0 bg-black/30 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                                    <ExternalLink className="w-4 h-4" />
+                                  </div>
+                                </a>
+                              );
+                            })}
                           </div>
                         )}
                         {audioItems.length > 0 && (
@@ -576,33 +592,30 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                     const isEn = i18n.language === 'en';
                     return (
                       <div
-                        className={`p-3 rounded-xl border text-xs space-y-2 ${
-                          isParentClosed
-                            ? 'bg-slate-50 border-slate-200'
-                            : 'bg-indigo-50/80 border-indigo-200'
-                        }`}
+                        className={`p-3 rounded-xl border text-xs space-y-2 ${isParentClosed
+                          ? 'bg-slate-50 border-slate-200'
+                          : 'bg-indigo-50/80 border-indigo-200'
+                          }`}
                       >
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <div
-                            className={`flex items-center gap-1.5 font-bold ${
-                              isParentClosed ? 'text-slate-700' : 'text-indigo-900'
-                            }`}
+                            className={`flex items-center gap-1.5 font-bold ${isParentClosed ? 'text-slate-700' : 'text-indigo-900'
+                              }`}
                           >
                             <Link2
-                              className={`w-4 h-4 shrink-0 ${
-                                isParentClosed ? 'text-slate-500' : 'text-indigo-600'
-                              }`}
+                              className={`w-4 h-4 shrink-0 ${isParentClosed ? 'text-slate-500' : 'text-indigo-600'
+                                }`}
                             />
                             <span>
                               {isParentCompleted
                                 ? (isEn
-                                    ? `Original incident${codeTag} has been resolved.`
-                                    : `Sự cố gốc${codeTag} đã được xử lý xong.`)
+                                  ? `Original incident${codeTag} has been resolved.`
+                                  : `Sự cố gốc${codeTag} đã được xử lý xong.`)
                                 : isParentCancelled
-                                ? (isEn
+                                  ? (isEn
                                     ? `Original incident${codeTag} has been cancelled.`
                                     : `Sự cố gốc${codeTag} đã bị hủy.`)
-                                : (isEn
+                                  : (isEn
                                     ? `Duplicate report linked to incident${codeTag} (currently being handled).`
                                     : `Đã có người báo cáo sự cố${codeTag} và trung tâm đang xử lý.`)}
                             </span>
