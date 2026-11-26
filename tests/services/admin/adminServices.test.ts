@@ -478,6 +478,21 @@ describe('overviewAdminService', () => {
             unit({ id: 'g', status: 'OutOfService', plateNumber: 'O-1' }),
           ]),
         );
+      if (url === '/dashboard/stats')
+        return Promise.resolve(
+          apiOk({
+            totalOperators: 4,
+            totalRescueStaff: 12,
+            totalCitizens: 300,
+            activeIncidents: 0,
+            pendingIncidents: 0,
+            dispatchedIncidents: 0,
+            escalatedIncidents: 0,
+            recentIncidents: [],
+          }),
+        );
+      if (url === '/equipment')
+        return Promise.resolve(apiOk([]));
       const counts: Record<string, number> = { Operator: 4, RescueStaff: 12, Citizen: 300 };
       return Promise.resolve(apiOk(page([], 1, counts[config?.params?.role ?? ''])));
     });

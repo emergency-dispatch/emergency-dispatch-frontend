@@ -331,6 +331,227 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     }
   }, []);
 
+  // Đồng bộ hoặc tạo mới Vehicle Marker (3D vehicle icon như Operator Live Map)
+  const syncVehicleMarker = useCallback(
+    (targetMap: mapboxgl.Map) => {
+      if (!targetMap) return;
+
+      // Tính hướng đầu xe theo chặng hiện tại
+      const currentStep = mission.routeSteps?.[currentStepIndex];
+      const nextStep = mission.routeSteps?.[currentStepIndex + 1];
+      let heading = 45;
+      if (currentStep && nextStep) {
+        heading = calculateHeading([currentStep.lng, currentStep.lat], [nextStep.lng, nextStep.lat]);
+      }
+
+      const vType = resolveDispatchVehicleType(mission.vehicleType);
+      const vStatus = resolveDispatchVehicleStatus(mission.status);
+
+      const isAttached = vehicleMarkerRef.current && vehicleMarkerRef.current.getElement()?.parentNode;
+
+      if (!vehicleMarkerRef.current || !isAttached) {
+        if (vehicleMarkerRef.current) {
+          vehicleMarkerRef.current.remove();
+          vehicleMarkerRef.current = null;
+        }
+
+        const el = document.createElement('div');
+        el.className = 'cursor-pointer select-none';
+        el.style.zIndex = '10';
+        el.innerHTML = `
+          <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
+            <div class="staff-vehicle-3d-wrapper" style="transform: rotate(${heading}deg); transition: transform 0.4s ease;">
+              ${vehicle3dMarkerHtml(vType, vStatus, true)}
+            </div>
+
+            <div style="margin-top: 4px; white-space: nowrap; background: #0F172A; color: #FFFFFF; border: 1.5px solid #EF4444; padding: 2px 8px; border-radius: 6px; font-family: monospace; font-size: 11px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 5px;">
+              <span style="width: 7px; height: 7px; border-radius: 9999px; background: #22C55E; box-shadow: 0 0 8px #22C55E;"></span>
+              <span>${mission.vehiclePlate}</span>
+            </div>
+          </div>
+        `;
+
+        const popup = new mapboxgl.Popup({ offset: 25, closeButton: false }).setHTML(`
+          <div class="p-1 font-mono text-xs">
+            <div class="font-bold text-red-600 text-sm flex items-center gap-1.5">
+              <span>${mission.vehiclePlate}</span>
+              <span class="px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-700 font-bold">KÍP XE CNCH</span>
+            </div>
+            <div class="text-slate-700 mt-1 font-sans font-medium">Vị trí hiện tại kíp xe đang tác chiến</div>
+            <div class="text-slate-500 mt-0.5 text-[11px] font-mono">${mission.vehicleLat.toFixed(4)}, ${mission.vehicleLng.toFixed(4)}</div>
+          </div>
+        `);
+
+        const marker = new mapboxgl.Marker({ element: el })
+          .setLngLat([mission.vehicleLng, mission.vehicleLat])
+          .setPopup(popup)
+          .addTo(targetMap);
+
+        vehicleMarkerRef.current = marker;
+      } else {
+        vehicleMarkerRef.current.setLngLat([mission.vehicleLng, mission.vehicleLat]);
+
+        // Xoay hình xe 3D theo heading mới
+        const arrowIcon = vehicleMarkerRef.current.getElement().querySelector('.staff-vehicle-3d-wrapper') as HTMLElement;
+        if (arrowIcon) {
+          arrowIcon.style.transform = `rotate(${heading}deg)`;
+        }
+      }
+    },
+    [
+      mission.vehicleLat,
+      mission.vehicleLng,
+      mission.vehiclePlate,
+      mission.vehicleType,
+      mission.status,
+      currentStepIndex,
+      mission.routeSteps,
+    ]
+  );
+
+  // Đồng bộ hoặc tạo mới Incident Target Marker (Quầng sáng như Operator)
+  const syncIncidentMarker = useCallback(
+    (targetMap: mapboxgl.Map) => {
+      if (!targetMap) return;
+
+      const isAttached = incidentMarkerRef.current && incidentMarkerRef.current.getElement()?.parentNode;
+
+      if (!incidentMarkerRef.current || !isAttached) {
+        if (incidentMarkerRef.current) {
+          incidentMarkerRef.current.remove();
+          incidentMarkerRef.current = null;
+        }
+
+        const cat = resolveIncidentCategory(mission.title, mission.description, mission.hazardTags as string[]);
+        const sev = (mission.severity === 3 ? 3 : mission.severity === 2 ? 2 : 1) as SeverityLevel;
+        const color = mission.severity >= 3 ? '#DC2626' : mission.severity === 2 ? '#EA580C' : '#CA8A04';
+        const el = document.createElement('div');
+        el.className = 'cursor-pointer select-none';
+        el.style.zIndex = '8';
+        el.innerHTML = `
+          <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
+            ${glowIncidentMarkerHtml(cat, sev, true)}
+
+            <div style="margin-top: 4px; white-space: nowrap; background: #0F172A; color: #FCA5A5; border: 1.5px solid ${color}; padding: 2px 8px; border-radius: 6px; font-family: monospace; font-size: 11px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+              MỤC TIÊU CỨU NẠN
+            </div>
+          </div>
+        `;
+
+        const popup = new mapboxgl.Popup({ offset: 25, closeButton: false }).setHTML(`
+          <div class="p-1 font-mono text-xs max-w-xs">
+            <div class="font-bold text-red-600 text-sm flex items-center gap-1.5">
+              <span class="px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-700 font-bold">CẤP ${mission.severity}</span>
+              <span>${mission.title}</span>
+            </div>
+            <div class="text-slate-800 mt-1 font-sans text-xs font-semibold">${mission.address}</div>
+            <div class="text-slate-500 mt-1 text-[11px]">Người báo: <strong>${mission.callerName}</strong> (${mission.callerPhone})</div>
+          </div>
+        `);
+
+        const marker = new mapboxgl.Marker({ element: el })
+          .setLngLat([mission.incidentLng, mission.incidentLat])
+          .setPopup(popup)
+          .addTo(targetMap);
+
+        incidentMarkerRef.current = marker;
+      } else {
+        incidentMarkerRef.current.setLngLat([mission.incidentLng, mission.incidentLat]);
+      }
+    },
+    [
+      mission.incidentLat,
+      mission.incidentLng,
+      mission.title,
+      mission.description,
+      mission.hazardTags,
+      mission.severity,
+      mission.address,
+      mission.callerName,
+      mission.callerPhone,
+    ]
+  );
+
+  // Đồng bộ hoặc tạo mới Traffic Marker
+  const syncTrafficMarker = useCallback(
+    (targetMap: mapboxgl.Map) => {
+      if (!targetMap) return;
+
+      if (!activeTrafficTask) {
+        if (trafficMarkerRef.current) {
+          trafficMarkerRef.current.remove();
+          trafficMarkerRef.current = null;
+        }
+        return;
+      }
+
+      const { latitude, longitude, title, locationAddress, congestionLevelName, congestionLevel, taskNotes } =
+        activeTrafficTask;
+      if (!latitude || !longitude) return;
+
+      const isSevere =
+        congestionLevel === 'Blocked' ||
+        congestionLevel === 'Severe' ||
+        congestionLevelName === 'Blocked' ||
+        congestionLevelName === 'Severe';
+      const color = isSevere ? '#DC2626' : '#EA580C';
+      const badgeText = isSevere ? 'TẮC NGHẼN NẶNG' : 'ÙN TẮC GIAO THÔNG';
+
+      const isAttached = trafficMarkerRef.current && trafficMarkerRef.current.getElement()?.parentNode;
+
+      if (!trafficMarkerRef.current || !isAttached) {
+        if (trafficMarkerRef.current) {
+          trafficMarkerRef.current.remove();
+          trafficMarkerRef.current = null;
+        }
+
+        const el = document.createElement('div');
+        el.className = 'cursor-pointer select-none';
+        el.style.zIndex = '7';
+        el.innerHTML = `
+          <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
+            ${glowTrafficJamMarkerHtml('active', false)}
+
+            <div style="margin-top: 4px; white-space: nowrap; background: #0F172A; color: #FDBA74; border: 1.5px solid ${color}; padding: 2px 7px; border-radius: 6px; font-family: monospace; font-size: 10px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 4px;">
+              <span style="width: 6px; height: 6px; border-radius: 9999px; background: ${color}; box-shadow: 0 0 6px ${color};"></span>
+              <span>${badgeText}</span>
+            </div>
+          </div>
+        `;
+
+        const popup = new mapboxgl.Popup({ offset: 25, closeButton: true }).setHTML(`
+          <div class="p-1 font-mono text-xs max-w-xs">
+            <div class="font-bold text-amber-600 text-sm flex items-center gap-1.5">
+              <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 font-bold">NHIỆM VỤ GIẢI TỎA</span>
+              <span>${title}</span>
+            </div>
+            <div class="text-slate-800 mt-1 font-sans text-xs font-semibold">${locationAddress || 'Vị trí điểm nghẽn'}</div>
+            ${taskNotes ? `<div class="text-slate-600 mt-1 text-[11px] font-sans bg-amber-50 p-1.5 rounded border border-amber-200">📌 ${taskNotes}</div>` : ''}
+            <div class="text-slate-500 mt-1 text-[11px] font-mono">${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E</div>
+          </div>
+        `);
+
+        el.addEventListener('click', () => {
+          targetMap.flyTo({
+            center: [longitude, latitude],
+            zoom: 16.5,
+            duration: 700,
+          });
+        });
+
+        const marker = new mapboxgl.Marker({ element: el })
+          .setLngLat([longitude, latitude])
+          .setPopup(popup)
+          .addTo(targetMap);
+
+        trafficMarkerRef.current = marker;
+      } else {
+        trafficMarkerRef.current.setLngLat([longitude, latitude]);
+      }
+    },
+    [activeTrafficTask]
+  );
+
   // 1. Khởi tạo Mapbox Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -372,6 +593,9 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
       setMapLoaded(true);
       map.resize();
       ensureAllLayers();
+      syncVehicleMarker(map);
+      syncIncidentMarker(map);
+      syncTrafficMarker(map);
 
       // Fit bounds bao quát xe và địa điểm sự cố với padding thoáng
       const bounds = new mapboxgl.LngLatBounds();
@@ -386,7 +610,12 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
       });
     });
 
-    map.on('style.load', ensureAllLayers);
+    map.on('style.load', () => {
+      ensureAllLayers();
+      syncVehicleMarker(map);
+      syncIncidentMarker(map);
+      syncTrafficMarker(map);
+    });
     map.on('idle', ensureAllLayers);
 
     mapRef.current = map;
@@ -408,9 +637,18 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
       clearTimeout(t2);
       if (ro) ro.disconnect();
       // Dọn dẹp markers
-      if (vehicleMarkerRef.current) vehicleMarkerRef.current.remove();
-      if (incidentMarkerRef.current) incidentMarkerRef.current.remove();
-      if (trafficMarkerRef.current) trafficMarkerRef.current.remove();
+      if (vehicleMarkerRef.current) {
+        vehicleMarkerRef.current.remove();
+        vehicleMarkerRef.current = null;
+      }
+      if (incidentMarkerRef.current) {
+        incidentMarkerRef.current.remove();
+        incidentMarkerRef.current = null;
+      }
+      if (trafficMarkerRef.current) {
+        trafficMarkerRef.current.remove();
+        trafficMarkerRef.current = null;
+      }
       stepMarkersRef.current.forEach((m) => m.remove());
       stepMarkersRef.current = [];
       map.remove();
@@ -434,6 +672,9 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     if (serviceAreaRef.current) {
       setupServiceAreaLayer(map, serviceAreaRef.current);
     }
+    syncVehicleMarker(map);
+    syncIncidentMarker(map);
+    syncTrafficMarker(map);
   };
 
   // 3. Bao quát toàn bộ lộ trình di chuyển (Fit Bounds toàn tuyến)
@@ -548,110 +789,19 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
     });
   };
 
-  // 6. Cập nhật hoặc tạo Vehicle Marker (Ưu tiên z-index cao nhất: 100)
+  // 6. Cập nhật hoặc tạo Vehicle Marker (Ưu tiên z-index cao nhất: 10)
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    // Tính hướng đầu xe theo chặng hiện tại
-    const currentStep = mission.routeSteps?.[currentStepIndex];
-    const nextStep = mission.routeSteps?.[currentStepIndex + 1];
-    let heading = 45;
-    if (currentStep && nextStep) {
-      heading = calculateHeading([currentStep.lng, currentStep.lat], [nextStep.lng, nextStep.lat]);
+    if (mapLoaded && mapRef.current) {
+      syncVehicleMarker(mapRef.current);
     }
+  }, [mapLoaded, syncVehicleMarker]);
 
-    const vType = resolveDispatchVehicleType(mission.vehicleType);
-    const vStatus = resolveDispatchVehicleStatus(mission.status);
-
-    if (!vehicleMarkerRef.current) {
-      const el = document.createElement('div');
-      el.className = 'cursor-pointer select-none';
-      el.style.zIndex = '10';
-      el.innerHTML = `
-        <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
-          <div class="staff-vehicle-3d-wrapper" style="transform: rotate(${heading}deg); transition: transform 0.4s ease;">
-            ${vehicle3dMarkerHtml(vType, vStatus, true)}
-          </div>
-
-          <div style="margin-top: 4px; white-space: nowrap; background: #0F172A; color: #FFFFFF; border: 1.5px solid #EF4444; padding: 2px 8px; border-radius: 6px; font-family: monospace; font-size: 11px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 5px;">
-            <span style="width: 7px; height: 7px; border-radius: 9999px; background: #22C55E; box-shadow: 0 0 8px #22C55E;"></span>
-            <span>${mission.vehiclePlate}</span>
-          </div>
-        </div>
-      `;
-
-      const popup = new mapboxgl.Popup({ offset: 25, closeButton: false }).setHTML(`
-        <div class="p-1 font-mono text-xs">
-          <div class="font-bold text-red-600 text-sm flex items-center gap-1.5">
-            <span>${mission.vehiclePlate}</span>
-            <span class="px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-700 font-bold">KÍP XE CNCH</span>
-          </div>
-          <div class="text-slate-700 mt-1 font-sans font-medium">Vị trí hiện tại kíp xe đang tác chiến</div>
-          <div class="text-slate-500 mt-0.5 text-[11px] font-mono">${mission.vehicleLat.toFixed(4)}, ${mission.vehicleLng.toFixed(4)}</div>
-        </div>
-      `);
-
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([mission.vehicleLng, mission.vehicleLat])
-        .setPopup(popup)
-        .addTo(map);
-
-      vehicleMarkerRef.current = marker;
-    } else {
-      vehicleMarkerRef.current.setLngLat([mission.vehicleLng, mission.vehicleLat]);
-
-      // Xoay hình xe 3D theo heading mới
-      const arrowIcon = vehicleMarkerRef.current.getElement().querySelector('.staff-vehicle-3d-wrapper') as HTMLElement;
-      if (arrowIcon) {
-        arrowIcon.style.transform = `rotate(${heading}deg)`;
-      }
-    }
-  }, [mission.vehicleLat, mission.vehicleLng, mission.vehiclePlate, mission.vehicleType, mission.status, currentStepIndex, mission.routeSteps]);
-
-  // 7. Cập nhật hoặc tạo Incident Target Marker (z-index: 90) - Đồng bộ icon Quầng sáng như Operator
+  // 7. Cập nhật hoặc tạo Incident Target Marker (z-index: 8) - Đồng bộ icon Quầng sáng như Operator
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    if (!incidentMarkerRef.current) {
-      const cat = resolveIncidentCategory(mission.title, mission.description, mission.hazardTags as string[]);
-      const sev = (mission.severity === 3 ? 3 : mission.severity === 2 ? 2 : 1) as SeverityLevel;
-      const color = mission.severity >= 3 ? '#DC2626' : mission.severity === 2 ? '#EA580C' : '#CA8A04';
-      const el = document.createElement('div');
-      el.className = 'cursor-pointer select-none';
-      el.style.zIndex = '8';
-      el.innerHTML = `
-        <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
-          ${glowIncidentMarkerHtml(cat, sev, true)}
-
-          <div style="margin-top: 4px; white-space: nowrap; background: #0F172A; color: #FCA5A5; border: 1.5px solid ${color}; padding: 2px 8px; border-radius: 6px; font-family: monospace; font-size: 11px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
-            MỤC TIÊU CỨU NẠN
-          </div>
-        </div>
-      `;
-
-      const popup = new mapboxgl.Popup({ offset: 25, closeButton: false }).setHTML(`
-        <div class="p-1 font-mono text-xs max-w-xs">
-          <div class="font-bold text-red-600 text-sm flex items-center gap-1.5">
-            <span class="px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-700 font-bold">CẤP ${mission.severity}</span>
-            <span>${mission.title}</span>
-          </div>
-          <div class="text-slate-800 mt-1 font-sans text-xs font-semibold">${mission.address}</div>
-          <div class="text-slate-500 mt-1 text-[11px]">Người báo: <strong>${mission.callerName}</strong> (${mission.callerPhone})</div>
-        </div>
-      `);
-
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([mission.incidentLng, mission.incidentLat])
-        .setPopup(popup)
-        .addTo(map);
-
-      incidentMarkerRef.current = marker;
-    } else {
-      incidentMarkerRef.current.setLngLat([mission.incidentLng, mission.incidentLat]);
+    if (mapLoaded && mapRef.current) {
+      syncIncidentMarker(mapRef.current);
     }
-  }, [mission.incidentLat, mission.incidentLng, mission.severity, mission.title, mission.address, mission.callerName, mission.callerPhone]);
+  }, [mapLoaded, syncIncidentMarker]);
 
   // 8. Không cắm các marker số thứ tự chặng (step markers) dọc đường kẻ để giữ bản đồ thoáng và rõ tuyến đường
   useEffect(() => {
@@ -706,74 +856,10 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
 
   // 11. Cập nhật hoặc tạo Marker Điểm nghẽn giao thông (Traffic Hotspot Marker - Mục 20)
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    if (!activeTrafficTask) {
-      if (trafficMarkerRef.current) {
-        trafficMarkerRef.current.remove();
-        trafficMarkerRef.current = null;
-      }
-      return;
+    if (mapLoaded && mapRef.current) {
+      syncTrafficMarker(mapRef.current);
     }
-
-    const { latitude, longitude, title, locationAddress, congestionLevelName, congestionLevel, taskNotes } =
-      activeTrafficTask;
-    if (!latitude || !longitude) return;
-
-    const isSevere =
-      congestionLevel === 'Blocked' ||
-      congestionLevel === 'Severe' ||
-      congestionLevelName === 'Blocked' ||
-      congestionLevelName === 'Severe';
-    const color = isSevere ? '#DC2626' : '#EA580C';
-    const badgeText = isSevere ? 'TẮC NGHẼN NẶNG' : 'ÙN TẮC GIAO THÔNG';
-
-    if (!trafficMarkerRef.current) {
-      const el = document.createElement('div');
-      el.className = 'cursor-pointer select-none';
-      el.style.zIndex = '7';
-      el.innerHTML = `
-        <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
-          ${glowTrafficJamMarkerHtml('active', false)}
-
-          <div style="margin-top: 4px; white-space: nowrap; background: #0F172A; color: #FDBA74; border: 1.5px solid ${color}; padding: 2px 7px; border-radius: 6px; font-family: monospace; font-size: 10px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 4px;">
-            <span style="width: 6px; height: 6px; border-radius: 9999px; background: ${color}; box-shadow: 0 0 6px ${color};"></span>
-            <span>${badgeText}</span>
-          </div>
-        </div>
-      `;
-
-      const popup = new mapboxgl.Popup({ offset: 25, closeButton: true }).setHTML(`
-        <div class="p-1 font-mono text-xs max-w-xs">
-          <div class="font-bold text-amber-600 text-sm flex items-center gap-1.5">
-            <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 font-bold">NHIỆM VỤ GIẢI TỎA</span>
-            <span>${title}</span>
-          </div>
-          <div class="text-slate-800 mt-1 font-sans text-xs font-semibold">${locationAddress || 'Vị trí điểm nghẽn'}</div>
-          ${taskNotes ? `<div class="text-slate-600 mt-1 text-[11px] font-sans bg-amber-50 p-1.5 rounded border border-amber-200">📌 ${taskNotes}</div>` : ''}
-          <div class="text-slate-500 mt-1 text-[11px] font-mono">${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E</div>
-        </div>
-      `);
-
-      el.addEventListener('click', () => {
-        map.flyTo({
-          center: [longitude, latitude],
-          zoom: 16.5,
-          duration: 700,
-        });
-      });
-
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([longitude, latitude])
-        .setPopup(popup)
-        .addTo(map);
-
-      trafficMarkerRef.current = marker;
-    } else {
-      trafficMarkerRef.current.setLngLat([longitude, latitude]);
-    }
-  }, [activeTrafficTask]);
+  }, [mapLoaded, syncTrafficMarker]);
 
   // 12. Tính toán vị trí xe so với Ranh giới phục vụ của Trạm (Geofence status)
   const geofenceInfo = React.useMemo(() => {

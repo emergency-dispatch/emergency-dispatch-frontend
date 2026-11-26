@@ -216,6 +216,7 @@ export function mapAssignmentDtoToMission(
   fallbackVehiclePlate?: string,
   routeResult?: RouteResult,
   incidentDetails?: {
+    code?: string | null;
     reporterName?: string | null;
     reporterPhone?: string | null;
     verifiedByName?: string | null;

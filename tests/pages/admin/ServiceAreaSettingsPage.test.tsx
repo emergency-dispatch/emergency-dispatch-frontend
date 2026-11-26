@@ -7,14 +7,23 @@ import { stationAdminService } from '@/services/admin/stationAdminService';
 import { FakeMap } from '../../setup/mapboxGlMock';
 import { page, renderWithRouter, t } from '../../setup/render';
 
-vi.mock('@/services/admin/adminSettingsService', async (orig) => ({
-  ...(await orig<typeof import('@/services/admin/adminSettingsService')>()),
-  adminSettingsService: { getServiceArea: vi.fn(), updateServiceArea: vi.fn() },
-}));
+vi.mock('@/services/admin/adminSettingsService', async (orig) => {
+  const actual = await orig<typeof import('@/services/admin/adminSettingsService')>();
+  return {
+    ...actual,
+    adminSettingsService: {
+      ...actual.adminSettingsService,
+      getServiceArea: vi.fn(),
+      updateServiceArea: vi.fn(),
+      getDuplicateDetection: vi.fn().mockResolvedValue({ values: { enabled: false, duplicateRadiusMeters: 500, duplicateWindowMinutes: 30 }, updatedAt: null, updatedByName: null }),
+      getCitizenIncidentAlerts: vi.fn().mockResolvedValue({ values: { enabled: false, enabledFromUtc: null }, updatedAt: null, updatedByName: null }),
+    },
+  };
+});
 vi.mock('@/services/admin/stationAdminService', () => ({ stationAdminService: { list: vi.fn() } }));
 
 const svc = vi.mocked(adminSettingsService);
-const area = { enabled: true, name: 'SHTP', centerLat: 10.84, centerLng: 106.8, radiusKm: 5 };
+const area = { enabled: true, rejectOutside: false, name: 'SHTP', centerLat: 10.84, centerLng: 106.8, radiusKm: 5 };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -31,21 +40,25 @@ beforeEach(() => {
 describe('ServiceAreaSettingsPage', () => {
   it('cảnh báo trạm nằm ngoài vùng; tăng bán kính thì hết', async () => {
     renderWithRouter(<ServiceAreaSettingsPage />);
-    expect(await screen.findByText('Trạm Xa')).toBeInTheDocument();
-    expect(screen.queryByText(/Trạm Gần/)).not.toBeInTheDocument();
-    const radius = screen.getByRole('spinbutton');
+    const warning = await screen.findByText((_, el) => el?.tagName === 'STRONG' && el?.textContent === 'Trạm Xa');
+    expect(warning).toBeInTheDocument();
+    const alertBox = warning.closest('div');
+    expect(alertBox).not.toHaveTextContent('Trạm Gần');
+
+    const radius = screen.getAllByRole('spinbutton')[0];
     await userEvent.clear(radius);
     await userEvent.type(radius, '20');
-    expect(screen.queryByText('Trạm Xa')).not.toBeInTheDocument();
+    expect(screen.queryByText((_, el) => el?.tagName === 'STRONG' && el?.textContent === 'Trạm Xa')).not.toBeInTheDocument();
   });
 
   it('bán kính ngoài 1–100 và tên trống → không lưu được', async () => {
     renderWithRouter(<ServiceAreaSettingsPage />);
-    await screen.findByText('Trạm Xa');
+    await screen.findByText((_, el) => el?.tagName === 'STRONG' && el?.textContent === 'Trạm Xa');
     fireEvent.change(screen.getByRole('slider', { name: t('admin.settings.serviceArea.radiusAria') }), { target: { value: '100' } });
-    expect(screen.getByRole('spinbutton')).toHaveValue(100);
-    await userEvent.clear(screen.getByRole('spinbutton'));
-    await userEvent.type(screen.getByRole('spinbutton'), '150');
+    const radiusInput = screen.getAllByRole('spinbutton')[0];
+    expect(radiusInput).toHaveValue(100);
+    await userEvent.clear(radiusInput);
+    await userEvent.type(radiusInput, '150');
     expect(screen.getByText(t('admin.settings.validation.areaRadiusRange', { min: 1, max: 100 }))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: t('admin.common.settings.save') })).toBeDisabled();
   });
@@ -53,13 +66,13 @@ describe('ServiceAreaSettingsPage', () => {
   it('đổi tâm trên bản đồ + tắt kiểm tra → lưu', async () => {
     svc.updateServiceArea.mockResolvedValue({ values: area, updatedAt: 'x', updatedByName: null });
     renderWithRouter(<ServiceAreaSettingsPage />);
-    await screen.findByText('Trạm Xa');
+    await screen.findByText((_, el) => el?.tagName === 'STRONG' && el?.textContent === 'Trạm Xa');
     const map = FakeMap.instances.slice(-1)[0]!;
     act(() => map.fire('click', { lngLat: { lat: 10.9, lng: 106.85 } }));
     expect(screen.getByText('10.90000, 106.85000')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('checkbox'));
     await userEvent.click(screen.getByRole('button', { name: t('admin.common.settings.save') }));
-    expect(svc.updateServiceArea).toHaveBeenCalledWith({ enabled: false, name: 'SHTP', centerLat: 10.9, centerLng: 106.85, radiusKm: 5 });
+    expect(svc.updateServiceArea).toHaveBeenCalledWith({ enabled: false, rejectOutside: false, name: 'SHTP', centerLat: 10.9, centerLng: 106.85, radiusKm: 5, boundaryGeoJson: null });
   });
 
   it('chưa cấu hình → tâm mặc định ở giữa các trạm', async () => {

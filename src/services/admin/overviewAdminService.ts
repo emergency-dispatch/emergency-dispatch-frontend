@@ -54,6 +54,12 @@ export const overviewAdminService = {
     const stations = stationPage.items;
     const countStatus = (match: (u: (typeof units)[number]) => boolean) => units.filter(match).length;
 
+    const eqList = Array.isArray(equipment)
+      ? equipment
+      : Array.isArray((equipment as any)?.items)
+      ? (equipment as any).items
+      : null;
+
     return {
       generatedAt: new Date(now).toISOString(),
       vehicleCounts: {
@@ -69,9 +75,9 @@ export const overviewAdminService = {
         [UserRole.RescueStaff]: stats.totalRescueStaff,
       },
       citizenCount: stats.totalCitizens,
-      equipment: equipment && {
-        total: equipment.length,
-        maintenance: equipment.filter((e) => e.status === 'Maintenance').length,
+      equipment: eqList && {
+        total: eqList.length,
+        maintenance: eqList.filter((e) => e.status === 'Maintenance').length,
       },
       incidents: {
         active: stats.activeIncidents,
