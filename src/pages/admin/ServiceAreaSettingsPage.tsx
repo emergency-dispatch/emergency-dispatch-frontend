@@ -204,13 +204,14 @@ const ServiceAreaForm: React.FC<{
   const radiusValid = !errors.radiusKm;
   const circleRadius = toNumber(draft.radiusKm);
 
-  // Chế độ đa giác: vẽ nét đứt vòng tròn đang cấu hình làm mốc khi vẽ.
+  // Chế độ đa giác: chỉ vẽ nét đứt vòng tròn cũ làm mốc khi chưa có đa giác hợp lệ. Đã có đa giác thì ẩn —
+  // backend kiểm SOS theo đa giác, vòng bao tự tính chỉ là dự phòng khi PostGIS lỗi, hiện ra dễ gây hiểu nhầm.
   const referenceArea = useMemo<MapReferenceArea | null>(
     () =>
-      isPolygon && Number.isFinite(circleRadius) && circleRadius > 0
+      isPolygon && !polygonValid && Number.isFinite(circleRadius) && circleRadius > 0
         ? { lat: draft.centerLat, lng: draft.centerLng, radiusKm: circleRadius }
         : null,
-    [isPolygon, draft.centerLat, draft.centerLng, circleRadius]
+    [isPolygon, polygonValid, draft.centerLat, draft.centerLng, circleRadius]
   );
 
   // Backend chỉ cảnh báo (không chặn) trạm nằm ngoài khu vực → hiện trước để Admin cân nhắc.

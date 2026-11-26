@@ -211,7 +211,7 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     drawHint:
       'Click each point on the map, then click the first point again (or double-click) to close the polygon. Click the polygon and drag its vertices to adjust, drag a midpoint to add a vertex; the trash button on the map deletes the selected polygon. The polygon button on the map adds another area.',
     derivedCircle:
-      'Center {{lat}}, {{lng}} · radius {{km}} km: computed to enclose the polygon, used only to display maps (e.g. the area circle on the Operator Live Map).',
+      'Auto-computed enclosing circle (center {{lat}}, {{lng}} · radius {{km}} km): SOS reports are checked against the polygon; this circle is only a fallback when the polygon check cannot be computed.',
     boundaryRequired: 'Draw at least one polygon (3+ vertices) on the map.',
     boundarySelfIntersect: 'The polygon intersects itself (edges cross) — drag vertices so edges no longer cross, or redraw / re-import.',
     radius: 'Radius',

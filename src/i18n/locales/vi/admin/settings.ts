@@ -210,7 +210,7 @@ export const adminSettingsVi = {
     drawHint:
       'Bấm từng điểm trên bản đồ, bấm lại điểm đầu (hoặc nhấp đúp) để khép đa giác. Bấm vào đa giác rồi kéo đỉnh để chỉnh, kéo chấm giữa cạnh để thêm đỉnh; nút thùng rác trên bản đồ xóa đa giác đang chọn. Nút đa giác trên bản đồ thêm vùng mới.',
     derivedCircle:
-      'Tâm {{lat}}, {{lng}} · bán kính {{km}} km: tự tính bao quanh đa giác, chỉ để hiển thị bản đồ (VD vòng khu vực trên Live Map của Operator).',
+      'Vòng bao tự tính (tâm {{lat}}, {{lng}} · bán kính {{km}} km): hệ thống kiểm SOS theo đa giác; vòng này chỉ dùng dự phòng khi không tính được theo đa giác.',
     boundaryRequired: 'Vẽ ít nhất một đa giác (từ 3 đỉnh) trên bản đồ.',
     boundarySelfIntersect: 'Đa giác bị tự cắt (các cạnh cắt nhau) — kéo lại đỉnh cho cạnh không cắt nhau, hoặc vẽ / nhập lại.',
     radius: 'Bán kính',
