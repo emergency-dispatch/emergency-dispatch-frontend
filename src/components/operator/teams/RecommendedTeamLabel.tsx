@@ -23,7 +23,7 @@ interface RecommendedTeamLabelProps {
 
 /**
  * Tổ trong danh sách gợi ý điều phối (§34): tên tổ, chức năng sẽ đảm nhận, số nhân viên đang hoạt động, xe tổ mang
- * theo. Dùng chung cho Live Map và bước "Điều xe" của Hàng đợi.
+ * theo. Dùng ở Chi tiết ca của Live Map.
  */
 export const RecommendedTeamLabel: React.FC<RecommendedTeamLabelProps> = ({
   team,

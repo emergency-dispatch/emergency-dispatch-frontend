@@ -84,6 +84,7 @@ const ACTION_GROUP: Record<AuditAction, AuditGroup> = {
   LinkedReportsRestored: 'duplicate',
   AutoDispatched: 'autoDispatch',
   AutoDispatchSkipped: 'autoDispatch',
+  StaleFlagged: 'escalation',
 };
 
 const has = <T extends object>(obj: T, key: string): key is Extract<keyof T, string> => Object.prototype.hasOwnProperty.call(obj, key);

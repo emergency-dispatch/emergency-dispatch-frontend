@@ -42,6 +42,8 @@ export interface Vehicle {
    * false → chưa có GPS mới, bản đồ đặt xe tại trạm thay vì tọa độ cũ trong DB.
    */
   hasLiveGps: boolean;
+  /** Mốc (ms) nhận GPS gần nhất, hoặc lúc xuất phát / nhận lệnh nếu muộn hơn — để phát hiện mất tín hiệu (§51). */
+  lastSignalAt?: number;
 }
 
 export interface Station {

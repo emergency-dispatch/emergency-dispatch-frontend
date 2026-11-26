@@ -23,7 +23,7 @@ import type { Incident } from '../../types/incident';
 import { useTranslation } from '../../i18n';
 import { IncidentCode } from './incidents/IncidentCode';
 
-const QUEUE_PATH = '/dashboard/command-center/incidents';
+const LIVE_MAP_PATH = '/dashboard/command-center/live-map';
 
 interface ModalProps {
   incident: Incident;
@@ -34,10 +34,10 @@ interface ModalProps {
   /** Có khi sự cố được trạm khác chuyển tới. */
   transfer?: IncomingTransferNote;
   onDismiss: () => void;
-  onGoToQueue: () => void;
+  onReview: () => void;
 }
 
-const IncidentModal: React.FC<ModalProps> = ({ incident, verdict, threshold, transfer, onDismiss, onGoToQueue }) => {
+const IncidentModal: React.FC<ModalProps> = ({ incident, verdict, threshold, transfer, onDismiss, onReview }) => {
   const { t } = useTranslation();
   const { incidentKindLabel } = useDispatchStore();
   const handover = verdict.phase === 'handover';
@@ -191,7 +191,7 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, verdict, threshold, tra
             {t('layout.incomingIncident.skip')}
           </button>
           <button
-            onClick={onGoToQueue}
+            onClick={onReview}
             className="flex-[2] py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-red-600/20 active:scale-95"
           >
             <CheckCircle2 className="w-5 h-5 animate-pulse" />
@@ -232,9 +232,9 @@ export const IncomingIncidentToasts: React.FC = () => {
       threshold={threshold}
       transfer={incomingTransferNotes.get(human.incident.id)}
       onDismiss={() => dismissIncomingIncident(human.incident.id)}
-      onGoToQueue={() => {
+      onReview={() => {
         dismissIncomingIncident(human.incident.id);
-        navigate(QUEUE_PATH, { state: { openIncidentId: human.incident.id } });
+        navigate(LIVE_MAP_PATH, { state: { triageIncidentId: human.incident.id } });
       }}
     />
   );

@@ -6,6 +6,7 @@ import { HazardTagBadge } from '../../../components/common/HazardTagBadge';
 import { incidentService } from '../../../services/incidentService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { formatShortId } from '../../../utils/incidentFormat';
+import { AudioEvidencePlayer } from '../../../components/common/AudioEvidencePlayer';
 import {
   MapPin,
   Phone,
@@ -269,6 +270,25 @@ export const StaffIncidentCard: React.FC<StaffIncidentCardProps> = ({
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {supp.audioAttachments && supp.audioAttachments.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    {supp.audioAttachments.map((audio) => (
+                      <AudioEvidencePlayer
+                        key={audio.id}
+                        audio={audio}
+                        compact
+                        resolvePlaybackUrl={() =>
+                          incidentService.getSupplementAudioPlaybackUrl(
+                            supp.targetIncidentId || mission.incidentId,
+                            supp.id,
+                            audio.id
+                          )
+                        }
+                      />
+                    ))}
                   </div>
                 )}
               </div>

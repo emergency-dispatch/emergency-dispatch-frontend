@@ -2,7 +2,7 @@ import type { DispatchAlgorithm } from '../types/vehicle';
 import type { Incident, SeverityLevel } from '../types/incident';
 import type { DispatchPlanSeverity, DispatchPlanUnitDto, IncidentTypeDto } from '../types/typeCatalog';
 
-// Đội cứu hộ có 120 giây để Chấp nhận/Từ chối, quá hạn tự trả về trung tâm (FR-RS-01).
+// Không dùng: thời gian chờ tổ nhận lệnh do Admin cấu hình (escalation.acceptTimeoutMinutes, §52), backend tự rút lệnh.
 export const CREW_ACK_TIMEOUT_MS = 120 * 1000;
 
 // Xe vào trạng thái hồi sức 5 phút sau khi nộp báo cáo (BR-27).

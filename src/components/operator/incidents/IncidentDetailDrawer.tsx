@@ -3,43 +3,32 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowRightLeft,
-  GitCompareArrows,
+  ArrowLeft,
   Ban,
-  BrainCircuit,
-  Building2,
   CircleCheck,
   Clock,
-  Eye,
   Loader2,
   Lock,
   MapPin,
-  Phone,
   RotateCcw,
   Siren,
-  User,
-  X,
 } from 'lucide-react';
-import { HazardTagBadge } from '../../common/HazardTagBadge';
-import { CaseSteps } from './CaseSteps';
-import { ConfidenceBadge } from './ConfidenceBadge';
 import { IncidentAuditTimeline } from './IncidentAuditTimeline';
-import { IncidentMediaGallery } from './IncidentMediaGallery';
-import { IncidentSupplementList } from './IncidentSupplementList';
+import { AiFindings, CancelCaseFields, ReporterEvidence } from './IncidentDossierSections';
 import { LinkedReportsPanel } from './LinkedReportsPanel';
-import { ReporterMedicalCard } from './ReporterMedicalCard';
-import { SeverityBadge } from './SeverityBadge';
+import { StaleChip } from './StaleChip';
 import { TrafficJamReview } from './TrafficJamReview';
+import { blockDurationOf, EMPTY_CANCEL_INPUT } from './cancelCaseInput';
 import {
-  BLOCK_DURATION_OPTIONS,
   CANCELLATION_REASON_OPTIONS,
   CONFIRMABLE_CATEGORIES,
   INCIDENT_CATEGORY_META,
-  LOW_CONFIDENCE_THRESHOLD,
   OVERRIDE_REASON_MIN_LENGTH,
   SEVERITY_LEVEL_META,
 } from '../../../data/incidentMock';
 import { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
 import { useNow } from '../../../hooks/useNow';
+import { useRevealPhone } from '../../../hooks/useRevealPhone';
 import { formatCountdown, formatDateTime, formatWaitDuration } from '../../../utils/incidentFormat';
 import {
   EVENT_TYPE_FROM_CATEGORY,
@@ -51,20 +40,15 @@ import {
   type TrafficJamDecision,
 } from '../../../types/incident';
 import type { Station } from '../../../types/vehicle';
-import { dateLocale, useTranslation } from '../../../i18n';
+import { useTranslation } from '../../../i18n';
 import { IncidentTypePicker } from './IncidentTypePicker';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import { AutoDispatchBanner } from './AutoDispatchInfo';
-import { AiVotesPanel } from './AiVotesPanel';
 import { IncidentCode } from './IncidentCode';
 
 const CONFIRMABLE_LEVELS: SeverityLevel[] = [1, 2, 3];
 // Lý do chuyển trạm: backend yêu cầu tối thiểu 5 ký tự.
 const TRANSFER_REASON_MIN_LENGTH = 5;
-// Số thẻ nguy cơ hiện sẵn; phần còn lại gộp vào nút "+N".
-const MAX_VISIBLE_TAGS = 4;
-// Tiêu đề mục: chữ thường đậm; mono chỉ dành cho số liệu (tọa độ, biển số, %, đếm ngược).
-const SECTION_HEADING = 'text-[13px] font-semibold text-slate-700 mb-1.5';
 const DOCK_LABEL = 'text-[13px] font-semibold text-slate-700 mb-2';
 const SECONDARY_BUTTON =
   'flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-sm transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400';
@@ -102,8 +86,18 @@ interface IncidentDetailDrawerProps {
   supplementVersion?: number;
   isSubmitting?: boolean;
   errorMsg?: string | null;
+  /** Số ca đang cần xử lý, hiện cạnh nút quay lại. */
+  attentionCount?: number;
+  /** Đang nhập dở (lý do ghi đè / hủy / chuyển trạm, thẩm định ùn tắc) → nơi dùng hỏi lại trước khi rời ca. */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** Dải hỏi "rời ca này?" ngay dưới phần đầu. */
+  leavePrompt?: React.ReactNode;
 }
 
+/**
+ * Thẩm định một ca chờ duyệt trong panel trái Live Map (giữ khóa mềm do `useIncidentTriage` lo): bằng chứng, ý kiến AI và
+ * dock quyết định (duyệt / hủy / chuyển trạm). Ca đã duyệt xem ở `CaseDossierPanel`.
+ */
 export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   incident,
   currentOperatorId,
@@ -120,6 +114,9 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   supplementVersion = 0,
   isSubmitting = false,
   errorMsg = null,
+  attentionCount = 0,
+  onDirtyChange,
+  leavePrompt,
 }) => {
   const now = useNow();
   const { t } = useTranslation();
@@ -135,17 +132,10 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const [tab, setTab] = useState<'review' | 'linked' | 'history'>('review');
   // Đã xử lý hết báo cáo gộp → quay về tab Thẩm định kèm thông báo thành công.
   const rejecting = mode === 'reject';
-  const [rejectReason, setRejectReason] = useState('');
-  const [rejectCode, setRejectCode] = useState<OperatorCancellationCode>('FalseReport');
+  const [cancelInput, setCancelInput] = useState(EMPTY_CANCEL_INPUT);
   const [transferStationId, setTransferStationId] = useState('');
   const [transferReason, setTransferReason] = useState('');
-  const [blockPhone, setBlockPhone] = useState(false);
-  const [blockDuration, setBlockDuration] = useState<BlockDuration>('30d');
-  // Backend luôn trả số đã che; số đầy đủ chỉ có sau khi bấm "Hiện số".
-  const [revealedPhone, setRevealedPhone] = useState<{ phone: string; at: Date } | null>(null);
-  const [revealingPhone, setRevealingPhone] = useState(false);
-  // Thẻ nguy cơ: mặc định chỉ hiện vài thẻ đầu, phần mô tả AI bên dưới đã nói chi tiết.
-  const [showAllTags, setShowAllTags] = useState(false);
+  const phone = useRevealPhone(incident?.id ?? null, onRevealPhone);
   // Thẩm định ùn tắc chưa lưu — gửi kèm verify (confirmedTrafficJamStatus).
   const [trafficJamDecision, setTrafficJamDecision] = useState<TrafficJamDecision | null>(null);
 
@@ -166,14 +156,9 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     setOverrideReason('');
     setMode('review');
     setTab('review');
-    setRejectReason('');
-    setRejectCode('FalseReport');
+    setCancelInput(EMPTY_CANCEL_INPUT);
     setTransferStationId('');
     setTransferReason('');
-    setBlockPhone(false);
-    setBlockDuration('30d');
-    setRevealedPhone(null);
-    setShowAllTags(false);
     setTrafficJamDecision(null);
   }, [incident?.id]);
 
@@ -184,6 +169,14 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
     setConfirmedSeverity(incident.aiUnclassified || incident.aiFailed ? null : incident.severity);
   }, [incident?.aiPending, incident?.severity, incident?.aiUnclassified, incident?.aiFailed]);
 
+  const dirty =
+    !!incident &&
+    (!!overrideReason.trim() || !!cancelInput.note.trim() || !!transferReason.trim() || trafficJamDecision !== null);
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    // Chỉ báo khi trạng thái đổi (hàm truyền xuống đổi mỗi lần render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty]);
 
   if (!incident) return null;
 
@@ -194,8 +187,6 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const aiFailed = !incident.aiPending && incident.aiFailed;
   // Nhãn "AI" chỉ khi AI thực sự đề xuất được cấp 1–3.
   const hasAiSeverity = !incident.aiPending && !aiFailed && !incident.aiUnclassified;
-  const isLowConfidence = hasAiSeverity && incident.confidenceScore < LOW_CONFIDENCE_THRESHOLD;
-  const hasPhone = /\d/.test(incident.reporterPhone);
 
   const lockRemainingMs = incident.lock ? new Date(incident.lock.expiresAt).getTime() - now : 0;
   const activeLock = incident.lock && lockRemainingMs > 0 ? incident.lock : null;
@@ -234,25 +225,18 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   };
 
   const handleConfirmReject = () => {
-    const label = CANCELLATION_REASON_OPTIONS.find((o) => o.value === rejectCode)?.label ?? '';
+    const label = CANCELLATION_REASON_OPTIONS.find((o) => o.value === cancelInput.code)?.label ?? '';
     onReject(
       incident.id,
-      rejectReason.trim() || `Điều phối viên hủy ca: ${label.toLowerCase()}.`,
-      hasPhone && blockPhone ? blockDuration : null,
-      rejectCode
+      cancelInput.note.trim() || `Điều phối viên hủy ca: ${label.toLowerCase()}.`,
+      blockDurationOf(incident, cancelInput),
+      cancelInput.code
     );
   };
 
   const handleConfirmTransfer = () => {
     if (!onTransfer || !canTransfer) return;
     onTransfer(incident.id, transferStationId, transferReason.trim());
-  };
-
-  const handleRevealPhone = async () => {
-    setRevealingPhone(true);
-    const phone = await onRevealPhone(incident.id);
-    setRevealingPhone(false);
-    if (phone) setRevealedPhone({ phone, at: new Date() });
   };
 
   // Nút "Duyệt" bị khóa thì nói rõ còn thiếu gì, thay vì để nút nhạt màu không giải thích.
@@ -278,374 +262,158 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
         : 'bg-amber-50 border-amber-200 text-amber-800';
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/60 z-[1400]" onClick={onClose} />
-
-      <aside
-        aria-label={t('incidents.drawer.kicker')}
-        className="fixed top-0 right-0 h-full w-full max-w-5xl bg-white border-l border-slate-200 z-[1401] flex flex-col shadow-2xl shadow-slate-900/20 animate-drawer-in"
-      >
-        {/* Đầu drawer: bước xử lý + tên sự cố + loại / nơi / thời gian chờ */}
-        <div className="shrink-0 px-5 pt-3.5 pb-3 border-b border-slate-200">
-          <div className="flex items-center gap-3">
-            <CaseSteps current={1} />
-            <div className="ml-auto flex items-center gap-2 shrink-0">
-              {onTransfer && transferStations.length > 0 && mode !== 'transfer' && (
-                <button
-                  onClick={() => setMode('transfer')}
-                  disabled={!canAct || isSubmitting}
-                  title={canAct ? t('incidents.drawer.transferTitle') : t('incidents.drawer.transferNeedsLock')}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ArrowRightLeft className="w-3.5 h-3.5" />
-                  {t('incidents.drawer.transfer')}
-                </button>
-              )}
+    <aside aria-label={t('incidents.drawer.kicker')} className="h-full flex flex-col bg-white">
+      {/* Đầu panel: quay lại + tên sự cố + loại / nơi / thời gian chờ */}
+      <div className="shrink-0 px-5 pt-3.5 pb-3 border-b border-slate-200">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            {t('liveMap.detail.back')}
+            {attentionCount > 0 && (
+              <span className="text-red-600">{t('liveMap.detail.attention', { count: attentionCount })}</span>
+            )}
+          </button>
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            {onTransfer && transferStations.length > 0 && mode !== 'transfer' && (
               <button
-                onClick={onClose}
-                className="p-2 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100"
-                aria-label={t('common.close')}
+                onClick={() => setMode('transfer')}
+                disabled={!canAct || isSubmitting}
+                title={canAct ? t('incidents.drawer.transferTitle') : t('incidents.drawer.transferNeedsLock')}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <X className="w-4 h-4" />
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                {t('incidents.drawer.transfer')}
               </button>
-            </div>
-          </div>
-          <h2 className="mt-2.5 text-lg font-bold text-slate-900 leading-snug truncate">{incident.title}</h2>
-          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-            <IncidentCode code={incident.code} className="font-semibold text-slate-600" />
-            <span className="inline-flex items-center gap-1 font-semibold" style={{ color: category.color }}>
-              <CategoryIcon className="w-3.5 h-3.5" />
-              {incidentKindLabel(incident)}
-            </span>
-            <span className="inline-flex items-center gap-1 min-w-0 max-w-full">
-              <MapPin className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{incident.area}</span>
-            </span>
-            <span className="inline-flex items-center gap-1" title={formatDateTime(incident.createdAt)}>
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              {t('incidents.drawer.waited', { duration: formatWaitDuration(waitMs) })}
-            </span>
+            )}
           </div>
         </div>
-
-        {/* Một dải trạng thái duy nhất: leo thang (nếu có) + khóa xử lý */}
-        <div className={`shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-2 border-b text-xs ${statusTone}`}>
-          {isEscalated && (
-            <span
-              title={t('incidents.drawer.escalatedBanner')}
-              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-red-600 text-white font-semibold"
-            >
-              <Siren className="w-3.5 h-3.5 shrink-0 animate-pulse motion-reduce:animate-none" />
-              {t('incidents.drawer.escalatedShort')}
-            </span>
-          )}
-          {isLocking ? (
-            <span className="flex items-center gap-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-              {t('incidents.drawer.locking')}
-            </span>
-          ) : lockedByOther ? (
-            <span className="flex items-center gap-2 min-w-0">
-              <Lock className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                {t('incidents.drawer.lockedByOtherBefore')}
-                <strong>{activeLock.operatorName}</strong>
-                {t('incidents.drawer.lockedByOtherMiddle')}
-                <strong className="font-mono-data">{formatCountdown(lockRemainingMs)}</strong>
-                {t('incidents.drawer.lockedByOtherAfter')}
-              </span>
-            </span>
-          ) : canAct ? (
-            <span className="flex items-center gap-2 min-w-0">
-              <Lock className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                {t('incidents.drawer.holdingBefore')}
-                <strong className="font-mono-data">{formatCountdown(lockRemainingMs)}</strong>
-                {t('incidents.drawer.holdingAfter')}
-              </span>
-            </span>
-          ) : (
-            <>
-              <span className="flex items-center gap-2 min-w-0">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                {lockWasMine ? t('incidents.drawer.lockExpired') : t('incidents.drawer.unlocked')}
-              </span>
-              <button
-                onClick={() => onRelock(incident.id)}
-                className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-amber-300 font-bold hover:bg-amber-100 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                {lockWasMine ? t('incidents.drawer.relock') : t('incidents.drawer.lock')}
-              </button>
-            </>
-          )}
+        <h2 className="mt-2.5 text-lg font-bold text-slate-900 leading-snug truncate">{incident.title}</h2>
+        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+          <IncidentCode code={incident.code} className="font-semibold text-slate-600" />
+          <StaleChip incident={incident} />
+          <span className="inline-flex items-center gap-1 font-semibold" style={{ color: category.color }}>
+            <CategoryIcon className="w-3.5 h-3.5" />
+            {incidentKindLabel(incident)}
+          </span>
+          <span className="inline-flex items-center gap-1 min-w-0 max-w-full">
+            <MapPin className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{incident.area}</span>
+          </span>
+          <span className="inline-flex items-center gap-1" title={formatDateTime(incident.createdAt)}>
+            <Clock className="w-3.5 h-3.5 shrink-0" />
+            {t('incidents.drawer.waited', { duration: formatWaitDuration(waitMs) })}
+          </span>
         </div>
+      </div>
 
-        <div className="shrink-0 flex gap-1 px-5 pt-2 border-b border-slate-200" role="tablist">
-          {(
-            [
-              ['review', t('incidents.drawer.tabReview')],
-              // Chỉ hiện khi có báo cáo trùng đang gom; giữ tab khi đang mở dù vừa xác nhận / tách hết.
-              ...(incident.linkedReportCount > 0 || tab === 'linked'
-                ? ([['linked', t('incidents.drawer.tabLinked', { count: incident.linkedReportCount })]] as const)
-                : []),
-              ['history', t('incidents.drawer.tabHistory')],
-            ] as const
-          ).map(([key, label]) => (
+      {leavePrompt}
+
+      {/* Một dải trạng thái duy nhất: leo thang (nếu có) + khóa xử lý */}
+      <div className={`shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-2 border-b text-xs ${statusTone}`}>
+        {isEscalated && (
+          <span
+            title={t('incidents.drawer.escalatedBanner')}
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-red-600 text-white font-semibold"
+          >
+            <Siren className="w-3.5 h-3.5 shrink-0 animate-pulse motion-reduce:animate-none" />
+            {t('incidents.drawer.escalatedShort')}
+          </span>
+        )}
+        {isLocking ? (
+          <span className="flex items-center gap-2">
+            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+            {t('incidents.drawer.locking')}
+          </span>
+        ) : lockedByOther ? (
+          <span className="flex items-center gap-2 min-w-0">
+            <Lock className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              {t('incidents.drawer.lockedByOtherBefore')}
+              <strong>{activeLock.operatorName}</strong>
+              {t('incidents.drawer.lockedByOtherMiddle')}
+              <strong className="font-mono-data">{formatCountdown(lockRemainingMs)}</strong>
+              {t('incidents.drawer.lockedByOtherAfter')}
+            </span>
+          </span>
+        ) : canAct ? (
+          <span className="flex items-center gap-2 min-w-0">
+            <Lock className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              {t('incidents.drawer.holdingBefore')}
+              <strong className="font-mono-data">{formatCountdown(lockRemainingMs)}</strong>
+              {t('incidents.drawer.holdingAfter')}
+            </span>
+          </span>
+        ) : (
+          <>
+            <span className="flex items-center gap-2 min-w-0">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              {lockWasMine ? t('incidents.drawer.lockExpired') : t('incidents.drawer.unlocked')}
+            </span>
             <button
-              key={key}
-              role="tab"
-              aria-selected={tab === key}
-              onClick={() => setTab(key)}
-              className={`px-3 py-2 -mb-px border-b-2 text-sm font-semibold transition-colors ${
-                tab === key ? 'border-red-600 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
+              onClick={() => onRelock(incident.id)}
+              className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-amber-300 font-bold hover:bg-amber-100 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
             >
-              {label}
+              <RotateCcw className="w-3.5 h-3.5" />
+              {lockWasMine ? t('incidents.drawer.relock') : t('incidents.drawer.lock')}
             </button>
-          ))}
-        </div>
+          </>
+        )}
+      </div>
 
-        {/* §31.E: vì sao ca này tới tay Operator (AI chuyển ca / AI chưa xong / AI đã điều). */}
-        {tab === 'review' && <AutoDispatchBanner incident={incident} className="shrink-0 mx-5 mt-3" />}
+      <div className="shrink-0 flex gap-1 px-5 pt-2 border-b border-slate-200" role="tablist">
+        {(
+          [
+            ['review', t('incidents.drawer.tabReview')],
+            // Chỉ hiện khi có báo cáo trùng đang gom; giữ tab khi đang mở dù vừa xác nhận / tách hết.
+            ...(incident.linkedReportCount > 0 || tab === 'linked'
+              ? ([['linked', t('incidents.drawer.tabLinked', { count: incident.linkedReportCount })]] as const)
+              : []),
+            ['history', t('incidents.drawer.tabHistory')],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`px-3 py-2 -mb-px border-b-2 text-sm font-semibold transition-colors ${
+              tab === key ? 'border-red-600 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0">
-          {tab === 'history' ? (
-            <div className="p-5 max-w-2xl">
-              <IncidentAuditTimeline key={incident.id} incidentId={incident.id} />
-            </div>
-          ) : tab === 'linked' ? (
-            <div className="p-5 max-w-3xl">
-              <LinkedReportsPanel
-                key={incident.id}
-                parentIncidentId={incident.id}
-                linkedReportCount={incident.linkedReportCount}
-                readOnly={lockedByOther}
-                onUnlink={onUnlinkReport}
-                onAllHandled={() => setTab('review')}
-              />
-            </div>
-          ) : (
-          <div className="grid md:grid-cols-2 gap-6 p-5">
-            {/* Cột trái — bằng chứng của người báo: không đóng khung, đọc như hồ sơ */}
-            <div className="space-y-5 min-w-0">
-              <IncidentMediaGallery key={incident.id} media={incident.media} title={incident.title} />
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {tab === 'history' ? (
+          <div className="p-5 max-w-2xl">
+            <IncidentAuditTimeline key={incident.id} incidentId={incident.id} />
+          </div>
+        ) : tab === 'linked' ? (
+          <div className="p-5 max-w-3xl">
+            <LinkedReportsPanel
+              key={incident.id}
+              parentIncidentId={incident.id}
+              linkedReportCount={incident.linkedReportCount}
+              readOnly={lockedByOther}
+              onUnlink={onUnlinkReport}
+              onAllHandled={() => setTab('review')}
+            />
+          </div>
+        ) : (
+        <>
+          {/* §31.E: vì sao ca này tới tay Operator (AI chuyển ca / AI chưa xong / AI đã điều). */}
+          <AutoDispatchBanner incident={incident} className="mx-5 mt-4" />
+          <div className="grid gap-6 p-5 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <ReporterEvidence incident={incident} supplements={supplements} phone={phone} revealDisabled={lockedByOther} />
 
-              <section>
-                <h3 className={SECTION_HEADING}>{t('incidents.drawer.reporterDescription')}</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">{incident.description}</p>
-              </section>
-
-              {/* §21.4: chỉ hiện khi người báo đã gửi thêm (hoặc tải lỗi). */}
-              {(supplements.items.length > 0 || supplements.error) && (
-                <section>
-                  <h3 className={`${SECTION_HEADING} text-amber-700`}>
-                    {t('incidents.supplements.heading', { count: supplements.items.length })}
-                  </h3>
-                  <IncidentSupplementList
-                    items={supplements.items}
-                    loading={supplements.loading}
-                    error={supplements.error}
-                    onReload={supplements.reload}
-                  />
-                </section>
-              )}
-
-              <div>
-                <ul className="divide-y divide-slate-100 border-y border-slate-100 text-sm text-slate-700">
-                  <li className="flex items-center gap-2.5 py-2 min-w-0">
-                    <User className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span className="truncate">{incident.reporterName}</span>
-                  </li>
-                  <li className="flex items-center gap-2.5 py-2 min-w-0">
-                    <Phone className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span className="font-mono-data truncate">{revealedPhone?.phone ?? incident.reporterPhone}</span>
-                    {hasPhone && !revealedPhone && (
-                      <button
-                        onClick={handleRevealPhone}
-                        disabled={revealingPhone || lockedByOther}
-                        className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 shrink-0"
-                      >
-                        {revealingPhone ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
-                        {t('incidents.drawer.revealPhone')}
-                      </button>
-                    )}
-                    {revealedPhone && (
-                      <span className="ml-auto text-[11px] text-slate-400 shrink-0">
-                        {t('incidents.drawer.phoneRevealedAt', { time: revealedPhone.at.toLocaleTimeString(dateLocale()) })}
-                      </span>
-                    )}
-                  </li>
-                  <li className="flex items-start gap-2.5 py-2 min-w-0">
-                    <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                    <span className="break-words">{incident.area}</span>
-                  </li>
-                  {incident.responsibleStationName && (
-                    <li className="flex items-center gap-2.5 py-2 min-w-0">
-                      <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
-                      <span className="truncate">
-                        {t('incidents.drawer.responsibleStation', { name: incident.responsibleStationName })}
-                      </span>
-                    </li>
-                  )}
-                </ul>
-                {incident.isOutOfServiceArea && (
-                  <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-red-50 border border-red-200 px-2.5 py-1.5 text-xs text-red-700">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
-                    {t('incidents.drawer.outOfArea')}
-                    {incident.distanceOutsideAreaKm != null &&
-                      t('incidents.drawer.outOfAreaDistance', {
-                        km: incident.distanceOutsideAreaKm.toLocaleString(dateLocale(), { maximumFractionDigits: 1 }),
-                      })}
-                    {t('incidents.drawer.outOfAreaSuffix')}
-                  </p>
-                )}
-              </div>
-
-              <ReporterMedicalCard profile={incident.reporterMedical} smsLog={incident.emergencySmsLog} />
-            </div>
-
-            {/* Cột phải — ý kiến của AI: một khối nền xám duy nhất, tách khỏi bằng chứng và quyết định */}
             <div className="space-y-4 min-w-0">
-              {aiFailed && (
-                <div className="flex items-start gap-2 rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-3 text-xs text-slate-700">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-slate-500" />
-                  <span>
-                    <strong>{t('incidents.drawer.aiFailedTitle')}</strong>
-                    {t('incidents.drawer.aiFailedBody')}
-                  </span>
-                </div>
-              )}
-
-              {isLowConfidence && (
-                <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3 text-xs text-amber-800">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>
-                    <strong>{t('incidents.drawer.lowConfidenceTitle')}</strong>
-                    {t('incidents.drawer.lowConfidenceBody')}
-                  </span>
-                </div>
-              )}
-
-              {!incident.aiPending && incident.aiFlags.preliminaryYolo && (
-                <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3 text-xs text-amber-800">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>
-                    <strong>{t('incidents.drawer.preliminaryYoloTitle')}</strong>
-                    {t('incidents.drawer.preliminaryYoloBody')}
-                  </span>
-                </div>
-              )}
-
-              {!incident.aiPending && incident.aiFlags.engineDisagreement && (
-                <div className="flex items-start gap-2 rounded-xl border border-violet-300 bg-violet-50 px-3.5 py-3 text-xs text-violet-800">
-                  <GitCompareArrows className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>
-                    <strong>{t('incidents.drawer.engineDisagreementTitle')}</strong>
-                    {t('incidents.drawer.engineDisagreementBody')}
-                  </span>
-                </div>
-              )}
-
-              <section className="rounded-xl bg-slate-50 p-4 space-y-3">
-                <h3 className="flex items-center gap-2 text-[13px] font-semibold text-slate-700">
-                  <BrainCircuit className="w-4 h-4 text-red-600 shrink-0" />
-                  {t('incidents.drawer.aiResult')}
-                </h3>
-                {incident.aiPending ? (
-                  <div className="flex items-start gap-2 rounded-lg bg-white border border-slate-200 px-3 py-2.5 text-xs text-slate-600">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 mt-0.5 text-red-600" />
-                    <span>
-                      <strong>{t('incidents.drawer.aiPendingTitle')}</strong>
-                      {t('incidents.drawer.aiPendingBody')}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-                    <div>
-                      <p className="text-slate-500 mb-1">{t('incidents.drawer.eventType')}</p>
-                      <span className="inline-flex items-center gap-1 font-bold" style={{ color: category.color }}>
-                        <CategoryIcon className="w-3.5 h-3.5" />
-                        {incidentKindLabel(incident)}
-                      </span>
-                      {incident.needsEventType && incident.category !== 'unknown' && (
-                        <p className="text-[11px] text-slate-400 mt-0.5">{t('incidents.drawer.suggestedFromSos')}</p>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-slate-500 mb-1">{t('incidents.drawer.aiConfidence')}</p>
-                      {aiFailed ? (
-                        <span className="text-slate-400">—</span>
-                      ) : (
-                        <>
-                          <ConfidenceBadge score={incident.confidenceScore} />
-                          {/* §31.D: không phải xác suất đo thật (logprob) → chỉ để tham khảo. */}
-                          {incident.confidenceMeasured === false && (
-                            <span
-                              title={t('incidents.confidence.estimatedTitle')}
-                              className="ml-1 text-[10px] font-semibold text-slate-400 underline decoration-dotted cursor-help"
-                            >
-                              {t('incidents.confidence.estimated')}
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-slate-500 mb-1">{t('incidents.drawer.suggestedLevel')}</p>
-                      {aiFailed ? (
-                        <span className="text-slate-400">—</span>
-                      ) : (
-                        <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
-                      )}
-                    </div>
-                    {incident.aiEngine && (
-                      <div className="min-w-0">
-                        <p className="text-slate-500 mb-1">{t('incidents.engine.label')}</p>
-                        <p className="font-semibold text-slate-700 truncate" title={incident.aiEngine.modelName}>
-                          {incident.aiEngine.mode === 'legacy'
-                            ? incident.aiEngine.modelName
-                            : t(`incidents.engine.${incident.aiEngine.mode}`)}
-                        </p>
-                      </div>
-                    )}
-                    {incident.hazardTags.length > 0 && (
-                      <div className="col-span-2">
-                        <p className="text-slate-500 mb-1">{t('incidents.drawer.hazardTags')}</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {(showAllTags ? incident.hazardTags : incident.hazardTags.slice(0, MAX_VISIBLE_TAGS)).map(
-                            (tag) => (
-                              <HazardTagBadge key={tag} tag={tag} />
-                            )
-                          )}
-                          {incident.hazardTags.length > MAX_VISIBLE_TAGS && (
-                            <button
-                              type="button"
-                              onClick={() => setShowAllTags((v) => !v)}
-                              className="text-[10px] px-1.5 py-0.5 rounded-md border border-slate-200 bg-white font-semibold text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                            >
-                              {showAllTags
-                                ? t('incidents.drawer.hazardTagsLess')
-                                : `+${incident.hazardTags.length - MAX_VISIBLE_TAGS}`}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {!incident.aiPending && <AiVotesPanel votes={incident.aiVotes} />}
-                {incident.aiSummary && (
-                  <div className="border-t border-slate-200 pt-3">
-                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line break-words">
-                      {incident.aiSummary}
-                    </p>
-                    {incident.aiSummaryIsFallback && (
-                      <p className="text-[11px] text-slate-400 mt-1">{t('incidents.drawer.summaryFallback')}</p>
-                    )}
-                  </div>
-                )}
-              </section>
+              <AiFindings key={incident.id} incident={incident} />
 
               {!incident.aiPending && incident.trafficJam && (
                 <TrafficJamReview
@@ -658,281 +426,228 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
               )}
             </div>
           </div>
-          )}
-        </div>
+        </>
+        )}
+      </div>
 
-        {/* Dock quyết định của Điều phối viên: luôn nằm dưới đáy, không phải cuộn mới thấy */}
-        <div className="shrink-0 border-t border-slate-200 bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
-          <div className="max-h-[45vh] overflow-y-auto px-5 pt-4 pb-3 space-y-3">
-            {mode === 'transfer' ? (
-              <section className="space-y-2.5">
-                <h3 className="text-[13px] font-semibold text-blue-700">{t('incidents.drawer.transferHeading')}</h3>
-                <div className="grid sm:grid-cols-2 gap-2.5">
-                  <select
-                    value={transferStationId}
-                    onChange={(e) => setTransferStationId(e.target.value)}
-                    className="w-full text-sm bg-white border border-blue-200 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  >
-                    <option value="">{t('incidents.drawer.chooseStation')}</option>
-                    {transferStations.map((st) => (
-                      <option key={st.id} value={st.id}>
-                        {st.name}
-                      </option>
-                    ))}
-                  </select>
-                  <textarea
-                    value={transferReason}
-                    onChange={(e) => setTransferReason(e.target.value)}
-                    placeholder={t('incidents.drawer.transferPlaceholder')}
-                    rows={2}
-                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  />
-                </div>
-                {transferReason.length > 0 && !transferReasonValid && (
-                  <p className="text-[11px] text-blue-700">
-                    {t('incidents.drawer.minLength', {
-                      min: TRANSFER_REASON_MIN_LENGTH,
-                      length: transferReason.trim().length,
-                    })}
-                  </p>
-                )}
-                <p className="text-[11px] text-slate-500">{t('incidents.drawer.transferHelp')}</p>
-              </section>
-            ) : rejecting ? (
-              <section className="space-y-2.5">
-                <h3 className="text-[13px] font-semibold text-red-700">{t('incidents.drawer.rejectTitle')}</h3>
-                <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('incidents.drawer.rejectReasonGroup')}>
-                  {CANCELLATION_REASON_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={rejectCode === opt.value}
-                      onClick={() => setRejectCode(opt.value)}
-                      className={`px-3 py-1.5 rounded-lg border text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
-                        rejectCode === opt.value
-                          ? 'bg-red-600 border-red-600 text-white'
-                          : 'bg-white border-red-200 text-slate-600 hover:border-red-300'
-                      }`}
-                    >
-                      {t(`enums.cancellationReason.${opt.value}`)}
-                    </button>
+      {/* Dock quyết định của Điều phối viên: luôn nằm dưới đáy, không phải cuộn mới thấy */}
+      <div className="shrink-0 border-t border-slate-200 bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
+        <div className="max-h-[45vh] overflow-y-auto px-5 pt-4 pb-3 space-y-3">
+          {mode === 'transfer' ? (
+            <section className="space-y-2.5">
+              <h3 className="text-[13px] font-semibold text-blue-700">{t('incidents.drawer.transferHeading')}</h3>
+              <div className="grid sm:grid-cols-2 gap-2.5">
+                <select
+                  value={transferStationId}
+                  onChange={(e) => setTransferStationId(e.target.value)}
+                  className="w-full text-sm bg-white border border-blue-200 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                >
+                  <option value="">{t('incidents.drawer.chooseStation')}</option>
+                  {transferStations.map((st) => (
+                    <option key={st.id} value={st.id}>
+                      {st.name}
+                    </option>
                   ))}
-                </div>
+                </select>
                 <textarea
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder={t('incidents.drawer.rejectNotePlaceholder')}
+                  value={transferReason}
+                  onChange={(e) => setTransferReason(e.target.value)}
+                  placeholder={t('incidents.drawer.transferPlaceholder')}
                   rows={2}
-                  className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-300"
+                  className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
-                {hasPhone && (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                    <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={blockPhone}
-                        onChange={(e) => setBlockPhone(e.target.checked)}
-                        className="w-4 h-4 accent-red-600"
-                      />
-                      {t('incidents.drawer.blockPhone', { phone: incident.reporterPhone })}
-                    </label>
-                    {blockPhone && (
-                      <select
-                        value={blockDuration}
-                        onChange={(e) => setBlockDuration(e.target.value as BlockDuration)}
-                        className="text-sm bg-white border border-red-200 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-300"
-                      >
-                        {BLOCK_DURATION_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {t('incidents.drawer.blockFor', { duration: t(`enums.blockDuration.${opt.value}`) })}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                )}
-              </section>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-start gap-x-10 gap-y-3">
-                  {incident.needsEventType && (
-                    <div>
-                      <p className={DOCK_LABEL}>
-                        {t('incidents.drawer.incidentType')}{' '}
-                        <span className="font-normal text-red-600">{t('incidents.drawer.required')}</span>
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {CONFIRMABLE_CATEGORIES.map((cat) => {
-                          const meta = INCIDENT_CATEGORY_META[cat];
-                          const Icon = meta.icon;
-                          const isActive = confirmedCategory === cat;
-                          return (
-                            <button
-                              key={cat}
-                              type="button"
-                              onClick={() => {
-                                setConfirmedCategory(cat);
-                                // Đổi nhóm → về loại chung của nhóm (loại chi tiết cũ thuộc nhóm khác).
-                                if (cat !== confirmedCategory) setConfirmedTypeCode(EVENT_TYPE_FROM_CATEGORY[cat]);
-                              }}
-                              disabled={!canAct}
-                              aria-pressed={isActive}
-                              title={t('incidents.drawer.chooseTypeHelp')}
-                              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
-                                isActive ? 'text-white' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                              }`}
-                              style={isActive ? { backgroundColor: meta.color, borderColor: meta.color } : undefined}
-                            >
-                              <Icon className="w-4 h-4" />
-                              {t(`enums.category.${cat}`)}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  <IncidentTypePicker
-                    category={typeCategory}
-                    value={confirmedTypeCode}
-                    onChange={setConfirmedTypeCode}
-                    disabled={!canAct}
-                    labelClassName={DOCK_LABEL}
-                  />
+              </div>
+              {transferReason.length > 0 && !transferReasonValid && (
+                <p className="text-[11px] text-blue-700">
+                  {t('incidents.drawer.minLength', {
+                    min: TRANSFER_REASON_MIN_LENGTH,
+                    length: transferReason.trim().length,
+                  })}
+                </p>
+              )}
+              <p className="text-[11px] text-slate-500">{t('incidents.drawer.transferHelp')}</p>
+            </section>
+          ) : rejecting ? (
+            <CancelCaseFields incident={incident} value={cancelInput} onChange={setCancelInput} />
+          ) : (
+            <>
+              <div className="flex flex-wrap items-start gap-x-10 gap-y-3">
+                {incident.needsEventType && (
                   <div>
-                    <p className={DOCK_LABEL}>{t('incidents.drawer.levelLabel')}</p>
-                    <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('incidents.drawer.confirmSeverity')}>
-                      {CONFIRMABLE_LEVELS.map((level) => {
-                        const meta = SEVERITY_LEVEL_META[level];
-                        const isActive = confirmedSeverity === level;
+                    <p className={DOCK_LABEL}>
+                      {t('incidents.drawer.incidentType')}{' '}
+                      <span className="font-normal text-red-600">{t('incidents.drawer.required')}</span>
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CONFIRMABLE_CATEGORIES.map((cat) => {
+                        const meta = INCIDENT_CATEGORY_META[cat];
+                        const Icon = meta.icon;
+                        const isActive = confirmedCategory === cat;
                         return (
                           <button
-                            key={level}
+                            key={cat}
                             type="button"
-                            role="radio"
-                            aria-checked={isActive}
                             onClick={() => {
-                              operatorOverrodeRef.current = true;
-                              setConfirmedSeverity(level);
+                              setConfirmedCategory(cat);
+                              // Đổi nhóm → về loại chung của nhóm (loại chi tiết cũ thuộc nhóm khác).
+                              if (cat !== confirmedCategory) setConfirmedTypeCode(EVENT_TYPE_FROM_CATEGORY[cat]);
                             }}
                             disabled={!canAct}
-                            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
-                              isActive ? meta.badgeClass : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                            aria-pressed={isActive}
+                            title={t('incidents.drawer.chooseTypeHelp')}
+                            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
+                              isActive ? 'text-white' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
                             }`}
+                            style={isActive ? { backgroundColor: meta.color, borderColor: meta.color } : undefined}
                           >
-                            {t(`enums.severity.level${level}`)}
-                            {level === incident.severity && hasAiSeverity && (
-                              <span className="px-1 rounded bg-slate-900/10 text-[10px] font-bold">AI</span>
-                            )}
+                            <Icon className="w-4 h-4" />
+                            {t(`enums.category.${cat}`)}
                           </button>
                         );
                       })}
                     </div>
                   </div>
-                </div>
-
-                {isOverride && (
-                  <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
-                    <p className="text-xs text-amber-800">
-                      {!hasAiSeverity
-                        ? t('incidents.drawer.unclassifiedOverride', {
-                            level: t(`enums.severity.level${confirmedSeverity}`),
-                          })
-                        : t('incidents.drawer.override', {
-                            from: t(`enums.severity.level${incident.severity}`),
-                            to: t(`enums.severity.level${confirmedSeverity}`),
-                          })}
-                    </p>
-                    <textarea
-                      value={overrideReason}
-                      onChange={(e) => setOverrideReason(e.target.value)}
-                      placeholder={t('incidents.drawer.overridePlaceholder')}
-                      rows={2}
-                      className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-300"
-                    />
-                    {!overrideReasonValid && (
-                      <p className="text-[11px] text-amber-700">
-                        {t('incidents.drawer.minLength', { min: OVERRIDE_REASON_MIN_LENGTH, length: overrideReasonLength })}
-                      </p>
-                    )}
+                )}
+                <IncidentTypePicker
+                  category={typeCategory}
+                  value={confirmedTypeCode}
+                  onChange={setConfirmedTypeCode}
+                  disabled={!canAct}
+                  labelClassName={DOCK_LABEL}
+                />
+                <div>
+                  <p className={DOCK_LABEL}>{t('incidents.drawer.levelLabel')}</p>
+                  <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('incidents.drawer.confirmSeverity')}>
+                    {CONFIRMABLE_LEVELS.map((level) => {
+                      const meta = SEVERITY_LEVEL_META[level];
+                      const isActive = confirmedSeverity === level;
+                      return (
+                        <button
+                          key={level}
+                          type="button"
+                          role="radio"
+                          aria-checked={isActive}
+                          onClick={() => {
+                            operatorOverrodeRef.current = true;
+                            setConfirmedSeverity(level);
+                          }}
+                          disabled={!canAct}
+                          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
+                            isActive ? meta.badgeClass : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          {t(`enums.severity.level${level}`)}
+                          {level === incident.severity && hasAiSeverity && (
+                            <span className="px-1 rounded bg-slate-900/10 text-[10px] font-bold">AI</span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
-              </>
-            )}
-
-            {errorMsg && (
-              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <span>{errorMsg}</span>
+                </div>
               </div>
-            )}
-          </div>
 
-          <div className="flex flex-wrap items-center gap-3 px-5 pb-4">
-            {mode === 'transfer' ? (
-              <>
-                <button
-                  onClick={() => setMode('review')}
-                  disabled={isSubmitting}
-                  className={SECONDARY_BUTTON}
-                >
-                  {t('incidents.drawer.back')}
-                </button>
-                <button
-                  onClick={handleConfirmTransfer}
-                  disabled={!canTransfer}
-                  className="ml-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
-                  {t('incidents.drawer.confirmTransfer')}
-                </button>
-              </>
-            ) : rejecting ? (
-              <>
-                <button
-                  onClick={() => setMode('review')}
-                  disabled={isSubmitting}
-                  className={SECONDARY_BUTTON}
-                >
-                  {t('incidents.drawer.back')}
-                </button>
-                <button
-                  onClick={handleConfirmReject}
-                  disabled={isSubmitting || !canAct}
-                  className="ml-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm shadow-lg shadow-red-600/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500"
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
-                  {t('incidents.drawer.confirmReject')}
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => setMode('reject')}
-                  disabled={isSubmitting || !canAct}
-                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
-                >
-                  <Ban className="w-4 h-4" />
-                  {t('incidents.drawer.rejectTitle')}
-                </button>
-                {decisionHint && (
-                  <p role="status" className="flex-1 min-w-[10rem] text-right text-xs text-slate-500">
-                    {decisionHint}
+              {isOverride && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
+                  <p className="text-xs text-amber-800">
+                    {!hasAiSeverity
+                      ? t('incidents.drawer.unclassifiedOverride', {
+                          level: t(`enums.severity.level${confirmedSeverity}`),
+                        })
+                      : t('incidents.drawer.override', {
+                          from: t(`enums.severity.level${incident.severity}`),
+                          to: t(`enums.severity.level${confirmedSeverity}`),
+                        })}
                   </p>
-                )}
-                <button
-                  onClick={handleApprove}
-                  disabled={!canApprove}
-                  className="ml-auto flex items-center justify-center gap-2 px-6 py-3 min-w-[14rem] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition-colors disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500"
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CircleCheck className="w-4 h-4" />}
-                  {t('incidents.drawer.approve')}
-                </button>
-              </>
-            )}
-          </div>
+                  <textarea
+                    value={overrideReason}
+                    onChange={(e) => setOverrideReason(e.target.value)}
+                    placeholder={t('incidents.drawer.overridePlaceholder')}
+                    rows={2}
+                    className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                  {!overrideReasonValid && (
+                    <p className="text-[11px] text-amber-700">
+                      {t('incidents.drawer.minLength', { min: OVERRIDE_REASON_MIN_LENGTH, length: overrideReasonLength })}
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {errorMsg && (
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
         </div>
-      </aside>
-    </>
+
+        <div className="flex flex-wrap items-center gap-3 px-5 pb-4">
+          {mode === 'transfer' ? (
+            <>
+              <button
+                onClick={() => setMode('review')}
+                disabled={isSubmitting}
+                className={SECONDARY_BUTTON}
+              >
+                {t('incidents.drawer.back')}
+              </button>
+              <button
+                onClick={handleConfirmTransfer}
+                disabled={!canTransfer}
+                className="ml-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
+                {t('incidents.drawer.confirmTransfer')}
+              </button>
+            </>
+          ) : rejecting ? (
+            <>
+              <button
+                onClick={() => setMode('review')}
+                disabled={isSubmitting}
+                className={SECONDARY_BUTTON}
+              >
+                {t('incidents.drawer.back')}
+              </button>
+              <button
+                onClick={handleConfirmReject}
+                disabled={isSubmitting || !canAct}
+                className="ml-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm shadow-lg shadow-red-600/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+                {t('incidents.drawer.confirmReject')}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setMode('reject')}
+                disabled={isSubmitting || !canAct}
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+              >
+                <Ban className="w-4 h-4" />
+                {t('incidents.drawer.rejectTitle')}
+              </button>
+              {decisionHint && (
+                <p role="status" className="flex-1 min-w-[10rem] text-right text-xs text-slate-500">
+                  {decisionHint}
+                </p>
+              )}
+              <button
+                onClick={handleApprove}
+                disabled={!canApprove}
+                className="ml-auto flex items-center justify-center gap-2 px-6 py-3 min-w-[14rem] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition-colors disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CircleCheck className="w-4 h-4" />}
+                {t('incidents.drawer.approve')}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </aside>
   );
 };

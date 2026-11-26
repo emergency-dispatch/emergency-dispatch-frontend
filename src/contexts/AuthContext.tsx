@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { API_CONFIG } from '../config/api';
 import { authService } from '../services/authService';
 import { userService } from '../services/userService';
+import { resetRealtimeHubs } from '../services/realtime/incidentHubService';
 import type {
   UserDto,
   UserResponseDto,
@@ -52,6 +53,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.setItem(API_CONFIG.USER_KEY, JSON.stringify(authData.user));
       setUser(authData.user);
     }
+    // Đăng nhập tài khoản mới: kết nối realtime của tài khoản trước (nếu còn) bị ngắt và nối lại bằng token mới (§47)
+    resetRealtimeHubs(true);
   };
 
   const clearAuthSession = () => {
@@ -60,6 +63,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem(API_CONFIG.USER_KEY);
     localStorage.removeItem('resq_last_reported_time');
     localStorage.removeItem('resq_my_reported_incident_ids');
+    // Đăng xuất / phiên hết hạn: ngắt kết nối realtime mang danh tính tài khoản này (§47)
+    resetRealtimeHubs(false);
     setUser(null);
     window.dispatchEvent(new CustomEvent('resq_sos_cooldown_started', { detail: { timestamp: 0 } }));
   };

@@ -7,6 +7,7 @@ export const adminSettingsVi = {
     stepsPositive: 'Mỗi nấc bán kính phải lớn hơn 0.',
     stepsIncreasing: 'Các nấc bán kính phải tăng dần.',
     stepsExceedMax: 'Nấc cuối không được vượt bán kính tối đa của cấu hình leo thang ({{km}} km).',
+    acceptTimeoutRange: 'Nhập 0 (tắt) hoặc từ {{min}} đến {{max}} phút.',
     halfStep: 'Chỉ nhận bước 0.5 phút (VD 2, 2.5, 3).',
     invalidTime: 'Giờ không hợp lệ.',
     sameStartEnd: 'Giờ kết thúc phải khác giờ bắt đầu.',
@@ -39,9 +40,10 @@ export const adminSettingsVi = {
     recovery: 'Hồi sức sau nhiệm vụ',
     minutesUnit: 'phút',
     recoveryHint: 'Sau khi nộp báo cáo, xe ở trạng thái Hồi sức trước khi Sẵn sàng.',
-    autoExpire: 'Tự hủy sự cố chưa xác minh',
+    autoExpire: 'Đánh dấu quá hạn sự cố chưa xác minh',
     hoursUnit: 'giờ',
-    autoExpireHint: 'Sự cố chưa được Operator duyệt quá thời gian này thì tự hủy ({{min}}–{{max}} giờ).',
+    autoExpireHint:
+      'Sự cố chưa được Operator duyệt quá thời gian này sẽ được đánh dấu cần rà soát và cảnh báo Operator + Admin; hệ thống không tự hủy ({{min}}–{{max}} giờ).',
     // AI tự điều phối (FE_MOBILE_HANDOFF §31.E)
     auto: {
       title: 'AI tự điều phối',
@@ -50,7 +52,7 @@ export const adminSettingsVi = {
         'Hệ thống tự xác minh và điều xe theo kế hoạch điều xe của loại sự cố, không chờ Operator duyệt. Chỉ áp dụng cho SOS cháy nổ / tai nạn Cấp 1–3 trong khu vực phục vụ, người báo không chọn "Khác", không Operator nào đang mở ca, và độ tin cậy là xác suất đo thật từ model TriageVL.',
       enable: 'Bật AI tự điều phối',
       enableHint:
-        'Khi tắt, mọi sự cố đều chờ Operator duyệt. Ca bị bỏ qua (nghi trùng, hết xe…) vẫn vào hàng đợi kèm lý do.',
+        'Khi tắt, mọi sự cố đều chờ Operator duyệt. Ca bị bỏ qua (nghi trùng, hết xe…) vẫn chuyển Operator xử lý kèm lý do.',
       mode: 'Cách AI quyết định',
       modeDefault: 'mặc định',
       modes: { Ensemble: '3 AI bỏ phiếu', Single: 'Chỉ TriageVL' },
@@ -89,6 +91,11 @@ export const adminSettingsVi = {
     fieldRequestDescription:
       'Yêu cầu chi viện / báo vấn đề của đội cứu hộ chưa được trung tâm xử lý xong quá ngưỡng này sẽ được báo cho Admin và Operator của trạm.',
     fieldRequestThreshold: 'Ngưỡng chờ xử lý',
+    acceptTimeoutTitle: 'Chờ tổ nhận lệnh',
+    acceptTimeoutDescription:
+      'Tổ không nhận lệnh quá thời gian này thì hệ thống tự rút lệnh, trả xe về Sẵn sàng và báo Operator giao tổ khác. Áp dụng cho cả lệnh AI và Operator.',
+    acceptTimeout: 'Thời gian chờ',
+    acceptTimeoutHint: '0 = tắt, hoặc {{min}}–{{max}} phút, bước 0.5.',
     rules: {
       title: 'Quy tắc leo thang',
       activeCount: '{{active}}/{{total}} đang bật',
@@ -160,6 +167,7 @@ export const adminSettingsVi = {
     notifyRole: { Operator: 'Điều phối viên', Admin: 'Quản trị viên', RescueStaff: 'Đội cứu hộ' },
   },
   serviceArea: {
+    tabs: { area: 'Khu vực', merge: 'Gộp báo cáo', alerts: 'Thông báo' },
     savedEnabled: 'Đã lưu khu vực phục vụ. SOS ngoài vùng sẽ được gắn cờ và báo cho Operator / Admin.',
     savedReject: 'Đã lưu khu vực phục vụ. SOS của người dân ngoài vùng sẽ bị từ chối.',
     savedDisabled: 'Đã lưu khu vực phục vụ (đang tắt kiểm tra).',
@@ -170,7 +178,7 @@ export const adminSettingsVi = {
       reject: 'Từ chối',
       rejectHint: 'Không tạo sự cố; người dân được báo là đang ở ngoài khu vực phục vụ.',
       flag: 'Vẫn tiếp nhận, gắn cờ',
-      flagHint: 'Sự cố vào hàng đợi kèm cờ "ngoài khu vực" và cảnh báo realtime cho Operator / Admin.',
+      flagHint: 'Sự cố chờ Operator thẩm định kèm cờ "ngoài khu vực" và cảnh báo realtime cho Operator / Admin.',
       default: 'mặc định',
     },
     outsideNote: 'Chỉ áp dụng cho SOS của người dân; sự cố do Operator tự tạo không bị từ chối.',
@@ -217,26 +225,41 @@ export const adminSettingsVi = {
       'Trạm nằm ngoài đa giác: <b>{{stations}}</b>. Vẫn lưu được, nhưng nên vẽ lại ranh giới để các trạm nằm trong vùng phục vụ.',
   },
   // BR-07: tự gộp SOS trùng của người dân vào sự cố đang mở.
+  citizenAlerts: {
+    title: 'Thông báo khu vực có sự cố',
+    enableHint: 'Báo cho mọi người dân biết nơi đang có sự cố. Tắt thì không gửi thông báo mới, thông báo đã gửi vẫn giữ.',
+    previewTitle: 'Người dân sẽ nhận',
+    previewTime: 'bây giờ',
+    previewHeading: 'THÔNG BÁO SỰ CỐ',
+    previewBody: 'Có sự cố tại ĐT. 914, Đôn Châu, Vĩnh Long.',
+    whenTitle: 'Khi nào gửi',
+    whenVerified: 'Operator hoặc Admin xác minh sự cố.',
+    whenAccepted: 'AI tự điều phối và đội cứu hộ đã nhận lệnh.',
+    summaryOnce: 'Mỗi sự cố gửi một lần, tới mọi tài khoản người dân đang hoạt động.',
+    summaryContent: 'Chỉ có địa chỉ sự cố, không có người báo, ảnh hay thông tin y tế.',
+    enabledFrom: 'Đang áp dụng cho sự cố từ {{time}}.',
+    savedEnabled: 'Đã bật thông báo khu vực cho người dân.',
+    savedDisabled: 'Đã tắt thông báo khu vực cho người dân.',
+    enableTitle: 'Bật thông báo cho mọi người dân?',
+    enableBody:
+      'Từ lúc bật, mỗi sự cố được xác nhận sẽ gửi thông báo tới tất cả tài khoản người dân đang hoạt động. Sự cố xác nhận trước đó không gửi lại.',
+    enableConfirm: 'Bật và lưu',
+  },
   duplicateDetection: {
-    scopeNote:
-      'Hệ thống tự gộp SOS của người dân gửi gần nhau, cùng lúc vào một sự cố đang xử lý, để Operator không phải xử lý nhiều ca trùng. Không áp dụng cho sự cố do Operator tự tạo.',
-    enable: 'Bật tự gộp báo cáo trùng',
-    enableHint: 'Tắt: mọi SOS đều vào hàng đợi như một sự cố riêng.',
+    scopeNote: 'Nhiều người cùng báo một vụ thì Operator chỉ phải xử lý một ca. Không áp dụng cho sự cố do Operator tạo.',
+    enable: 'Gộp báo cáo trùng',
+    enableHint: 'Tắt: mọi SOS đều thành một sự cố riêng.',
     radius: 'Bán kính gộp',
-    radiusHint: 'Từ {{min}} đến {{max}} m, tính từ vị trí sự cố đang mở.',
     window: 'Khung thời gian',
-    windowHint: 'Từ {{min}} đến {{max}} phút, tính từ lần báo gần nhất của sự cố đang mở.',
-    minutesUnit: 'phút',
-    summaryTitle: 'Áp dụng',
-    summaryRule:
-      'SOS mới được gộp khi cách một sự cố đang mở không quá {{meters}} m, sự cố đó có người báo trong {{minutes}} phút gần nhất và cùng loại sự cố (nếu đã biết loại).',
-    summaryOutlier: 'Báo cáo ở rìa bán kính hoặc khác loại được đánh dấu "Cần kiểm tra" cho Operator.',
+    sentenceBefore: 'Gộp SOS khi cách sự cố đang mở không quá',
+    sentenceMiddle: 'm, và sự cố đó có người báo trong',
+    sentenceAfter: 'phút gần nhất, cùng loại sự cố (nếu đã biết loại).',
     summaryOperator: 'Operator thấy "+N người cùng báo" trên sự cố gốc và có thể tách ra hoặc xác nhận trùng.',
     savedEnabled: 'Đã lưu cấu hình gộp báo cáo trùng.',
     savedDisabled: 'Đã lưu cấu hình gộp báo cáo trùng (đang tắt).',
     disableTitle: 'Tắt tự gộp báo cáo trùng?',
     disableBody:
-      'Sau khi tắt, mọi SOS của người dân đều vào hàng đợi như sự cố riêng, kể cả nhiều người cùng báo một vụ. Áp dụng ngay cho tất cả các trạm.',
+      'Sau khi tắt, mọi SOS của người dân đều thành sự cố riêng, kể cả nhiều người cùng báo một vụ. Áp dụng ngay cho tất cả các trạm.',
     disableConfirm: 'Tắt và lưu',
   },
 } as const;

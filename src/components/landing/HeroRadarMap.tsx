@@ -41,7 +41,7 @@ import {
   publicIncidentMarkerHtml,
 } from '../operator/livemap/glowMarkers';
 import type { IncidentResponseDto, IncidentCategory, SeverityLevel } from '../../types/incident';
-import { getIncidentVisualMeta, formatCitizenIncidentStatus } from '../../utils/incidentFormat';
+import { getIncidentVisualMeta, formatCitizenIncidentStatus, formatCitizenDispatchStatus } from '../../utils/incidentFormat';
 import type { RescueUnitResponseDto } from '../../types/rescueUnit';
 import type { DispatchVehicleType, Station, VehicleStatus } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
@@ -129,15 +129,41 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   // Real entities state
   const [stations, setStations] = useState<Station[]>([]);
   const [units, setUnits] = useState<RescueUnitResponseDto[]>([]);
-  const [reportedIncident, setReportedIncident] = useState<IncidentResponseDto | null>(null);
-  const [trackingData, setTrackingData] = useState<CitizenTrackingDto | null>(null);
-  const [liveVehicle, setLiveVehicle] = useState<{ lat: number; lng: number; speedKmh?: number; heading?: number } | null>(null);
+  const [myIncidents, setMyIncidents] = useState<IncidentResponseDto[]>([]);
+  const [selectedSosId, setSelectedSosId] = useState<string | null>(null);
+  const focusedIncidentIdRef = useRef<string | null>(null);
+  const isExpandedRef = useRef(isExpanded);
+  isExpandedRef.current = isExpanded;
+  const toggleExpandedRef = useRef(toggleExpanded);
+  toggleExpandedRef.current = toggleExpanded;
+  const [trackingByIncident, setTrackingByIncident] = useState<Record<string, CitizenTrackingDto>>({});
+  const [liveVehiclesById, setLiveVehiclesById] = useState<
+    Record<string, { lat: number; lng: number; speedKmh?: number; heading?: number }>
+  >({});
+  const [multiRoutes, setMultiRoutes] = useState<
+    Array<{ incidentId: string; unitId: string; coords: [number, number][]; color: string }>
+  >([]);
   const [trackingRefreshTick, setTrackingRefreshTick] = useState(0);
   const [isCheckingIncident, setIsCheckingIncident] = useState<boolean>(() => Boolean(user));
   const checkedUserKeyRef = useRef<string | null>(null);
-  const lastSignalRAtRef = useRef<number>(0);
-  const liveVehicleRef = useRef(liveVehicle);
-  liveVehicleRef.current = liveVehicle;
+  const lastSignalRByUnitRef = useRef<Record<string, number>>({});
+  const liveVehiclesByIdRef = useRef(liveVehiclesById);
+  liveVehiclesByIdRef.current = liveVehiclesById;
+  const routeCacheRef = useRef<
+    Map<string, { vLat: number; vLng: number; iLat: number; iLng: number; coords: [number, number][] }>
+  >(new Map());
+  const selectedSosIdRef = useRef<string | null>(selectedSosId);
+  selectedSosIdRef.current = selectedSosId;
+  const lastMarkerClickAtRef = useRef<number>(0);
+
+  const reportedIncident =
+    myIncidents.find((i) => i.id === selectedSosId) ||
+    myIncidents.find((i) => i.id === focusedIncidentIdRef.current) ||
+    myIncidents[0] ||
+    null;
+  const trackingData = reportedIncident ? trackingByIncident[reportedIncident.id] || null : null;
+  const liveVehicle =
+    trackingData?.rescueUnitId ? liveVehiclesById[trackingData.rescueUnitId] || null : null;
   const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(() => getCachedServiceArea());
   const serviceAreaRef = useRef<ServiceAreaDto | null>(serviceArea);
   serviceAreaRef.current = serviceArea;
@@ -145,7 +171,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   // Markers references for dynamic updates
   const stationMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const unitMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
-  const incidentMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const incidentMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const publicIncidentMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const [publicIncidents, setPublicIncidents] = useState<CitizenMapIncidentDto[]>([]);
   const lastCitizenMapRevRef = useRef<string | null>(null);
@@ -215,36 +241,44 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     apply();
   }, []);
 
-  // Tactical route updater on Mapbox canvas
-  const activeRouteCoordsRef = useRef<[number, number][]>([]);
-  const updateRouteTrajectory = useCallback((coords: [number, number][]) => {
-    activeRouteCoordsRef.current = coords;
-    const map = mapRef.current;
-    if (!map) return;
-    try {
-      const source = map.getSource('tactical-routes') as mapboxgl.GeoJSONSource | undefined;
-      if (source) {
-        source.setData({
-          type: 'FeatureCollection',
-          features:
-            coords.length >= 2
-              ? [
-                  {
-                    type: 'Feature',
-                    properties: { color: '#3B82F6' },
-                    geometry: {
-                      type: 'LineString',
-                      coordinates: coords,
-                    },
-                  },
-                ]
-              : [],
-        });
+  // Tactical route updater on Mapbox canvas (hỗ trợ nhiều tuyến đường và lọc theo SOS đang chọn)
+  const activeRouteFeaturesRef = useRef<Array<{ incidentId: string; unitId: string; coords: [number, number][]; color: string }>>([]);
+  const syncRouteLayer = useCallback(
+    (routesList: Array<{ incidentId: string; unitId: string; coords: [number, number][]; color: string }>, focusSosId: string | null) => {
+      activeRouteFeaturesRef.current = routesList;
+      const map = mapRef.current;
+      if (!map) return;
+      const visible =
+        focusSosId && routesList.some((r) => r.incidentId === focusSosId)
+          ? routesList.filter((r) => r.incidentId === focusSosId)
+          : routesList;
+      try {
+        const source = map.getSource('tactical-routes') as mapboxgl.GeoJSONSource | undefined;
+        if (source) {
+          source.setData({
+            type: 'FeatureCollection',
+            features: visible
+              .filter((r) => r.coords.length >= 2)
+              .map((r) => ({
+                type: 'Feature',
+                properties: { color: r.color || '#0284C7', incidentId: r.incidentId },
+                geometry: {
+                  type: 'LineString',
+                  coordinates: r.coords,
+                },
+              })),
+          });
+        }
+      } catch {
+        // Layer/source might still be loading
       }
-    } catch {
-      // Layer/source might still be loading
-    }
-  }, []);
+    },
+    []
+  );
+
+  useEffect(() => {
+    syncRouteLayer(multiRoutes, selectedSosId);
+  }, [multiRoutes, selectedSosId, syncRouteLayer]);
 
   // Fetch real stations & rescue units
   const fetchRealEntities = useCallback(async () => {
@@ -279,7 +313,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     }
   }, [user, onStatsUpdate, trackingData?.estimatedArrivalMinutes]);
 
-  // Check citizen reported incident (from storage or API)
+  // Check ALL active citizen reported incidents (gồm cả báo cáo chính & sự cố gốc của ca trùng còn hoạt động)
   const checkCitizenReportedIncident = useCallback(async () => {
     const userKey = user?.id ?? null;
     const isInitialForUser = Boolean(userKey && checkedUserKeyRef.current !== userKey);
@@ -287,67 +321,85 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       setIsCheckingIncident(true);
     }
     try {
-      // 1. Nếu công dân đã đăng nhập: chỉ hiển thị báo cáo CHÍNH hiện tại lên radar map.
-      // Báo cáo trùng (Linked) hoặc báo cáo quá khứ (> 24h / đã có ca mới hơn) chỉ xem trong modal lịch sử & theo dõi.
-      if (user?.role === UserRole.Citizen) {
+      if (!user) {
+        checkedUserKeyRef.current = null;
+        setMyIncidents([]);
+        return;
+      }
+
+      if (user.role === UserRole.Citizen) {
         const PRIMARY_MAX_AGE_MS = 24 * 60 * 60 * 1000;
         const isRecent = (iso?: string) => Boolean(iso && Date.now() - new Date(iso).getTime() <= PRIMARY_MAX_AGE_MS);
         const isPrimaryActive = (status: string) =>
           status !== 'Cancelled' && status !== 'Completed' && status !== 'Linked';
 
-        const myReportsRes = await incidentService.getMyReports({ pageSize: 5 }).catch(() => null);
+        const myReportsRes = await incidentService.getMyReports({ pageSize: 20 }).catch(() => null);
         const items = myReportsRes?.success ? myReportsRes.data.items : [];
-        const latest = items[0];
 
-        if (latest) {
-          let targetId: string | null = null;
-          if (isPrimaryActive(latest.status) && isRecent(latest.reportedAt)) {
-            targetId = latest.id;
-          } else if (latest.status === 'Linked' && latest.linkedToIncidentId) {
-            // Nếu ca vừa bấm bị gộp vào chính báo cáo chính của mình còn đang xử lý → hiển thị báo cáo chính đó
-            const ownPrimary = items.find(
-              (x) => x.id === latest.linkedToIncidentId && isPrimaryActive(x.status) && isRecent(x.reportedAt)
-            );
-            if (ownPrimary) targetId = ownPrimary.id;
-          }
+        const targetIds: string[] = [];
+        const pushUnique = (id?: string | null) => {
+          if (id && !targetIds.includes(id)) targetIds.push(id);
+        };
 
-          if (targetId) {
-            const res = await incidentService.getById(targetId).catch(() => null);
-            if (res?.success && res.data && isPrimaryActive(res.data.status)) {
-              setReportedIncident(res.data);
-              return;
+        if (focusedIncidentIdRef.current) {
+          pushUnique(focusedIncidentIdRef.current);
+        }
+
+        for (const it of items) {
+          if (isPrimaryActive(it.status) && isRecent(it.reportedAt)) {
+            pushUnique(it.id);
+          } else if (
+            it.linkedToIncidentId &&
+            (it.status === 'Linked' ||
+              (it.status === 'Cancelled' && /trùng|duplicate/i.test((it as any).cancellationReason || ''))) &&
+            isRecent(it.reportedAt)
+          ) {
+            const linkedStatus = String((it as any).linkedToIncidentStatus || '');
+            if (linkedStatus !== 'Cancelled' && linkedStatus !== 'Completed') {
+              pushUnique(it.linkedToIncidentId);
             }
           }
+          if (targetIds.length >= 6) break;
         }
-        setReportedIncident(null);
+
+        if (targetIds.length === 0) {
+          setMyIncidents([]);
+          return;
+        }
+
+        const results = await Promise.allSettled(
+          targetIds.map((id) => incidentService.getById(id))
+        );
+        const activeList: IncidentResponseDto[] = [];
+        for (const r of results) {
+          if (r.status === 'fulfilled' && r.value?.success && r.value.data && isPrimaryActive(r.value.data.status)) {
+            activeList.push(r.value.data);
+          }
+        }
+        if (focusedIncidentIdRef.current && !activeList.some((i) => i.id === focusedIncidentIdRef.current)) {
+          focusedIncidentIdRef.current = null;
+        }
+        setMyIncidents(activeList);
         return;
       }
 
-      // 2. Chỉ gọi GET /incidents/{id} khi đã đăng nhập (backend yêu cầu [Authorize])
-      if (!user) {
-        checkedUserKeyRef.current = null;
-        setReportedIncident(null);
-        return;
-      }
-
-      // 3. Fallback từ localStorage khi tài khoản đã đăng nhập đang theo dõi trên trang chủ
+      // Fallback từ localStorage khi tài khoản khác đang theo dõi trên trang chủ
       const storedIds: string[] = JSON.parse(
         localStorage.getItem('resq_my_reported_incident_ids') || '[]'
       );
       if (storedIds.length > 0) {
         const validIds: string[] = [];
+        const activeList: IncidentResponseDto[] = [];
         for (const id of storedIds.slice(0, 5)) {
           try {
             const res = await incidentService.getById(id);
             if (res?.success && res.data) {
               validIds.push(id);
               if (res.data.status !== 'Cancelled' && res.data.status !== 'Completed') {
-                setReportedIncident(res.data);
-                return;
+                activeList.push(res.data);
               }
             }
           } catch (err: any) {
-            // Nếu bị 403 Forbidden hoặc 404, không lưu lại ID này nữa
             if (err?.response?.status === 403 || err?.response?.status === 404) {
               continue;
             }
@@ -357,10 +409,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         if (validIds.length !== storedIds.length) {
           localStorage.setItem('resq_my_reported_incident_ids', JSON.stringify(validIds));
         }
+        setMyIncidents(activeList);
+        return;
       }
 
-      // If all incidents are cancelled or resolved, clear active incident so HUD shows normal GPS state
-      setReportedIncident(null);
+      setMyIncidents([]);
     } catch {
       // Ignore
     } finally {
@@ -371,91 +424,177 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     }
   }, [user]);
 
-  // Load & refresh tracking data while primary incident has active dispatch
+  const myIncidentsKey = myIncidents.map((i) => `${i.id}:${i.status}`).join(',');
+
+  // Load & refresh tracking data for ALL active incidents
   useEffect(() => {
-    if (!reportedIncident?.id || reportedIncident.status === 'Cancelled' || reportedIncident.status === 'Completed') {
-      setTrackingData(null);
-      setLiveVehicle(null);
+    const activeOnes = myIncidents.filter((i) => i.status !== 'Cancelled' && i.status !== 'Completed');
+    if (activeOnes.length === 0) {
+      setTrackingByIncident({});
+      setLiveVehiclesById({});
+      setMultiRoutes([]);
       hasFittedTrackingBoundsRef.current = null;
-      updateRouteTrajectory([]);
       return;
     }
 
-    if (reportedIncident.status !== 'Dispatched' && reportedIncident.status !== 'InProgress') {
-      setTrackingData(null);
-      setLiveVehicle(null);
-      updateRouteTrajectory([]);
+    const dispatchedOnes = activeOnes.filter((i) => i.status === 'Dispatched' || i.status === 'InProgress');
+    if (dispatchedOnes.length === 0) {
+      setTrackingByIncident({});
+      setMultiRoutes([]);
       return;
     }
 
+    const ROUTE_COLORS = ['#0284C7', '#7C3AED', '#059669', '#EA580C'];
     let cancelled = false;
-    const loadTracking = () => {
-      incidentService
-        .getTracking(reportedIncident.id)
-        .then((res) => {
-          if (cancelled || !res.data) return;
-          setTrackingData(res.data);
-          if (res.data.vehicleLat && res.data.vehicleLng) {
-            const now = Date.now();
-            // Đồng bộ từ polling nếu SignalR chưa push tọa độ mới hơn trong 2.5s qua
-            if (!lastSignalRAtRef.current || now - lastSignalRAtRef.current > 2500) {
-              setLiveVehicle((prev) => ({
-                lat: res.data.vehicleLat!,
-                lng: res.data.vehicleLng!,
-                speedKmh: prev?.speedKmh,
-                heading: prev?.heading,
-              }));
-            }
-          }
-          const vLat = liveVehicleRef.current?.lat ?? res.data.vehicleLat;
-          const vLng = liveVehicleRef.current?.lng ?? res.data.vehicleLng;
-          void mapboxService
-            .resolveRoadRouteCoords({
-              incidentStatus: reportedIncident.status,
-              dispatchStatus: res.data.dispatchStatus,
-              routeTrajectory: res.data.routeTrajectory,
-              isApproximateRoute: res.data.isApproximateRoute,
-              vehicleLat: vLat,
-              vehicleLng: vLng,
-              incidentLat: reportedIncident.latitude,
-              incidentLng: reportedIncident.longitude,
-            })
-            .then((coords) => {
-              if (!cancelled) updateRouteTrajectory(coords);
-            });
+    const loadTracking = async () => {
+      const nextTracking: Record<string, CitizenTrackingDto> = {};
+      const nextLivePatches: Record<string, { lat: number; lng: number; speedKmh?: number; heading?: number }> = {};
+      const nextRoutes: Array<{ incidentId: string; unitId: string; coords: [number, number][]; color: string }> = [];
 
-          if (
-            hasFittedTrackingBoundsRef.current !== reportedIncident.id &&
-            mapRef.current &&
-            res.data.vehicleLng &&
-            res.data.vehicleLat &&
-            reportedIncident.longitude &&
-            reportedIncident.latitude
-          ) {
-            hasFittedTrackingBoundsRef.current = reportedIncident.id;
-            const minLng = Math.min(res.data.vehicleLng, reportedIncident.longitude);
-            const maxLng = Math.max(res.data.vehicleLng, reportedIncident.longitude);
-            const minLat = Math.min(res.data.vehicleLat, reportedIncident.latitude);
-            const maxLat = Math.max(res.data.vehicleLat, reportedIncident.latitude);
-            mapRef.current.fitBounds(
-              [
-                [minLng, minLat],
-                [maxLng, maxLat],
-              ],
-              { padding: { top: 90, bottom: 60, left: 60, right: 60 }, maxZoom: 16, duration: 1000 }
+      await Promise.all(
+        dispatchedOnes.map(async (inc, incIdx) => {
+          try {
+            const res = await incidentService.getTracking(inc.id);
+            if (cancelled || !res?.data) return;
+            const tData = res.data;
+            nextTracking[inc.id] = tData;
+            const color = ROUTE_COLORS[incIdx % ROUTE_COLORS.length];
+
+            const unitEntries =
+              Array.isArray(tData.units) && tData.units.length > 0
+                ? tData.units
+                : tData.rescueUnitId || (tData.vehicleLat && tData.vehicleLng)
+                  ? [
+                      {
+                        assignmentId: `primary-${inc.id}`,
+                        rescueUnitId: tData.rescueUnitId || `veh-${inc.id}`,
+                        plateNumber: tData.plateNumber,
+                        vehicleLat: tData.vehicleLat || 0,
+                        vehicleLng: tData.vehicleLng || 0,
+                        routeTrajectory: tData.routeTrajectory || [],
+                        isApproximateRoute: tData.isApproximateRoute,
+                        distanceKm: tData.distanceKm,
+                        estimatedArrivalMinutes: tData.estimatedArrivalMinutes,
+                        dispatchStatus: tData.dispatchStatus,
+                      },
+                    ]
+                  : [];
+
+            const activeUnits = unitEntries.filter(
+              (u) => u.dispatchStatus !== 'Completed' && u.dispatchStatus !== 'Cancelled'
             );
+
+            for (const u of activeUnits) {
+              const now = Date.now();
+              const lastSigAt = lastSignalRByUnitRef.current[u.rescueUnitId] || 0;
+              if (u.vehicleLat && u.vehicleLng && (!lastSigAt || now - lastSigAt > 2500)) {
+                const existingLive = liveVehiclesByIdRef.current[u.rescueUnitId];
+                nextLivePatches[u.rescueUnitId] = {
+                  lat: u.vehicleLat,
+                  lng: u.vehicleLng,
+                  speedKmh: existingLive?.speedKmh,
+                  heading: existingLive?.heading,
+                };
+              }
+
+              const vLat = liveVehiclesByIdRef.current[u.rescueUnitId]?.lat ?? u.vehicleLat;
+              const vLng = liveVehiclesByIdRef.current[u.rescueUnitId]?.lng ?? u.vehicleLng;
+              const cKey = `${u.rescueUnitId}-${inc.id}`;
+              let coords: [number, number][] = [];
+
+              if (u.routeTrajectory && u.routeTrajectory.length >= 2 && !u.isApproximateRoute) {
+                coords = u.routeTrajectory.map((p) => [p.longitude, p.latitude]);
+              } else if (vLat && vLng && inc.latitude && inc.longitude) {
+                const cached = routeCacheRef.current.get(cKey);
+                const movedFar =
+                  !cached ||
+                  Math.hypot(vLat - cached.vLat, vLng - cached.vLng) > 0.0008 ||
+                  Math.hypot(inc.latitude - cached.iLat, inc.longitude - cached.iLng) > 0.0002;
+                if (!movedFar && cached) {
+                  coords = cached.coords;
+                } else {
+                  coords = await mapboxService.resolveRoadRouteCoords({
+                    incidentStatus: inc.status,
+                    dispatchStatus: u.dispatchStatus,
+                    routeTrajectory: u.routeTrajectory,
+                    isApproximateRoute: u.isApproximateRoute,
+                    vehicleLat: vLat,
+                    vehicleLng: vLng,
+                    incidentLat: inc.latitude,
+                    incidentLng: inc.longitude,
+                  });
+                  if (coords.length >= 2) {
+                    routeCacheRef.current.set(cKey, {
+                      vLat,
+                      vLng,
+                      iLat: inc.latitude,
+                      iLng: inc.longitude,
+                      coords,
+                    });
+                  }
+                }
+              }
+
+              if (coords.length >= 2) {
+                nextRoutes.push({ incidentId: inc.id, unitId: u.rescueUnitId, coords, color });
+              }
+            }
+
+            if (
+              hasFittedTrackingBoundsRef.current !== inc.id &&
+              dispatchedOnes.length === 1 &&
+              mapRef.current &&
+              tData.vehicleLng &&
+              tData.vehicleLat &&
+              inc.longitude &&
+              inc.latitude
+            ) {
+              hasFittedTrackingBoundsRef.current = inc.id;
+              mapRef.current.fitBounds(
+                [
+                  [Math.min(tData.vehicleLng, inc.longitude), Math.min(tData.vehicleLat, inc.latitude)],
+                  [Math.max(tData.vehicleLng, inc.longitude), Math.max(tData.vehicleLat, inc.latitude)],
+                ],
+                { padding: { top: 90, bottom: 60, left: 60, right: 60 }, maxZoom: 16, duration: 900 }
+              );
+            }
+          } catch {
+            // ignore
           }
         })
-        .catch(() => {});
+      );
+
+      if (cancelled) return;
+      setTrackingByIncident(nextTracking);
+      const closedUpdates = Object.values(nextTracking).filter(
+        (t) => t.incidentStatus === 'Completed' || t.incidentStatus === 'Cancelled'
+      );
+      if (closedUpdates.length > 0) {
+        setMyIncidents((prev) =>
+          prev.map((inc) => {
+            const matched = nextTracking[inc.id];
+            if (matched?.incidentStatus && matched.incidentStatus !== inc.status) {
+              return { ...inc, status: matched.incidentStatus as IncidentResponseDto['status'] };
+            }
+            return inc;
+          })
+        );
+      }
+      if (Object.keys(nextLivePatches).length > 0) {
+        setLiveVehiclesById((prev) => ({ ...prev, ...nextLivePatches }));
+      }
+      setMultiRoutes(nextRoutes);
     };
 
-    loadTracking();
-    const pollId = setInterval(loadTracking, 5000);
+    void loadTracking();
+    const pollId = setInterval(() => {
+      void loadTracking();
+    }, 5000);
     return () => {
       cancelled = true;
       clearInterval(pollId);
     };
-  }, [reportedIncident?.id, reportedIncident?.status, reportedIncident?.latitude, reportedIncident?.longitude, trackingRefreshTick, updateRouteTrajectory]);
+  }, [myIncidentsKey, trackingRefreshTick]);
 
   // Initial loads & custom events
   useEffect(() => {
@@ -464,21 +603,70 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
     const handleIncidentUpdated = (e: any) => {
       if (e.detail?.status === 'Cancelled' || e.detail?.status === 'Completed') {
-        if (incidentMarkerRef.current) {
-          incidentMarkerRef.current.remove();
-          incidentMarkerRef.current = null;
+        const closedId = e.detail?.id;
+        if (focusedIncidentIdRef.current && (!closedId || closedId === focusedIncidentIdRef.current)) {
+          focusedIncidentIdRef.current = null;
         }
-        setReportedIncident(null);
-        setTrackingData(null);
-        updateRouteTrajectory([]);
-      } else if (e.detail) {
-        setReportedIncident(e.detail);
+        setSelectedSosId((prev) => (prev && prev === closedId ? null : prev));
+        if (closedId) {
+          setMyIncidents((prev) => prev.filter((i) => i.id !== closedId));
+        } else {
+          checkCitizenReportedIncident();
+        }
+      } else if (e.detail?.id) {
+        focusedIncidentIdRef.current = e.detail.id;
+        setMyIncidents((prev) =>
+          prev.some((i) => i.id === e.detail.id)
+            ? prev.map((i) => (i.id === e.detail.id ? e.detail : i))
+            : [e.detail, ...prev]
+        );
       } else {
         checkCitizenReportedIncident();
       }
     };
 
+    const handleFocusCitizenIncident = async (e: Event) => {
+      const detail = (e as CustomEvent<{ incidentId?: string; incident?: IncidentResponseDto; expand?: boolean }>).detail;
+      if (!detail?.incidentId) return;
+      focusedIncidentIdRef.current = detail.incidentId;
+      setSelectedSosId(detail.incidentId);
+      hasFittedTrackingBoundsRef.current = null;
+
+      let targetIncident = detail.incident;
+      if (!targetIncident || !targetIncident.latitude || !targetIncident.longitude) {
+        try {
+          const res = await incidentService.getById(detail.incidentId);
+          if (res?.success && res.data) {
+            targetIncident = res.data;
+          }
+        } catch {
+          // keep fallback if available
+        }
+      }
+      if (targetIncident) {
+        const resolvedTarget = targetIncident;
+        setMyIncidents((prev) =>
+          prev.some((i) => i.id === resolvedTarget.id)
+            ? prev.map((i) => (i.id === resolvedTarget.id ? resolvedTarget : i))
+            : [resolvedTarget, ...prev]
+        );
+        if (resolvedTarget.longitude && resolvedTarget.latitude && mapRef.current) {
+          mapRef.current.flyTo({
+            center: [resolvedTarget.longitude, resolvedTarget.latitude],
+            zoom: 15,
+            essential: true,
+            duration: 900,
+          });
+        }
+      }
+      setTrackingRefreshTick((n) => n + 1);
+      if (detail.expand && !isExpandedRef.current) {
+        toggleExpandedRef.current();
+      }
+    };
+
     window.addEventListener('resq_incident_updated', handleIncidentUpdated);
+    window.addEventListener('resq_focus_citizen_incident', handleFocusCitizenIncident);
     window.addEventListener('storage', checkCitizenReportedIncident);
 
     // Refresh every 12s as polling fallback
@@ -489,39 +677,42 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
     return () => {
       window.removeEventListener('resq_incident_updated', handleIncidentUpdated);
+      window.removeEventListener('resq_focus_citizen_incident', handleFocusCitizenIncident);
       window.removeEventListener('storage', checkCitizenReportedIncident);
       clearInterval(interval);
     };
   }, [fetchRealEntities, checkCitizenReportedIncident]);
 
-  // SignalR Realtime Listeners (chỉ re-subscribe khi reportedIncident.id đổi, không bị reset bởi polling route)
-  const reportedIncidentRef = useRef(reportedIncident);
-  reportedIncidentRef.current = reportedIncident;
-  const trackingDataRef = useRef(trackingData);
-  trackingDataRef.current = trackingData;
-  const updateRouteTrajectoryRef = useRef(updateRouteTrajectory);
-  updateRouteTrajectoryRef.current = updateRouteTrajectory;
+  // SignalR Realtime Listeners cho tất cả các sự cố đang hoạt động của Citizen
+  const myIncidentsRef = useRef(myIncidents);
+  myIncidentsRef.current = myIncidents;
+  const trackingByIncidentRef = useRef(trackingByIncident);
+  trackingByIncidentRef.current = trackingByIncident;
+  const syncRouteLayerRef = useRef(syncRouteLayer);
+  syncRouteLayerRef.current = syncRouteLayer;
   const checkCitizenReportedIncidentRef = useRef(checkCitizenReportedIncident);
   checkCitizenReportedIncidentRef.current = checkCitizenReportedIncident;
+  const hasFlownInitialSosRef = useRef<Set<string>>(new Set());
 
+  const subIdsKey = myIncidents.map((i) => i.id).join(',');
   useEffect(() => {
-    const incidentId = reportedIncident?.id;
+    const incidentIds = subIdsKey ? subIdsKey.split(',').filter(Boolean) : [];
     let isSubscribed = false;
     const setupSignalR = async () => {
       try {
         await trackingHubService.start();
-        if (incidentId) {
-          await trackingHubService.invoke('SubscribeIncident', incidentId);
-          isSubscribed = true;
+        for (const id of incidentIds) {
+          await trackingHubService.invoke('SubscribeIncident', id);
         }
+        if (incidentIds.length > 0) isSubscribed = true;
       } catch {
         // Fallback to polling
       }
 
       try {
         await incidentHubService.start();
-        if (incidentId) {
-          await incidentHubService.invoke('SubscribeIncident', incidentId);
+        for (const id of incidentIds) {
+          await incidentHubService.invoke('SubscribeIncident', id);
         }
       } catch {
         // Fallback to polling
@@ -531,28 +722,24 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     setupSignalR();
 
     const unsubTrackingReconnected = trackingHubService.onReconnected(() => {
-      if (incidentId) {
-        trackingHubService.invoke('SubscribeIncident', incidentId).catch(() => {});
-      }
+      incidentIds.forEach((id) => trackingHubService.invoke('SubscribeIncident', id).catch(() => {}));
       setTrackingRefreshTick((n) => n + 1);
     });
     const unsubIncidentReconnected = incidentHubService.onReconnected(() => {
-      if (incidentId) {
-        incidentHubService.invoke('SubscribeIncident', incidentId).catch(() => {});
-      }
+      incidentIds.forEach((id) => incidentHubService.invoke('SubscribeIncident', id).catch(() => {}));
       checkCitizenReportedIncidentRef.current();
       setTrackingRefreshTick((n) => n + 1);
     });
 
-    // Listen to real-time rescue unit locations
+    const subSet = new Set(incidentIds.map((id) => id.toLowerCase()));
+
+    // Listen to real-time rescue unit locations across ALL active SOS incidents
     const unsubLocation = trackingHubService.on(
       HubEvents.ReceiveRescueUnitLocation,
       (msg: any) => {
         if (!msg) return;
-        const inc = reportedIncidentRef.current;
-        const track = trackingDataRef.current;
-        const targetIncId = msg.incidentId || msg.IncidentId;
-        if (targetIncId && inc?.id && targetIncId.toLowerCase() !== inc.id.toLowerCase()) {
+        const targetIncId = String(msg.incidentId || msg.IncidentId || '');
+        if (targetIncId && subSet.size > 0 && !subSet.has(targetIncId.toLowerCase())) {
           return;
         }
 
@@ -563,8 +750,8 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         const rawHeading = msg.headingDegrees ?? msg.HeadingDegrees;
 
         if (unitId && typeof lat === 'number' && typeof lng === 'number') {
-          lastSignalRAtRef.current = Date.now();
-          const prev = liveVehicleRef.current;
+          lastSignalRByUnitRef.current[unitId] = Date.now();
+          const prev = liveVehiclesByIdRef.current[unitId];
           const moved = prev && Math.hypot(lat - prev.lat, lng - prev.lng) > 0.00002;
           let heading = typeof rawHeading === 'number' && rawHeading > 0 ? rawHeading : prev?.heading;
           if ((typeof rawHeading !== 'number' || rawHeading === 0) && moved && prev) {
@@ -585,41 +772,28 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             }
           }
 
-          if (track?.rescueUnitId === unitId || (targetIncId && inc?.id)) {
-            setLiveVehicle({
+          setLiveVehiclesById((prevMap) => ({
+            ...prevMap,
+            [unitId]: {
               lat,
               lng,
               speedKmh: typeof speedKmh === 'number' ? Math.round(speedKmh) : prev?.speedKmh,
               heading,
-            });
-            // Chỉ gọi chỉ đường bộ thật khi chưa có tuyến đường chuẩn; không tự nối đường thẳng 2 điểm
-            if (
-              (inc?.status === 'Dispatched' || inc?.status === 'InProgress') &&
-              track?.dispatchStatus !== 'Completed' &&
-              inc?.latitude &&
-              inc?.longitude &&
-              (activeRouteCoordsRef.current.length < 2 || track?.isApproximateRoute || !track?.routeTrajectory?.length)
-            ) {
-              void mapboxService.getDrivingRoute(lat, lng, inc.latitude, inc.longitude).then((coords) => {
-                if (coords.length >= 2 && reportedIncidentRef.current?.id === inc.id) {
-                  updateRouteTrajectoryRef.current(coords);
-                }
-              });
-            }
-          }
+            },
+          }));
         }
       }
     );
 
-    // Listen to incident lifecycle updates
     const unsubIncident = incidentHubService.on(
       HubEvents.ReceiveIncidentUpdate,
       (updated: any) => {
-        if (!updated) return;
-        const inc = reportedIncidentRef.current;
-        if (inc?.id && updated.id === inc.id) {
-          setReportedIncident((prev) => (prev ? { ...prev, ...updated } : updated));
-        }
+        if (!updated?.id) return;
+        setMyIncidents((prev) =>
+          prev.some((i) => i.id === updated.id)
+            ? prev.map((i) => (i.id === updated.id ? { ...i, ...updated } : i))
+            : prev
+        );
       }
     );
 
@@ -627,9 +801,13 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       HubEvents.ReceiveIncidentStatus,
       (statusUpdate: any) => {
         if (!statusUpdate) return;
-        const inc = reportedIncidentRef.current;
-        if (inc?.id && (statusUpdate.incidentId === inc.id || statusUpdate.id === inc.id)) {
-          setReportedIncident((prev) => (prev ? { ...prev, status: statusUpdate.status || statusUpdate.Status || prev.status } : null));
+        const uId = statusUpdate.incidentId || statusUpdate.id;
+        const nextSt = statusUpdate.status || statusUpdate.Status;
+        if (uId && nextSt) {
+          setMyIncidents((prev) =>
+            prev.map((i) => (i.id === uId ? { ...i, status: nextSt } : i))
+          );
+          setTrackingRefreshTick((n) => n + 1);
           checkCitizenReportedIncidentRef.current();
         }
       }
@@ -639,8 +817,8 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       HubEvents.ReceiveAssignmentStatus,
       (assignUpdate: any) => {
         if (!assignUpdate) return;
-        const inc = reportedIncidentRef.current;
-        if (inc?.id && (assignUpdate.incidentId === inc.id || assignUpdate.IncidentId === inc.id)) {
+        const uId = String(assignUpdate.incidentId || assignUpdate.IncidentId || '');
+        if (!uId || subSet.has(uId.toLowerCase())) {
           setTrackingRefreshTick((n) => n + 1);
           checkCitizenReportedIncidentRef.current();
         }
@@ -659,9 +837,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     );
 
     return () => {
-      if (isSubscribed && incidentId) {
-        trackingHubService.invoke('UnsubscribeIncident', incidentId).catch(() => {});
-        incidentHubService.invoke('UnsubscribeIncident', incidentId).catch(() => {});
+      if (isSubscribed) {
+        incidentIds.forEach((id) => {
+          trackingHubService.invoke('UnsubscribeIncident', id).catch(() => {});
+          incidentHubService.invoke('UnsubscribeIncident', id).catch(() => {});
+        });
       }
       unsubTrackingReconnected();
       unsubIncidentReconnected();
@@ -671,7 +851,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       unsubAssignment();
       unsubSettings();
     };
-  }, [reportedIncident?.id]);
+  }, [subIdsKey]);
 
   // Bản đồ sự cố công khai cho Citizen Active (lấy các ca đã xác nhận đang hoạt động từ /api/citizen-map/incidents)
   useEffect(() => {
@@ -749,7 +929,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       window.removeEventListener('resq_focus_citizen_map_alert', handleFocusAlert);
       incidentHubService.invoke('UnsubscribeCitizenMap').catch(() => {});
     };
-  }, [user?.id, user?.role]);
+  }, [user?.id, user?.role, i18n.language]);
 
   // Determine user GPS / cached location
   useEffect(() => {
@@ -831,28 +1011,29 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           return;
         }
         if (!map.getSource('tactical-routes')) {
-          const initialCoords = activeRouteCoordsRef.current;
+          const initialRoutes = activeRouteFeaturesRef.current;
+          const visibleInit =
+            selectedSosIdRef.current && initialRoutes.some((r) => r.incidentId === selectedSosIdRef.current)
+              ? initialRoutes.filter((r) => r.incidentId === selectedSosIdRef.current)
+              : initialRoutes;
           map.addSource('tactical-routes', {
             type: 'geojson',
             data: {
               type: 'FeatureCollection',
-              features:
-                initialCoords.length >= 2
-                  ? [
-                      {
-                        type: 'Feature',
-                        properties: { color: '#3B82F6' },
-                        geometry: {
-                          type: 'LineString',
-                          coordinates: initialCoords,
-                        },
-                      },
-                    ]
-                  : [],
+              features: visibleInit
+                .filter((r) => r.coords.length >= 2)
+                .map((r) => ({
+                  type: 'Feature',
+                  properties: { color: r.color || '#0284C7', incidentId: r.incidentId },
+                  geometry: {
+                    type: 'LineString',
+                    coordinates: r.coords,
+                  },
+                })),
             },
           });
 
-          // Lộ trình chính: đường gạch liền rõ ràng (solid line) như Google Maps
+          // Lộ trình chính: hỗ trợ nhiều tuyến đường với màu riêng theo sự cố
           map.addLayer({
             id: 'tactical-routes-line',
             type: 'line',
@@ -862,7 +1043,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
               'line-cap': 'round',
             },
             paint: {
-              'line-color': '#0284C7',
+              'line-color': ['coalesce', ['get', 'color'], '#0284C7'],
               'line-width': 4.5,
               'line-opacity': 0.95,
             },
@@ -882,6 +1063,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     map.on('style.load', () => {
       setupTacticalLayer();
       setupServiceAreaLayer();
+    });
+
+    map.on('click', () => {
+      if (Date.now() - lastMarkerClickAtRef.current < 120) return;
+      setSelectedSosId(null);
     });
 
     const t1 = setTimeout(() => map.resize(), 100);
@@ -906,10 +1092,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       unitMarkersRef.current.forEach((m) => m.remove());
       unitMarkersRef.current.clear();
 
-      if (incidentMarkerRef.current) {
-        incidentMarkerRef.current.remove();
-        incidentMarkerRef.current = null;
-      }
+      incidentMarkersRef.current.forEach((m) => m.remove());
+      incidentMarkersRef.current.clear();
+
       if (myLocationMarkerRef.current) {
         myLocationMarkerRef.current.remove();
         myLocationMarkerRef.current = null;
@@ -941,13 +1126,14 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       el.className = 'cad-station-marker';
       el.innerHTML = glowStationMarkerHtml(false);
 
+      const isEn = i18n.language === 'en';
       const popupHtml = `
         <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 170px;">
           <div style="font-size: 12px; font-weight: 700; color: #0F172A;">${station.name}</div>
-          <div style="font-size: 10px; color: #64748B; margin-top: 2px;">📍 ${station.address || 'Khu Công nghệ cao (SHTP)'}</div>
+          <div style="font-size: 10px; color: #64748B; margin-top: 2px;">📍 ${station.address || (isEn ? 'High-Tech Park (SHTP)' : 'Khu Công nghệ cao (SHTP)')}</div>
           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 10px; font-family: monospace;">
-            <span style="color: #059669; font-weight: 700;">TRỰC CHIẾN 24/7</span>
-            <span style="color: #3B82F6; font-weight: 700;">${station.vehicleIds.length} XE</span>
+            <span style="color: #059669; font-weight: 700;">${isEn ? 'STANDBY 24/7' : 'TRỰC CHIẾN 24/7'}</span>
+            <span style="color: #3B82F6; font-weight: 700;">${station.vehicleIds.length} ${isEn ? 'UNITS' : 'XE'}</span>
           </div>
         </div>
       `;
@@ -961,21 +1147,12 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
       stationMarkersRef.current.push(marker);
     });
-  }, [stations]);
+  }, [stations, i18n.language]);
 
-  // Render Rescue Unit Markers (Operator/Admin units + Citizen's active assigned vehicle from trackingData)
+  // Render Rescue Unit Markers (Operator/Admin units + Citizen's assigned vehicles across ALL active SOS)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-
-    const trackedLat = liveVehicle?.lat ?? trackingData?.vehicleLat;
-    const trackedLng = liveVehicle?.lng ?? trackingData?.vehicleLng;
-    const hasTrackedUnit = Boolean(
-      trackingData?.rescueUnitId &&
-        trackedLat &&
-        trackedLng &&
-        !units.some((u) => u.id === trackingData.rescueUnitId)
-    );
 
     const inferUnitType = (name?: string | null): string => {
       const lower = (name || '').toLowerCase();
@@ -985,28 +1162,60 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       return 'HeavyRescueVehicle';
     };
 
-    const effectiveUnits: RescueUnitResponseDto[] = hasTrackedUnit && trackingData?.rescueUnitId
-      ? [
-          ...units,
-          {
-            id: trackingData.rescueUnitId,
-            plateNumber: trackingData.plateNumber || t('citizen.reports.rescueUnitDefault'),
-            unitType: inferUnitType(trackingData.unitTypeName),
-            unitTypeName: trackingData.unitTypeName || t('citizen.reports.rescueUnitDefault'),
-            status: trackingData.dispatchStatus === 'OnScene' ? 'OnScene' : 'Dispatched',
+    const existingUnitIds = new Set(units.map((u) => u.id));
+    const trackedExtraUnits: RescueUnitResponseDto[] = [];
+    const assignedUnitIds = new Set<string>();
+
+    Object.values(trackingByIncident).forEach((tData) => {
+      const unitEntries =
+        Array.isArray(tData.units) && tData.units.length > 0
+          ? tData.units
+          : tData.rescueUnitId
+            ? [
+                {
+                  assignmentId: `primary-${tData.incidentId}`,
+                  rescueUnitId: tData.rescueUnitId,
+                  plateNumber: tData.plateNumber,
+                  vehicleLat: tData.vehicleLat || 0,
+                  vehicleLng: tData.vehicleLng || 0,
+                  routeTrajectory: tData.routeTrajectory || [],
+                  distanceKm: tData.distanceKm,
+                  estimatedArrivalMinutes: tData.estimatedArrivalMinutes,
+                  dispatchStatus: tData.dispatchStatus,
+                },
+              ]
+            : [];
+
+      unitEntries.forEach((u) => {
+        if (!u.rescueUnitId || u.dispatchStatus === 'Completed' || u.dispatchStatus === 'Cancelled') return;
+        assignedUnitIds.add(u.rescueUnitId);
+        const live = liveVehiclesById[u.rescueUnitId];
+        const uLat = live?.lat ?? u.vehicleLat;
+        const uLng = live?.lng ?? u.vehicleLng;
+        if (!uLat || !uLng) return;
+        if (!existingUnitIds.has(u.rescueUnitId) && !trackedExtraUnits.some((x) => x.id === u.rescueUnitId)) {
+          trackedExtraUnits.push({
+            id: u.rescueUnitId,
+            plateNumber: u.plateNumber || tData.plateNumber || t('citizen.reports.rescueUnitDefault'),
+            unitType: inferUnitType(tData.unitTypeName),
+            unitTypeName: tData.unitTypeName || t('citizen.reports.rescueUnitDefault'),
+            status: u.dispatchStatus === 'OnScene' ? 'OnScene' : 'Dispatched',
             statusName:
-              trackingData.dispatchStatus === 'OnScene'
+              u.dispatchStatus === 'OnScene'
                 ? t('citizen.reports.statusOnScene')
-                : trackingData.dispatchStatus === 'EnRoute'
+                : u.dispatchStatus === 'EnRoute'
                 ? t('citizen.reports.statusEnRoute')
                 : t('citizen.reports.statusMissionAccepted'),
             stationId: '',
-            stationName: trackingData.stationName || t('citizen.reports.cadStationDefault'),
-            currentLat: trackedLat!,
-            currentLng: trackedLng!,
-          } as RescueUnitResponseDto,
-        ]
-      : units;
+            stationName: tData.stationName || t('citizen.reports.cadStationDefault'),
+            currentLat: uLat,
+            currentLng: uLng,
+          } as RescueUnitResponseDto);
+        }
+      });
+    });
+
+    const effectiveUnits: RescueUnitResponseDto[] = [...units, ...trackedExtraUnits];
 
     // Map stations for coordinate placement fallback if unit has 0,0
     const stationMap = new Map<string, Station>();
@@ -1022,15 +1231,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     });
 
     effectiveUnits.forEach((unit, idx) => {
-      let lat = unit.currentLat;
-      let lng = unit.currentLng;
+      const live = liveVehiclesById[unit.id];
+      let lat = live?.lat ?? unit.currentLat;
+      let lng = live?.lng ?? unit.currentLng;
 
-      // Use live GPS coordinates from active tracking if this unit is dispatched
-      if (trackingData?.rescueUnitId === unit.id && trackedLat && trackedLng) {
-        lat = trackedLat;
-        lng = trackedLng;
-      } else if ((!lat || !lng || (lat === 0 && lng === 0)) && unit.stationId) {
-        // Fallback: if coordinates are (0,0), position neatly near its station
+      if ((!lat || !lng || (lat === 0 && lng === 0)) && unit.stationId) {
         const station = stationMap.get(unit.stationId);
         if (station) {
           const angle = (idx * 45 * Math.PI) / 180;
@@ -1043,16 +1248,11 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
       const vType = UNIT_TYPE_MAP[unit.unitType] || 'rescue';
       const vStatus = UNIT_STATUS_MAP[unit.status] || 'available';
-      const isAssigned = trackingData?.rescueUnitId === unit.id;
-      const heading = isAssigned && typeof liveVehicle?.heading === 'number' ? liveVehicle.heading : 0;
+      const isAssigned = assignedUnitIds.has(unit.id);
+      const heading = isAssigned && typeof live?.heading === 'number' ? live.heading : 0;
 
-      let marker = unitMarkersRef.current.get(unit.id);
-      if (!marker) {
-        const el = document.createElement('div');
-        el.className = 'cad-unit-marker';
-        el.innerHTML = vehicle3dMarkerHtml(vType, vStatus, isAssigned);
-
-        const popupHtml = `
+      const isEn = i18n.language === 'en';
+      const popupHtml = `
           <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 170px;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
               <span style="font-size: 12px; font-weight: 800; font-family: monospace; color: #0F172A;">${unit.plateNumber}</span>
@@ -1061,11 +1261,21 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
               }">${unit.statusName || unit.status}</span>
             </div>
             <div style="font-size: 11px; font-weight: 600; color: #475569; margin-top: 2px;">${unit.unitTypeName}</div>
-            <div style="font-size: 10px; color: #64748B; margin-top: 2px;">🏢 ${unit.stationName || 'Trạm nội khu'}</div>
+            <div style="font-size: 10px; color: #64748B; margin-top: 2px;">🏢 ${unit.stationName || (isEn ? 'Local Station' : 'Trạm nội khu')}</div>
           </div>
         `;
 
+      let marker = unitMarkersRef.current.get(unit.id);
+      if (!marker) {
+        const el = document.createElement('div');
+        el.className = 'cad-unit-marker';
+        el.innerHTML = vehicle3dMarkerHtml(vType, vStatus, isAssigned);
+        el.addEventListener('click', () => {
+          lastMarkerClickAtRef.current = Date.now();
+        });
+
         const popup = new mapboxgl.Popup({ offset: 22, closeButton: false }).setHTML(popupHtml);
+        (popup as any).__lastHtml = popupHtml;
 
         marker = new mapboxgl.Marker({ element: el, anchor: 'center', rotationAlignment: 'map', rotation: heading })
           .setLngLat([lng, lat])
@@ -1075,104 +1285,140 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         unitMarkersRef.current.set(unit.id, marker);
       } else {
         marker.setLngLat([lng, lat]);
-        if (isAssigned && typeof liveVehicle?.heading === 'number') {
-          marker.setRotation(liveVehicle.heading);
+        if (isAssigned && typeof live?.heading === 'number') {
+          marker.setRotation(live.heading);
         }
         const el = marker.getElement();
         el.innerHTML = vehicle3dMarkerHtml(vType, vStatus, isAssigned);
+        const popup = marker.getPopup() as (mapboxgl.Popup & { __lastHtml?: string }) | undefined;
+        if (popup && popup.__lastHtml !== popupHtml) {
+          popup.__lastHtml = popupHtml;
+          popup.setHTML(popupHtml);
+        }
       }
     });
-  }, [units, stations, trackingData, liveVehicle, t]);
+  }, [units, stations, trackingByIncident, liveVehiclesById, t, i18n.language]);
 
-  // Render Citizen Reported Incident Marker
+  // Render ALL Citizen Active SOS Incident Markers (bấm vào 1 SOS -> lọc route của SOS đó, bỏ chọn -> hiện lại bình thường)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    if (
-      !reportedIncident?.latitude ||
-      !reportedIncident?.longitude ||
-      reportedIncident.status === 'Cancelled' ||
-      reportedIncident.status === 'Completed'
-    ) {
-      if (incidentMarkerRef.current) {
-        incidentMarkerRef.current.remove();
-        incidentMarkerRef.current = null;
+    const visibleOwn = myIncidents.filter(
+      (inc) =>
+        typeof inc.latitude === 'number' &&
+        typeof inc.longitude === 'number' &&
+        inc.status !== 'Cancelled' &&
+        inc.status !== 'Completed'
+    );
+    const activeIds = new Set(visibleOwn.map((i) => i.id));
+
+    incidentMarkersRef.current.forEach((marker, id) => {
+      if (!activeIds.has(id)) {
+        marker.remove();
+        incidentMarkersRef.current.delete(id);
+        hasFlownInitialSosRef.current.delete(id);
       }
-      return;
-    }
+    });
 
-    const cat = getIncidentCategory(reportedIncident);
-    const sev = getIncidentSeverity(reportedIncident.severity);
+    visibleOwn.forEach((inc) => {
+      const cat = getIncidentCategory(inc);
+      const sev = getIncidentSeverity(inc.severity);
+      const isSelected = selectedSosId ? inc.id === selectedSosId : true;
+      const tData = trackingByIncident[inc.id];
 
-    const visual = getIncidentVisualMeta(reportedIncident);
-    const photoHtml = reportedIncident.mediaItems?.[0]?.mediaUrl
-      ? `<img src="${reportedIncident.mediaItems[0].mediaUrl}" style="width: 100%; height: 75px; object-fit: cover; border-radius: 6px; margin-bottom: 6px;" alt="${i18n.language === 'en' ? 'Incident scene' : 'Hiện trường'}" />`
-      : '';
-    const isTypeKnown = visual.category === 'fire' || visual.category === 'accident';
-    const displayTitle = isTypeKnown
-      ? visual.label
-      : reportedIncident.title && !reportedIncident.title.includes('Tín hiệu') && !reportedIncident.title.includes('SOS')
-      ? reportedIncident.title
-      : t('citizen.reports.incidentTypes.sosSignal');
+      const visual = getIncidentVisualMeta(inc);
+      const photoHtml = inc.mediaItems?.[0]?.mediaUrl
+        ? `<img src="${inc.mediaItems[0].mediaUrl}" style="width: 100%; height: 75px; object-fit: cover; border-radius: 6px; margin-bottom: 6px;" alt="${i18n.language === 'en' ? 'Incident scene' : 'Hiện trường'}" />`
+        : '';
+      const isTypeKnown = visual.category === 'fire' || visual.category === 'accident';
+      const displayTitle = isTypeKnown
+        ? visual.label
+        : inc.title && !inc.title.includes('Tín hiệu') && !inc.title.includes('SOS')
+        ? inc.title
+        : t('citizen.reports.incidentTypes.sosSignal');
 
-    const statusText = formatCitizenIncidentStatus(reportedIncident.status);
-    const isDispatched = reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress';
-    const statusColor = isDispatched ? '#059669' : '#DC2626';
-    const statusLabel = i18n.language === 'en' ? 'STATUS' : 'TRẠNG THÁI';
+      const effectiveStatus = tData?.incidentStatus || inc.status;
+      const isDispatched = effectiveStatus === 'Dispatched' || effectiveStatus === 'InProgress';
+      const statusText =
+        isDispatched && tData?.dispatchStatus === 'OnScene'
+          ? (i18n.language === 'en' ? 'On Scene' : 'Đã đến hiện trường')
+          : formatCitizenIncidentStatus(effectiveStatus);
+      const statusColor = isDispatched ? '#059669' : '#DC2626';
+      const statusLabel = i18n.language === 'en' ? 'STATUS' : 'TRẠNG THÁI';
 
-    const popupHtml = `
-      <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 190px;">
-        ${photoHtml}
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 3px;">
-          <span style="font-size: 11px; font-weight: 800; color: #DC2626;">${visual.icon} ${visual.label}</span>
-          <span style="font-size: 10px; font-family: monospace; color: #64748B;">${reportedIncident.code || trackingData?.incidentCode || `#${reportedIncident.id.slice(0, 6).toUpperCase()}`}</span>
+      const popupHtml = `
+        <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 190px;">
+          ${photoHtml}
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 3px;">
+            <span style="font-size: 11px; font-weight: 800; color: #DC2626;">${visual.icon} ${visual.label}</span>
+            <span style="font-size: 10px; font-family: monospace; color: #64748B;">${inc.code || tData?.incidentCode || `#${inc.id.slice(0, 6).toUpperCase()}`}</span>
+          </div>
+          <div style="font-size: 11px; font-weight: 700; color: #0F172A;">${displayTitle}</div>
+          <div style="font-size: 10px; color: #64748B; margin-top: 2px;">📍 ${inc.locationAddress}</div>
+          <div style="font-size: 10px; font-weight: 700; color: ${statusColor}; margin-top: 4px; padding-top: 4px; border-top: 1px solid #E2E8F0;">
+            ${statusLabel}: ${statusText.toUpperCase()}
+          </div>
         </div>
-        <div style="font-size: 11px; font-weight: 700; color: #0F172A;">${displayTitle}</div>
-        <div style="font-size: 10px; color: #64748B; margin-top: 2px;">📍 ${reportedIncident.locationAddress}</div>
-        <div style="font-size: 10px; font-weight: 700; color: ${statusColor}; margin-top: 4px; padding-top: 4px; border-top: 1px solid #E2E8F0;">
-          ${statusLabel}: ${statusText.toUpperCase()}
-        </div>
-      </div>
-    `;
+      `;
 
-    if (!incidentMarkerRef.current) {
-      const el = document.createElement('div');
-      el.className = 'cad-marker-incident cursor-pointer';
-      el.innerHTML = glowIncidentMarkerHtml(cat, sev, true);
+      let marker = incidentMarkersRef.current.get(inc.id);
+      if (!marker) {
+        const el = document.createElement('div');
+        el.className = 'cad-marker-incident cursor-pointer';
+        el.innerHTML = glowIncidentMarkerHtml(cat, sev, isSelected);
+        el.addEventListener('click', () => {
+          lastMarkerClickAtRef.current = Date.now();
+        });
 
-      const popup = new mapboxgl.Popup({ offset: 22, closeButton: false }).setHTML(popupHtml);
+        const popup = new mapboxgl.Popup({ offset: 22, closeButton: false }).setHTML(popupHtml);
+        (popup as any).__lastHtml = popupHtml;
+        popup.on('open', () => {
+          setSelectedSosId(inc.id);
+        });
+        popup.on('close', () => {
+          setSelectedSosId((prev) => (prev === inc.id ? null : prev));
+        });
 
-      incidentMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([reportedIncident.longitude, reportedIncident.latitude])
-        .setPopup(popup)
-        .addTo(map);
+        marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([inc.longitude, inc.latitude])
+          .setPopup(popup)
+          .addTo(map);
 
-      map.flyTo({
-        center: [reportedIncident.longitude, reportedIncident.latitude],
-        zoom: 15,
-        essential: true,
-        duration: 1200,
-      });
-    } else {
-      incidentMarkerRef.current.setLngLat([reportedIncident.longitude, reportedIncident.latitude]);
-      const el = incidentMarkerRef.current.getElement();
-      el.innerHTML = glowIncidentMarkerHtml(cat, sev, true);
-      const popup = incidentMarkerRef.current.getPopup();
-      if (popup) {
-        popup.setHTML(popupHtml);
+        incidentMarkersRef.current.set(inc.id, marker);
+
+        if (!hasFlownInitialSosRef.current.has(inc.id)) {
+          hasFlownInitialSosRef.current.add(inc.id);
+          if (visibleOwn.length === 1) {
+            map.flyTo({
+              center: [inc.longitude, inc.latitude],
+              zoom: 15,
+              essential: true,
+              duration: 900,
+            });
+          }
+        }
+      } else {
+        marker.setLngLat([inc.longitude, inc.latitude]);
+        marker.getElement().innerHTML = glowIncidentMarkerHtml(cat, sev, isSelected);
+        const popup = marker.getPopup() as (mapboxgl.Popup & { __lastHtml?: string }) | undefined;
+        if (popup && popup.__lastHtml !== popupHtml) {
+          popup.__lastHtml = popupHtml;
+          popup.setHTML(popupHtml);
+        }
       }
-    }
-  }, [reportedIncident, i18n.language]);
+    });
+  }, [myIncidents, selectedSosId, trackingByIncident, i18n.language, t]);
 
   // Vẽ marker sự cố công khai (nhỏ gọn, khác biệt với sự cố của chính mình; tự xóa khi hoàn tất/hủy/xóa/gộp)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
+    const myIdsSet = new Set(myIncidents.map((i) => i.id));
     const visibleItems = publicIncidents.filter(
       (item) =>
-        item.id !== reportedIncident?.id &&
+        !myIdsSet.has(item.id) &&
         typeof item.latitude === 'number' &&
         typeof item.longitude === 'number'
     );
@@ -1193,6 +1439,12 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     visibleItems.forEach((item) => {
       const cat = getPublicCategory(item.eventType);
       const statusText = formatCitizenIncidentStatus(item.status);
+      const rawMsg = item.message || item.area || '';
+      const areaClean = item.area || rawMsg.replace(/^(?:An incident has been reported at|Có sự cố tại)\s+/i, '').replace(/\.$/, '');
+      const displayMsg =
+        i18n.language === 'en'
+          ? (/^Có sự cố tại /i.test(rawMsg) ? `An incident has been reported at ${areaClean}.` : rawMsg)
+          : (/^An incident has been reported at /i.test(rawMsg) ? `Có sự cố tại ${areaClean}.` : rawMsg);
       const popupHtml = `
         <div style="font-family: system-ui, sans-serif; padding: 6px 8px; min-width: 185px;">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;">
@@ -1201,7 +1453,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             </span>
             <span style="font-size:9px;font-weight:700;color:#475569;">${statusText.toUpperCase()}</span>
           </div>
-          <div style="font-size:11px;font-weight:700;color:#0F172A;line-height:1.35;">${item.message || item.area}</div>
+          <div style="font-size:11px;font-weight:700;color:#0F172A;line-height:1.35;">${displayMsg}</div>
           <div style="font-size:10px;color:#64748B;margin-top:3px;">📍 ${item.area}</div>
         </div>
       `;
@@ -1214,6 +1466,9 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       } else {
         const el = document.createElement('div');
         el.innerHTML = publicIncidentMarkerHtml(cat);
+        el.addEventListener('click', () => {
+          lastMarkerClickAtRef.current = Date.now();
+        });
         const popup = new mapboxgl.Popup({ offset: 16, closeButton: false }).setHTML(popupHtml);
         const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
           .setLngLat([item.longitude, item.latitude])
@@ -1222,7 +1477,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
         publicIncidentMarkersRef.current.set(item.id, marker);
       }
     });
-  }, [publicIncidents, reportedIncident?.id, i18n.language]);
+  }, [publicIncidents, myIncidentsKey, i18n.language]);
 
   const handleSetRadarLayer = (nextMode: 'satellite' | 'streets' | 'dark') => {
     if (nextMode === radarLayer) return;
@@ -1320,13 +1575,13 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
   };
 
   return (
-    <div ref={slotRef} className="relative flex-1 min-h-[160px]">
+    <div ref={slotRef} className="relative flex-1 flex flex-col min-h-[300px] sm:min-h-[360px] lg:min-h-[160px]">
       <div
         style={boxStyle}
         className={
           isFixedLayer
             ? 'fixed inset-0 z-[10050] rounded-none bg-slate-950 border-0 shadow-none overflow-hidden'
-            : 'relative w-full h-full rounded-xl bg-slate-950 border border-slate-800 overflow-hidden'
+            : 'relative w-full flex-1 min-h-[300px] sm:min-h-[360px] lg:min-h-0 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden'
         }
       >
       {/* Real Interactive Mapbox CAD Canvas */}
@@ -1357,6 +1612,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             : reportedIncident.title && !reportedIncident.title.includes('Tín hiệu') && !reportedIncident.title.includes('SOS')
             ? reportedIncident.title
             : t('citizen.reports.incidentTypes.sosSignal');
+          const hudStatus = trackingData?.incidentStatus || reportedIncident.status;
           const userNote = reportedIncident.description &&
             !reportedIncident.description.startsWith('Tín hiệu cứu nạn SOS từ người dân tại') &&
             !reportedIncident.description.startsWith('Tín hiệu SOS từ người dân tại') &&
@@ -1378,14 +1634,14 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
                 </span>
                 <span
                   className={`px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold font-mono-data shrink-0 ${
-                    reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress'
+                    hudStatus === 'Dispatched' || hudStatus === 'InProgress'
                       ? 'bg-emerald-600 text-white'
-                      : reportedIncident.status === 'Cancelled'
+                      : hudStatus === 'Cancelled'
                       ? 'bg-slate-200 text-slate-700'
                       : 'bg-red-600 text-white'
                   }`}
                 >
-                  {formatCitizenIncidentStatus(reportedIncident.status).toUpperCase()}
+                  {formatCitizenIncidentStatus(hudStatus).toUpperCase()}
                 </span>
               </div>
 
@@ -1423,7 +1679,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
               </div>
 
               {/* Tracking live info if dispatched */}
-              {(reportedIncident.status === 'Dispatched' || reportedIncident.status === 'InProgress') && trackingData && (() => {
+              {(hudStatus === 'Dispatched' || hudStatus === 'InProgress') && trackingData && (() => {
                 const vLat = liveVehicle?.lat ?? trackingData.vehicleLat;
                 const vLng = liveVehicle?.lng ?? trackingData.vehicleLng;
                 const liveDistKm =
@@ -1436,14 +1692,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
                   : liveDistKm !== null
                   ? Math.max(1, Math.round((liveDistKm / (liveVehicle?.speedKmh && liveVehicle.speedKmh > 5 ? liveVehicle.speedKmh : 35)) * 60))
                   : trackingData.estimatedArrivalMinutes || 3;
-                const dispatchLabel =
-                  trackingData.dispatchStatus === 'OnScene'
-                    ? t('citizen.reports.statusOnScene')
-                    : trackingData.dispatchStatus === 'EnRoute'
-                    ? t('citizen.reports.statusEnRoute')
-                    : trackingData.dispatchStatus === 'Accepted'
-                    ? t('citizen.reports.statusMissionAccepted')
-                    : t('citizen.reports.statusDispatching');
+                const dispatchLabel = formatCitizenDispatchStatus(trackingData.dispatchStatus);
 
                 return (
                   <div className="mt-2 pt-1.5 border-t border-slate-100 space-y-1 text-[10px] font-mono">
@@ -1562,25 +1811,25 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
       </div>
 
       {/* Floating Map Style Switcher Segmented Pills + Expand */}
-      <div className="absolute top-2.5 right-2.5 z-30 pointer-events-auto flex items-center gap-1.5">
+      <div className="absolute bottom-3 left-2.5 sm:bottom-auto sm:top-2.5 sm:left-auto sm:right-12 z-30 pointer-events-auto">
         <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-1 rounded-xl shadow-xl">
           <button
             type="button"
             onClick={() => handleSetRadarLayer('satellite')}
-            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
               radarLayer === 'satellite'
                 ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
             title={i18n.language === 'en' ? 'Satellite imagery mode' : 'Chế độ ảnh vệ tinh thực tế'}
           >
-            <Layers className="w-3.5 h-3.5" />
+            <Layers className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             <span>{i18n.language === 'en' ? 'SATELLITE' : 'VỆ TINH'}</span>
           </button>
           <button
             type="button"
             onClick={() => handleSetRadarLayer('streets')}
-            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               radarLayer === 'streets'
                 ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
@@ -1592,7 +1841,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           <button
             type="button"
             onClick={() => handleSetRadarLayer('dark')}
-            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               radarLayer === 'dark'
                 ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
@@ -1602,17 +1851,25 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
             <span>{i18n.language === 'en' ? 'DARK CAD' : 'CAD TỐI'}</span>
           </button>
         </div>
-
-        <button
-          type="button"
-          onClick={toggleExpanded}
-          className="w-8 h-8 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 backdrop-blur-md flex items-center justify-center shadow-xl transition-all active:scale-95 cursor-pointer"
-          title={isExpanded ? 'Thu nhỏ bản đồ' : 'Phóng to bản đồ'}
-          aria-label={isExpanded ? 'Thu nhỏ bản đồ' : 'Phóng to bản đồ'}
-        >
-          {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-        </button>
       </div>
+
+      <button
+        type="button"
+        onClick={toggleExpanded}
+        className="absolute top-2.5 right-2.5 z-30 pointer-events-auto w-8 h-8 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 backdrop-blur-md flex items-center justify-center shadow-xl transition-all active:scale-95 cursor-pointer"
+        title={
+          i18n.language === 'en'
+            ? (isExpanded ? 'Minimize map' : 'Maximize map')
+            : (isExpanded ? 'Thu nhỏ bản đồ' : 'Phóng to bản đồ')
+        }
+        aria-label={
+          i18n.language === 'en'
+            ? (isExpanded ? 'Minimize map' : 'Maximize map')
+            : (isExpanded ? 'Thu nhỏ bản đồ' : 'Phóng to bản đồ')
+        }
+      >
+        {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+      </button>
 
       {/* Floating Controls: My Location + Zoom In / Out */}
       <div className="absolute bottom-3 right-3 z-30 pointer-events-auto flex flex-col gap-1.5 items-center">

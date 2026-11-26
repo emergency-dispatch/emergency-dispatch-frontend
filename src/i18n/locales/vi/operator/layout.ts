@@ -1,7 +1,6 @@
 export const layoutVi = {
   nav: {
     liveMap: 'Bản đồ điều phối',
-    incidentQueue: 'Hàng đợi sự cố',
     stationTeams: 'Trạm & Tổ',
     vehicles: 'Đội xe & Thiết bị',
     completion: 'Nghiệm thu',
@@ -76,7 +75,7 @@ export const layoutVi = {
     location: 'Địa điểm',
     waitTime: 'Thời gian chờ',
     reporter: 'Người báo:',
-    skip: 'Giữ trong hàng đợi',
+    skip: 'Để sau',
     verifyNow: 'Thẩm định ngay',
     transferredKicker: 'SỰ CỐ ĐƯỢC CHUYỂN TỚI TRẠM BẠN',
     transferredFrom: 'Chuyển từ {{station}}{{by}}',
@@ -92,7 +91,7 @@ export const layoutVi = {
       typeNotAiRecognizable: 'Loại sự cố không thuộc nhóm AI nhận diện được (Cháy / Tai nạn).',
       reporterChoseOther: 'Người báo chọn loại "Khác" — cần người xác minh.',
       aiFailed: 'AI phân tích lỗi hoặc quá thời gian chờ.',
-      confidenceNotMeasured: 'AI không đo được độ tin cậy (con số hiện ra chỉ là ước lượng).',
+      confidenceNotMeasured: 'AI không đo được độ tin cậy, con số của AI chỉ là ước lượng.',
       aiTypeMismatch: 'Loại sự cố AI nhận diện khác loại đang ghi nhận.',
       belowThreshold: 'Độ tin cậy {{confidence}}% thấp hơn ngưỡng tự điều phối {{threshold}}%.',
       operatorHandling: '{{name}} đã mở ca trước khi AI phân tích xong, nên AI không tự điều phối.',
@@ -101,6 +100,7 @@ export const layoutVi = {
         'Không AI phụ nào (ResNet-50, YOLO11n) nhận diện cùng loại sự cố với TriageVL ở độ tin cậy đạt ngưỡng.',
       ensembleUnavailable: 'Hai AI phụ (ResNet-50, YOLO11n) không chạy được, nên không đủ phiếu để tự điều phối.',
       ensembleNoPhoto: 'Sự cố không có ảnh để các AI phụ bỏ phiếu.',
+      audioDescriptionUnavailable: 'Người báo chỉ gửi ghi âm, không có mô tả để AI đọc — hãy nghe ghi âm và xử lý thủ công.',
       other: 'Ca không đủ điều kiện để AI tự điều phối — hãy xử lý thủ công.',
       skipped: 'AI đã thử điều phối nhưng bỏ qua ca này.',
       undecided: 'AI đã phân tích xong nhưng chưa tự điều phối được — hãy xử lý thủ công.',
@@ -156,9 +156,10 @@ export const layoutVi = {
     fieldRequestBackupContent: 'cần thêm {{count}} xe {{type}}',
     teamCompletedTitle: 'Tổ đã nghiệm thu',
     teamCompletedMessage: '{{team}} đã ký nghiệm thu · {{incident}}',
-    // Đội từ chối / không phản hồi: báo ở mọi trang vì Operator thường đã quay về Hàng đợi sau khi giao xe.
+    // Đội từ chối / không phản hồi: báo ở mọi trang vì Operator có thể đang xem ca khác.
     crewRejectedTitle: 'Đội từ chối nhiệm vụ',
     crewTimeoutTitle: 'Đội không phản hồi',
+    noResponseReason: 'Không phản hồi (hệ thống tự rút lệnh)',
     crewRejectedMessage: '{{unit}} · {{incident}} · {{reason}}',
     crewRejectedIncidentClosed: 'Sự cố đã tự đóng vì tổ khác đã nghiệm thu.',
     crewRejectedNoTeamLeft: 'Không còn tổ nào xử lý — cần giao tổ thay thế.',

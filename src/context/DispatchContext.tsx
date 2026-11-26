@@ -158,6 +158,8 @@ interface LivePosition {
   lng: number;
   heading: number | null;
   at: string;
+  /** Giờ máy này lúc nhận — tính mất tín hiệu GPS mà không lệ thuộc đồng hồ server. */
+  receivedAt: number;
 }
 
 interface UnitLocationMessage {
@@ -363,7 +365,7 @@ interface DispatchContextValue {
   incidentsError: string | null;
   /** Sự cố backend đã leo thang (status Escalated). */
   escalatedIncidentIds: Set<string>;
-  /** Drawer chi tiết sự cố đang mở — banner leo thang tự thu gọn để không che Drawer. */
+  /** Live Map đang mở thẩm định / Hồ sơ ca — banner leo thang tự thu gọn và né sang phần bản đồ. */
   incidentDrawerOpen: boolean;
   setIncidentDrawerOpen: (open: boolean) => void;
   /**
@@ -411,19 +413,14 @@ interface DispatchContextValue {
   releaseIncident: (id: string) => void;
   /** Operator tự tạo sự cố (tin báo qua điện thoại, bộ đàm, camera…) — sự cố được xác minh ngay. */
   createOperatorIncident: (dto: CreateOperatorIncidentDto) => Promise<CreateIncidentResult>;
+  /** Ghi chú của Operator: nội dung tin báo (ca Operator tạo) hoặc căn cứ lúc duyệt; null = không có. */
+  operatorNotesOf: (id: string) => string | null;
   /** Số điện thoại đầy đủ (backend ghi vết), null nếu thất bại. */
   revealReporterPhone: (id: string) => Promise<string | null>;
   /**
-   * §34: giao một tổ cho sự cố — backend chọn xe sẵn sàng gần nhất đúng chức năng của tổ. Số tổ tối đa theo
-   * kế hoạch điều xe (BR-14); Cấp 3 gọi nhiều lần, tối đa 5 tổ.
+   * §34: giao các tổ cho sự cố trong một lệnh (tất cả hoặc không tổ nào) — backend chọn xe sẵn sàng gần nhất đúng chức
+   * năng của tổ. Số tổ tối đa theo kế hoạch điều xe (BR-14); Cấp 3 tối đa 5 tổ.
    */
-  assignTeam: (
-    target: TeamAssignTarget,
-    incidentId: string,
-    algorithm?: DispatchAlgorithm,
-    options?: AssignOptions
-  ) => Promise<ActionResult>;
-  /** Giao nhiều tổ trong một lệnh — backend nhận tất cả hoặc không tổ nào. */
   assignTeams: (
     targets: TeamAssignTarget[],
     incidentId: string,
@@ -558,7 +555,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, HIGHLIGHT_DURATION_MS);
   }, []);
 
-  /** Sự cố mới báo tới → hiện thông báo nổi + bíp (Operator có thể đang ở Live Map, không nhìn hàng đợi). */
+  /** Sự cố mới báo tới → hiện thông báo nổi + bíp (Operator có thể đang ở trang khác). */
   const announceIncoming = useCallback((ids: string[]) => {
     if (ids.length === 0) return;
     setIncomingIds((prev) => [...ids.filter((id) => !prev.includes(id)), ...prev]);
@@ -1045,7 +1042,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const previousStatus = assignmentsRef.current.get(a.id)?.status;
         const wasCompleted = previousStatus === 'Completed';
         const incident = incidentDtosRef.current.get(a.incidentId);
-        // BR-21: đội vừa từ chối / không phản hồi → báo ở mọi trang (Operator thường đã quay về Hàng đợi sau khi giao).
+        // BR-21: đội vừa từ chối / không phản hồi → báo ở mọi trang (Operator có thể đang xem ca khác).
         if (a.status === 'Rejected' && previousStatus !== 'Rejected' && incident) {
           // §35: tổ cuối từ chối → backend tự xét sự cố: đã có tổ nghiệm thu → tự đóng; chưa → cần giao tổ thay thế.
           const others = [...assignmentsRef.current.values()].filter((x) => x.incidentId === a.incidentId && x.id !== a.id);
@@ -1054,7 +1051,11 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const base = i18n.t('layout.operatorAlerts.crewRejectedMessage', {
             unit: a.rescueUnit?.plateNumber ?? '—',
             incident: incident.title,
-            reason: a.rejectionNotes?.trim() || i18n.t(`enums.rejectionReason.${a.rejectionReason ?? 'Other'}`),
+            // §52: hệ thống tự rút → nhãn riêng (ghi chú backend chỉ có tiếng Việt).
+            reason:
+              a.rejectionReason === 'NoResponse'
+                ? i18n.t('layout.operatorAlerts.noResponseReason')
+                : a.rejectionNotes?.trim() || i18n.t(`enums.rejectionReason.${a.rejectionReason ?? 'Other'}`),
           });
           const hint = closed
             ? i18n.t('layout.operatorAlerts.crewRejectedIncidentClosed')
@@ -1163,6 +1164,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             lng: msg.longitude,
             heading: msg.headingDegrees ?? null,
             at: msg.timestampUtc,
+            receivedAt: Date.now(),
           })
         )
       ),
@@ -1251,6 +1253,12 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           heading: live?.heading ?? 0,
           etaMinutes,
           incidentId: assignment?.incidentId ?? null,
+          lastSignalAt: Math.max(
+            live?.receivedAt ?? 0,
+            unit.lastLocationUpdateAt ? new Date(unit.lastLocationUpdateAt).getTime() : 0,
+            // Mới xuất phát thì tính từ lúc xuất phát, không báo mất tín hiệu ngay.
+            assignment ? new Date(assignment.enRouteAt ?? assignment.acceptedAt ?? assignment.dispatchedAt).getTime() : 0
+          ),
           lastUpdated: live?.at ?? unit.lastLocationUpdateAt ?? unit.updatedAt ?? unit.createdAt,
           assignmentId: assignment?.id ?? null,
           hasLiveGps:
@@ -1277,15 +1285,28 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const incident = mapIncidentResponseToIncident(dto, getLanguage());
       const own = byIncident.get(dto.id) ?? [];
       const notices: CrewResponseNotice[] = own
-        .filter((a) => a.status === 'Rejected' && !dismissedNoticeIds.has(a.id))
+        .filter(
+          (a) =>
+            a.status === 'Rejected' &&
+            !dismissedNoticeIds.has(a.id) &&
+            // Đã giao tổ khác sau đó → không còn việc phải làm (còn thiếu tổ thì kế hoạch vẫn báo).
+            !own.some(
+              (b) =>
+                (isActiveAssignment(b) || b.status === 'Completed') &&
+                new Date(b.dispatchedAt).getTime() > new Date(a.rejectedAt ?? a.dispatchedAt).getTime()
+            )
+        )
         .map((a) => ({
           id: a.id,
           vehicleId: a.rescueUnitId,
           plate: a.rescueUnit?.plateNumber ?? '—',
           kind: a.rejectionReason === 'NoResponse' ? 'timeout' : 'rejected',
-          reason: [a.rejectionReason ? t(`enums.rejectionReason.${a.rejectionReason}`) : null, a.rejectionNotes]
-            .filter(Boolean)
-            .join(' — '),
+          reason:
+            a.rejectionReason === 'NoResponse'
+              ? t('layout.operatorAlerts.noResponseReason')
+              : [a.rejectionReason ? t(`enums.rejectionReason.${a.rejectionReason}`) : null, a.rejectionNotes]
+                  .filter(Boolean)
+                  .join(' — '),
           at: a.rejectedAt ?? a.dispatchedAt,
         }));
 
@@ -1366,7 +1387,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         confirmedTrafficJamStatus: trafficJam,
       });
       if (!res.success) return { ok: false, message: res.message || i18n.t('context.verifyFailed') };
-      // Không tự gán xe: Operator chọn xe ở bước "Điều xe" của Hàng đợi (hoặc sau đó trên Live Map).
+      // Không tự giao: Operator chọn tổ ở Chi tiết ca.
       upsertIncidents([res.data]);
       return { ok: true };
     } catch (err) {
@@ -1513,6 +1534,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const operatorNotesOf = (id: string) => incidentDtos.get(id)?.operatorNotes?.trim() || null;
+
   const revealReporterPhone = async (id: string): Promise<string | null> => {
     try {
       const res = await incidentService.revealPhone(id);
@@ -1567,9 +1590,6 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { ok: false, message: `${getApiErrorMessage(err, i18n.t('context.assignFailed'))}${suffix}` };
     }
   };
-
-  const assignTeam: DispatchContextValue['assignTeam'] = (target, incidentId, algorithm, options) =>
-    assignTeams([target], incidentId, algorithm, options);
 
   const assignForFieldRequest = async (
     requestId: string,
@@ -1770,8 +1790,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         lockIncident,
         releaseIncident,
         createOperatorIncident,
+        operatorNotesOf,
         revealReporterPhone,
-        assignTeam,
         cancelAssignment,
         dismissResponseNotice,
         incomingIncidents,

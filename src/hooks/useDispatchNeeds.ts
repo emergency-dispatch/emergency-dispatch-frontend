@@ -5,7 +5,7 @@ import { useStationTeams } from './useStationTeams';
 import type { Incident } from '../types/incident';
 
 /**
- * Đầu vào cho `useDispatchRecommendations`, dùng chung Live Map và bước "Điều xe" của Hàng đợi:
+ * Đầu vào cho `useDispatchRecommendations` của Live Map:
  * - `neededTypes`: chức năng sự cố còn cần theo kế hoạch điều xe, trừ các tổ đã giao; kế hoạch đã đủ mà Operator vẫn
  *   giao thêm → xét lại mọi chức năng. Yêu cầu chi viện chỉ định loại xe (`preferredType`) → chỉ xét loại đó (có thể
  *   nằm ngoài kế hoạch, backend vẫn cho giao).

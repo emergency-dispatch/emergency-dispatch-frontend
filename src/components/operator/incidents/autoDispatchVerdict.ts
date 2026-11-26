@@ -27,7 +27,7 @@ export type AutoDispatchVerdict =
 export const AUTO_DISPATCH_DECIDING_TIMEOUT_MS = 20_000;
 
 /**
- * Hàng đợi / thanh bên không theo dõi lúc ca bắt đầu "đang điều phối" → tính từ lúc tiếp nhận: AI đủ điều kiện mà quá
+ * Thanh bên không theo dõi lúc ca bắt đầu "đang điều phối" → tính từ lúc tiếp nhận: AI đủ điều kiện mà quá
  * hạn này vẫn chưa có kết quả thì coi như chuyển cho người. Backend chờ AI tối đa ~2 phút rồi điều phối trong vài giây.
  */
 export const AUTO_DISPATCH_GRACE_FROM_CREATED_MS = 3 * 60_000;

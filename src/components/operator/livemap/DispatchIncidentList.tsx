@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, BotOff, CheckCircle2, ListChecks, Radio, Route, Siren, Truck, UserX, Users, X } from 'lucide-react';
+import { AlertTriangle, BotOff, CheckCircle2, ListChecks, Loader2, Lock, Radio, Route, Siren, Truck, UserX, Users, X } from 'lucide-react';
 import { IncidentThumbnail } from '../incidents/IncidentThumbnail';
 import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
+import { StaleChip } from '../incidents/StaleChip';
+import { TrafficJamChip } from '../incidents/TrafficJamChip';
 import { AiCaseCard } from './AiCaseCard';
 import { FieldRequestSection } from './FieldRequestSection';
 import { getAttentionReason, getCaseGroup, type AttentionReason, type CaseGroup } from './caseGroups';
@@ -15,16 +17,17 @@ import { usePlanProgress } from '../../../hooks/usePlanProgress';
 import { useTeamByVehicle } from '../../../hooks/useStationTeams';
 import { useAuth } from '../../../hooks/useAuth';
 import { getBusyTeamIds } from '../../../utils/teamAvailability';
+import { formatCountdown, formatDateTime, formatWaitDuration } from '../../../utils/incidentFormat';
 import type { FieldRequestDto } from '../../../types/fieldRequest';
 import type { Incident } from '../../../types/incident';
 import type { Vehicle } from '../../../types/vehicle';
 import { useTranslation } from '../../../i18n';
 import { AutoDispatchBadge } from '../incidents/AutoDispatchInfo';
 import { IncidentCode } from '../incidents/IncidentCode';
+import { useHandoverReasonText } from '../incidents/useHandoverReasonText';
 import { isAiWorkingUnheld, usePendingTriage, type AiWorkingItem } from '../incidents/incomingTriage';
 
 const GROUP_ORDER: CaseGroup[] = ['attention', 'active', 'completed'];
-const QUEUE_PATH = '/dashboard/command-center/incidents';
 /** Ca vừa hoàn tất chỉ hiện chừng này rồi tự ẩn (xem lại ở Nghiệm thu) — Operator mở trang cả ca trực, không để dồn. */
 const COMPLETED_VISIBLE_MS = 10 * 60_000;
 
@@ -34,6 +37,8 @@ interface CaseCardProps {
   vehiclesById: Map<string, Vehicle>;
   isSelected: boolean;
   isEscalated: boolean;
+  /** Ca vừa tới (nháy nền một lần). */
+  isNew: boolean;
   escalationTier: number;
   now: number;
   /** Loại xe mà trạm mình còn tổ giao được. */
@@ -49,6 +54,7 @@ const CaseCard: React.FC<CaseCardProps> = ({
   vehiclesById,
   isSelected,
   isEscalated,
+  isNew,
   escalationTier,
   now,
   readyTypes,
@@ -59,7 +65,8 @@ const CaseCard: React.FC<CaseCardProps> = ({
   const { incidentKindLabel, autoDispatchSettings, currentOperatorId, unitTypeLabel } = useDispatchStore();
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
-  const waitMinutes = Math.max(0, Math.round((now - new Date(incident.createdAt).getTime()) / 60000));
+  const handoverReasonText = useHandoverReasonText();
+  const threshold = Math.round((autoDispatchSettings?.minConfidence ?? 0) * 100);
   const { vehicleLimitFor } = useDispatchStore();
   // BR-14 theo kế hoạch điều xe của loại sự cố (§32).
   const maxVehicles = vehicleLimitFor(incident).max;
@@ -70,26 +77,33 @@ const CaseCard: React.FC<CaseCardProps> = ({
   // Xe "đi đầu" để tóm tắt tiến độ: xe gần tới nhất (ETA nhỏ nhất), không có thì xe đầu tiên.
   const lead = [...active].sort((a, b) => (a.etaMinutes ?? Infinity) - (b.etaMinutes ?? Infinity))[0];
 
+  // Khóa mềm còn hạn: người khác giữ thì chỉ xem được.
+  const lockRemainingMs = incident.lock ? new Date(incident.lock.expiresAt).getTime() - now : 0;
+  const lock = incident.lock && lockRemainingMs > 0 ? incident.lock : null;
+  const heldByOther = !!lock && lock.operatorId !== currentOperatorId;
+
   const reasonView = reason && (() => {
     switch (reason.kind) {
       case 'review': {
-        const { lock } = incident;
         return {
-          icon: BotOff,
-          className: 'text-amber-800',
+          icon: lock ? Lock : BotOff,
+          className: !lock ? 'text-amber-800' : heldByOther ? 'text-slate-500' : 'text-blue-700',
           text: lock
             ? lock.operatorId === currentOperatorId
               ? t('liveMap.cases.reason.heldByYou')
-              : t('liveMap.cases.reason.heldBy', { name: lock.operatorName })
+              : `${t('liveMap.cases.reason.heldBy', { name: lock.operatorName })} ${formatCountdown(lockRemainingMs)}`
             : reason.handover
               ? t('liveMap.cases.reason.handover', {
                   reason: t(`incidents.row.handover.${reason.handover}`, {
                     confidence: incident.confidenceScore,
-                    threshold: Math.round((autoDispatchSettings?.minConfidence ?? 0) * 100),
+                    threshold,
                   }),
                 })
               : t('liveMap.cases.reason.waitingReview'),
-          cta: t('liveMap.cases.cta.review'),
+          // Câu ngắn trên thẻ, rê chuột xem câu đầy đủ.
+          title: reason.handover ? handoverReasonText(incident, reason.handover, threshold) : undefined,
+          cta: t(heldByOther ? 'liveMap.cases.cta.view' : 'liveMap.cases.cta.review'),
+          quiet: heldByOther,
         };
       }
       case 'rejected':
@@ -141,7 +155,7 @@ const CaseCard: React.FC<CaseCardProps> = ({
     <div
       className={`flex border-l-[3px] border-b border-b-slate-100 transition-colors ${
         isSelected ? 'border-l-red-600 bg-red-50/60' : 'border-l-transparent hover:bg-slate-50'
-      }`}
+      } ${heldByOther && incident.status === 'pending' ? 'opacity-60' : ''} ${isNew ? 'animate-queue-enter' : ''}`}
     >
       {/* Ảnh người dân gửi: cao bằng cả thẻ để nhận ra ca bằng mắt; bấm cũng mở ca (nút chính bên phải đã nhận focus). */}
       <button
@@ -161,7 +175,15 @@ const CaseCard: React.FC<CaseCardProps> = ({
               <span className="truncate">{incidentKindLabel(incident)}</span>
             </span>
             <span className="shrink-0">
-              <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+              {incident.aiPending ? (
+                // AI chưa xong → chưa có cấp; "Chưa phân loại" chỉ dành cho ca AI đã chạy mà không phân loại được.
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-indigo-200 bg-indigo-50 text-[11px] font-bold text-indigo-700 whitespace-nowrap">
+                  <Loader2 className="w-3 h-3 motion-safe:animate-spin" />
+                  {t('liveMap.cases.aiAnalyzing')}
+                </span>
+              ) : (
+                <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+              )}
             </span>
             {/* Lý do cần xử lý đã là leo thang thì dòng dưới đã ghi → không lặp nhãn. */}
             {isEscalated && reason?.kind !== 'escalated' && (
@@ -169,8 +191,11 @@ const CaseCard: React.FC<CaseCardProps> = ({
                 {t('liveMap.recommend.escalated')}
               </span>
             )}
-            <span className="ml-auto shrink-0 text-[11px] font-mono-data text-slate-400 whitespace-nowrap">
-              {t('liveMap.incidentList.minutesShort', { count: waitMinutes })}
+            <span
+              title={t('incidents.row.receivedAt', { time: formatDateTime(incident.createdAt) })}
+              className="ml-auto shrink-0 text-[11px] text-slate-400 whitespace-nowrap"
+            >
+              {formatWaitDuration(now - new Date(incident.createdAt).getTime())}
             </span>
           </div>
           <p className="mt-1 text-sm font-semibold text-slate-900 truncate leading-snug">{incident.title}</p>
@@ -186,8 +211,12 @@ const CaseCard: React.FC<CaseCardProps> = ({
           {(incident.source !== 'CitizenApp' ||
             incident.isOutOfServiceArea ||
             incident.linkedReportCount > 0 ||
+            !!incident.trafficJam ||
+            !!incident.staleFlaggedAt ||
             !!incident.autoDispatch) && (
-            <div className="mt-1 flex flex-wrap gap-1">
+            // `empty:hidden`: ùn tắc AI đã bác bỏ / chưa xác minh, cờ quá hạn của ca đã duyệt → không có chip.
+            <div className="mt-1 flex flex-wrap gap-1 empty:hidden">
+              <StaleChip incident={incident} />
               {incident.source !== 'CitizenApp' && <SourceChip source={incident.source} />}
               {incident.isOutOfServiceArea && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-[10px] font-bold text-red-700">
@@ -200,6 +229,7 @@ const CaseCard: React.FC<CaseCardProps> = ({
                   {t('liveMap.incidentList.linkedReports', { count: incident.linkedReportCount })}
                 </span>
               )}
+              <TrafficJamChip incident={incident} />
               <AutoDispatchBadge incident={incident} />
             </div>
           )}
@@ -213,9 +243,12 @@ const CaseCard: React.FC<CaseCardProps> = ({
             </span>
           ) : reasonView ? (
             <>
-              <span className={`inline-flex items-center gap-1 min-w-0 text-[11px] font-semibold ${reasonView.className}`}>
-                <reasonView.icon className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{reasonView.text}</span>
+              <span
+                title={('title' in reasonView && reasonView.title) || reasonView.text}
+                className={`inline-flex items-start gap-1 min-w-0 text-[11px] leading-snug font-semibold ${reasonView.className}`}
+              >
+                <reasonView.icon className="w-3.5 h-3.5 shrink-0 mt-px" />
+                <span className="line-clamp-2">{reasonView.text}</span>
               </span>
               <button
                 onClick={onAction}
@@ -252,6 +285,8 @@ const CaseCard: React.FC<CaseCardProps> = ({
 interface DispatchIncidentListProps {
   selectedIncidentId: string | null;
   onSelectIncident: (id: string | null) => void;
+  /** Mở thẩm định ca chờ duyệt ngay trong panel (giữ khóa mềm). */
+  onOpenTriage: (id: string) => void;
   panelError: string | null;
   onClearError: () => void;
   /** §21.2: "Đáp ứng" yêu cầu chi viện → mở Chi tiết ca ở chế độ đáp ứng yêu cầu. */
@@ -265,11 +300,12 @@ interface DispatchIncidentListProps {
 /**
  * Tầng 1 của panel trái Live Map — "Theo dõi ca": mọi ca của trạm, nhóm theo việc cần làm
  * (Cần xử lý → Đang diễn ra → Vừa hoàn tất). Ca AI đang phân tích / điều phối nằm đầu nhóm Đang diễn ra; ca AI chuyển cho
- * người nằm ở Cần xử lý, "Thẩm định" mở sang Hàng đợi. Thao tác chi tiết (thu hồi xe, hủy ca, giao thêm) ở Chi tiết ca.
+ * người nằm ở Cần xử lý, "Thẩm định" mở ngay trong panel. Thao tác chi tiết (thu hồi xe, hủy ca, giao thêm) ở Chi tiết ca.
  */
 export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
   selectedIncidentId,
   onSelectIncident,
+  onOpenTriage,
   panelError,
   onClearError,
   onServeFieldRequest,
@@ -277,7 +313,16 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
   onFocusAiIncident,
 }) => {
   const navigate = useNavigate();
-  const { vehicles, incidents, escalatedIncidentIds, escalationTiers, fieldRequests } = useDispatchStore();
+  const {
+    vehicles,
+    incidents,
+    incidentsLoading,
+    incidentsError,
+    highlightIncidentIds,
+    escalatedIncidentIds,
+    escalationTiers,
+    fieldRequests,
+  } = useDispatchStore();
   const { items: pendingItems, now } = usePendingTriage();
   const { t } = useTranslation();
 
@@ -336,22 +381,23 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
       continue;
     groups[getCaseGroup(incident, ctx)].push({ incident, reason: getAttentionReason(incident, ctx) });
   }
-  // Cùng nhóm: leo thang trước, rồi cấp cao trước (chưa phân loại xếp như Cấp 3, giống Hàng đợi).
+  // Cùng nhóm: leo thang trước, rồi cấp cao trước (chưa phân loại xếp như Cấp 3), rồi chờ lâu trước (FIFO, FR-OP-02).
   const rank = (incident: Incident) => (incident.aiUnclassified ? 3 : incident.severity);
   for (const list of Object.values(groups)) {
     list.sort(
       (a, b) =>
         Number(escalatedIncidentIds.has(b.incident.id)) - Number(escalatedIncidentIds.has(a.incident.id)) ||
-        rank(b.incident) - rank(a.incident)
+        rank(b.incident) - rank(a.incident) ||
+        a.incident.createdAt.localeCompare(b.incident.createdAt)
     );
   }
   const countOf = (group: CaseGroup) => groups[group].length + (group === 'active' ? aiItems.length : 0);
 
   const total = GROUP_ORDER.reduce((sum, g) => sum + countOf(g), 0);
 
-  // Ca chờ duyệt thẩm định ở Hàng đợi (mở = giữ khóa mềm); ca đã duyệt mở Chi tiết ca tại đây.
+  // Ca chờ duyệt mở thẩm định (giữ khóa mềm); ca đã duyệt mở Chi tiết ca.
   const handleOpen = (incident: Incident) => {
-    if (incident.status === 'pending') navigate(QUEUE_PATH, { state: { openIncidentId: incident.id } });
+    if (incident.status === 'pending') onOpenTriage(incident.id);
     else onSelectIncident(incident.id);
   };
 
@@ -386,6 +432,17 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
         </div>
       )}
 
+      {/* Lỗi tải danh sách / hủy ca được nhưng chặn số thất bại: không báo thì trông như "không có ca". */}
+      {incidentsError && (
+        <div
+          role="alert"
+          className="shrink-0 mx-3 mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-600"
+        >
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span className="flex-1">{incidentsError}</span>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="px-3 pt-3 empty:hidden">
           <FieldRequestSection
@@ -396,7 +453,12 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
             onSelectIncident={(id) => onSelectIncident(id)}
           />
         </div>
-        {total === 0 ? (
+        {total === 0 && incidentsLoading ? (
+          <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-10">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            {t('liveMap.cases.loading')}
+          </div>
+        ) : total === 0 && incidentsError ? null : total === 0 ? (
           <div className="text-center text-xs text-slate-400 py-10">{t('liveMap.incidentList.empty')}</div>
         ) : (
           GROUP_ORDER.filter((g) => countOf(g) > 0).map((group) => (
@@ -437,6 +499,7 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
                   vehiclesById={vehiclesById}
                   isSelected={incident.id === selectedIncidentId}
                   isEscalated={escalatedIncidentIds.has(incident.id)}
+                  isNew={highlightIncidentIds.has(incident.id)}
                   escalationTier={escalationTiers.get(incident.id) ?? 1}
                   now={now}
                   readyTypes={readyTypes}

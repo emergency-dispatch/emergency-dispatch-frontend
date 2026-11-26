@@ -4,7 +4,6 @@ import type { layoutVi } from '../../vi/operator/layout';
 export const layoutEn: Messages<typeof layoutVi> = {
   nav: {
     liveMap: 'Live Map',
-    incidentQueue: 'Incident Queue',
     stationTeams: 'Station Teams',
     vehicles: 'Fleet & Equipment',
     completion: 'Completion',
@@ -79,7 +78,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
     location: 'Location',
     waitTime: 'Waiting time',
     reporter: 'Reporter:',
-    skip: 'Keep in queue',
+    skip: 'Later',
     verifyNow: 'Verify now',
     transferredKicker: 'INCIDENT TRANSFERRED TO YOUR STATION',
     transferredFrom: 'Transferred from {{station}}{{by}}',
@@ -104,6 +103,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
         'Neither supporting AI (ResNet-50, YOLO11n) recognized the same incident type as TriageVL with enough confidence.',
       ensembleUnavailable: 'The two supporting AIs (ResNet-50, YOLO11n) could not run, so there were not enough votes to dispatch.',
       ensembleNoPhoto: 'The incident has no photo for the supporting AIs to vote on.',
+      audioDescriptionUnavailable: 'The reporter only sent a voice recording with no description for the AI to read — listen to it and handle the case manually.',
       other: 'The case does not qualify for AI auto-dispatch — please handle it manually.',
       skipped: 'AI tried to dispatch but skipped this case.',
       undecided: 'AI finished analysing but has not dispatched — please handle it manually.',
@@ -160,6 +160,7 @@ export const layoutEn: Messages<typeof layoutVi> = {
     teamCompletedMessage: '{{team}} signed the completion report · {{incident}}',
     crewRejectedTitle: 'Crew declined the mission',
     crewTimeoutTitle: 'Crew did not respond',
+    noResponseReason: 'No response (withdrawn by the system)',
     crewRejectedMessage: '{{unit}} · {{incident}} · {{reason}}',
     crewRejectedIncidentClosed: 'The incident closed automatically because other teams have signed off.',
     crewRejectedNoTeamLeft: 'No team is handling it any more — assign a replacement team.',

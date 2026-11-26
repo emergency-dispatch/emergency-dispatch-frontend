@@ -18,7 +18,7 @@ export interface DispatchSettings {
   weights: { distance: number; stationLoad: number; activeMissions: number };
   radiusStepsKm: number[];
   recoveryMinutes: number;
-  /** Sự cố chưa được xác minh quá số giờ này thì tự hủy (AutoExpired). Backend: 1–168. */
+  /** §59: sự cố chưa xác minh quá số giờ này được đánh dấu "Quá hạn – cần rà soát" (không tự hủy). Backend: 1–168. */
   autoExpireHours: number;
   /**
    * AI tự điều phối (FE_MOBILE_HANDOFF §31.E): TriageVL đủ tin cậy với sự cố cháy nổ / tai nạn Cấp 1–3
@@ -63,7 +63,15 @@ export interface EscalationSettings {
   maxRadiusKm: number;
   /** §21.2: yêu cầu từ hiện trường chưa xử lý quá số phút này → báo Admin + Operator trạm. Bước 0.5 phút. */
   fieldRequestThresholdMinutes: number;
+  /**
+   * §52: lượt chưa nhận lệnh quá số phút này → hệ thống tự rút lệnh (Rejected / NoResponse). 0 = tắt, 1–30, bước 0.5.
+   * PUT ghi đè cả object: không gửi thì backend đặt lại mặc định 3.
+   */
+  acceptTimeoutMinutes: number;
 }
+
+/** Giới hạn của SystemSettingsService.ValidateEscalation (0 = tắt). `default` dùng khi backend cũ chưa trả trường này. */
+export const ACCEPT_TIMEOUT_MINUTES = { min: 1, max: 30, default: 3 } as const;
 
 /**
  * Khu vực phục vụ (tâm + bán kính), §22. SOS của người dân ngoài vùng: `rejectOutside` = true → bị từ chối;
@@ -83,6 +91,12 @@ export interface ServiceAreaSettings {
    * PUT ghi đè cả object → phải gửi lại giá trị đang có, nếu không đa giác bị xóa.
    */
   boundaryGeoJson?: string | null;
+}
+
+/** §49: thông báo khu vực có sự cố cho mọi người dân. `enabledFromUtc` do server đặt khi bật. */
+export interface CitizenIncidentAlertSettings {
+  enabled: boolean;
+  enabledFromUtc?: string | null;
 }
 
 /** Giới hạn bán kính của StationAssignment.ValidateServiceArea. */
@@ -124,6 +138,8 @@ export interface SettingsDefaults {
   dispatch: DispatchSettings;
   serviceArea: ServiceAreaSettings;
   duplicateDetection: DuplicateDetectionSettings;
+  /** §49 — backend cũ chưa có. */
+  citizenIncidentAlerts?: CitizenIncidentAlertSettings;
 }
 
 export const WEIGHT_SUM_TOLERANCE = 0.001;
@@ -192,6 +208,15 @@ export function validateEscalationSettings(
   errors.dayThresholdMinutes = threshold(s.dayThresholdMinutes);
   errors.nightThresholdMinutes = threshold(s.nightThresholdMinutes);
   errors.fieldRequestThresholdMinutes = threshold(s.fieldRequestThresholdMinutes);
+  const { min, max } = ACCEPT_TIMEOUT_MINUTES;
+  errors.acceptTimeoutMinutes = !(
+    s.acceptTimeoutMinutes === 0 ||
+    (s.acceptTimeoutMinutes >= min && s.acceptTimeoutMinutes <= max)
+  )
+    ? i18n.t('admin.settings.validation.acceptTimeoutRange', { min, max })
+    : !isHalfStep(s.acceptTimeoutMinutes)
+      ? i18n.t('admin.settings.validation.halfStep')
+      : undefined;
   if (!TIME_PATTERN.test(s.nightStart)) errors.nightStart = i18n.t('admin.settings.validation.invalidTime');
   if (!TIME_PATTERN.test(s.nightEnd)) errors.nightEnd = i18n.t('admin.settings.validation.invalidTime');
   else if (s.nightStart === s.nightEnd) errors.nightEnd = i18n.t('admin.settings.validation.sameStartEnd');
@@ -265,6 +290,18 @@ export const adminSettingsService = {
   async updateDuplicateDetection(values: DuplicateDetectionSettings): Promise<SettingsRecord<DuplicateDetectionSettings>> {
     return unwrapApi(
       apiClient.put<ApiResponse<SettingsRecord<DuplicateDetectionSettings>>>('/settings/duplicate-detection', values)
+    );
+  },
+
+  async getCitizenIncidentAlerts(): Promise<SettingsRecord<CitizenIncidentAlertSettings>> {
+    return unwrapApi(
+      apiClient.get<ApiResponse<SettingsRecord<CitizenIncidentAlertSettings>>>('/settings/citizen-incident-alerts')
+    );
+  },
+
+  async updateCitizenIncidentAlerts(enabled: boolean): Promise<SettingsRecord<CitizenIncidentAlertSettings>> {
+    return unwrapApi(
+      apiClient.put<ApiResponse<SettingsRecord<CitizenIncidentAlertSettings>>>('/settings/citizen-incident-alerts', { enabled })
     );
   },
 

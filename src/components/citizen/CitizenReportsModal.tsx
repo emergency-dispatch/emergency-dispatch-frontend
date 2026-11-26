@@ -21,18 +21,17 @@ import {
   PhoneCall,
   Activity,
   Link2,
-  Split,
   PlusCircle,
-  Loader2,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types/auth';
 import { incidentService } from '../../services/incidentService';
+import { incidentHubService, HubEvents } from '../../services/realtime/incidentHubService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { IncidentResponseDto } from '../../types/incident';
 import { getIncidentVisualMeta } from '../../utils/incidentFormat';
-import { CitizenLiveTrackingMapModal } from './CitizenLiveTrackingMapModal';
 import { CitizenSupplementModal } from './CitizenSupplementModal';
+import { AudioEvidencePlayer } from '../common/AudioEvidencePlayer';
 import { useTranslation } from '../../i18n';
 
 interface CitizenReportsModalProps {
@@ -63,10 +62,8 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [selectedIncident, setSelectedIncident] = useState<IncidentResponseDto | null>(null);
 
-  // Tracking state for Citizen
-  const [trackingIncident, setTrackingIncident] = useState<IncidentResponseDto | null>(null);
+  // Supplement state for Citizen
   const [supplementTargetIncident, setSupplementTargetIncident] = useState<IncidentResponseDto | null>(null);
-  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
 
   const fetchReports = useCallback(async () => {
     try {
@@ -144,6 +141,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                 items[idx] = {
                   ...items[idx],
                   linkedToIncidentId: d.linkedToIncidentId,
+                  linkedTo: d.linkedTo || items[idx].linkedTo,
                   cancellationReason: d.cancellationReason || items[idx].cancellationReason,
                 };
               }
@@ -205,6 +203,62 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
     };
   }, [isOpen, fetchReports]);
 
+  // Cập nhật trạng thái realtime khi đang mở lịch sử báo cáo (kể cả sự cố gốc cho người báo trùng)
+  const watchIdsKey = Array.from(
+    new Set(incidents.flatMap((i) => [i.id, i.linkedToIncidentId].filter(Boolean) as string[]))
+  )
+    .sort()
+    .join(',');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const watchIds = watchIdsKey ? watchIdsKey.split(',').filter(Boolean) : [];
+    const watchSet = new Set(watchIds.map((id) => id.toLowerCase()));
+    let subscribed = false;
+
+    const subscribeAll = async () => {
+      try {
+        await incidentHubService.start();
+        for (const id of watchIds) {
+          await incidentHubService.invoke('SubscribeIncident', id).catch(() => {});
+        }
+        subscribed = true;
+      } catch {
+        // ignore
+      }
+    };
+    void subscribeAll();
+
+    const refresh = () => {
+      fetchReports();
+    };
+    const u1 = incidentHubService.on(HubEvents.ReceiveIncidentStatus, refresh);
+    const u2 = incidentHubService.on(HubEvents.ReceiveIncidentUpdate, refresh);
+    const u3 = incidentHubService.on(HubEvents.ReceiveAssignmentStatus, refresh);
+    const u4 = incidentHubService.on(HubEvents.ReceiveNotification, (notif: any) => {
+      const targetId = String(notif?.incidentId || notif?.IncidentId || '').toLowerCase();
+      if (!targetId || watchSet.has(targetId)) {
+        refresh();
+      }
+    });
+    const u5 = incidentHubService.onReconnected(() => {
+      void subscribeAll();
+      refresh();
+    });
+    return () => {
+      if (subscribed) {
+        watchIds.forEach((id) => {
+          incidentHubService.invoke('UnsubscribeIncident', id).catch(() => {});
+        });
+      }
+      u1();
+      u2();
+      u3();
+      u4();
+      u5();
+    };
+  }, [isOpen, watchIdsKey, fetchReports]);
+
   if (!isOpen) return null;
 
   const getStatusBadge = (status: string) => {
@@ -238,12 +292,6 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
           </span>
         );
       case 'Linked':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold font-mono bg-indigo-50 text-indigo-700 border border-indigo-200">
-            <Link2 className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Đang đối soát nhóm sự cố</span>
-          </span>
-        );
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold font-mono bg-red-50 text-red-600 border border-red-200">
@@ -254,39 +302,35 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
     }
   };
 
-  const handleUnlink = async (incident: IncidentResponseDto) => {
-    if (!incident.id || unlinkingId) return;
-    setUnlinkingId(incident.id);
-    try {
-      const guestToken =
-        localStorage.getItem('resq_guest_token_' + incident.id) ||
-        incident.guestCancellationToken ||
-        undefined;
-      await incidentService.unlinkReport(
-        incident.id,
-        'Người báo xác nhận đây là sự cố khác',
-        guestToken
-      );
-      await fetchReports();
-    } catch (err: any) {
-      alert(getApiErrorMessage(err, 'Không thể tách báo cáo lúc này.'));
-    } finally {
-      setUnlinkingId(null);
-    }
+  const focusOnHeroRadarMap = (incidentId: string, incident?: IncidentResponseDto) => {
+    window.dispatchEvent(
+      new CustomEvent('resq_focus_citizen_incident', {
+        detail: { incidentId, incident, expand: true },
+      })
+    );
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    onClose();
   };
 
-
   const handleOpenTracking = (incident: IncidentResponseDto) => {
-    setTrackingIncident(incident);
+    if (incident.status === 'Completed' || incident.status === 'Cancelled') return;
+    focusOnHeroRadarMap(incident.id, incident);
   };
 
   const handleOpenConfirmedDuplicateOriginal = async (report: IncidentResponseDto) => {
     const parentId = report.linkedToIncidentId;
     if (!parentId) return;
+    if (report.linkedTo?.status === 'Completed' || report.linkedTo?.status === 'Cancelled') {
+      return;
+    }
     try {
       const res = await incidentService.getById(parentId);
       if (res?.success && res.data) {
-        setTrackingIncident({
+        if (res.data.status === 'Completed' || res.data.status === 'Cancelled') {
+          await fetchReports();
+          return;
+        }
+        focusOnHeroRadarMap(parentId, {
           ...res.data,
           viewedAsDuplicateReporter: true,
         });
@@ -295,7 +339,7 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
     } catch {
       // Fallback sang thông tin tóm tắt đã có nếu gọi chi tiết tạm lỗi mạng
     }
-    setTrackingIncident({
+    focusOnHeroRadarMap(parentId, {
       ...report,
       id: parentId,
       code: report.linkedTo?.code,
@@ -309,10 +353,6 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
       operatorNotes: undefined,
       reporterMedicalProfile: null,
     });
-  };
-
-  const handleCloseTracking = () => {
-    setTrackingIncident(null);
   };
 
   return createPortal(
@@ -418,7 +458,11 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                         <span className="font-mono text-xs font-extrabold text-slate-500">
                           {incident.code || `INC-${incident.id.substring(0, 8).toUpperCase()}`}
                         </span>
-                        {getStatusBadge(incident.status)}
+                        {getStatusBadge(
+                          isConfirmedDuplicateReport(incident) && incident.linkedTo?.status
+                            ? incident.linkedTo.status
+                            : incident.status
+                        )}
                       </div>
                       <h3 className="text-sm font-bold text-slate-900">{displayTitle}</h3>
                     </div>
@@ -477,85 +521,110 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                     })()}
                   </div>
 
-                  {/* Attached Media Photos */}
-                  {incident.mediaItems && incident.mediaItems.length > 0 && (
-                    <div className="flex items-center gap-2 pt-1 overflow-x-auto">
-                      {incident.mediaItems.map((media) => (
-                        <a
-                          key={media.id}
-                          href={media.mediaUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="relative group shrink-0"
-                        >
-                          <img
-                            src={media.mediaUrl}
-                            alt="Media"
-                            className="w-14 h-14 object-cover rounded-lg border border-slate-200 group-hover:opacity-85 transition-opacity"
-                          />
-                          <div className="absolute inset-0 bg-black/30 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
-                            <ExternalLink className="w-4 h-4" />
+                  {/* Attached Media Photos & Audio (§55) */}
+                  {(() => {
+                    const visualItems = (incident.mediaItems || []).filter((m) => m.mediaType !== 'Audio');
+                    const audioItems = (incident.mediaItems || []).filter((m) => m.mediaType === 'Audio');
+                    return (
+                      <>
+                        {visualItems.length > 0 && (
+                          <div className="flex items-center gap-2 pt-1 overflow-x-auto">
+                            {visualItems.map((media) => (
+                              <a
+                                key={media.id}
+                                href={media.mediaUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="relative group shrink-0"
+                              >
+                                <img
+                                  src={media.mediaUrl}
+                                  alt="Media"
+                                  className="w-14 h-14 object-cover rounded-lg border border-slate-200 group-hover:opacity-85 transition-opacity"
+                                />
+                                <div className="absolute inset-0 bg-black/30 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                                  <ExternalLink className="w-4 h-4" />
+                                </div>
+                              </a>
+                            ))}
                           </div>
-                        </a>
-                      ))}
-                    </div>
-                  )}
+                        )}
+                        {audioItems.length > 0 && (
+                          <div className="space-y-1.5 pt-1">
+                            {audioItems.map((audio) => (
+                              <AudioEvidencePlayer
+                                key={audio.id}
+                                audio={audio}
+                                compact
+                                resolvePlaybackUrl={() => incidentService.getAudioPlaybackUrl(incident.id, audio.id)}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
 
-                  {/* Linked / Confirmed duplicate notice (BR-07) */}
-                  {isConfirmedDuplicateReport(incident) ? (
-                    <div className="p-3 rounded-xl bg-indigo-50/80 border border-indigo-200 text-xs space-y-2">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 text-indigo-900 font-bold">
-                          <Link2 className="w-4 h-4 text-indigo-600 shrink-0" />
-                          <span>
-                            {incident.linkedTo?.code || incident.linkedTo?.title
-                              ? `Báo cáo của bạn trùng với sự cố ${incident.linkedTo?.code || `#INC-${incident.linkedToIncidentId!.substring(0, 8).toUpperCase()}`}${incident.linkedTo?.title ? ` (${incident.linkedTo.title})` : ''} đang được xử lý.`
-                              : 'Báo cáo của bạn trùng với sự cố đang được xử lý.'}
-                          </span>
+                  {/* Confirmed duplicate notice (only after Operator confirms) */}
+                  {isConfirmedDuplicateReport(incident) ? (() => {
+                    const parentStatus = incident.linkedTo?.status;
+                    const origCode = incident.linkedTo?.code;
+                    const codeTag = origCode ? ` ${origCode}` : '';
+                    const isParentCompleted = parentStatus === 'Completed';
+                    const isParentCancelled = parentStatus === 'Cancelled';
+                    const isParentClosed = isParentCompleted || isParentCancelled;
+                    const isEn = i18n.language === 'en';
+                    return (
+                      <div
+                        className={`p-3 rounded-xl border text-xs space-y-2 ${
+                          isParentClosed
+                            ? 'bg-slate-50 border-slate-200'
+                            : 'bg-indigo-50/80 border-indigo-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div
+                            className={`flex items-center gap-1.5 font-bold ${
+                              isParentClosed ? 'text-slate-700' : 'text-indigo-900'
+                            }`}
+                          >
+                            <Link2
+                              className={`w-4 h-4 shrink-0 ${
+                                isParentClosed ? 'text-slate-500' : 'text-indigo-600'
+                              }`}
+                            />
+                            <span>
+                              {isParentCompleted
+                                ? (isEn
+                                    ? `Original incident${codeTag} has been resolved.`
+                                    : `Sự cố gốc${codeTag} đã được xử lý xong.`)
+                                : isParentCancelled
+                                ? (isEn
+                                    ? `Original incident${codeTag} has been cancelled.`
+                                    : `Sự cố gốc${codeTag} đã bị hủy.`)
+                                : (isEn
+                                    ? `Duplicate report linked to incident${codeTag} (currently being handled).`
+                                    : `Đã có người báo cáo sự cố${codeTag} và trung tâm đang xử lý.`)}
+                            </span>
+                          </div>
+                          {!isParentClosed && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenConfirmedDuplicateOriginal(incident)}
+                              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] font-mono transition-colors cursor-pointer flex items-center gap-1"
+                            >
+                              <Navigation className="w-3 h-3" />
+                              <span>{isEn ? 'View details & Track' : 'Xem chi tiết & Theo dõi'}</span>
+                            </button>
+                          )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenConfirmedDuplicateOriginal(incident)}
-                          className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] font-mono transition-colors cursor-pointer flex items-center gap-1"
-                        >
-                          <Navigation className="w-3 h-3" />
-                          <span>
-                            Xem chi tiết &amp; Theo dõi (
-                            {incident.linkedTo?.code || `#INC-${incident.linkedToIncidentId!.substring(0, 8).toUpperCase()}`})
-                          </span>
-                        </button>
                       </div>
-                    </div>
-                  ) : incident.status === 'Linked' ? (
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                      <div className="flex items-center gap-1.5 text-slate-700 font-medium">
-                        <Clock className="w-4 h-4 text-indigo-500 shrink-0" />
-                        <span>
-                          Trung tâm đang đối soát báo cáo này với các sự cố lân cận. Bạn có thể chọn &ldquo;Đây là sự cố khác&rdquo; nếu không trùng hiện trường.
-                        </span>
-                      </div>
-                    </div>
-                  ) : null}
+                    );
+                  })() : null}
 
                   {/* Item Actions */}
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-end flex-wrap gap-2">
                     <div className="flex items-center gap-2">
-                      {incident.status === 'Linked' && (
-                        <button
-                          type="button"
-                          onClick={() => handleUnlink(incident)}
-                          disabled={unlinkingId === incident.id}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-indigo-300 bg-white hover:bg-indigo-50 text-indigo-700 text-[11px] font-mono font-bold transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          {unlinkingId === incident.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Split className="w-3.5 h-3.5" />
-                          )}
-                          <span>{t('citizen.reports.unlinkBtn', 'Đây là sự cố khác')}</span>
-                        </button>
-                      )}
-
                       {incident.status !== 'Completed' && incident.status !== 'Cancelled' && (
                         <button
                           type="button"
@@ -585,14 +654,6 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
           )}
         </div>
       </div>
-
-      {/* Citizen Live Vehicle Tracking Modal Overlay */}
-      {trackingIncident && (
-        <CitizenLiveTrackingMapModal
-          incident={trackingIncident}
-          onClose={handleCloseTracking}
-        />
-      )}
 
       {/* Citizen Supplement Modal */}
       {supplementTargetIncident && (

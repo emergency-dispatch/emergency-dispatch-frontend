@@ -236,9 +236,10 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       ReportUnlinked: 'Split from parent incident',
       DuplicateConfirmed: 'Duplicate report confirmed',
       SupplementAdded: 'Reporter added information',
-      LinkedReportsRestored: 'Merged reports returned to queue',
+      LinkedReportsRestored: 'Merged reports returned to the waiting list',
       AutoDispatched: 'AI auto-dispatched',
       AutoDispatchSkipped: 'AI auto-dispatch skipped',
+      StaleFlagged: 'Flagged as overdue by the system',
     },
     systemAction: {
       Created: 'Created',
@@ -276,6 +277,7 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       escalation: 'Escalation',
       serviceArea: 'Service area',
       duplicateDetection: 'Duplicate report merging',
+      citizenIncidentAlerts: 'Area alerts for citizens',
     },
     actorRole: {
       Admin: 'Administrator',
@@ -287,6 +289,7 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       System: 'System',
     },
     actorName: {
+      System: 'System',
       AI_AutoDispatch: 'AI auto-dispatch',
     },
     field: {
@@ -334,7 +337,11 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       duration: 'Duration',
       format: 'Format',
       code: 'Station code',
-      autoExpireHours: 'Auto-cancel unverified incidents (hours)',
+      autoExpireHours: 'Flag unverified incidents as overdue (hours)',
+      acceptTimeoutMinutes: 'Team acceptance timeout (minutes)',
+      enabledFromUtc: 'Effective from',
+      autoWithdrawn: 'Order withdrawn by the system',
+      timeoutMinutes: 'Timeout (minutes)',
       fieldRequestThresholdMinutes: 'Field request threshold (minutes)',
       rejectOutside: 'Reject SOS outside area',
       radiusMeters: 'Merge radius (m)',

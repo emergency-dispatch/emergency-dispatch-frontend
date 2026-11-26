@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
+  FileText,
   Gauge,
   HandHelping,
   History,
@@ -21,6 +22,7 @@ import { PlanTeamGroups } from './PlanTeamGroups';
 import { SupportConfirmDialog, type SupportRow } from './SupportConfirmDialog';
 import { RecommendedTeamLabel } from '../teams/RecommendedTeamLabel';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
+import { IncidentThumbnail } from '../incidents/IncidentThumbnail';
 import { IncidentSupplementList } from '../incidents/IncidentSupplementList';
 import { LinkedReportsPanel } from '../incidents/LinkedReportsPanel';
 import { SeverityBadge } from '../incidents/SeverityBadge';
@@ -59,6 +61,8 @@ interface DispatchRecommendPanelProps {
   onBack: () => void;
   /** Mở ca khác (ca đang giữ xe mà ca này thiếu). */
   onOpenIncident?: (incidentId: string) => void;
+  /** Mở Hồ sơ ca (ảnh, người báo, kết quả AI, lịch sử). */
+  onOpenDossier: () => void;
   /** Số ca đang cần xử lý — hiện cạnh nút quay lại để Operator biết còn việc khác. */
   attentionCount: number;
   /** Phần ca: thông báo đội, tổ đã giao (thu hồi), hủy ca, nghiệm thu — đặt trên gợi ý xe. */
@@ -73,6 +77,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   onExitFieldRequest,
   onBack,
   onOpenIncident,
+  onOpenDossier,
   attentionCount,
   caseBody,
 }) => {
@@ -400,31 +405,51 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
         </button>
         {selectedIncident && category ? (
           <>
-            <div className="flex flex-wrap items-center gap-1.5 mb-1">
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold" style={{ color: category.color }}>
-                <category.icon className="w-3.5 h-3.5 shrink-0" />
-                {incidentKindLabel(selectedIncident)}
-              </span>
-              <SeverityBadge severity={selectedIncident.severity} unclassified={selectedIncident.aiUnclassified} />
-              <SourceChip source={selectedIncident.source} />
-              {isEscalated && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-600 whitespace-nowrap text-[9px] font-bold text-white uppercase animate-pulse">
-                  {t('liveMap.recommend.escalated')}
-                </span>
-              )}
+            <div className="flex items-start gap-3">
+              <button
+                type="button"
+                onClick={onOpenDossier}
+                tabIndex={-1}
+                aria-hidden
+                className="shrink-0"
+              >
+                <IncidentThumbnail incident={selectedIncident} className="w-16 h-16" />
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold" style={{ color: category.color }}>
+                    <category.icon className="w-3.5 h-3.5 shrink-0" />
+                    {incidentKindLabel(selectedIncident)}
+                  </span>
+                  <SeverityBadge severity={selectedIncident.severity} unclassified={selectedIncident.aiUnclassified} />
+                  <SourceChip source={selectedIncident.source} />
+                  {isEscalated && (
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-600 whitespace-nowrap text-[9px] font-bold text-white uppercase animate-pulse">
+                      {t('liveMap.recommend.escalated')}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm font-bold text-slate-900 truncate leading-snug">{selectedIncident.title}</p>
+                <p className="text-[10px] leading-relaxed text-slate-500 break-words mt-0.5">
+                  {selectedIncident.code && (
+                    <>
+                      <IncidentCode code={selectedIncident.code} className="font-semibold text-slate-600" />
+                      {' · '}
+                    </>
+                  )}
+                  {selectedIncident.area}
+                </p>
+              </div>
             </div>
-            <p className="text-sm font-bold text-slate-900 truncate leading-snug">{selectedIncident.title}</p>
-            <p className="text-[10px] leading-relaxed text-slate-500 break-words mt-0.5">
-              {selectedIncident.code && (
-                <>
-                  <IncidentCode code={selectedIncident.code} className="font-semibold text-slate-600" />
-                  {' · '}
-                </>
-              )}
-              {selectedIncident.area}
-            </p>
             <AutoDispatchNotice incident={selectedIncident} showTally className="mt-2" />
             <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <button
+                onClick={onOpenDossier}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 bg-slate-50 text-[11px] font-bold text-slate-800 hover:bg-slate-100"
+              >
+                <FileText className="w-3 h-3" />
+                {t('liveMap.dossier.title')}
+              </button>
               <button
                 onClick={() => setHistoryOpen(true)}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"

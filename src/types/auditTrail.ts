@@ -37,7 +37,9 @@ export type AuditAction =
   | 'LinkedReportsRestored'
   // 31–32: AI tự điều phối (FE_MOBILE_HANDOFF §31.E).
   | 'AutoDispatched'
-  | 'AutoDispatchSkipped';
+  | 'AutoDispatchSkipped'
+  // 33: §59 chưa xác minh quá hạn → hệ thống đánh dấu cần rà soát.
+  | 'StaleFlagged';
 
 // Thứ tự trong ô lọc: gom theo vòng đời sự cố.
 export const AUDIT_ACTIONS: AuditAction[] = [
@@ -54,6 +56,7 @@ export const AUDIT_ACTIONS: AuditAction[] = [
   'LinkedReportsRestored',
   'AutoDispatched',
   'AutoDispatchSkipped',
+  'StaleFlagged',
   'Dispatched',
   'ReDispatched',
   'AssignmentAccepted',

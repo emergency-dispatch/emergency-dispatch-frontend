@@ -10,12 +10,20 @@ import {
   History,
   MessageSquarePlus,
   Info,
+  Mic,
+  Square,
 } from 'lucide-react';
 import { incidentService } from '../../services/incidentService';
 import { mediaService } from '../../services/mediaService';
 import { useAuth } from '../../hooks/useAuth';
 import { getApiErrorMessage } from '../../services/apiClient';
-import type { IncidentSupplementDto } from '../../types/incident';
+import {
+  MAX_AUDIO_DURATION_SEC,
+  MAX_TRANSCRIPT_LENGTH,
+  useCitizenAudioRecorder,
+} from '../../hooks/useCitizenAudioRecorder';
+import { AudioEvidencePlayer } from '../common/AudioEvidencePlayer';
+import type { AudioAttachmentInputDto, IncidentSupplementDto } from '../../types/incident';
 
 interface CitizenSupplementModalProps {
   isOpen: boolean;
@@ -45,6 +53,23 @@ export const CitizenSupplementModal: React.FC<CitizenSupplementModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const audioRecorder = useCitizenAudioRecorder({ language: 'vi' });
+  const lastSyncedTranscriptRef = useRef('');
+
+  useEffect(() => {
+    const next = audioRecorder.transcript.trim();
+    const prev = lastSyncedTranscriptRef.current;
+    if (next === prev) return;
+    lastSyncedTranscriptRef.current = next;
+    if (!next) return;
+    setNote((cur) => {
+      if (!cur.trim() || cur.trim() === prev) return next.slice(0, MAX_TRANSCRIPT_LENGTH);
+      const merged = prev && cur.endsWith(prev)
+        ? `${cur.slice(0, cur.length - prev.length)}${next}`
+        : `${cur.trimEnd()} ${next}`;
+      return merged.slice(0, MAX_TRANSCRIPT_LENGTH);
+    });
+  }, [audioRecorder.transcript]);
 
   // History for authenticated citizen
   const [supplements, setSupplements] = useState<IncidentSupplementDto[]>([]);
@@ -52,13 +77,17 @@ export const CitizenSupplementModal: React.FC<CitizenSupplementModalProps> = ({
   const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
-    if (!isOpen || !incidentId) return;
+    if (!isOpen || !incidentId) {
+      audioRecorder.clearRecording();
+      return;
+    }
     setNote('');
     setSelectedFiles([]);
     setFilePreviews([]);
     setErrorMsg('');
     setSuccessMsg('');
     setShowHistory(false);
+    audioRecorder.clearRecording();
 
     if (isAuthenticated) {
       loadHistory();
@@ -82,9 +111,10 @@ export const CitizenSupplementModal: React.FC<CitizenSupplementModalProps> = ({
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    const remainingSlots = 5 - selectedFiles.length;
+    const maxVisualFiles = audioRecorder.audioFile ? 4 : 5;
+    const remainingSlots = maxVisualFiles - selectedFiles.length;
     if (remainingSlots <= 0) {
-      setErrorMsg('Tối đa 5 ảnh / video cho mỗi lần bổ sung.');
+      setErrorMsg('Tối đa 5 tệp đính kèm (tối đa 1 ghi âm và 4–5 ảnh/video) cho mỗi lần bổ sung.');
       return;
     }
 
@@ -109,13 +139,21 @@ export const CitizenSupplementModal: React.FC<CitizenSupplementModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanNote = note.trim();
-    if (!cleanNote && selectedFiles.length === 0) {
-      setErrorMsg('Vui lòng nhập nội dung ghi chú hoặc đính kèm ảnh / video.');
+    if (audioRecorder.isRecording) {
+      setErrorMsg('Vui lòng bấm Dừng ghi âm trước khi gửi.');
       return;
     }
-    if (cleanNote.length > 1000) {
-      setErrorMsg('Nội dung bổ sung không được vượt quá 1000 ký tự.');
+    const cleanNote = note.trim();
+    if (!cleanNote && selectedFiles.length === 0 && !audioRecorder.audioFile) {
+      setErrorMsg('Vui lòng nhập ghi chú, đính kèm ảnh/video hoặc ghi âm hiện trường.');
+      return;
+    }
+    if (cleanNote.length > MAX_TRANSCRIPT_LENGTH) {
+      setErrorMsg(`Nội dung bổ sung không được vượt quá ${MAX_TRANSCRIPT_LENGTH} ký tự.`);
+      return;
+    }
+    if (selectedFiles.length + (audioRecorder.audioFile ? 1 : 0) > 5) {
+      setErrorMsg('Tổng số tệp ảnh/video và ghi âm tối đa là 5.');
       return;
     }
 
@@ -124,29 +162,44 @@ export const CitizenSupplementModal: React.FC<CitizenSupplementModalProps> = ({
     setSuccessMsg('');
 
     try {
-      // 1. Upload files first
+      // 1. Upload visual files first
       const mediaUrls: string[] = [];
       for (const file of selectedFiles) {
         const url = await mediaService.upload(file);
         if (url) mediaUrls.push(url);
       }
 
-      // 2. Retrieve guest token if unauthenticated
+      // 2. Upload audio separately -> uploadToken (never put audio URL into mediaUrls)
+      const audioAttachments: AudioAttachmentInputDto[] = [];
+      if (audioRecorder.audioFile) {
+        const uploadedAudio = await mediaService.uploadAsset(audioRecorder.audioFile);
+        if (!uploadedAudio.uploadToken) {
+          throw new Error('Máy chủ không cấp được mã xác nhận bản ghi âm.');
+        }
+        audioAttachments.push({
+          uploadToken: uploadedAudio.uploadToken,
+        });
+      }
+
+      // 3. Retrieve guest token if unauthenticated
       const guestToken =
         localStorage.getItem('resq_guest_token_' + incidentId) || undefined;
 
-      // 3. Post supplement
+      // 4. Post supplement
       await incidentService.addSupplement(incidentId, {
         note: cleanNote,
         mediaUrls,
+        audioAttachments: audioAttachments.length > 0 ? audioAttachments : undefined,
         guestCancellationToken: guestToken,
       });
 
       setSuccessMsg('Đã gửi thông tin bổ sung thành công đến trung tâm điều phối!');
       setNote('');
+      lastSyncedTranscriptRef.current = '';
       filePreviews.forEach((url) => URL.revokeObjectURL(url));
       setSelectedFiles([]);
       setFilePreviews([]);
+      audioRecorder.clearRecording();
 
       if (isAuthenticated) {
         loadHistory();
@@ -242,17 +295,21 @@ export const CitizenSupplementModal: React.FC<CitizenSupplementModalProps> = ({
                 </label>
                 <span
                   className={`text-[10px] font-mono ${
-                    note.length > 900 ? 'text-amber-600 font-bold' : 'text-slate-400'
+                    note.length > MAX_TRANSCRIPT_LENGTH - 200 ? 'text-amber-600 font-bold' : 'text-slate-400'
                   }`}
                 >
-                  {note.length}/1000 ký tự
+                  {note.length}/{MAX_TRANSCRIPT_LENGTH} ký tự
                 </span>
               </div>
               <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value.slice(0, 1000))}
+                value={
+                  audioRecorder.isRecording && audioRecorder.interimTranscript
+                    ? `${note}${note.trim() ? ' ' : ''}${audioRecorder.interimTranscript}`
+                    : note
+                }
+                onChange={(e) => setNote(e.target.value.slice(0, MAX_TRANSCRIPT_LENGTH))}
                 rows={3}
-                placeholder="Ví dụ: Đám cháy vừa lan sang nhà kho bên cạnh; Có 2 người đã thoát ra ngoài..."
+                placeholder="Nhập mô tả bổ sung hoặc bấm ghi âm để chuyển giọng nói thành chữ..."
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:border-red-500 font-sans shadow-2xs resize-none"
               />
             </div>
@@ -295,7 +352,7 @@ export const CitizenSupplementModal: React.FC<CitizenSupplementModalProps> = ({
               )}
 
               {/* Add files button */}
-              {selectedFiles.length < 5 && (
+              {selectedFiles.length < (audioRecorder.audioFile ? 4 : 5) && (
                 <div>
                   <input
                     ref={fileInputRef}
@@ -317,6 +374,54 @@ export const CitizenSupplementModal: React.FC<CitizenSupplementModalProps> = ({
               )}
             </div>
 
+            {/* Audio + Transcript Section (§55) */}
+            <div className="space-y-2 p-3 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-slate-700 uppercase tracking-wide text-[11px] font-mono flex items-center gap-1.5">
+                  <Mic className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Ghi âm giọng nói (tối đa {MAX_AUDIO_DURATION_SEC}s)</span>
+                </span>
+                {audioRecorder.isRecording ? (
+                  <button
+                    type="button"
+                    onClick={audioRecorder.stopRecording}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold cursor-pointer"
+                  >
+                    <Square className="w-3 h-3 fill-current" />
+                    <span>Dừng ({audioRecorder.recordingSeconds}s/{MAX_AUDIO_DURATION_SEC}s)</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void audioRecorder.startRecording({ resetTranscript: !audioRecorder.audioFile })}
+                    disabled={selectedFiles.length >= 5}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold cursor-pointer disabled:opacity-50"
+                  >
+                    <Mic className="w-3.5 h-3.5" />
+                    <span>{audioRecorder.audioFile ? 'Ghi lại' : 'Bắt đầu ghi âm'}</span>
+                  </button>
+                )}
+              </div>
+
+              {audioRecorder.micError && (
+                <p className="text-[11px] text-amber-700 font-medium">{audioRecorder.micError}</p>
+              )}
+
+              {audioRecorder.localPreviewUrl && (
+                <div className="flex items-center gap-2">
+                  <audio src={audioRecorder.localPreviewUrl} controls className="w-full h-8" />
+                  <button
+                    type="button"
+                    onClick={audioRecorder.clearRecording}
+                    className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 cursor-pointer shrink-0"
+                    title="Xóa ghi âm"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Action buttons */}
             <div className="pt-2 flex items-center gap-2">
               <button
@@ -328,7 +433,11 @@ export const CitizenSupplementModal: React.FC<CitizenSupplementModalProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || (!note.trim() && selectedFiles.length === 0)}
+                disabled={
+                  isSubmitting ||
+                  audioRecorder.isRecording ||
+                  (!note.trim() && selectedFiles.length === 0 && !audioRecorder.audioFile)
+                }
                 className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer font-mono"
               >
                 {isSubmitting ? (
@@ -402,6 +511,24 @@ export const CitizenSupplementModal: React.FC<CitizenSupplementModalProps> = ({
                                   className="w-full h-full object-cover"
                                 />
                               </a>
+                            ))}
+                          </div>
+                        )}
+                        {item.audioAttachments && item.audioAttachments.length > 0 && (
+                          <div className="space-y-1.5 pt-1">
+                            {item.audioAttachments.map((audio) => (
+                              <AudioEvidencePlayer
+                                key={audio.id}
+                                audio={audio}
+                                compact
+                                resolvePlaybackUrl={() =>
+                                  incidentService.getSupplementAudioPlaybackUrl(
+                                    item.targetIncidentId || incidentId,
+                                    item.id,
+                                    audio.id
+                                  )
+                                }
+                              />
                             ))}
                           </div>
                         )}

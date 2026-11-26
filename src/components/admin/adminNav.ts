@@ -3,7 +3,6 @@ import {
   Ban,
   CircleDashed,
   ClipboardCheck,
-  Combine,
   FileBarChart,
   Building2,
   LayoutDashboard,
@@ -21,6 +20,8 @@ import type { adminLayoutVi } from '../../i18n/locales/vi/admin/layout';
 // Nhãn dịch theo key: admin.layout.groups.* / admin.layout.nav.*
 export interface AdminNavItem {
   key: keyof typeof adminLayoutVi.nav;
+  /** Tên đầy đủ ở đầu trang khi nhãn thanh bên phải rút gọn (admin.layout.pageTitles.*). */
+  titleKey?: keyof typeof adminLayoutVi.pageTitles;
   path: string;
   icon: ComponentType<{ className?: string }>;
 }
@@ -64,8 +65,8 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       // Gồm cả tham số điều phối (đường dẫn cũ /admin/settings/dispatch chuyển về đây).
       { key: 'escalation', path: '/admin/settings/escalation', icon: Siren },
-      { key: 'serviceArea', path: '/admin/settings/service-area', icon: CircleDashed },
-      { key: 'duplicateDetection', path: '/admin/settings/duplicate-detection', icon: Combine },
+      // Gồm cả gộp báo cáo trùng + thông báo người dân (tab).
+      { key: 'serviceArea', titleKey: 'serviceArea', path: '/admin/settings/service-area', icon: CircleDashed },
     ],
   },
   {

@@ -36,7 +36,8 @@ import { IncidentTypePicker } from '../incidents/IncidentTypePicker';
 // Khớp CreateOperatorIncidentDtoValidator của backend.
 const NOTES_MIN_LENGTH = 5;
 const TITLE_MAX_LENGTH = 300;
-const DESCRIPTION_MAX_LENGTH = 1000;
+const DESCRIPTION_MAX_LENGTH = 4000;
+const NOTES_MAX_LENGTH = 1000;
 const ADDRESS_MAX_LENGTH = 500;
 const MAX_MEDIA = 5;
 const VN_PHONE = /^(0|\+84)[35789][0-9]{8}$/;
@@ -485,7 +486,7 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            maxLength={DESCRIPTION_MAX_LENGTH}
+            maxLength={NOTES_MAX_LENGTH}
             placeholder={t('liveMap.create.notesPlaceholder')}
             className={`${validatedInputClass(!!shown('notes'))} resize-none`}
           />

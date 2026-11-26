@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { API_CONFIG } from '../config/api';
+import { getLanguage } from '../i18n';
 import type { ApiResponse, AuthResponseDto } from '../types/auth';
 
 export const apiClient = axios.create({
@@ -27,12 +28,17 @@ const processQueue = (error: Error | null, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Request Interceptor: Attach Bearer token
+// Request Interceptor: Attach Bearer token & active UI language
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem(API_CONFIG.TOKEN_KEY);
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (config.headers) {
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      if (!config.headers.has('Accept-Language')) {
+        config.headers.set('Accept-Language', getLanguage());
+      }
     }
     return config;
   },

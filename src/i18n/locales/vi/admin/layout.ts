@@ -16,6 +16,9 @@ export const adminLayoutVi = {
     settings: 'Cấu hình',
     monitoring: 'Giám sát',
   },
+  pageTitles: {
+    serviceArea: 'Khu vực phục vụ & báo cáo người dân',
+  },
   nav: {
     overview: 'Tổng quan',
     stations: 'Trạm cứu hộ',
@@ -27,8 +30,7 @@ export const adminLayoutVi = {
     citizens: 'Tài khoản Citizen',
     blockedNumbers: 'Số bị chặn',
     escalation: 'Điều phối & leo thang',
-    serviceArea: 'Khu vực phục vụ',
-    duplicateDetection: 'Gộp báo cáo trùng',
+    serviceArea: 'Khu vực & báo cáo',
     reports: 'Báo cáo sự cố',
     completionReports: 'Báo cáo nghiệm thu',
     auditTrail: 'Nhật ký thao tác',
