@@ -157,7 +157,7 @@ export const LiveMapPage: React.FC = () => {
     });
   };
 
-  // "Tôi xử lý" ở dải AI / thẻ AI / marker AI, "Thẩm định ngay" ở modal tin báo mới → mở thẩm định. Chờ ca có trong danh
+  // "Mở ca" ở dải AI / thẻ AI / marker AI, "Thẩm định ngay" ở modal tin báo mới → mở thẩm định. Chờ ca có trong danh
   // sách rồi mới mở, xong thì xóa khỏi lịch sử để tải lại trang không tự giữ khóa ca cũ.
   const triageIncidentId = (location.state as { triageIncidentId?: string } | null)?.triageIncidentId;
   const triageTargetStatus = triageIncidentId ? incidentsById.get(triageIncidentId)?.status : undefined;
@@ -171,7 +171,7 @@ export const LiveMapPage: React.FC = () => {
   }, [triageIncidentId, triageTargetStatus, location.key]);
 
   // Deep link từ banner leo thang / thông báo / chuông: ca đã duyệt → Chi tiết ca; ca chờ người → mở thẩm định; ca AI đang
-  // làm → chỉ bay tới (mở = giữ khóa = AI bỏ qua ca này, phải qua "Tôi xử lý").
+  // làm → chỉ bay tới (để AI làm; muốn xem thì bấm "Mở ca").
   const focusIncidentId = (location.state as { focusIncidentId?: string } | null)?.focusIncidentId;
   const [focusAiIncident, setFocusAiIncident] = useState<{ id: string; key: number } | null>(null);
   useEffect(() => {
@@ -382,14 +382,12 @@ export const LiveMapPage: React.FC = () => {
         incident={triage.incident}
         currentOperatorId={currentOperatorId}
         isEscalated={escalatedIncidentIds.has(triage.incident.id)}
-        isLocking={triage.isLocking}
         attentionCount={attentionCount}
         onClose={() => handleSelectIncident(null)}
         onApprove={triage.approve}
         onReject={triage.reject}
         onTransfer={triage.transfer}
         transferStations={triage.transferStations}
-        onRelock={triage.relock}
         onRevealPhone={revealReporterPhone}
         onUnlinkReport={unlinkLinkedReport}
         supplementVersion={supplementVersions.get(triage.incident.id) ?? 0}

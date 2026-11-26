@@ -63,7 +63,7 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     cancelCase: 'Cancel case',
   },
   triage: {
-    gone: 'The case you opened is no longer waiting for review (cancelled, merged or already handled).',
+    gone: 'The case you opened is no longer waiting for review (cancelled, merged, auto-dispatched by AI or already handled).',
     leavePrompt: 'You have unsaved input. Leaving this case will discard it.',
     leave: 'Leave case',
     stay: 'Stay',

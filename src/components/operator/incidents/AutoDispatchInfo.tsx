@@ -4,7 +4,8 @@ import { Bot, BotOff, ExternalLink, Loader2 } from 'lucide-react';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import type { Incident } from '../../../types/incident';
 import { aiVoteTally } from '../../../types/aiVote';
-import { autoDispatchVerdict, type HandoverReason } from './autoDispatchVerdict';
+import { useNow } from '../../../hooks/useNow';
+import { autoDispatchVerdictAt, type HandoverReason } from './autoDispatchVerdict';
 import { useHandoverReasonText } from './useHandoverReasonText';
 import { useTranslation } from '../../../i18n';
 
@@ -264,13 +265,19 @@ export const AutoDispatchNotice: React.FC<{
  * - ca chờ duyệt, AI chuyển cho người → lý do + thanh độ tin cậy / ngưỡng + hướng dẫn.
  * Tự điều phối đang tắt → không hiện gì (luồng thẩm định cũ).
  */
-export const AutoDispatchBanner: React.FC<{ incident: Incident; className?: string }> = ({ incident, className = '' }) => {
+export const AutoDispatchBanner: React.FC<{
+  incident: Incident;
+  className?: string;
+  /** Cột quyết định của panel thẩm định: bỏ dải tiến trình (ở đây luôn là "chuyển cho bạn") và dòng hướng dẫn, chỉ giữ lý do. */
+  compact?: boolean;
+}> = ({ incident, className = '', compact = false }) => {
   const { t } = useTranslation();
   const { autoDispatchSettings } = useDispatchStore();
+  const now = useNow();
   if (incident.autoDispatch) return <AutoDispatchNotice incident={incident} className={className} />;
   if (incident.status !== 'pending') return null;
-  // Đang mở drawer → không chờ "đang điều phối": khóa mềm đã chặn AI.
-  const verdict = autoDispatchVerdict(incident, autoDispatchSettings, { transferred: false, decidingExpired: true });
+  // Mở ca không còn giữ khóa (bỏ 2026-11-26) → AI vẫn có thể đang điều phối; tính theo thời gian từ lúc tiếp nhận.
+  const verdict = autoDispatchVerdictAt(incident, autoDispatchSettings, now);
   if (verdict.phase === 'manual') return null;
   const threshold = autoDispatchSettings ? Math.round(autoDispatchSettings.minConfidence * 100) : null;
 
@@ -281,8 +288,8 @@ export const AutoDispatchBanner: React.FC<{ incident: Incident; className?: stri
         reason={verdict.reason}
         threshold={threshold}
         title={t('incidents.autoDispatch.handoverTitle')}
-        showStrip
-        hint={t('incidents.autoDispatch.handoverHint')}
+        showStrip={!compact}
+        hint={compact ? undefined : t('incidents.autoDispatch.handoverHint')}
         className={className}
       />
     );
@@ -291,9 +298,11 @@ export const AutoDispatchBanner: React.FC<{ incident: Incident; className?: stri
     <div className={`p-3.5 rounded-xl bg-indigo-50 border border-indigo-200 space-y-2 text-indigo-900 ${className}`}>
       <p className="flex items-center gap-1.5 text-xs font-bold">
         <Loader2 className="w-4 h-4 shrink-0 motion-safe:animate-spin" />
-        {t('incidents.autoDispatch.heldWhileAnalyzingTitle')}
+        {verdict.phase === 'deciding'
+          ? t('incidents.autoDispatch.aiDecidingTitle')
+          : t('incidents.autoDispatch.heldWhileAnalyzingTitle')}
       </p>
-      <AiProgressStrip phase={verdict.phase} />
+      {!compact && <AiProgressStrip phase={verdict.phase} />}
       <p className="text-xs leading-relaxed">{t('incidents.autoDispatch.heldWhileAnalyzingBody')}</p>
     </div>
   );

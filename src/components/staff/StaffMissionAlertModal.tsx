@@ -25,6 +25,12 @@ import { staffAudioService } from '../../services/staffAudioService';
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_REALISTIC_STYLE } from '../../services/mapboxService';
 import { routingService } from '../../services/routingService';
 import { formatShortId } from '../../utils/incidentFormat';
+import { glowIncidentMarkerHtml, vehicle3dMarkerHtml } from '../operator/livemap/glowMarkers';
+import {
+  resolveIncidentCategory,
+  resolveDispatchVehicleType,
+} from '../../pages/staff/utils/staffMissionUtils';
+import type { SeverityLevel } from '../../types/incident';
 
 import type { RejectionReason } from '../../types/dispatch';
 
@@ -249,32 +255,28 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
       applyRouteToMap(map, routeCoordinates);
     });
 
-    // Marker mục tiêu sự cố với hiệu ứng radar ping
+    // Marker mục tiêu sự cố với hiệu ứng Quầng sáng như Operator
+    const cat = resolveIncidentCategory(mission.title, mission.description, mission.hazardTags as string[]);
+    const sev = (mission.severity === 3 ? 3 : mission.severity === 2 ? 2 : 1) as SeverityLevel;
     const incidentEl = document.createElement('div');
     incidentEl.className = 'cursor-pointer select-none';
     incidentEl.innerHTML = `
       <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-        <div style="position: absolute; width: 44px; height: 44px; border-radius: 9999px; background: rgba(220, 38, 38, 0.45); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-        <div style="width: 32px; height: 32px; border-radius: 9999px; background: #DC2626; border: 2.5px solid #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 14px rgba(220, 38, 38, 0.8); color: white;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
-          </svg>
-        </div>
+        ${glowIncidentMarkerHtml(cat, sev, true)}
       </div>
     `;
     new mapboxgl.Marker({ element: incidentEl })
       .setLngLat([mission.incidentLng, mission.incidentLat])
       .addTo(map);
 
-    // Marker kíp xe xuất phát
+    // Marker kíp xe xuất phát (xe 3D như Operator)
     if (mission.vehicleLng && mission.vehicleLat) {
+      const vType = resolveDispatchVehicleType(mission.vehicleType);
       const vehEl = document.createElement('div');
       vehEl.className = 'cursor-pointer select-none';
       vehEl.innerHTML = `
-        <div style="width: 28px; height: 28px; border-radius: 9999px; background: #0F172A; border: 2px solid #22C55E; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(0,0,0,0.5);">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
-            <polygon points="12 2 19 21 12 17 5 21 12 2"></polygon>
-          </svg>
+        <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+          ${vehicle3dMarkerHtml(vType, 'en_route', true)}
         </div>
       `;
       new mapboxgl.Marker({ element: vehEl })

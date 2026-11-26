@@ -62,7 +62,7 @@ export const liveMapVi = {
   },
   // Thẩm định ca chờ duyệt ngay trong panel trái.
   triage: {
-    gone: 'Ca bạn đang mở không còn chờ thẩm định (đã hủy, đã gộp hoặc đã có người xử lý).',
+    gone: 'Ca bạn đang mở không còn chờ thẩm định (đã hủy, đã gộp, AI đã tự điều phối hoặc đã có người xử lý).',
     leavePrompt: 'Bạn đang nhập dở. Rời ca này thì nội dung chưa lưu sẽ mất.',
     leave: 'Rời ca',
     stay: 'Ở lại',

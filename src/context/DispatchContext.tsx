@@ -176,6 +176,9 @@ interface EscalationAlertMessage {
   tier?: number;
 }
 
+/** Trạng thái xe đang làm nhiệm vụ (còn nhận GPS realtime của tổ). */
+const MISSION_UNIT_STATUSES = new Set<RescueUnitResponseDto['status']>(['Dispatched', 'OnScene', 'Returning']);
+
 interface RescueUnitStatusEvent {
   rescueUnitId: string;
   stationId: string;
@@ -877,6 +880,22 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               : u
           );
         });
+        // §63: xe hết nhiệm vụ (nghiệm thu → hồi sức, bị thu hồi khi đã xuất phát) → backend đặt vị trí về trạm và gửi tọa độ
+        // trong sự kiện này. Bỏ GPS realtime cũ của xe, không thì marker vẫn đứng ở hiện trường (vị trí vẽ ưu tiên GPS realtime).
+        // Xe còn nhiệm vụ (Dispatched / OnScene / Returning) giữ GPS realtime để marker không nhảy về trạm giữa đường.
+        if (
+          !evt.isDeleted &&
+          evt.latitude != null &&
+          evt.longitude != null &&
+          !MISSION_UNIT_STATUSES.has(evt.status as RescueUnitResponseDto['status'])
+        ) {
+          setPositions((prev) => {
+            if (!prev.has(evt.rescueUnitId)) return prev;
+            const next = new Map(prev);
+            next.delete(evt.rescueUnitId);
+            return next;
+          });
+        }
         // Xe mới (tạo / chuyển trạm): chỉ tải lại xe của trạm đó rồi ghép vào danh sách, không tải lại toàn bộ.
         if (unknownUnit) {
           liveMapService

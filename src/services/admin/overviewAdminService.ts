@@ -3,6 +3,7 @@ import { UserRole, type ApiResponse } from '../../types/auth';
 import { ON_MISSION_UNIT_STATUSES } from '../../types/rescueUnit';
 import type { InternalRole } from '../../types/internalAccount';
 import type { AdminDashboardStatsDto, RecentIncidentSummaryDto } from '../../types/adminDashboard';
+import type { EquipmentDto } from '../../types/equipment';
 import { stationAdminService } from './stationAdminService';
 import { vehicleAdminService } from './vehicleAdminService';
 import { equipmentService } from '../equipmentService';
@@ -54,6 +55,13 @@ export const overviewAdminService = {
     const stations = stationPage.items;
     const countStatus = (match: (u: (typeof units)[number]) => boolean) => units.filter(match).length;
 
+    const rawEquipment: unknown = equipment;
+    const eqList: EquipmentDto[] | null = Array.isArray(rawEquipment)
+      ? (rawEquipment as EquipmentDto[])
+      : Array.isArray((rawEquipment as { items?: unknown })?.items)
+      ? (rawEquipment as { items: EquipmentDto[] }).items
+      : null;
+
     return {
       generatedAt: new Date(now).toISOString(),
       vehicleCounts: {
@@ -69,9 +77,9 @@ export const overviewAdminService = {
         [UserRole.RescueStaff]: stats.totalRescueStaff,
       },
       citizenCount: stats.totalCitizens,
-      equipment: equipment && {
-        total: equipment.length,
-        maintenance: equipment.filter((e) => e.status === 'Maintenance').length,
+      equipment: eqList && {
+        total: eqList.length,
+        maintenance: eqList.filter((e: EquipmentDto) => e.status === 'Maintenance').length,
       },
       incidents: {
         active: stats.activeIncidents,

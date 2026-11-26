@@ -260,15 +260,6 @@ export const StaffProfileView: React.FC<StaffProfileViewProps> = ({ profile, onP
                 </span>
               </div>
             )}
-
-            {userData?.emergencyContactName && (
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-                <span className="text-slate-500">Liên hệ khẩn cấp:</span>
-                <span className="font-medium text-slate-900">
-                  {userData.emergencyContactName} ({userData.emergencyContactPhone || 'N/A'})
-                </span>
-              </div>
-            )}
           </div>
         </div>
 

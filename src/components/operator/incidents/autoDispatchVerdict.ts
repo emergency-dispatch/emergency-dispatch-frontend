@@ -5,7 +5,8 @@ import type { AutoDispatchNotEligibleReason, Incident } from '../../../types/inc
  * Vì sao ca tới tay Operator thay vì được AI tự điều phối:
  * - lý do không đủ điều kiện: backend lưu từ §35 (`autoDispatchNotEligible`), ca cũ thì FE tự suy (`AutoDispatchIneligibleReason`);
  * - `belowThreshold`: độ tin cậy đo thật nhưng thấp hơn ngưỡng Admin đặt;
- * - `operatorHandling`: ca đang bị Operator giữ (khóa mềm) lúc AI chấm → AI không chen vào;
+ * - `operatorHandling`: ca đang bị Operator giữ (khóa mềm) lúc AI chấm → AI không chen vào. FE Operator không khóa nữa
+ *   (bỏ 2026-11-26), lý do này chỉ còn khi khóa đến từ bản cũ / app khác;
  * - `ensemble*` (§42): chế độ 3 AI bỏ phiếu không đủ đồng thuận / model CNN không chạy được / ca không có ảnh;
  * - `other`: mã lý do FE chưa biết → hiện câu của backend;
  * - `skipped`: AI đã thử nhưng bỏ qua (nghi trùng / hết tổ / giao lỗi) — câu cụ thể ở `autoDispatch.note`;

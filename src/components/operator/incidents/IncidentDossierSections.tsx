@@ -1,22 +1,23 @@
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   BrainCircuit,
   Building2,
+  ChevronDown,
   Eye,
   GitCompareArrows,
   Loader2,
   MapPin,
   Phone,
+  TrafficCone,
   User,
 } from 'lucide-react';
 import { AudioEvidencePlayer } from '../../common/AudioEvidencePlayer';
-import { HazardTagBadge } from '../../common/HazardTagBadge';
+import { aiVoteTally } from '../../../types/aiVote';
 import { AiVotesPanel } from './AiVotesPanel';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { IncidentMediaGallery } from './IncidentMediaGallery';
 import { IncidentSupplementList } from './IncidentSupplementList';
-import { ReporterMedicalCard } from './ReporterMedicalCard';
 import { SeverityBadge } from './SeverityBadge';
 import { hasReporterPhone, type CancelCaseInput } from './cancelCaseInput';
 import type { RevealedPhoneState } from '../../../hooks/useRevealPhone';
@@ -37,8 +38,6 @@ import { dateLocale, useTranslation } from '../../../i18n';
  * bằng chứng của người báo, kết quả AI, phần nhập lý do hủy ca.
  */
 
-// Số thẻ nguy cơ hiện sẵn; phần còn lại gộp vào nút "+N".
-const MAX_VISIBLE_TAGS = 4;
 // Tiêu đề mục: chữ thường đậm; mono chỉ dành cho số liệu (tọa độ, biển số, %, đếm ngược).
 const SECTION_HEADING = 'text-[13px] font-semibold text-slate-700 mb-1.5';
 
@@ -47,7 +46,53 @@ interface ReporterEvidenceProps {
   supplements: ReturnType<typeof useIncidentSupplements>;
   phone: RevealedPhoneState;
   revealDisabled?: boolean;
+  /** Hiện địa chỉ + trạm phụ trách. Panel thẩm định tắt vì đầu panel đã có địa chỉ. */
+  showLocation?: boolean;
+  /** Chèn ngay sau mô tả của người báo (VD đoạn AI mô tả ảnh) để đọc đối chiếu hai lời mô tả. */
+  afterDescription?: React.ReactNode;
+  /**
+   * Panel thẩm định: ảnh rộng hết cột (cao tối đa ~1/3 màn hình), dưới là một dải ghi âm + người báo; mô tả thu còn 3 dòng —
+   * để ca thông thường đọc hết bằng chứng mà không phải cuộn.
+   */
+  compact?: boolean;
 }
+
+/**
+ * Đoạn văn dài thu gọn còn `lines` dòng; chỉ hiện "Xem thêm" khi chữ thật sự bị cắt (đo theo khung, không đoán theo số ký tự).
+ */
+const CLAMP_CLASS = { 2: 'line-clamp-2', 3: 'line-clamp-3', 4: 'line-clamp-4' } as const;
+
+const ClampedText: React.FC<{ text: string; className?: string; lines?: 2 | 3 | 4 }> = ({ text, className = '', lines = 4 }) => {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || expanded) return;
+    const check = () => setOverflowing(el.scrollHeight > el.clientHeight + 1);
+    check();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null;
+    observer?.observe(el);
+    return () => observer?.disconnect();
+  }, [text, expanded, lines]);
+  return (
+    <>
+      <p ref={ref} className={`${className} ${expanded ? '' : CLAMP_CLASS[lines]}`}>
+        {text}
+      </p>
+      {(overflowing || expanded) && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1 text-xs font-semibold text-slate-500 hover:text-slate-800 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+        >
+          {expanded ? t('incidents.drawer.showLess') : t('incidents.drawer.showMore')}
+        </button>
+      )}
+    </>
+  );
+};
 
 /** Bằng chứng của người báo: không đóng khung, đọc như hồ sơ. */
 export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
@@ -55,95 +100,163 @@ export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
   supplements,
   phone,
   revealDisabled = false,
+  showLocation = true,
+  afterDescription,
+  compact = false,
 }) => {
   const { t } = useTranslation();
   const hasPhone = hasReporterPhone(incident);
   // Ca Operator tạo từ điện thoại / bộ đàm…: không có người báo qua app nên thiếu ảnh, mô tả, số là bình thường → không để ô trống.
   const fromCitizen = incident.source === 'CitizenApp';
-  return (
-    <div className="space-y-5 min-w-0">
-      {(fromCitizen || incident.media.length > 0) && (
-        <IncidentMediaGallery key={incident.id} media={incident.media} title={incident.title} />
-      )}
+  const showGallery = fromCitizen || incident.media.length > 0;
+  const gallery = showGallery && (
+    <IncidentMediaGallery key={incident.id} media={incident.media} title={incident.title} compact={compact} />
+  );
 
-      {/* §55: ghi âm người báo gửi kèm (URL phát ký 5 phút + bản chép lời). */}
-      {incident.audioItems && incident.audioItems.length > 0 && (
-        <div className="space-y-2">
-          {incident.audioItems.map((audio) => (
-            <AudioEvidencePlayer
-              key={audio.id}
-              audio={audio}
-              compact
-              resolvePlaybackUrl={() => incidentService.getAudioPlaybackUrl(incident.id, audio.id)}
-            />
-          ))}
-        </div>
-      )}
+  // §55: ghi âm người báo gửi kèm (URL phát ký 5 phút).
+  const audio = incident.audioItems && incident.audioItems.length > 0 && (
+    <div className="space-y-2">
+      {incident.audioItems.map((item) => (
+        <AudioEvidencePlayer
+          key={item.id}
+          audio={item}
+          compact
+          resolvePlaybackUrl={() => incidentService.getAudioPlaybackUrl(incident.id, item.id)}
+        />
+      ))}
+    </div>
+  );
 
-      {(fromCitizen || incident.description) && (
-        <section>
-          <h3 className={SECTION_HEADING}>{t('incidents.drawer.reporterDescription')}</h3>
-          <p className="text-sm text-slate-600 leading-relaxed">{incident.description}</p>
-        </section>
-      )}
+  const description = (fromCitizen || incident.description) && (
+    <section>
+      <h3 className={SECTION_HEADING}>{t('incidents.drawer.reporterDescription')}</h3>
+      <ClampedText
+        key={incident.id}
+        text={incident.description}
+        lines={compact ? 3 : 4}
+        className="text-sm text-slate-600 leading-relaxed whitespace-pre-line break-words"
+      />
+    </section>
+  );
 
-      {/* §21.4: chỉ hiện khi người báo đã gửi thêm (hoặc tải lỗi). */}
-      {(supplements.items.length > 0 || supplements.error) && (
-        <section>
-          <h3 className={`${SECTION_HEADING} text-amber-700`}>
-            {t('incidents.supplements.heading', { count: supplements.items.length })}
-          </h3>
-          <IncidentSupplementList
-            items={supplements.items}
-            loading={supplements.loading}
-            error={supplements.error}
-            onReload={supplements.reload}
-          />
-        </section>
-      )}
+  // §21.4: chỉ hiện khi người báo đã gửi thêm (hoặc tải lỗi).
+  const supplementSection = (supplements.items.length > 0 || supplements.error) && (
+    <section>
+      <h3 className={`${SECTION_HEADING} text-amber-700`}>
+        {t('incidents.supplements.heading', { count: supplements.items.length })}
+      </h3>
+      <IncidentSupplementList
+        items={supplements.items}
+        loading={supplements.loading}
+        error={supplements.error}
+        onReload={supplements.reload}
+      />
+    </section>
+  );
 
-      <div>
-        <ul className="divide-y divide-slate-100 border-y border-slate-100 text-sm text-slate-700">
+  const reporter = (
+    <div>
+      <ul className="divide-y divide-slate-100 border-y border-slate-100 text-sm text-slate-700">
+        <li className="flex items-center gap-2.5 py-2 min-w-0">
+          <User className="w-4 h-4 text-slate-400 shrink-0" />
+          <span className="truncate">{incident.reporterName}</span>
+        </li>
+        {(fromCitizen || hasPhone) && (
           <li className="flex items-center gap-2.5 py-2 min-w-0">
-            <User className="w-4 h-4 text-slate-400 shrink-0" />
-            <span className="truncate">{incident.reporterName}</span>
+            <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="font-mono-data truncate">{phone.revealed?.phone ?? incident.reporterPhone}</span>
+            {hasPhone && !phone.revealed && (
+              <button
+                onClick={phone.reveal}
+                disabled={phone.revealing || revealDisabled}
+                className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 shrink-0"
+              >
+                {phone.revealing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                {t('incidents.drawer.revealPhone')}
+              </button>
+            )}
+            {phone.revealed && (
+              <span
+                className="ml-auto text-[11px] text-slate-400 shrink-0 truncate"
+                title={t('incidents.drawer.phoneRevealedAt', { time: phone.revealed.at.toLocaleTimeString(dateLocale()) })}
+              >
+                {t('incidents.drawer.phoneRevealedAt', { time: phone.revealed.at.toLocaleTimeString(dateLocale()) })}
+              </span>
+            )}
           </li>
-          {(fromCitizen || hasPhone) && (
-            <li className="flex items-center gap-2.5 py-2 min-w-0">
-              <Phone className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="font-mono-data truncate">{phone.revealed?.phone ?? incident.reporterPhone}</span>
-              {hasPhone && !phone.revealed && (
-                <button
-                  onClick={phone.reveal}
-                  disabled={phone.revealing || revealDisabled}
-                  className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 shrink-0"
-                >
-                  {phone.revealing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
-                  {t('incidents.drawer.revealPhone')}
-                </button>
-              )}
-              {phone.revealed && (
-                <span className="ml-auto text-[11px] text-slate-400 shrink-0">
-                  {t('incidents.drawer.phoneRevealedAt', { time: phone.revealed.at.toLocaleTimeString(dateLocale()) })}
-                </span>
-              )}
-            </li>
-          )}
+        )}
+        {showLocation && (
           <li className="flex items-start gap-2.5 py-2 min-w-0">
             <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
             <span className="break-words">{incident.area}</span>
           </li>
-          {incident.responsibleStationName && (
-            <li className="flex items-center gap-2.5 py-2 min-w-0">
-              <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="truncate">
-                {t('incidents.drawer.responsibleStation', { name: incident.responsibleStationName })}
+        )}
+        {showLocation && incident.responsibleStationName && (
+          <li className="flex items-center gap-2.5 py-2 min-w-0">
+            <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="truncate">
+              {t('incidents.drawer.responsibleStation', { name: incident.responsibleStationName })}
+            </span>
+          </li>
+        )}
+      </ul>
+      {incident.isOutOfServiceArea && (
+        <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-red-50 border border-red-200 px-2.5 py-1.5 text-xs text-red-700">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+          {t('incidents.drawer.outOfArea')}
+          {incident.distanceOutsideAreaKm != null &&
+            t('incidents.drawer.outOfAreaDistance', {
+              km: incident.distanceOutsideAreaKm.toLocaleString(dateLocale(), { maximumFractionDigits: 1 }),
+            })}
+          {t('incidents.drawer.outOfAreaSuffix')}
+        </p>
+      )}
+    </div>
+  );
+
+  if (compact) {
+    // Một dải dưới ảnh: ghi âm (nếu có) + tên + số người báo.
+    const reporterInline = (
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-slate-700 min-w-0">
+        <span className="inline-flex items-center gap-1.5 min-w-0">
+          <User className="w-4 h-4 text-slate-400 shrink-0" />
+          <span className="truncate">{incident.reporterName}</span>
+        </span>
+        {(fromCitizen || hasPhone) && (
+          <span className="inline-flex items-center gap-1.5 min-w-0">
+            <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="font-mono-data truncate">{phone.revealed?.phone ?? incident.reporterPhone}</span>
+            {hasPhone && !phone.revealed && (
+              <button
+                onClick={phone.reveal}
+                disabled={phone.revealing || revealDisabled}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 shrink-0"
+              >
+                {phone.revealing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                {t('incidents.drawer.revealPhone')}
+              </button>
+            )}
+            {phone.revealed && (
+              <span
+                className="text-[11px] text-slate-400 shrink-0"
+                title={t('incidents.drawer.phoneRevealedAt', { time: phone.revealed.at.toLocaleTimeString(dateLocale()) })}
+              >
+                {phone.revealed.at.toLocaleTimeString(dateLocale())}
               </span>
-            </li>
-          )}
-        </ul>
+            )}
+          </span>
+        )}
+      </div>
+    );
+    return (
+      <div className="space-y-4 min-w-0">
+        {gallery}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
+          {audio}
+          {reporterInline}
+        </div>
         {incident.isOutOfServiceArea && (
-          <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-red-50 border border-red-200 px-2.5 py-1.5 text-xs text-red-700">
+          <p className="flex items-start gap-1.5 rounded-lg bg-red-50 border border-red-200 px-2.5 py-1.5 text-xs text-red-700">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
             {t('incidents.drawer.outOfArea')}
             {incident.distanceOutsideAreaKm != null &&
@@ -153,175 +266,217 @@ export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
             {t('incidents.drawer.outOfAreaSuffix')}
           </p>
         )}
+        {description}
+        {afterDescription}
+        {supplementSection}
       </div>
+    );
+  }
 
-      <ReporterMedicalCard profile={incident.reporterMedical} smsLog={incident.emergencySmsLog} />
+  return (
+    <div className="space-y-5 min-w-0">
+      {gallery}
+      {audio}
+      {description}
+      {afterDescription}
+      {supplementSection}
+      {reporter}
     </div>
   );
 };
 
-interface AiFindingsProps {
+/**
+ * "AI nhận định" ở cột hiện trường của panel thẩm định: mọi điều AI nói về ca — tóm tắt (loại, độ tin cậy, cấp đề xuất,
+ * phiếu 3 AI), đoạn mô tả ảnh, nhận định ùn tắc, cảnh báo — gom trong một khối vạch chàm (màu việc của AI),
+ * đọc liền sau lời người báo. AI lỗi → một câu hướng dẫn, không hiện số liệu rỗng hay câu dự phòng của backend.
+ */
+export const AiInsightBlock: React.FC<{
   incident: Incident;
-  /** Ca đã duyệt (người hoặc AI): bỏ cảnh báo chỉ dành cho lúc thẩm định, bỏ loại + cấp (đã chốt, hiện ở đầu hồ sơ, không còn là ý kiến AI). */
+  /**
+   * Hồ sơ ca đã duyệt: bỏ cảnh báo (chỉ dành cho lúc thẩm định); thêm dòng
+   * "Đã xác nhận … — khác nhận định AI" khi loại / cấp Operator chốt khác AI.
+   */
   verified?: boolean;
-}
-
-/** Ý kiến của AI: một khối nền xám duy nhất, tách khỏi bằng chứng và quyết định. */
-export const AiFindings: React.FC<AiFindingsProps> = ({ incident, verified = false }) => {
+}> = ({ incident, verified = false }) => {
   const { t } = useTranslation();
   const { incidentKindLabel } = useDispatchStore();
-  // Thẻ nguy cơ: mặc định chỉ hiện vài thẻ đầu, phần mô tả AI bên dưới đã nói chi tiết.
-  const [showAllTags, setShowAllTags] = useState(false);
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
-  // AI lỗi / quá thời gian chờ: % tin cậy và cấp đề xuất vô nghĩa → báo rõ là AI thất bại, không phải "độ tin cậy thấp".
-  const aiFailed = !incident.aiPending && incident.aiFailed;
+  const tally = incident.aiVotes ? aiVoteTally(incident.aiVotes) : null;
+  // Bảng phiếu từng AI (loại · cấp · %): Hồ sơ ca rộng chỗ → mở sẵn; panel thẩm định chật → bấm dòng tổng để mở.
+  const [showVotes, setShowVotes] = useState(verified);
+  const verdict = incident.aiVerdict;
+  // Không có nhận định dùng được (AI lỗi / quá thời gian / không đọc được kết quả) → một câu hướng dẫn.
+  const aiFailed = !incident.aiPending && (incident.aiFailed || !verdict);
+  const aiCategory = verdict?.category ?? null;
+  const aiMeta = aiCategory ? INCIDENT_CATEGORY_META[aiCategory] : null;
+  const AiIcon = aiMeta?.icon;
+  // Ca đã duyệt mà loại / cấp chốt khác AI → ghi rõ để người xem lại biết đó là quyết định của người.
+  const confirmedDiffers =
+    verified &&
+    !!verdict &&
+    (verdict.category !== (incident.category === 'unknown' ? null : incident.category) ||
+      verdict.severity !== incident.severity);
   // Con số ước lượng (§46) không nói lên độ tin cậy → không cảnh báo thấp theo nó.
   const isLowConfidence =
+    !verified &&
+    !!aiCategory &&
     !incident.aiPending &&
     !aiFailed &&
     !incident.aiUnclassified &&
     incident.confidenceMeasured !== false &&
     incident.confidenceScore < LOW_CONFIDENCE_THRESHOLD;
+  const warnings: Array<{ key: string; className: string; icon: typeof AlertTriangle; title: string; body: string }> = [];
+  if (isLowConfidence) {
+    warnings.push({
+      key: 'low',
+      className: 'text-amber-800',
+      icon: AlertTriangle,
+      title: t('incidents.drawer.lowConfidenceTitle'),
+      body: t('incidents.drawer.lowConfidenceBody'),
+    });
+  }
+  if (!verified && incident.aiFlags.preliminaryYolo) {
+    warnings.push({
+      key: 'yolo',
+      className: 'text-amber-800',
+      icon: AlertTriangle,
+      title: t('incidents.drawer.preliminaryYoloTitle'),
+      body: t('incidents.drawer.preliminaryYoloBody'),
+    });
+  }
+  if (!verified && incident.aiFlags.engineDisagreement) {
+    warnings.push({
+      key: 'disagree',
+      className: 'text-violet-800',
+      icon: GitCompareArrows,
+      title: t('incidents.drawer.engineDisagreementTitle'),
+      body: t('incidents.drawer.engineDisagreementBody'),
+    });
+  }
+  const jam = incident.trafficJam;
+  // Nhận định của AI (Nghi ngờ / Bất đồng / Chưa xác minh) chỉ hiện nhãn + icon: câu căn cứ của backend nặng tên mô hình,
+  // không giúp Operator quyết định. Đã có người chốt (Xác nhận / Bác bỏ) thì hiện câu đó vì có ghi chú của Operator.
+  const jamEvidence = jam?.reviewed ? jam.evidence?.trim() || null : null;
+
   return (
-    <>
-      {!verified && aiFailed && (
-        <div className="flex items-start gap-2 rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-3 text-xs text-slate-700">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-slate-500" />
-          <span>
-            <strong>{t('incidents.drawer.aiFailedTitle')}</strong>
-            {t('incidents.drawer.aiFailedBody')}
-          </span>
-        </div>
-      )}
+    <section aria-label={t('incidents.drawer.aiInsight')} className="border-l-2 border-indigo-400 pl-3.5 space-y-2">
+      <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-indigo-900">
+        <BrainCircuit className="w-4 h-4 text-indigo-600 shrink-0" />
+        {t('incidents.drawer.aiInsight')}
+      </h3>
 
-      {!verified && isLowConfidence && (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3 text-xs text-amber-800">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>
-            <strong>{t('incidents.drawer.lowConfidenceTitle')}</strong>
-            {t('incidents.drawer.lowConfidenceBody')}
-          </span>
-        </div>
-      )}
+      {incident.aiPending ? (
+        <p className="flex items-center gap-1.5 text-sm text-slate-600">
+          <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-indigo-600" />
+          {t('incidents.drawer.aiPendingTitle')}
+        </p>
+      ) : aiFailed ? (
+        <p className="text-sm text-slate-600 leading-relaxed">{t('incidents.drawer.aiFailedInline')}</p>
+      ) : (
+        <>
+          {warnings.map(({ key, className, icon: Icon, title, body }) => (
+            <p key={key} className={`flex items-start gap-1.5 text-xs leading-relaxed ${className}`}>
+              <Icon className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>
+                <strong>{title}</strong>
+                {body}
+              </span>
+            </p>
+          ))}
 
-      {!verified && !incident.aiPending && incident.aiFlags.preliminaryYolo && (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3 text-xs text-amber-800">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>
-            <strong>{t('incidents.drawer.preliminaryYoloTitle')}</strong>
-            {t('incidents.drawer.preliminaryYoloBody')}
-          </span>
-        </div>
-      )}
-
-      {!verified && !incident.aiPending && incident.aiFlags.engineDisagreement && (
-        <div className="flex items-start gap-2 rounded-xl border border-violet-300 bg-violet-50 px-3.5 py-3 text-xs text-violet-800">
-          <GitCompareArrows className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>
-            <strong>{t('incidents.drawer.engineDisagreementTitle')}</strong>
-            {t('incidents.drawer.engineDisagreementBody')}
-          </span>
-        </div>
-      )}
-
-      <section className="rounded-xl bg-slate-50 p-4 space-y-3">
-        <h3 className="flex items-center gap-2 text-[13px] font-semibold text-slate-700">
-          <BrainCircuit className="w-4 h-4 text-red-600 shrink-0" />
-          {t('incidents.drawer.aiResult')}
-        </h3>
-        {incident.aiPending ? (
-          <div className="flex items-start gap-2 rounded-lg bg-white border border-slate-200 px-3 py-2.5 text-xs text-slate-600">
-            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 mt-0.5 text-red-600" />
-            <span>
-              <strong>{t('incidents.drawer.aiPendingTitle')}</strong>
-              {t('incidents.drawer.aiPendingBody')}
-            </span>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-            {!verified && (
-              <div>
-                <p className="text-slate-500 mb-1">{t('incidents.drawer.eventType')}</p>
-                <span className="inline-flex items-center gap-1 font-bold" style={{ color: category.color }}>
-                  <CategoryIcon className="w-3.5 h-3.5" />
-                  {incidentKindLabel(incident)}
-                </span>
-                {incident.needsEventType && incident.category !== 'unknown' && (
-                  <p className="text-[11px] text-slate-400 mt-0.5">{t('incidents.drawer.suggestedFromSos')}</p>
-                )}
-              </div>
-            )}
-            <div>
-              <p className="text-slate-500 mb-1">{t('incidents.drawer.aiConfidence')}</p>
-              {aiFailed ? (
-                <span className="text-slate-400">—</span>
-              ) : (
-                <ConfidenceBadge
-                  score={incident.confidenceScore}
-                  measured={incident.confidenceMeasured}
-                  unreadable={incident.confidenceUnreadable}
-                />
+          {aiCategory && aiMeta && AiIcon && verdict ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+              <span className="inline-flex items-center gap-1 font-bold" style={{ color: aiMeta.color }}>
+                <AiIcon className="w-3.5 h-3.5 shrink-0" />
+                {t(`enums.category.${aiCategory}`)}
+              </span>
+              {/* % chỉ có nghĩa khi AI thấy Cháy / Tai nạn: là độ chắc chắn của chính nhận định đó. */}
+              <ConfidenceBadge
+                score={incident.confidenceScore}
+                measured={incident.confidenceMeasured}
+                unreadable={incident.confidenceUnreadable}
+              />
+              <span className="inline-flex items-center gap-1 text-slate-500">
+                {t('incidents.drawer.suggestedShort')}
+                <SeverityBadge severity={verdict.severity ?? 1} unclassified={verdict.severity === null} />
+              </span>
+              {tally && (
+                <button
+                  type="button"
+                  onClick={() => setShowVotes((v) => !v)}
+                  aria-expanded={showVotes}
+                  className={`inline-flex items-center gap-0.5 font-semibold rounded hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
+                    tally.agree > 1 ? 'text-emerald-700' : 'text-amber-700'
+                  }`}
+                >
+                  {t('incidents.aiVotes.title')}: {t('incidents.aiVotes.tally', tally)}
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showVotes ? 'rotate-180' : ''}`} />
+                </button>
               )}
             </div>
-            {!verified && (
-              <div>
-                <p className="text-slate-500 mb-1">{t('incidents.drawer.suggestedLevel')}</p>
-                {aiFailed ? (
-                  <span className="text-slate-400">—</span>
-                ) : (
-                  <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
+          ) : (
+            // AI không thấy sự cố: không hiện % (con số lúc này là AI chắc "không có gì", dễ đọc nhầm).
+            <p className="text-sm font-semibold text-slate-700">{t('incidents.drawer.aiNoIncident')}</p>
+          )}
+
+          {showVotes && <AiVotesPanel votes={incident.aiVotes} />}
+
+          {!verified && !aiCategory && incident.needsEventType && incident.category !== 'unknown' && (
+            <p className="flex items-center gap-1.5 text-xs text-slate-500">
+              {t('incidents.drawer.reporterChose')}
+              <span className="inline-flex items-center gap-1 font-semibold" style={{ color: category.color }}>
+                <CategoryIcon className="w-3.5 h-3.5 shrink-0" />
+                {t(`enums.category.${incident.category}`)}
+              </span>
+            </p>
+          )}
+
+          {incident.aiSummary && (
+            <div>
+              <ClampedText
+                key={incident.id}
+                text={incident.aiSummary}
+                lines={3}
+                className="text-sm text-slate-600 leading-relaxed whitespace-pre-line break-words"
+              />
+              {incident.aiSummaryIsFallback && (
+                <p className="text-[11px] text-slate-400 mt-1">{t('incidents.drawer.summaryFallback')}</p>
+              )}
+            </div>
+          )}
+
+          {jam && (
+            <div className="flex items-start gap-1.5">
+              <TrafficCone className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-600" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-slate-700">{t(`incidents.traffic.status.${jam.status}`)}</p>
+                {jamEvidence && (
+                  <ClampedText
+                    key={incident.id}
+                    text={jamEvidence}
+                    lines={2}
+                    className="text-xs text-slate-600 leading-relaxed break-words"
+                  />
                 )}
               </div>
-            )}
-            {incident.aiEngine && (
-              <div className="min-w-0">
-                <p className="text-slate-500 mb-1">{t('incidents.engine.label')}</p>
-                <p className="font-semibold text-slate-700 truncate" title={incident.aiEngine.modelName}>
-                  {incident.aiEngine.mode === 'legacy'
-                    ? incident.aiEngine.modelName
-                    : t(`incidents.engine.${incident.aiEngine.mode}`)}
-                </p>
-              </div>
-            )}
-            {incident.hazardTags.length > 0 && (
-              <div className="col-span-2">
-                <p className="text-slate-500 mb-1">{t('incidents.drawer.hazardTags')}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {(showAllTags ? incident.hazardTags : incident.hazardTags.slice(0, MAX_VISIBLE_TAGS)).map(
-                    (tag) => (
-                      <HazardTagBadge key={tag} tag={tag} />
-                    )
-                  )}
-                  {incident.hazardTags.length > MAX_VISIBLE_TAGS && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllTags((v) => !v)}
-                      className="text-[10px] px-1.5 py-0.5 rounded-md border border-slate-200 bg-white font-semibold text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                    >
-                      {showAllTags
-                        ? t('incidents.drawer.hazardTagsLess')
-                        : `+${incident.hazardTags.length - MAX_VISIBLE_TAGS}`}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {!incident.aiPending && <AiVotesPanel votes={incident.aiVotes} />}
-        {incident.aiSummary && (
-          <div className="border-t border-slate-200 pt-3">
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line break-words">
-              {incident.aiSummary}
+            </div>
+          )}
+
+          {confirmedDiffers && (
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
+              <span className="font-semibold text-slate-700">{t('incidents.drawer.confirmedLabel')}</span>
+              <span className="inline-flex items-center gap-1 font-semibold" style={{ color: category.color }}>
+                <CategoryIcon className="w-3.5 h-3.5 shrink-0" />
+                {incidentKindLabel(incident)}
+              </span>
+              <SeverityBadge severity={incident.severity} />
+              <span className="text-slate-500">{t('incidents.drawer.differsFromAi')}</span>
             </p>
-            {incident.aiSummaryIsFallback && (
-              <p className="text-[11px] text-slate-400 mt-1">{t('incidents.drawer.summaryFallback')}</p>
-            )}
-          </div>
-        )}
-      </section>
-    </>
+          )}
+        </>
+      )}
+    </section>
   );
 };
 

@@ -4,11 +4,10 @@ import { AutoDispatchNotice } from '../incidents/AutoDispatchInfo';
 import { DispatchAssignmentList } from '../incidents/DispatchAssignmentList';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
 import { IncidentCode } from '../incidents/IncidentCode';
-import { AiFindings, CancelCaseFields, ReporterEvidence } from '../incidents/IncidentDossierSections';
+import { AiInsightBlock, CancelCaseFields, ReporterEvidence } from '../incidents/IncidentDossierSections';
 import { LinkedReportsPanel } from '../incidents/LinkedReportsPanel';
 import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
-import { TrafficJamReview } from '../incidents/TrafficJamReview';
 import { blockDurationOf, EMPTY_CANCEL_INPUT } from '../incidents/cancelCaseInput';
 import { INCIDENT_CATEGORY_META } from '../../../data/incidentMock';
 import { useDispatchStore } from '../../../context/DispatchContext';
@@ -47,7 +46,7 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
   onCancelCase,
 }) => {
   const { t } = useTranslation();
-  const { currentOperatorId, incidentKindLabel, operatorNotesOf, revealReporterPhone, unlinkLinkedReport, supplementVersions } =
+  const { incidentKindLabel, operatorNotesOf, revealReporterPhone, unlinkLinkedReport, supplementVersions } =
     useDispatchStore();
   const supplements = useIncidentSupplements(incident.id, supplementVersions.get(incident.id) ?? 0);
   const phone = useRevealPhone(incident.id, revealReporterPhone);
@@ -71,7 +70,7 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
     </section>
   );
   const hasAi = fromCitizen || !!incident.aiEngine || !!incident.aiSummary;
-  const hasAiColumn = hasAi || !!incident.autoDispatch || !!incident.trafficJam;
+  const hasRight = hasAi || !!incident.autoDispatch;
 
   const tabs: { key: DossierTab; label: string }[] = [
     { key: 'info', label: t('liveMap.dossier.tabInfo') },
@@ -100,15 +99,16 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
           </span>
           <SeverityBadge severity={incident.severity} unclassified={incident.aiUnclassified} />
           <SourceChip source={incident.source} />
-          <span className="inline-flex items-center gap-1 min-w-0 max-w-full">
-            <MapPin className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">{incident.area}</span>
-          </span>
           <span className="inline-flex items-center gap-1">
             <Clock className="w-3.5 h-3.5 shrink-0" />
             {t('incidents.row.receivedAt', { time: formatDateTime(incident.createdAt) })}
           </span>
         </div>
+        {/* Địa chỉ dòng riêng, xuống dòng đầy đủ (giống panel thẩm định). */}
+        <p className="mt-1 flex items-start gap-1 text-xs text-slate-500">
+          <MapPin className="w-3.5 h-3.5 shrink-0 mt-px" />
+          <span className="break-words">{incident.area}</span>
+        </p>
       </div>
 
       <div className="shrink-0 flex gap-1 px-5 pt-2 border-b border-slate-200" role="tablist">
@@ -153,26 +153,26 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
             />
           </div>
         ) : (
-          <div className={`grid gap-6 p-5 ${hasAiColumn ? 'md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2' : ''}`}>
+          // Hai cột (từ xl): trái = bằng chứng người báo; phải = kết quả AI (tự điều phối + AI nhận định, gồm cả nhận định
+          // ùn tắc) và ghi chú lúc duyệt. Ca không có AI (Operator tạo) → một cột.
+          <div className={`grid gap-6 p-5 ${hasRight ? 'xl:grid-cols-2' : 'max-w-3xl'}`}>
             <div className="space-y-5 min-w-0">
-              {/* Ca Operator tạo: nội dung tin báo là phần chính nên đứng đầu; ca người dân thì sau bằng chứng. */}
+              {/* Ca Operator tạo: nội dung tin báo là phần chính nên đứng đầu. */}
               {!fromCitizen && notesBlock}
-              <ReporterEvidence incident={incident} supplements={supplements} phone={phone} />
-              {fromCitizen && notesBlock}
+              <ReporterEvidence
+                incident={incident}
+                supplements={supplements}
+                phone={phone}
+                compact
+                showLocation={false}
+              />
+              {fromCitizen && !hasRight && notesBlock}
             </div>
-            {hasAiColumn && (
-              <div className="space-y-4 min-w-0">
+            {hasRight && (
+              <div className="space-y-5 min-w-0">
                 <AutoDispatchNotice incident={incident} />
-                {hasAi && <AiFindings incident={incident} verified />}
-                {!incident.aiPending && incident.trafficJam && (
-                  <TrafficJamReview
-                    trafficJam={incident.trafficJam}
-                    currentOperatorId={currentOperatorId}
-                    decision={null}
-                    onDecisionChange={() => undefined}
-                    readOnly
-                  />
-                )}
+                {hasAi && <AiInsightBlock key={incident.id} incident={incident} verified />}
+                {fromCitizen && notesBlock}
               </div>
             )}
           </div>

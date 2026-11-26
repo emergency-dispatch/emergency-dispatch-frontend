@@ -63,7 +63,8 @@ export const layoutVi = {
     listTitle: 'Ca AI đang xử lý ({{count}})',
     viewOnMap: 'Xem trên bản đồ',
     viewOnMapHint: 'Chỉ xem vị trí, không mở ca — AI vẫn tiếp tục.',
-    takeOver: 'Tôi xử lý',
+    takeOver: 'Mở ca',
+    takeOverTitle: 'Mở thẩm định ca này. AI vẫn có thể tự điều phối nếu xong trước khi bạn duyệt.',
     close: 'Đóng',
     mapPopupTitle: 'AI đang xử lý tin báo',
   },
@@ -106,9 +107,6 @@ export const layoutVi = {
       undecided: 'AI đã phân tích xong nhưng chưa tự điều phối được — hãy xử lý thủ công.',
     },
     ai: {
-      takeOverConfirm: 'Mở ca bây giờ thì AI sẽ không tự điều phối ca này. Bạn nhận xử lý?',
-      takeOverYes: 'Nhận xử lý',
-      takeOverNo: 'Để AI làm',
     },
     strip: {
       label: 'Tiến trình xử lý tin báo',

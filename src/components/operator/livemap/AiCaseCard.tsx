@@ -11,8 +11,8 @@ import { useTranslation } from '../../../i18n';
 import '../aiLane.css';
 
 /**
- * Thẻ ca AI đang phân tích / điều phối trong panel "Theo dõi ca". Bấm thẻ chỉ bay tới marker — KHÔNG mở ca (mở = giữ khóa
- * mềm = AI bỏ qua ca này). Muốn nhận thì bấm "Tôi xử lý" (hỏi lại một lần). AI điều xong → thẻ ca thường, cùng nhóm.
+ * Thẻ ca AI đang phân tích / điều phối trong panel "Theo dõi ca". Bấm thẻ chỉ bay tới marker; muốn xem thì bấm "Mở ca"
+ * (không chặn AI — AI điều xong trước khi duyệt thì ca tự rời panel). AI điều xong → thẻ ca thường, cùng nhóm.
  */
 export const AiCaseCard: React.FC<{ item: AiWorkingItem; now: number; onViewOnMap: () => void }> = ({
   item,
