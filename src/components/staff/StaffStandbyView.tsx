@@ -23,6 +23,7 @@ import type { StaffProfile, StaffMission } from '../../types/staff';
 import { StaffTrafficTaskCard, type ActiveTrafficTask } from './StaffTrafficTaskCard';
 import type { ServiceAreaDto } from '../../services/liveMapService';
 import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
+import { glowStationMarkerHtml, glowTrafficJamMarkerHtml } from '../operator/livemap/glowMarkers';
 import {
   MAPBOX_ACCESS_TOKEN,
   createStaffBaseMapStyle,
@@ -232,17 +233,12 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
     map.on('style.load', ensureLayer);
     map.on('idle', ensureLayer);
 
-    // Marker trạm trực chiến (Xanh lá sẵn sàng)
+    // Marker trạm trực chiến (Nhà trạm 3D như Operator)
     const el = document.createElement('div');
     el.className = 'select-none cursor-pointer';
     el.innerHTML = `
-      <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-        <div style="position: absolute; width: 50px; height: 50px; border-radius: 9999px; background: rgba(34, 197, 94, 0.35); animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-        <div style="width: 42px; height: 42px; border-radius: 9999px; background: #16A34A; border: 2.5px solid #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(22, 163, 74, 0.6); color: white;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
-        </div>
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
+        ${glowStationMarkerHtml(true)}
         <div style="margin-top: 4px; white-space: nowrap; background: #0F172A; color: #FFFFFF; border: 1.5px solid #22C55E; padding: 2px 8px; border-radius: 6px; font-family: monospace; font-size: 11px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 5px;">
           <span style="width: 7px; height: 7px; border-radius: 9999px; background: #22C55E; box-shadow: 0 0 8px #22C55E;"></span>
           <span>${profile.stationName || 'VỊ TRÍ TRỰC CHIẾN'}</span>
@@ -305,16 +301,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
       el.style.zIndex = '7';
       el.innerHTML = `
         <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
-          <div style="position: absolute; width: 48px; height: 48px; border-radius: 9999px; background: ${color}50; animation: ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-          
-          <div style="width: 38px; height: 38px; border-radius: 12px; background: ${color}; border: 2.5px solid #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px ${color}80; color: white;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 11.1 2 11.5 2 12v4c0 .6.4 1 1 1h2"/>
-              <circle cx="7" cy="17" r="2"/>
-              <path d="M9 17h6"/>
-              <circle cx="17" cy="17" r="2"/>
-            </svg>
-          </div>
+          ${glowTrafficJamMarkerHtml('active', false)}
 
           <div style="margin-top: 4px; white-space: nowrap; background: #0F172A; color: #FDBA74; border: 1.5px solid ${color}; padding: 2px 7px; border-radius: 6px; font-family: monospace; font-size: 10px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 4px;">
             <span style="width: 6px; height: 6px; border-radius: 9999px; background: ${color}; box-shadow: 0 0 6px ${color};"></span>

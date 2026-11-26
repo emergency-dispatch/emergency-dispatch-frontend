@@ -27,7 +27,8 @@ import type { DispatchVehicleType, VehicleStatus } from '../../../types/vehicle'
  */
 
 /** Bỏ comment, đặt lại kích thước của file SVG gốc để chèn thẳng vào HTML marker. */
-function inlineSvg(raw: string, width: number, height: number): string {
+function inlineSvg(raw?: string, width = 48, height = 48): string {
+  if (!raw) return '';
   return raw
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<svg([^>]*?)\swidth="[^"]*"\sheight="[^"]*"/, `<svg$1 width="${width}" height="${height}"`)
