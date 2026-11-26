@@ -4,7 +4,7 @@ import { AutoDispatchNotice } from '../incidents/AutoDispatchInfo';
 import { DispatchAssignmentList } from '../incidents/DispatchAssignmentList';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
 import { IncidentCode } from '../incidents/IncidentCode';
-import { AiFindings, CancelCaseFields, ReporterEvidence } from '../incidents/IncidentDossierSections';
+import { AiInsightBlock, CancelCaseFields, ReporterEvidence } from '../incidents/IncidentDossierSections';
 import { LinkedReportsPanel } from '../incidents/LinkedReportsPanel';
 import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
@@ -71,7 +71,6 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
     </section>
   );
   const hasAi = fromCitizen || !!incident.aiEngine || !!incident.aiSummary;
-  const hasAiColumn = hasAi || !!incident.autoDispatch || !!incident.trafficJam;
 
   const tabs: { key: DossierTab; label: string }[] = [
     { key: 'info', label: t('liveMap.dossier.tabInfo') },
@@ -153,27 +152,29 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
             />
           </div>
         ) : (
-          <div className={`grid gap-6 p-5 ${hasAiColumn ? 'md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2' : ''}`}>
-            <div className="space-y-5 min-w-0">
-              {/* Ca Operator tạo: nội dung tin báo là phần chính nên đứng đầu; ca người dân thì sau bằng chứng. */}
-              {!fromCitizen && notesBlock}
-              <ReporterEvidence incident={incident} supplements={supplements} phone={phone} />
-              {fromCitizen && notesBlock}
-            </div>
-            {hasAiColumn && (
-              <div className="space-y-4 min-w-0">
-                <AutoDispatchNotice incident={incident} />
-                {hasAi && <AiFindings incident={incident} verified />}
-                {!incident.aiPending && incident.trafficJam && (
-                  <TrafficJamReview
-                    trafficJam={incident.trafficJam}
-                    currentOperatorId={currentOperatorId}
-                    decision={null}
-                    onDecisionChange={() => undefined}
-                    readOnly
-                  />
-                )}
-              </div>
+          // Một cột, đọc từ trên xuống: (AI tự điều phối) → bằng chứng → AI nhận định → ghi chú lúc duyệt → ùn tắc.
+          // Không chia cột phụ: nội dung bên đó thường chỉ một dòng ghi chú, để lại khoảng trống lớn.
+          <div className="p-5 space-y-5 max-w-3xl">
+            <AutoDispatchNotice incident={incident} />
+            {/* Ca Operator tạo: nội dung tin báo là phần chính nên đứng đầu; ca người dân thì sau nhận định AI. */}
+            {!fromCitizen && notesBlock}
+            <ReporterEvidence
+              incident={incident}
+              supplements={supplements}
+              phone={phone}
+              compact
+              showLocation={false}
+              afterDescription={hasAi ? <AiInsightBlock key={incident.id} incident={incident} verified /> : undefined}
+            />
+            {fromCitizen && notesBlock}
+            {!incident.aiPending && incident.trafficJam && (
+              <TrafficJamReview
+                trafficJam={incident.trafficJam}
+                currentOperatorId={currentOperatorId}
+                decision={null}
+                onDecisionChange={() => undefined}
+                readOnly
+              />
             )}
           </div>
         )}

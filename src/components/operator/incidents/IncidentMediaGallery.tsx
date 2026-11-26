@@ -7,7 +7,7 @@ import { useTranslation } from '../../../i18n';
 interface IncidentMediaGalleryProps {
   media: IncidentMedia[];
   title: string;
-  /** Khung nhỏ 4:3 (panel thẩm định đặt cạnh ghi âm / người báo); bấm ảnh để xem lớn. */
+  /** Panel thẩm định: rộng hết cột nhưng cao tối đa ~1/3 màn hình (màn thấp vẫn thấy phần dưới); bấm ảnh để xem lớn. */
   compact?: boolean;
 }
 
@@ -35,7 +35,7 @@ export const IncidentMediaGallery: React.FC<IncidentMediaGalleryProps> = ({ medi
 
   return (
     <div className="space-y-2">
-      <div className={`relative rounded-xl overflow-hidden bg-slate-100 ${compact ? 'aspect-[4/3]' : 'aspect-video'}`}>
+      <div className={`relative rounded-xl overflow-hidden bg-slate-100 ${compact ? 'aspect-video max-h-[34vh]' : 'aspect-video'}`}>
         {!current ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-slate-400">
             <ImageOff className="w-8 h-8 text-slate-300" />

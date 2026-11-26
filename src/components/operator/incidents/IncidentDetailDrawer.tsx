@@ -14,6 +14,7 @@ import {
 import { IncidentAuditTimeline } from './IncidentAuditTimeline';
 import { AiInsightBlock, CancelCaseFields, ReporterEvidence } from './IncidentDossierSections';
 import { LinkedReportsPanel } from './LinkedReportsPanel';
+import { PlanForcePreview } from './PlanForcePreview';
 import { StaleChip } from './StaleChip';
 import { TrafficJamReview } from './TrafficJamReview';
 import { blockDurationOf, EMPTY_CANCEL_INPUT } from './cancelCaseInput';
@@ -297,7 +298,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
           </span>
           <span className="inline-flex items-center gap-1 shrink-0" title={formatDateTime(incident.createdAt)}>
             <Clock className="w-3.5 h-3.5 shrink-0" />
-            {t('incidents.drawer.waited', { duration: formatWaitDuration(waitMs) })}
+            {/* Dưới 1 phút: "Vừa gửi" thay vì "Đã chờ Vừa xong". */}
+            {waitMs < 60_000 ? t('incidents.drawer.justSent') : t('incidents.drawer.waited', { duration: formatWaitDuration(waitMs) })}
           </span>
         </div>
       </div>
@@ -381,8 +383,9 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
         </div>
 
         {/* Cột quyết định của Điều phối viên */}
-        <div className="shrink-0 flex flex-col min-h-0 max-h-[50vh] xl:max-h-none xl:w-[300px] border-t xl:border-t-0 xl:border-l border-slate-200 bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.08)] xl:shadow-none">
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5">
+        {/* Cả cột cuộn chung; hàng nút đi ngay sau nội dung, cột dài thì dính đáy (sticky) — không để khoảng trống giữa cột. */}
+        <div className="shrink-0 flex flex-col min-h-0 max-h-[50vh] xl:max-h-none xl:w-[300px] overflow-y-auto border-t xl:border-t-0 xl:border-l border-slate-200 bg-white shadow-[0_-8px_24px_rgba(15,23,42,0.08)] xl:shadow-none">
+          <div className="p-4 space-y-3.5">
             {mode === 'transfer' ? (
               <section className="space-y-2.5">
                 <h3 className="text-[13px] font-semibold text-blue-700">{t('incidents.drawer.transferHeading')}</h3>
@@ -519,6 +522,14 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                     </div>
                   </div>
 
+                  {/* Xem trước lực lượng theo mức đang chọn (kế hoạch điều tổ ↔ tổ sẵn sàng của trạm). */}
+                  <PlanForcePreview
+                    incident={incident}
+                    severity={confirmedSeverity}
+                    typeCode={confirmedTypeCode}
+                    category={typeCategory}
+                  />
+
                   {isOverride && (
                     <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
                       <p className="text-xs text-amber-800">
@@ -568,8 +579,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
             )}
           </div>
 
-          {/* Nút chốt luôn ghim ở đáy cột, một hàng; cột dọc (xl) thì dòng gợi ý lên trên, nút chính giãn hết chỗ còn lại. */}
-          <div className="shrink-0 flex flex-wrap items-center gap-2 px-4 py-3 border-t border-slate-100">
+          {/* Hàng nút chốt: một hàng; cột dọc (xl) thì dòng gợi ý lên trên, nút chính giãn hết chỗ còn lại. */}
+          <div className="sticky bottom-0 z-10 shrink-0 flex flex-wrap items-center gap-2 px-4 py-3 border-t border-slate-100 bg-white">
             {mode === 'transfer' ? (
               <>
                 <button

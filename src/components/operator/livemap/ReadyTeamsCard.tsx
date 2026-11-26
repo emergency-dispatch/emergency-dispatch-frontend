@@ -1,10 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronUp, Users } from 'lucide-react';
 import { DispatchTeamLabel } from '../teams/DispatchTeamLabel';
-import { useDispatchStore } from '../../../context/DispatchContext';
-import { useTeamByVehicle } from '../../../hooks/useStationTeams';
-import { getBusyTeamIds } from '../../../utils/teamAvailability';
-import { gpsFarFromStationKm } from '../../../utils/vehicleLocation';
+import { useReadyTeams } from './readyTeams';
 import { useTranslation } from '../../../i18n';
 
 /**
@@ -15,39 +12,9 @@ import { useTranslation } from '../../../i18n';
  * Backend tìm tổ theo GPS xe → tổ có xe GPS lệch xa trạm vẫn liệt kê nhưng cảnh báo và không tính vào số sẵn sàng.
  */
 export const ReadyTeamsCard: React.FC = () => {
-  const { vehicles, stations } = useDispatchStore();
-  const teamByVehicle = useTeamByVehicle();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-
-  const { readyTeams, readyCount, blockedCount } = useMemo(() => {
-    const stationsById = new Map(stations.map((s) => [s.id, s]));
-    const busyTeamIds = getBusyTeamIds(vehicles, teamByVehicle);
-    // Một tổ nhiều xe sẵn sàng → hiện một dòng theo xe đầu tiên.
-    const seen = new Set<string>();
-    const blocked = new Set<string>();
-    const ready = vehicles
-      .filter((v) => v.status === 'available')
-      .map((v) => ({ v, farKm: gpsFarFromStationKm(v, stationsById.get(v.stationId)) }))
-      // Xe GPS bình thường đứng trước để tổ nhiều xe được đại diện bằng xe dùng được.
-      .sort((a, b) => Number(a.farKm !== null) - Number(b.farKm !== null))
-      .flatMap(({ v, farKm }) => {
-        const team = teamByVehicle.get(v.id);
-        if (!team || busyTeamIds.has(team.id) || seen.has(team.id)) return [];
-        if (!team.canBeAssigned) {
-          blocked.add(team.id);
-          return [];
-        }
-        seen.add(team.id);
-        return [{ vehicle: v, team, farKm }];
-      })
-      .sort((a, b) => a.team.name.localeCompare(b.team.name, 'vi'));
-    return {
-      readyTeams: ready,
-      readyCount: ready.filter((r) => r.farKm === null).length,
-      blockedCount: blocked.size,
-    };
-  }, [vehicles, stations, teamByVehicle]);
+  const { readyTeams, readyCount, blockedCount } = useReadyTeams();
   const hasFarTeam = readyTeams.length > readyCount;
 
   return (

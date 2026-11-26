@@ -235,6 +235,11 @@ export interface Incident {
   aiPending: boolean;
   /** AI chạy lỗi / quá thời gian chờ (aiClassification.isSuccess = false) — % tin cậy và cấp đề xuất vô nghĩa. */
   aiFailed: boolean;
+  /**
+   * Nhận định riêng của AI (khác loại / cấp đã chốt sau khi Operator duyệt). null = chưa có kết quả, AI lỗi hoặc không đọc
+   * được. `category: null` = AI không thấy sự cố trong ảnh → không hiện % (độ tin cậy lúc đó là AI chắc "không có gì").
+   */
+  aiVerdict: { category: Exclude<IncidentCategory, 'unknown'> | null; severity: SeverityLevel | null } | null;
   /** Tóm tắt AI theo ngôn ngữ giao diện (summaryVi / summaryEn), có thể nhiều dòng. */
   aiSummary: string | null;
   /** Giao diện tiếng Anh nhưng mô hình chưa sinh bản dịch → aiSummary chỉ là câu thay thế (summaryEnIsFallback). */
@@ -905,6 +910,13 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
     confidenceScore: Math.round((ai?.confidenceScore ?? 0) * 100),
     aiPending: !ai && (dto.status === 'Pending' || dto.status === 'AiProcessing'),
     aiFailed: !!ai && ai.isSuccess === false,
+    aiVerdict:
+      ai && ai.isSuccess !== false && ai.confidenceSource !== 'unparseable'
+        ? {
+            category: CATEGORY_FROM_EVENT_TYPE[ai.eventType ?? 'None'] ?? null,
+            severity: ai.severityScore === 1 || ai.severityScore === 2 || ai.severityScore === 3 ? ai.severityScore : null,
+          }
+        : null,
     aiSummary: ai ? pickLocalized(language, ai.summaryVi, ai.summaryEn, ai.summary) : null,
     aiSummaryIsFallback: language === 'en' && !!ai?.summaryEnIsFallback,
     aiEngine: parseAiEngine(ai?.modelName),
