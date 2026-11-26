@@ -60,8 +60,9 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
   const selectedTypes = [...new Set(selectedVehicles.map((v) => v.type))];
   const commanderCount = members.filter((m) => m.crewRole === 'commander').length;
 
+  // 1 tổ = 1 xe: chọn xe khác thì thay xe đang chọn; bấm lại xe đang chọn để bỏ. Tổ cũ lỡ gắn nhiều xe vẫn bỏ bớt được từng xe.
   const toggleVehicle = (id: string) =>
-    setVehicleIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setVehicleIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [id]));
 
   const toggleMember = (staffId: string) =>
     setMembers((prev) =>
@@ -86,7 +87,9 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
         ? t('teams.form.maxSize', { max: MAX_TEAM_SIZE })
         : commanderCount > 1
           ? t('teams.form.oneLeader')
-          : null;
+          : vehicleIds.length > 1
+            ? t('teams.form.oneVehicle', { count: vehicleIds.length })
+            : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,7 +134,7 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
       </FormField>
 
       <FormField
-        label={t('teams.form.vehicles', { count: vehicleIds.length })}
+        label={t('teams.form.vehicles')}
         hint={t('teams.form.vehicleHint')}
       >
         <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
@@ -149,11 +152,14 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
                   key={v.id}
                   className={`flex items-center gap-3 px-3 py-2.5 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-50'}`}
                 >
+                  {/* Nút chọn một (radio) — bấm lại xe đang chọn để bỏ. */}
                   <input
-                    type="checkbox"
+                    type="radio"
+                    name="team-vehicle"
                     checked={checked}
                     disabled={disabled}
-                    onChange={() => toggleVehicle(v.id)}
+                    onChange={() => undefined}
+                    onClick={() => toggleVehicle(v.id)}
                     className="accent-red-600"
                   />
                   <span className="flex-1 min-w-0 text-sm text-slate-900 truncate">
@@ -171,6 +177,12 @@ export const TeamFormDrawer: React.FC<TeamFormDrawerProps> = ({
             })
           )}
         </div>
+        {vehicleIds.length > 1 && (
+          <p className="flex items-start gap-1.5 text-xs text-red-600">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            {t('teams.form.oneVehicle', { count: vehicleIds.length })}
+          </p>
+        )}
         {selectedTypes.length > 0 ? (
           <p className="text-xs text-slate-600">
             {t('teams.form.function')}{' '}

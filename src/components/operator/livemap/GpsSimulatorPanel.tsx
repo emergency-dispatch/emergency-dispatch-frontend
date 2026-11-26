@@ -7,8 +7,8 @@ import type { Station, Vehicle } from '../../../types/vehicle';
 import i18n, { useTranslation } from '../../../i18n';
 
 /**
- * DEV ONLY — giả lập GPS xe chạy tới hiện trường khi chưa có điện thoại Staff gửi vị trí thật.
- * LiveMapPage chỉ nạp component này khi `import.meta.env.DEV` (npm run dev); bản build không có.
+ * Giả lập GPS xe chạy tới hiện trường / về trạm để demo khi chưa có điện thoại Staff gửi vị trí thật.
+ * LiveMapPage nạp ở cả bản dev và bản deploy; tắt bằng `VITE_GPS_SIMULATOR=off`.
  *
  * Đẩy xe dọc tuyến backend tính sẵn (GET /dispatch/tracking/incident/{id}) qua PUT /rescue-units/{id}/location.
  * Backend phát ReceiveRescueUnitLocation → bản đồ Operator, dẫn đường Staff, theo dõi Citizen cùng cập nhật.
@@ -264,7 +264,7 @@ export const GpsSimulatorPanel: React.FC<GpsSimulatorPanelProps> = ({ vehicles, 
         <p className="inline-flex items-center gap-1.5 font-bold text-slate-900">
           <Satellite className="w-3.5 h-3.5 text-violet-600" />
           GPS Simulator
-          <span className="px-1.5 py-px rounded bg-violet-100 text-violet-700 text-[9px] font-mono-data">DEV</span>
+          <span className="px-1.5 py-px rounded bg-violet-100 text-violet-700 text-[9px] font-mono-data">DEMO</span>
         </p>
         <button onClick={() => setOpen(false)} className="p-0.5 text-slate-400 hover:text-slate-700" aria-label={t('liveMap.gpsSim.minimize')}>
           <ChevronDown className="w-4 h-4" />
