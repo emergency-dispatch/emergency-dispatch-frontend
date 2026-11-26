@@ -16,6 +16,7 @@ import {
 import { IncidentAuditTimeline } from './IncidentAuditTimeline';
 import { AiFindings, CancelCaseFields, ReporterEvidence } from './IncidentDossierSections';
 import { LinkedReportsPanel } from './LinkedReportsPanel';
+import { StaleChip } from './StaleChip';
 import { TrafficJamReview } from './TrafficJamReview';
 import { blockDurationOf, EMPTY_CANCEL_INPUT } from './cancelCaseInput';
 import {
@@ -292,6 +293,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
         <h2 className="mt-2.5 text-lg font-bold text-slate-900 leading-snug truncate">{incident.title}</h2>
         <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
           <IncidentCode code={incident.code} className="font-semibold text-slate-600" />
+          <StaleChip incident={incident} />
           <span className="inline-flex items-center gap-1 font-semibold" style={{ color: category.color }}>
             <CategoryIcon className="w-3.5 h-3.5" />
             {incidentKindLabel(incident)}

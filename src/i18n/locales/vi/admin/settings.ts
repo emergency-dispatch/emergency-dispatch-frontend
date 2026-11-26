@@ -40,9 +40,10 @@ export const adminSettingsVi = {
     recovery: 'Hồi sức sau nhiệm vụ',
     minutesUnit: 'phút',
     recoveryHint: 'Sau khi nộp báo cáo, xe ở trạng thái Hồi sức trước khi Sẵn sàng.',
-    autoExpire: 'Tự hủy sự cố chưa xác minh',
+    autoExpire: 'Đánh dấu quá hạn sự cố chưa xác minh',
     hoursUnit: 'giờ',
-    autoExpireHint: 'Sự cố chưa được Operator duyệt quá thời gian này thì tự hủy ({{min}}–{{max}} giờ).',
+    autoExpireHint:
+      'Sự cố chưa được Operator duyệt quá thời gian này sẽ được đánh dấu cần rà soát và cảnh báo Operator + Admin; hệ thống không tự hủy ({{min}}–{{max}} giờ).',
     // AI tự điều phối (FE_MOBILE_HANDOFF §31.E)
     auto: {
       title: 'AI tự điều phối',

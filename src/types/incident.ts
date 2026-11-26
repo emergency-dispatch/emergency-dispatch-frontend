@@ -54,7 +54,8 @@ export type AutoDispatchReasonCode =
   | 'ensemble-no-majority'
   | 'ensemble-unavailable'
   | 'ensemble-no-photo'
-  | 'audio-transcript-unavailable'
+  // §55: chỉ có ghi âm, không có mô tả → AI không có gì để đọc, Operator nghe và tự xử lý.
+  | 'audio-description-unavailable'
   // Skipped
   | 'suspected-duplicate'
   | 'no-teams'
@@ -88,7 +89,7 @@ export type AutoDispatchNotEligibleReason =
   | 'ensembleNoMajority'
   | 'ensembleUnavailable'
   | 'ensembleNoPhoto'
-  | 'audioTranscriptUnavailable'
+  | 'audioDescriptionUnavailable'
   | 'other';
 
 const NOT_ELIGIBLE_REASON_FROM_CODE: Partial<Record<AutoDispatchReasonCode, AutoDispatchNotEligibleReason>> = {
@@ -104,7 +105,7 @@ const NOT_ELIGIBLE_REASON_FROM_CODE: Partial<Record<AutoDispatchReasonCode, Auto
   'ensemble-no-majority': 'ensembleNoMajority',
   'ensemble-unavailable': 'ensembleUnavailable',
   'ensemble-no-photo': 'ensembleNoPhoto',
-  'audio-transcript-unavailable': 'audioTranscriptUnavailable',
+  'audio-description-unavailable': 'audioDescriptionUnavailable',
   // 'linked-report': ca đã gộp bị ẩn khỏi hàng đợi → không cần nhãn riêng (rơi vào 'other').
 };
 
@@ -258,6 +259,8 @@ export interface Incident {
   /** SOS nằm ngoài khu vực phục vụ. */
   isOutOfServiceArea: boolean;
   distanceOutsideAreaKm: number | null;
+  /** §59: ca chưa xác minh quá hạn, hệ thống đã đánh dấu cần rà soát (null = chưa). Không tự hủy. */
+  staleFlaggedAt: string | null;
   reporterName: string;
   reporterPhone: string;
   createdAt: string;
@@ -443,6 +446,9 @@ export interface IncidentResponseDto {
   responsibleStationName?: string | null;
   isOutOfServiceArea?: boolean;
   distanceOutsideAreaKm?: number | null;
+  /** §59: lúc hệ thống đánh dấu "Quá hạn – cần rà soát" (null = chưa quá hạn). */
+  staleFlaggedAt?: string | null;
+  isStale?: boolean;
   /** Loại sự cố đã xác nhận (Operator chọn khi verify, hoặc AI xác định); None = chưa rõ. */
   eventType?: BackendEventType;
   /** Backend cũ không gửi → coi như CitizenApp. */
@@ -575,7 +581,9 @@ export type IncidentAuditAction =
   | 'LinkedReportsRestored'
   // §31.E AI tự điều phối:
   | 'AutoDispatched'
-  | 'AutoDispatchSkipped';
+  | 'AutoDispatchSkipped'
+  // §59: chưa xác minh quá `autoExpireHours` → hệ thống đánh dấu cần rà soát (không tự hủy).
+  | 'StaleFlagged';
 
 /** Mirror AuditTrailEntryDto (GET /api/incidents/{id}/audit-trail). */
 export interface IncidentAuditEntryDto {
@@ -923,6 +931,7 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
     responsibleStationName: dto.responsibleStationName ?? null,
     isOutOfServiceArea: !!dto.isOutOfServiceArea,
     distanceOutsideAreaKm: dto.distanceOutsideAreaKm ?? null,
+    staleFlaggedAt: dto.staleFlaggedAt ?? null,
     reporterName: dto.reporterName || 'Không rõ danh tính',
     reporterPhone: dto.reporterPhone || '—',
     createdAt: dto.createdAt,

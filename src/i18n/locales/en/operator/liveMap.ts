@@ -51,6 +51,8 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     cta: { dispatchMore: 'Assign more', reassign: 'Reassign', serve: 'Respond', dispatch: 'Dispatch', open: 'Open case', review: 'Review', view: 'View' },
     loading: 'Loading cases…',
     aiAnalyzing: 'AI analyzing',
+    stale: 'Overdue – review required',
+    staleTitle: 'Not verified in time, flagged by the system at {{time}}',
     allReported: 'All crews have reported',
     vehicleCount: '{{active}}/{{max}} teams',
   },

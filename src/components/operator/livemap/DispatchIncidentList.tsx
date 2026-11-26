@@ -4,6 +4,7 @@ import { AlertTriangle, BotOff, CheckCircle2, ListChecks, Loader2, Lock, Radio, 
 import { IncidentThumbnail } from '../incidents/IncidentThumbnail';
 import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
+import { StaleChip } from '../incidents/StaleChip';
 import { TrafficJamChip } from '../incidents/TrafficJamChip';
 import { AiCaseCard } from './AiCaseCard';
 import { FieldRequestSection } from './FieldRequestSection';
@@ -211,9 +212,11 @@ const CaseCard: React.FC<CaseCardProps> = ({
             incident.isOutOfServiceArea ||
             incident.linkedReportCount > 0 ||
             !!incident.trafficJam ||
+            !!incident.staleFlaggedAt ||
             !!incident.autoDispatch) && (
-            // `empty:hidden`: ùn tắc AI đã bác bỏ / chưa xác minh không có chip.
+            // `empty:hidden`: ùn tắc AI đã bác bỏ / chưa xác minh, cờ quá hạn của ca đã duyệt → không có chip.
             <div className="mt-1 flex flex-wrap gap-1 empty:hidden">
+              <StaleChip incident={incident} />
               {incident.source !== 'CitizenApp' && <SourceChip source={incident.source} />}
               {incident.isOutOfServiceArea && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-[10px] font-bold text-red-700">

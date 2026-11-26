@@ -18,7 +18,7 @@ export interface DispatchSettings {
   weights: { distance: number; stationLoad: number; activeMissions: number };
   radiusStepsKm: number[];
   recoveryMinutes: number;
-  /** Sự cố chưa được xác minh quá số giờ này thì tự hủy (AutoExpired). Backend: 1–168. */
+  /** §59: sự cố chưa xác minh quá số giờ này được đánh dấu "Quá hạn – cần rà soát" (không tự hủy). Backend: 1–168. */
   autoExpireHours: number;
   /**
    * AI tự điều phối (FE_MOBILE_HANDOFF §31.E): TriageVL đủ tin cậy với sự cố cháy nổ / tai nạn Cấp 1–3

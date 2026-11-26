@@ -42,9 +42,10 @@ export const adminSettingsEn: Messages<typeof adminSettingsVi> = {
     recovery: 'Post-mission recovery',
     minutesUnit: 'min',
     recoveryHint: 'After the report is submitted, the vehicle stays in Recovering before becoming Available.',
-    autoExpire: 'Auto-cancel unverified incidents',
+    autoExpire: 'Flag unverified incidents as overdue',
     hoursUnit: 'hours',
-    autoExpireHint: 'Incidents not verified by an Operator within this time are cancelled automatically ({{min}}–{{max}} hours).',
+    autoExpireHint:
+      'Incidents not verified within this time are flagged for review and Operators and Administrators are alerted; they are never cancelled automatically ({{min}}–{{max}} hours).',
     auto: {
       title: 'AI auto-dispatch',
       noteLabel: 'Note:',

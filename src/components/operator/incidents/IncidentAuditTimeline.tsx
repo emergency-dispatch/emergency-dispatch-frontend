@@ -27,6 +27,7 @@ import {
   Split,
   ThumbsDown,
   ThumbsUp,
+  TimerOff,
   TrafficCone,
   Truck,
   UserPlus,
@@ -75,6 +76,8 @@ const ACTION_META: Record<IncidentAuditAction, { icon: LucideIcon; color: string
   // §31.E: hệ thống tự xác minh + điều xe / bỏ qua (nghi trùng, hết xe…) → chuyển Operator.
   AutoDispatched: { icon: Bot, color: '#4F46E5' },
   AutoDispatchSkipped: { icon: BotOff, color: '#D97706' },
+  // §59: hệ thống đánh dấu ca chưa xác minh quá hạn.
+  StaleFlagged: { icon: TimerOff, color: '#DC2626' },
 };
 
 const UNKNOWN_ACTION = { icon: CircleDot, color: '#64748B' };

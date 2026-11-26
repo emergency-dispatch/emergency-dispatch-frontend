@@ -239,6 +239,7 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       LinkedReportsRestored: 'Merged reports returned to the waiting list',
       AutoDispatched: 'AI auto-dispatched',
       AutoDispatchSkipped: 'AI auto-dispatch skipped',
+      StaleFlagged: 'Flagged as overdue by the system',
     },
     systemAction: {
       Created: 'Created',
@@ -336,7 +337,7 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
       duration: 'Duration',
       format: 'Format',
       code: 'Station code',
-      autoExpireHours: 'Auto-cancel unverified incidents (hours)',
+      autoExpireHours: 'Flag unverified incidents as overdue (hours)',
       acceptTimeoutMinutes: 'Team acceptance timeout (minutes)',
       enabledFromUtc: 'Effective from',
       autoWithdrawn: 'Order withdrawn by the system',

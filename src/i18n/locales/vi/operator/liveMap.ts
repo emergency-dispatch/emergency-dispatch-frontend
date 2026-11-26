@@ -49,6 +49,8 @@ export const liveMapVi = {
     cta: { dispatchMore: 'Giao tiếp', reassign: 'Giao lại', serve: 'Đáp ứng', dispatch: 'Giao tổ', open: 'Mở ca', review: 'Thẩm định', view: 'Xem' },
     loading: 'Đang tải danh sách ca…',
     aiAnalyzing: 'AI đang phân tích',
+    stale: 'Quá hạn – cần rà soát',
+    staleTitle: 'Chưa xác minh quá hạn, hệ thống đánh dấu lúc {{time}}',
     allReported: 'Các tổ đã nộp báo cáo',
     vehicleCount: '{{active}}/{{max}} tổ',
   },

@@ -237,6 +237,7 @@ export const adminMonitoringVi = {
       LinkedReportsRestored: 'Trả báo cáo đã gom về danh sách chờ',
       AutoDispatched: 'AI tự điều phối',
       AutoDispatchSkipped: 'AI bỏ qua tự điều phối',
+      StaleFlagged: 'Hệ thống đánh dấu quá hạn',
     },
     systemAction: {
       Created: 'Tạo mới',
@@ -336,7 +337,7 @@ export const adminMonitoringVi = {
       duration: 'Thời hạn',
       format: 'Định dạng',
       code: 'Mã trạm',
-      autoExpireHours: 'Tự hủy sự cố chưa xác minh (giờ)',
+      autoExpireHours: 'Đánh dấu quá hạn sự cố chưa xác minh (giờ)',
       acceptTimeoutMinutes: 'Thời gian chờ tổ nhận lệnh (phút)',
       enabledFromUtc: 'Bắt đầu áp dụng',
       autoWithdrawn: 'Hệ thống tự rút lệnh',
