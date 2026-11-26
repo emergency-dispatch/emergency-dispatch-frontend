@@ -153,6 +153,26 @@ export function formatCitizenIncidentStatus(status?: string | null): string {
   }
 }
 
+/** Định dạng trạng thái điều phối xe cho Citizen, tránh rơi nhầm về "Đang điều động" khi đã hoàn thành/hủy. */
+export function formatCitizenDispatchStatus(dispatchStatus?: string | null): string {
+  switch (dispatchStatus) {
+    case 'OnScene':
+      return i18n.t('citizen.reports.statusOnScene');
+    case 'EnRoute':
+      return i18n.t('citizen.reports.statusEnRoute');
+    case 'Accepted':
+      return i18n.t('citizen.reports.statusMissionAccepted');
+    case 'Completed':
+      return i18n.t('citizen.reports.status.completed').toUpperCase();
+    case 'Cancelled':
+      return i18n.t('citizen.reports.status.cancelled').toUpperCase();
+    case 'PendingDispatch':
+      return i18n.t('citizen.reports.status.pending').toUpperCase();
+    default:
+      return i18n.t('citizen.reports.statusDispatching');
+  }
+}
+
 export const isGuid = (val?: string | null): boolean =>
   typeof val === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());

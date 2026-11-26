@@ -31,6 +31,7 @@ export const incidentsVi = {
       ensembleNoMajority: '3 AI không đồng thuận',
       ensembleUnavailable: 'Thiếu phiếu AI phụ',
       ensembleNoPhoto: 'Không có ảnh để bỏ phiếu',
+      audioTranscriptUnavailable: 'Ghi âm chưa có transcript',
       other: 'AI chuyển cho bạn',
       skipped: 'AI bỏ qua',
       undecided: 'AI chưa điều phối',

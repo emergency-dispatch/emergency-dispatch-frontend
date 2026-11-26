@@ -73,7 +73,7 @@ export const citizenSosVi = {
 
   // Dispatched screen
   dispatchedBadge: 'TÍN HIỆU CỨU NẠN ĐÃ ĐƯỢC TIẾP NHẬN THÀNH CÔNG',
-  dispatchedTitle: 'Trung tâm đang điều phối lực lượng',
+  dispatchedTitle: 'Trung tâm đang điều phối',
   trackRescueUnitLiveBtn: 'Theo dõi lộ trình xe cứu hộ realtime',
   trackOnRadarDirectly: 'Theo dõi trên Radar CAD',
   sceneLocationLabel: 'HIỆN TRƯỜNG:',

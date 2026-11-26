@@ -125,7 +125,7 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
       if (!map.getSource('kcn-boundary')) {
         map.addSource('kcn-boundary', {
           type: 'geojson',
-          data: serviceAreaToFeatureCollection(serviceAreaRef.current) as any,
+          data: serviceAreaToFeatureCollection(serviceAreaRef.current, { showDisabledPolygon: true }) as any,
         });
         map.addLayer({
           id: 'kcn-boundary-fill',
@@ -238,12 +238,16 @@ export const MapboxLocationPicker: React.FC<MapboxLocationPickerProps> = ({
 
   // Dynamically update boundary if serviceArea changes
   useEffect(() => {
-    if (!mapRef.current) return;
     const map = mapRef.current;
-    const source = map.getSource('kcn-boundary') as mapboxgl.GeoJSONSource | undefined;
-    if (source) {
-      source.setData(serviceAreaToFeatureCollection(normalizedArea) as any);
-    }
+    if (!map) return;
+    const updateBoundary = () => {
+      const source = map.getSource('kcn-boundary') as mapboxgl.GeoJSONSource | undefined;
+      if (source) {
+        source.setData(serviceAreaToFeatureCollection(normalizedArea, { showDisabledPolygon: true }) as any);
+      }
+    };
+    if (map.isStyleLoaded()) updateBoundary();
+    else map.once('idle', updateBoundary);
   }, [normalizedArea]);
 
   const handleLocateMe = () => {

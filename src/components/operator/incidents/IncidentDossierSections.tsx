@@ -10,6 +10,7 @@ import {
   Phone,
   User,
 } from 'lucide-react';
+import { AudioEvidencePlayer } from '../../common/AudioEvidencePlayer';
 import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { AiVotesPanel } from './AiVotesPanel';
 import { ConfidenceBadge } from './ConfidenceBadge';
@@ -26,6 +27,7 @@ import {
   LOW_CONFIDENCE_THRESHOLD,
 } from '../../../data/incidentMock';
 import { useDispatchStore } from '../../../context/DispatchContext';
+import { incidentService } from '../../../services/incidentService';
 import type { useIncidentSupplements } from '../../../hooks/useIncidentSupplements';
 import type { BlockDuration, Incident } from '../../../types/incident';
 import { dateLocale, useTranslation } from '../../../i18n';
@@ -62,6 +64,20 @@ export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
     <div className="space-y-5 min-w-0">
       {(fromCitizen || incident.media.length > 0) && (
         <IncidentMediaGallery key={incident.id} media={incident.media} title={incident.title} />
+      )}
+
+      {/* §55: ghi âm người báo gửi kèm (URL phát ký 5 phút + bản chép lời). */}
+      {incident.audioItems && incident.audioItems.length > 0 && (
+        <div className="space-y-2">
+          {incident.audioItems.map((audio) => (
+            <AudioEvidencePlayer
+              key={audio.id}
+              audio={audio}
+              compact
+              resolvePlaybackUrl={() => incidentService.getAudioPlaybackUrl(incident.id, audio.id)}
+            />
+          ))}
+        </div>
       )}
 
       {(fromCitizen || incident.description) && (

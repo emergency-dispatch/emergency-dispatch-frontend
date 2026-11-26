@@ -68,7 +68,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
         </div>
 
         {/* 2. Full-Width Tactical Map Card - Radar Map bự ra thêm */}
-        <div className="w-full relative flex-1 flex flex-col my-2.5 sm:my-3 min-h-[280px] lg:min-h-[360px]">
+        <div className="w-full relative flex-1 flex flex-col my-2.5 sm:my-3 min-h-[340px] lg:min-h-[360px]">
           <div className="relative rounded-2xl bg-white p-3 sm:p-4 shadow-xl border border-slate-200 overflow-hidden group flex-1 flex flex-col justify-between">
             {/* Top HUD Header Bar */}
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 text-xs font-mono-data shrink-0">
@@ -110,7 +110,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
           <button
             onClick={onOpenSos}
             disabled={isCooldown}
-            className={`group relative px-8 py-3.5 sm:py-4 rounded-xl text-white font-black text-sm sm:text-base tracking-wide transition-all duration-300 border hidden sm:flex items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap shrink-0 w-full sm:w-auto min-w-[220px] ${isCooldown
+            className={`group relative px-8 py-3.5 sm:py-4 rounded-xl text-white font-black text-sm sm:text-base tracking-wide transition-all duration-300 border flex order-first md:order-none items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap shrink-0 w-full sm:w-auto min-w-[220px] ${isCooldown
               ? 'bg-slate-400 border-slate-400 opacity-60 cursor-not-allowed shadow-none'
               : 'bg-red-600 hover:bg-red-700 border-red-600 shadow-lg shadow-red-500/30 hover:scale-[1.03] active:scale-[0.98] cursor-pointer'
               }`}
