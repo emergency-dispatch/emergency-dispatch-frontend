@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
-  AlertTriangle,
   ArrowRightLeft,
   ArrowLeft,
   Ban,
@@ -10,7 +9,6 @@ import {
   Loader2,
   Lock,
   MapPin,
-  RotateCcw,
   Siren,
 } from 'lucide-react';
 import { IncidentAuditTimeline } from './IncidentAuditTimeline';
@@ -56,8 +54,6 @@ import { IncidentCode } from './IncidentCode';
 const CONFIRMABLE_LEVELS: SeverityLevel[] = [1, 2, 3];
 // Lý do chuyển trạm: backend yêu cầu tối thiểu 5 ký tự.
 const TRANSFER_REASON_MIN_LENGTH = 5;
-// Còn dưới mốc này thì nhãn giữ ca chuyển vàng.
-const LOCK_WARN_MS = 30 * 1000;
 const DOCK_LABEL = 'text-[13px] font-semibold text-slate-700 mb-1.5';
 const SECONDARY_BUTTON =
   'flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-sm transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400';
@@ -68,7 +64,6 @@ interface IncidentDetailDrawerProps {
   incident: Incident | null;
   currentOperatorId: string;
   isEscalated?: boolean;
-  isLocking?: boolean;
   onClose: () => void;
   /** `category` gửi kèm khi sự cố chưa có loại đã xác nhận (incident.needsEventType). */
   onApprove: (
@@ -86,7 +81,6 @@ interface IncidentDetailDrawerProps {
   onTransfer?: (id: string, stationId: string, reason: string) => void;
   /** Trạm có thể chuyển tới (đã bỏ trạm đang phụ trách). */
   transferStations?: Station[];
-  onRelock: (id: string) => void;
   /** Trả số đầy đủ (backend ghi vết Audit Trail), null nếu thất bại. */
   onRevealPhone: (id: string) => Promise<string | null>;
   /** BR-07: tách báo cáo đã gộp qua store (không bật popup tin báo mới cho chính mình). */
@@ -104,7 +98,7 @@ interface IncidentDetailDrawerProps {
 }
 
 /**
- * Thẩm định một ca chờ duyệt trong panel trái Live Map (giữ khóa mềm do `useIncidentTriage` lo): cột trái là bằng chứng
+ * Thẩm định một ca chờ duyệt trong panel trái Live Map (trạng thái mở / gửi do `useIncidentTriage` lo): cột trái là bằng chứng
  * (ảnh, ghi âm, mô tả người báo + AI mô tả ảnh), cột phải là quyết định (lý do AI chuyển ca, nhận định AI, loại, mức độ,
  * nút duyệt / hủy / chuyển trạm) luôn nằm trong tầm mắt. Panel hẹp → cột quyết định xuống đáy. Ca đã duyệt xem ở `CaseDossierPanel`.
  */
@@ -112,13 +106,11 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   incident,
   currentOperatorId,
   isEscalated = false,
-  isLocking = false,
   onClose,
   onApprove,
   onReject,
   onTransfer,
   transferStations = [],
-  onRelock,
   onRevealPhone,
   onUnlinkReport,
   supplementVersion = 0,
@@ -201,8 +193,8 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const lockRemainingMs = incident.lock ? new Date(incident.lock.expiresAt).getTime() - now : 0;
   const activeLock = incident.lock && lockRemainingMs > 0 ? incident.lock : null;
   const lockedByOther = !!activeLock && activeLock.operatorId !== currentOperatorId;
-  const canAct = !!activeLock && !lockedByOther;
-  const lockWasMine = incident.lock?.operatorId === currentOperatorId;
+  // Không còn khóa ca (2026-11-26): chỉ chặn khi Operator khác vẫn đang giữ khóa (bản cũ / app khác) — backend trả 409.
+  const canAct = !lockedByOther;
 
   // Backend coi Unclassified → Level 1–3 là ghi đè AI (bắt buộc operatorNotes ≥ 5 ký tự), nên ca AI không phân loại
   // được luôn cần lý do, kể cả khi chọn Cấp 1.
@@ -252,27 +244,13 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   // Nút "Duyệt" bị khóa thì nói rõ còn thiếu gì, thay vì để nút nhạt màu không giải thích.
   const decisionHint = lockedByOther
     ? t('incidents.drawer.decisionHint.lockedByOther', { name: activeLock?.operatorName ?? '' })
-    : !canAct
-      ? t('incidents.drawer.decisionHint.needLock')
-      : !categoryValid
-        ? t('incidents.drawer.decisionHint.chooseType')
-        : confirmedSeverity === null
-          ? t('incidents.drawer.decisionHint.chooseLevel')
-          : !overrideReasonValid
-            ? t('incidents.drawer.decisionHint.needReason', { min: OVERRIDE_REASON_MIN_LENGTH })
-            : null;
-
-  // Trạng thái khóa quyết định màu dải trạng thái: cần nhận ca (amber) / đang giữ (blue) / người khác giữ (slate).
-  const statusTone = isLocking
-    ? 'bg-slate-50 border-slate-200 text-slate-600'
-    : lockedByOther
-      ? 'bg-slate-100 border-slate-200 text-slate-700'
-      : canAct
-        ? 'bg-blue-50 border-blue-100 text-blue-700'
-        : 'bg-amber-50 border-amber-200 text-amber-800';
-
-  // Còn dưới 30 giây giữ ca → nhãn đếm ngược chuyển vàng để Operator kịp chốt.
-  const lockRunningOut = canAct && lockRemainingMs < LOCK_WARN_MS;
+    : !categoryValid
+      ? t('incidents.drawer.decisionHint.chooseType')
+      : confirmedSeverity === null
+        ? t('incidents.drawer.decisionHint.chooseLevel')
+        : !overrideReasonValid
+          ? t('incidents.drawer.decisionHint.needReason', { min: OVERRIDE_REASON_MIN_LENGTH })
+          : null;
   // Panel hẹp (< xl): cột quyết định nằm dưới đáy → banner AI + nhận định AI đặt đầu cột bằng chứng.
   // Panel rộng (xl): cột quyết định giữ lý do + nhận định AI gọn (`AiVerdictFacts`) để mức độ và nút duyệt không phải cuộn;
   // cột bằng chứng chỉ giữ các cảnh báo AI (AI lỗi, độ tin cậy thấp…) dưới đoạn AI mô tả ảnh.
@@ -310,23 +288,11 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 <span className="truncate">{t('incidents.drawer.escalatedShort')}</span>
               </span>
             )}
-            {canAct && !isLocking && (
-              <span
-                role="timer"
-                title={`${t('incidents.drawer.holdingBefore')}${formatCountdown(lockRemainingMs)}${t('incidents.drawer.holdingAfter')}`}
-                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs font-semibold shrink-0 ${
-                  lockRunningOut ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-blue-50 border-blue-100 text-blue-700'
-                }`}
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span className="font-mono-data">{formatCountdown(lockRemainingMs)}</span>
-              </span>
-            )}
             {onTransfer && transferStations.length > 0 && mode !== 'transfer' && (
               <button
                 onClick={() => setMode('transfer')}
                 disabled={!canAct || isSubmitting}
-                title={canAct ? t('incidents.drawer.transferTitle') : t('incidents.drawer.transferNeedsLock')}
+                title={t('incidents.drawer.transferTitle')}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
               >
                 <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -356,40 +322,17 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
 
       {leavePrompt}
 
-      {/* Dải khóa chỉ hiện khi chưa giữ được ca (đang nhận / người khác giữ / hết hạn); đang giữ → nhãn đếm ngược ở trên. */}
-      {(isLocking || !canAct) && (
-        <div className={`shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-2 border-b text-xs ${statusTone}`}>
-          {isLocking ? (
-            <span className="flex items-center gap-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-              {t('incidents.drawer.locking')}
-            </span>
-          ) : lockedByOther ? (
-            <span className="flex items-center gap-2 min-w-0">
-              <Lock className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                {t('incidents.drawer.lockedByOtherBefore')}
-                <strong>{activeLock.operatorName}</strong>
-                {t('incidents.drawer.lockedByOtherMiddle')}
-                <strong className="font-mono-data">{formatCountdown(lockRemainingMs)}</strong>
-                {t('incidents.drawer.lockedByOtherAfter')}
-              </span>
-            </span>
-          ) : (
-            <>
-              <span className="flex items-center gap-2 min-w-0">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                {lockWasMine ? t('incidents.drawer.lockExpired') : t('incidents.drawer.unlocked')}
-              </span>
-              <button
-                onClick={() => onRelock(incident.id)}
-                className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-amber-300 font-bold hover:bg-amber-100 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                {lockWasMine ? t('incidents.drawer.relock') : t('incidents.drawer.lock')}
-              </button>
-            </>
-          )}
+      {/* Operator khác vẫn giữ khóa ca này (bản cũ / app khác) → chỉ xem tới khi khóa hết hạn. */}
+      {lockedByOther && (
+        <div className="shrink-0 flex items-center gap-2 px-5 py-2 border-b border-slate-200 bg-slate-100 text-xs text-slate-700">
+          <Lock className="w-3.5 h-3.5 shrink-0" />
+          <span>
+            {t('incidents.drawer.lockedByOtherBefore')}
+            <strong>{activeLock.operatorName}</strong>
+            {t('incidents.drawer.lockedByOtherMiddle')}
+            <strong className="font-mono-data">{formatCountdown(lockRemainingMs)}</strong>
+            {t('incidents.drawer.lockedByOtherAfter')}
+          </span>
         </div>
       )}
 
@@ -450,6 +393,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 showLocation={false}
                 afterDescription={evidenceAfterDescription}
                 compact
+                showMedical={false}
               />
             </div>
           )}

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatchStore } from '../context/DispatchContext';
-import { incidentService } from '../services/incidentService';
 import { showToast } from '../components/admin/common/toastStore';
 import type {
   BlockDuration,
@@ -11,27 +10,17 @@ import type {
 } from '../types/incident';
 import { useTranslation } from '../i18n';
 
-// Backend giữ khóa mềm 2 phút; gia hạn mỗi 60 giây khi Operator vẫn đang mở ca.
-const LOCK_RENEW_MS = 60 * 1000;
-
 /**
- * Thẩm định một ca ngay trên Live Map: giữ / gia hạn / nhả khóa mềm, duyệt, hủy (kèm chặn số), chuyển trạm.
+ * Thẩm định một ca ngay trên Live Map: duyệt, hủy (kèm chặn số), chuyển trạm.
+ * Không giữ khóa mềm (bỏ 2026-11-26: mỗi trạm một Operator mỗi ca làm, không có chuyện hai người làm trùng). Hệ quả: mở ca
+ * không chặn AI tự điều phối nữa — AI điều xong thì ca rời panel (`vanished`). Ca còn bị người khác giữ khóa (bản cũ / app
+ * khác) thì panel chỉ xem, vì backend vẫn trả 409.
  * Rời ca khi đang nhập dở thì hỏi lại (`requestLeave`) vì bản đồ và các thông báo vẫn bấm được bên cạnh panel.
  */
 export function useIncidentTriage({ onApproved }: { onApproved: (incidentId: string) => void }) {
-  const {
-    currentOperatorId,
-    incidents,
-    stations,
-    approveIncident,
-    rejectIncident,
-    transferIncident,
-    lockIncident,
-    releaseIncident,
-  } = useDispatchStore();
+  const { incidents, stations, approveIncident, rejectIncident, transferIncident } = useDispatchStore();
   const { t } = useTranslation();
   const [openId, setOpenId] = useState<string | null>(null);
-  const [lockingId, setLockingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   /** Việc đang chờ Operator đồng ý rời ca đang nhập dở. */
@@ -41,10 +30,6 @@ export function useIncidentTriage({ onApproved }: { onApproved: (incidentId: str
   const openIdRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
   const submittingRef = useRef(false);
-  const releaseRef = useRef(releaseIncident);
-  useEffect(() => {
-    releaseRef.current = releaseIncident;
-  });
 
   const incident = useMemo(
     () => (openId ? incidents.find((i) => i.id === openId && i.status === 'pending') ?? null : null),
@@ -59,33 +44,12 @@ export function useIncidentTriage({ onApproved }: { onApproved: (incidentId: str
     setPendingLeave(null);
   };
 
-  const acquireLock = async (id: string) => {
-    setLockingId(id);
-    const result = await lockIncident(id);
-    setLockingId((cur) => (cur === id ? null : cur));
-    if (openIdRef.current !== id) {
-      // Đã rời ca trong lúc chờ → không giữ khóa ngầm.
-      if (result.ok) incidentService.unlock(id).catch(() => undefined);
-      return;
-    }
-    if (!result.ok) setActionError(result.message ?? null);
-  };
-
-  /** Mở ca = nhận khóa mềm 2 phút. Ca đang bị người khác giữ vẫn mở được ở chế độ chỉ xem. */
   const open = (id: string) => {
     if (openIdRef.current === id) return;
-    if (openIdRef.current) releaseIncident(openIdRef.current);
     moveTo(id);
-    const lock = incidents.find((i) => i.id === id)?.lock;
-    const heldByOther =
-      !!lock && lock.operatorId !== currentOperatorId && new Date(lock.expiresAt).getTime() > Date.now();
-    if (!heldByOther) acquireLock(id);
   };
 
-  const close = () => {
-    if (openIdRef.current) releaseIncident(openIdRef.current);
-    moveTo(null);
-  };
+  const close = () => moveTo(null);
 
   /** Rời ca đang mở rồi làm `action`; đang nhập dở thì chờ Operator đồng ý. Không mở ca nào → làm luôn. */
   const requestLeave = (action: () => void) => {
@@ -105,24 +69,6 @@ export function useIncidentTriage({ onApproved }: { onApproved: (incidentId: str
     close();
     action?.();
   };
-
-  const heldByMe = incident?.lock?.operatorId === currentOperatorId;
-  useEffect(() => {
-    if (!openId || !heldByMe) return;
-    const interval = setInterval(() => lockIncident(openId), LOCK_RENEW_MS);
-    return () => clearInterval(interval);
-    // Chỉ đặt lại nhịp khi đổi ca / mất khóa; lockIncident đổi mỗi lần store cập nhật.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openId, heldByMe]);
-
-  // Rời trang khi đang mở ca → nhả khóa ngay, không để người khác chờ hết 2 phút.
-  useEffect(
-    () => () => {
-      if (openIdRef.current) releaseRef.current(openIdRef.current);
-      openIdRef.current = null;
-    },
-    []
-  );
 
   // Ca không còn chờ thẩm định (người dân hủy, người khác xử lý, bị gộp, AI điều) → về danh sách.
   const vanished = !!openId && !incident;
@@ -166,7 +112,6 @@ export function useIncidentTriage({ onApproved }: { onApproved: (incidentId: str
       () => approveIncident(id, severity, overrideReason, category, trafficJam, incidentTypeCode),
       t('incidents.page.approveFailed'),
       () => {
-        // Duyệt không nhả khóa ở backend; điều tổ không cần giữ khóa (tổ vừa bị giao thì backend báo 409).
         close();
         onApproved(id);
       }
@@ -186,11 +131,6 @@ export function useIncidentTriage({ onApproved }: { onApproved: (incidentId: str
       moveTo(null)
     );
 
-  const relock = (id: string) => {
-    setActionError(null);
-    acquireLock(id);
-  };
-
   // Trạm nhận được: mọi trạm đang hoạt động trừ trạm đang phụ trách sự cố.
   const transferStations = useMemo(
     () => stations.filter((st) => st.id !== incident?.responsibleStationId),
@@ -200,7 +140,6 @@ export function useIncidentTriage({ onApproved }: { onApproved: (incidentId: str
   return {
     openId,
     incident,
-    isLocking: !!openId && lockingId === openId,
     submitting,
     actionError,
     transferStations,
@@ -217,6 +156,5 @@ export function useIncidentTriage({ onApproved }: { onApproved: (incidentId: str
     approve,
     reject,
     transfer,
-    relock,
   };
 }

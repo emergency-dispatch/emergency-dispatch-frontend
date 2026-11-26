@@ -285,7 +285,7 @@ const CaseCard: React.FC<CaseCardProps> = ({
 interface DispatchIncidentListProps {
   selectedIncidentId: string | null;
   onSelectIncident: (id: string | null) => void;
-  /** Mở thẩm định ca chờ duyệt ngay trong panel (giữ khóa mềm). */
+  /** Mở thẩm định ca chờ duyệt ngay trong panel. */
   onOpenTriage: (id: string) => void;
   panelError: string | null;
   onClearError: () => void;
@@ -395,7 +395,7 @@ export const DispatchIncidentList: React.FC<DispatchIncidentListProps> = ({
 
   const total = GROUP_ORDER.reduce((sum, g) => sum + countOf(g), 0);
 
-  // Ca chờ duyệt mở thẩm định (giữ khóa mềm); ca đã duyệt mở Chi tiết ca.
+  // Ca chờ duyệt mở thẩm định; ca đã duyệt mở Chi tiết ca.
   const handleOpen = (incident: Incident) => {
     if (incident.status === 'pending') onOpenTriage(incident.id);
     else onSelectIncident(incident.id);

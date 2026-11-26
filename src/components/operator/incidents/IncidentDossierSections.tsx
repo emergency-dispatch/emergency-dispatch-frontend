@@ -57,6 +57,8 @@ interface ReporterEvidenceProps {
    * đọc hết bằng chứng mà không phải cuộn.
    */
   compact?: boolean;
+  /** Hiện hồ sơ y tế người báo. Panel thẩm định tắt (chỉ cần khi điều tổ → xem ở Hồ sơ ca). */
+  showMedical?: boolean;
 }
 
 /**
@@ -103,6 +105,7 @@ export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
   showLocation = true,
   afterDescription,
   compact = false,
+  showMedical = true,
 }) => {
   const { t } = useTranslation();
   const hasPhone = hasReporterPhone(incident);
@@ -216,12 +219,14 @@ export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
     </div>
   );
 
-  const medical = <ReporterMedicalCard profile={incident.reporterMedical} smsLog={incident.emergencySmsLog} />;
+  const medical = showMedical && (
+    <ReporterMedicalCard profile={incident.reporterMedical} smsLog={incident.emergencySmsLog} />
+  );
 
   if (compact) {
     return (
       <div className="space-y-4 min-w-0">
-        {/* Cạnh ảnh chỉ để ghi âm + người báo (cao xấp xỉ ảnh); hồ sơ y tế dài ngắn tùy ca nên nằm hết chiều ngang bên dưới. */}
+        {/* Cạnh ảnh: ghi âm + người báo (cao xấp xỉ ảnh); hồ sơ y tế (nếu bật) nằm hết chiều ngang bên dưới. */}
         {gallery ? (
           <div className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)] gap-3.5 items-start">
             {gallery}

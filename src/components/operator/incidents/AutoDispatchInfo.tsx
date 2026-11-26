@@ -4,7 +4,8 @@ import { Bot, BotOff, ExternalLink, Loader2 } from 'lucide-react';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import type { Incident } from '../../../types/incident';
 import { aiVoteTally } from '../../../types/aiVote';
-import { autoDispatchVerdict, type HandoverReason } from './autoDispatchVerdict';
+import { useNow } from '../../../hooks/useNow';
+import { autoDispatchVerdictAt, type HandoverReason } from './autoDispatchVerdict';
 import { useHandoverReasonText } from './useHandoverReasonText';
 import { useTranslation } from '../../../i18n';
 
@@ -272,10 +273,11 @@ export const AutoDispatchBanner: React.FC<{
 }> = ({ incident, className = '', compact = false }) => {
   const { t } = useTranslation();
   const { autoDispatchSettings } = useDispatchStore();
+  const now = useNow();
   if (incident.autoDispatch) return <AutoDispatchNotice incident={incident} className={className} />;
   if (incident.status !== 'pending') return null;
-  // Đang mở drawer → không chờ "đang điều phối": khóa mềm đã chặn AI.
-  const verdict = autoDispatchVerdict(incident, autoDispatchSettings, { transferred: false, decidingExpired: true });
+  // Mở ca không còn giữ khóa (bỏ 2026-11-26) → AI vẫn có thể đang điều phối; tính theo thời gian từ lúc tiếp nhận.
+  const verdict = autoDispatchVerdictAt(incident, autoDispatchSettings, now);
   if (verdict.phase === 'manual') return null;
   const threshold = autoDispatchSettings ? Math.round(autoDispatchSettings.minConfidence * 100) : null;
 
@@ -296,7 +298,9 @@ export const AutoDispatchBanner: React.FC<{
     <div className={`p-3.5 rounded-xl bg-indigo-50 border border-indigo-200 space-y-2 text-indigo-900 ${className}`}>
       <p className="flex items-center gap-1.5 text-xs font-bold">
         <Loader2 className="w-4 h-4 shrink-0 motion-safe:animate-spin" />
-        {t('incidents.autoDispatch.heldWhileAnalyzingTitle')}
+        {verdict.phase === 'deciding'
+          ? t('incidents.autoDispatch.aiDecidingTitle')
+          : t('incidents.autoDispatch.heldWhileAnalyzingTitle')}
       </p>
       {!compact && <AiProgressStrip phase={verdict.phase} />}
       <p className="text-xs leading-relaxed">{t('incidents.autoDispatch.heldWhileAnalyzingBody')}</p>

@@ -67,49 +67,27 @@ export const SegmentBar: React.FC<{ progress: AiProgress; className?: string; he
   );
 };
 
-/** "Tôi xử lý" — mở ca = giữ khóa mềm → AI bỏ qua ca này, nên hỏi lại một lần. */
+/**
+ * "Mở ca" — mở thẩm định ca AI đang làm. Không giữ khóa nữa (bỏ 2026-11-26) nên không chặn được AI: AI điều xong trước khi
+ * Operator duyệt thì ca tự rời panel.
+ */
 export const AiTakeOver: React.FC<{ incidentId: string; onDone?: () => void }> = ({ incidentId, onDone }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { dismissIncomingIncident } = useDispatchStore();
-  const [confirming, setConfirming] = useState(false);
-
-  if (!confirming) {
-    return (
-      <button
-        type="button"
-        onClick={() => setConfirming(true)}
-        className="px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
-      >
-        {t('layout.aiLane.takeOver')}
-      </button>
-    );
-  }
   return (
-    <div role="alertdialog" className="w-full rounded-md bg-amber-50 border border-amber-200 p-2 space-y-2">
-      <p className="text-xs text-amber-900">{t('layout.incomingIncident.ai.takeOverConfirm')}</p>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          autoFocus
-          onClick={() => {
-            dismissIncomingIncident(incidentId);
-            onDone?.();
-            navigate(LIVE_MAP_PATH, { state: { triageIncidentId: incidentId } });
-          }}
-          className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-bold"
-        >
-          {t('layout.incomingIncident.ai.takeOverYes')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setConfirming(false)}
-          className="px-2.5 py-1 rounded-md border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50"
-        >
-          {t('layout.incomingIncident.ai.takeOverNo')}
-        </button>
-      </div>
-    </div>
+    <button
+      type="button"
+      title={t('layout.aiLane.takeOverTitle')}
+      onClick={() => {
+        dismissIncomingIncident(incidentId);
+        onDone?.();
+        navigate(LIVE_MAP_PATH, { state: { triageIncidentId: incidentId } });
+      }}
+      className="px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+    >
+      {t('layout.aiLane.takeOver')}
+    </button>
   );
 };
 
@@ -296,7 +274,7 @@ type OpenState = { kind: 'detail'; id: string } | { kind: 'list' } | null;
 
 /**
  * §31.E: dải "Ca AI đang xử lý" trên thanh trên cùng của Operator — thay thẻ nổi góc phải (che bản đồ). Mỗi ô là một tin
- * báo AI đang phân tích / điều phối (Live Map: chỉ còn nút gọn, vì panel "Theo dõi ca" đã có thẻ); bấm mở bảng chi tiết (xem trên bản đồ không giữ ca, "Tôi xử lý" hỏi lại). Ca AI
+ * báo AI đang phân tích / điều phối (Live Map: chỉ còn nút gọn, vì panel "Theo dõi ca" đã có thẻ); bấm mở bảng chi tiết (xem trên bản đồ hoặc "Mở ca"). Ca AI
  * chuyển cho người vẫn bật modal "Cần bạn xử lý" (IncomingIncidentToasts).
  */
 export const AiLane: React.FC = () => {

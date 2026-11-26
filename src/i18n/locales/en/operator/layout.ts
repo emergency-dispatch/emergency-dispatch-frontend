@@ -66,7 +66,8 @@ export const layoutEn: Messages<typeof layoutVi> = {
     listTitle: 'Cases AI is handling ({{count}})',
     viewOnMap: 'View on map',
     viewOnMapHint: 'Only shows the location, does not open the case — AI keeps working.',
-    takeOver: 'I’ll handle it',
+    takeOver: 'Open case',
+    takeOverTitle: 'Open this case for review. AI may still dispatch it automatically if it finishes before you approve.',
     close: 'Close',
     mapPopupTitle: 'AI is handling this report',
   },
@@ -109,9 +110,6 @@ export const layoutEn: Messages<typeof layoutVi> = {
       undecided: 'AI finished analysing but has not dispatched — please handle it manually.',
     },
     ai: {
-      takeOverConfirm: 'If you open the case now, AI will not dispatch it automatically. Take it over?',
-      takeOverYes: 'Take over',
-      takeOverNo: 'Let AI handle it',
     },
     strip: {
       label: 'Report progress',
