@@ -16,7 +16,6 @@ import { AiVotesPanel } from './AiVotesPanel';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { IncidentMediaGallery } from './IncidentMediaGallery';
 import { IncidentSupplementList } from './IncidentSupplementList';
-import { ReporterMedicalCard } from './ReporterMedicalCard';
 import { SeverityBadge } from './SeverityBadge';
 import { hasReporterPhone, type CancelCaseInput } from './cancelCaseInput';
 import type { RevealedPhoneState } from '../../../hooks/useRevealPhone';
@@ -154,8 +153,6 @@ export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
           </p>
         )}
       </div>
-
-      <ReporterMedicalCard profile={incident.reporterMedical} smsLog={incident.emergencySmsLog} />
     </div>
   );
 };

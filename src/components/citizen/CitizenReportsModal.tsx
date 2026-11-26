@@ -29,7 +29,7 @@ import { incidentService } from '../../services/incidentService';
 import { incidentHubService, HubEvents } from '../../services/realtime/incidentHubService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { IncidentResponseDto } from '../../types/incident';
-import { getIncidentVisualMeta, isAudioMediaUrl, isVideoMediaUrl } from '../../utils/incidentFormat';
+import { getIncidentVisualMeta, isAudioMediaUrl, isGuid, isVideoMediaUrl } from '../../utils/incidentFormat';
 import { CitizenSupplementModal } from './CitizenSupplementModal';
 import { AudioEvidencePlayer } from '../common/AudioEvidencePlayer';
 import { useTranslation } from '../../i18n';
@@ -114,15 +114,18 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
           createdAt: item.reportedAt,
           updatedAt: item.reportedAt,
           verifiedAt: item.verifiedAt,
-          mediaItems: (item.mediaUrls || [])
-            .filter((url) => Boolean(url) && !isAudioMediaUrl(url))
-            .map((url, idx) => ({
-              id: `${item.id}-media-${idx}`,
-              incidentId: item.id,
-              mediaUrl: url,
-              mediaType: (isVideoMediaUrl(url) ? 'Video' : 'Image') as any,
-              uploadedAt: item.reportedAt,
-            })),
+          mediaItems:
+            item.mediaItems && item.mediaItems.length > 0
+              ? item.mediaItems
+              : (item.mediaUrls || [])
+                  .filter((url) => Boolean(url) && !isAudioMediaUrl(url))
+                  .map((url, idx) => ({
+                    id: `${item.id}-media-${idx}`,
+                    incidentId: item.id,
+                    mediaUrl: url,
+                    mediaType: (isVideoMediaUrl(url) ? 'Video' : 'Image') as any,
+                    uploadedAt: item.reportedAt,
+                  })),
         } as IncidentResponseDto));
 
         // Chỉ gọi chi tiết bù nếu backend chưa trả linkedToIncidentId cho ca Linked / Cancelled (Duplicate)
@@ -528,7 +531,9 @@ export const CitizenReportsModal: React.FC<CitizenReportsModalProps> = ({
                     const isAudioItem = (m: IncidentResponseDto['mediaItems'][number]) =>
                       String(m.mediaType) === 'Audio' || (m.mediaType as any) === 2 || isAudioMediaUrl(m.mediaUrl);
                     const visualItems = (incident.mediaItems || []).filter((m) => Boolean(m.mediaUrl) && !isAudioItem(m));
-                    const audioItems = (incident.mediaItems || []).filter((m) => String(m.mediaType) === 'Audio' || (m.mediaType as any) === 2);
+                    const audioItems = (incident.mediaItems || []).filter(
+                      (m) => (String(m.mediaType) === 'Audio' || (m.mediaType as any) === 2) && isGuid(m.id)
+                    );
                     return (
                       <>
                         {visualItems.length > 0 && (

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import {
   X,
   User,
-  Heart,
   Lock,
   Mail,
   Phone,
@@ -17,14 +16,13 @@ import {
   Building2,
   Camera,
   Loader2,
-  Users,
   Trash2,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { authService } from '../../services/authService';
 import { mediaService } from '../../services/mediaService';
 import { getApiErrorMessage } from '../../services/apiClient';
-import { BloodType, Gender, UserRole, UserResponseDto } from '../../types/auth';
+import { Gender, UserRole, UserResponseDto } from '../../types/auth';
 import { getAvatarUrl, DEFAULT_AVATAR } from '../../utils/avatar';
 import { useTranslation } from 'react-i18next';
 
@@ -33,7 +31,7 @@ interface UserProfileModalProps {
   onClose: () => void;
 }
 
-type TabType = 'general' | 'medical' | 'ice' | 'security';
+type TabType = 'general' | 'security';
 
 const now = new Date();
 const maxBirthYear = now.getFullYear() - 18;
@@ -73,19 +71,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
-  // Medical state
-  const [bloodType, setBloodType] = useState<BloodType>(BloodType.Unknown);
-  const [medicalNotes, setMedicalNotes] = useState('');
-  const [chronicConditions, setChronicConditions] = useState('');
-  const [allergies, setAllergies] = useState('');
-  const [currentMedications, setCurrentMedications] = useState('');
-  const [mobilityLimitations, setMobilityLimitations] = useState('');
-
-  // Emergency contact (ICE) state
-  const [emergencyContactName, setEmergencyContactName] = useState('');
-  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
-  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState('');
-
   // Special Info & Personal state
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [preferredLanguage, setPreferredLanguage] = useState('Tiếng Việt');
@@ -112,7 +97,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
       if (user) {
         setFullName(user.fullName || '');
         setPhoneNumber(user.phoneNumber || '');
-        setBloodType(user.bloodType || BloodType.Unknown);
         setAvatarUrl(user.avatarUrl || '');
 
         const fullUser = user as UserResponseDto;
@@ -120,14 +104,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         setCitizenIdNumber(fullUser.citizenIdNumber || '');
         setGender(fullUser.gender || Gender.Male);
         setDateOfBirth(fullUser.dateOfBirth ? fullUser.dateOfBirth.split('T')[0] : '');
-        setMedicalNotes(fullUser.medicalNotes || '');
-        setChronicConditions((fullUser.chronicConditions || []).join(', '));
-        setAllergies((fullUser.allergies || []).join(', '));
-        setCurrentMedications((fullUser.currentMedications || []).join(', '));
-        setMobilityLimitations((fullUser.mobilityLimitations || []).join(', '));
-        setEmergencyContactName(fullUser.emergencyContactName || '');
-        setEmergencyContactPhone(fullUser.emergencyContactPhone || '');
-        setEmergencyContactRelationship(fullUser.emergencyContactRelationship || '');
         setPreferredLanguage(fullUser.preferredLanguage || 'Tiếng Việt');
         setHouseholdMembersCount(
           fullUser.householdMembersCount !== undefined && fullUser.householdMembersCount !== null
@@ -175,12 +151,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
     setIsLoading(true);
 
     try {
-      const splitClean = (str: string) =>
-        str
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-
       if (!fullName.trim()) {
         setErrorMsg(t('profile.messages.nameRequired'));
         setIsLoading(false);
@@ -237,13 +207,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         }
       }
 
-      const cleanIcePhone = emergencyContactPhone.trim();
-      if (cleanIcePhone && !/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(cleanIcePhone)) {
-        setErrorMsg(t('profile.messages.invalidIcePhone'));
-        setIsLoading(false);
-        return;
-      }
-
       if (householdMembersCount) {
         const count = parseInt(householdMembersCount, 10);
         if (isNaN(count) || count < 1) {
@@ -261,18 +224,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
         address: address.trim() || undefined,
         citizenIdNumber: cleanIdCard || undefined,
         gender,
-        bloodType,
-        medicalNotes: medicalNotes.trim() || undefined,
-        chronicConditions: splitClean(chronicConditions),
-        allergies: splitClean(allergies),
-        currentMedications: splitClean(currentMedications),
-        mobilityLimitations: splitClean(mobilityLimitations),
         preferredLanguage: preferredLanguage.trim() || undefined,
         dependentsNote: dependentsNote.trim() || undefined,
         householdMembersCount: householdMembersCount ? parseInt(householdMembersCount, 10) : undefined,
-        emergencyContactName: emergencyContactName.trim() || undefined,
-        emergencyContactPhone: cleanIcePhone ? cleanIcePhone : undefined,
-        emergencyContactRelationship: emergencyContactRelationship.trim() || undefined,
       });
 
       setSuccessMsg(t('profile.messages.updateSuccess'));
@@ -319,18 +273,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const bloodTypeLabels: Record<BloodType, string> = {
-    [BloodType.Unknown]: t('profile.medical.bloodTypeLabels.unknown'),
-    [BloodType.O_Positive]: t('profile.medical.bloodTypeLabels.oPositive'),
-    [BloodType.O_Negative]: t('profile.medical.bloodTypeLabels.oNegative'),
-    [BloodType.A_Positive]: t('profile.medical.bloodTypeLabels.aPositive'),
-    [BloodType.A_Negative]: t('profile.medical.bloodTypeLabels.aNegative'),
-    [BloodType.B_Positive]: t('profile.medical.bloodTypeLabels.bPositive'),
-    [BloodType.B_Negative]: t('profile.medical.bloodTypeLabels.bNegative'),
-    [BloodType.AB_Positive]: t('profile.medical.bloodTypeLabels.abPositive'),
-    [BloodType.AB_Negative]: t('profile.medical.bloodTypeLabels.abNegative'),
   };
 
   return createPortal(
@@ -400,34 +342,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
           >
             <User className="w-3.5 h-3.5" />
             <span>{t('profile.tabs.general')}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('medical');
-              setErrorMsg('');
-              setSuccessMsg('');
-            }}
-            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'medical' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-          >
-            <Heart className="w-3.5 h-3.5" />
-            <span>{t('profile.tabs.medical')}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('ice');
-              setErrorMsg('');
-              setSuccessMsg('');
-            }}
-            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-mono-data font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'ice' ? 'border-red-600 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>{t('profile.tabs.ice')}</span>
           </button>
 
           <button
@@ -720,178 +634,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
             </form>
           )}
 
-          {/* TAB 2: Medical Profile */}
-          {activeTab === 'medical' && (
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 leading-relaxed font-mono-data">
-                {t('profile.medical.notice')}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    {t('profile.medical.bloodType')}
-                  </label>
-                  <select
-                    value={bloodType}
-                    onChange={(e) => setBloodType(e.target.value as BloodType)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
-                  >
-                    {Object.values(BloodType).map((bt) => (
-                      <option key={bt} value={bt}>
-                        {bloodTypeLabels[bt] || bt}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    {t('profile.medical.chronicConditions')}
-                  </label>
-                  <input
-                    type="text"
-                    value={chronicConditions}
-                    onChange={(e) => setChronicConditions(e.target.value)}
-                    placeholder={t('profile.medical.chronicConditionsPlaceholder')}
-                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    {t('profile.medical.allergies')}
-                  </label>
-                  <input
-                    type="text"
-                    value={allergies}
-                    onChange={(e) => setAllergies(e.target.value)}
-                    placeholder={t('profile.medical.allergiesPlaceholder')}
-                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    {t('profile.medical.medications')}
-                  </label>
-                  <input
-                    type="text"
-                    value={currentMedications}
-                    onChange={(e) => setCurrentMedications(e.target.value)}
-                    placeholder={t('profile.medical.medicationsPlaceholder')}
-                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                  {t('profile.medical.mobility')}
-                </label>
-                <input
-                  type="text"
-                  value={mobilityLimitations}
-                  onChange={(e) => setMobilityLimitations(e.target.value)}
-                  placeholder={t('profile.medical.mobilityPlaceholder')}
-                  className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                  {t('profile.medical.medicalNotes')}
-                </label>
-                <textarea
-                  rows={2}
-                  value={medicalNotes}
-                  onChange={(e) => setMedicalNotes(e.target.value)}
-                  placeholder={t('profile.medical.medicalNotesPlaceholder')}
-                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data resize-none"
-                />
-              </div>
-
-              <div className="pt-3 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-sm transition-all disabled:opacity-50 flex items-center gap-2 border border-red-600 cursor-pointer"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{isLoading ? t('profile.messages.saving') : t('profile.medical.saveBtn')}</span>
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* TAB 3: Emergency Contact (ICE) */}
-          {activeTab === 'ice' && (
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 leading-relaxed font-mono-data">
-                {t('profile.ice.notice')}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    {t('profile.ice.contactName')}
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={emergencyContactName}
-                      onChange={(e) => setEmergencyContactName(e.target.value)}
-                      placeholder={t('profile.ice.contactNamePlaceholder')}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                    {t('profile.ice.contactPhone')}
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-                    <input
-                      type="tel"
-                      value={emergencyContactPhone}
-                      onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                      placeholder={t('profile.ice.contactPhonePlaceholder')}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
-                  {t('profile.ice.relationship')}
-                </label>
-                <input
-                  type="text"
-                  value={emergencyContactRelationship}
-                  onChange={(e) => setEmergencyContactRelationship(e.target.value)}
-                  placeholder={t('profile.ice.relationshipPlaceholder')}
-                  className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-red-500 font-mono-data"
-                />
-              </div>
-
-              <div className="pt-3 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider uppercase font-mono-data shadow-sm transition-all disabled:opacity-50 flex items-center gap-2 border border-red-600 cursor-pointer"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{isLoading ? t('profile.messages.saving') : t('profile.ice.saveBtn')}</span>
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* TAB 4: Change Password */}
+          {/* TAB 2: Change Password */}
           {activeTab === 'security' && (
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed font-mono-data flex items-start gap-2.5">

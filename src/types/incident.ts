@@ -683,6 +683,7 @@ export interface MyReportDto {
   linkedToIncidentStatus?: BackendIncidentStatus | null;
   reportedEventType?: BackendEventType | null;
   mediaUrls: string[];
+  mediaItems?: IncidentMediaDto[];
   reportedAt: string;
   verifiedAt?: string;
   dispatchedAt?: string;

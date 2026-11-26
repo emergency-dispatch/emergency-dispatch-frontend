@@ -5,7 +5,7 @@ import { UserProfileModal } from '@/components/profile/UserProfileModal';
 import { AuthContext, type AuthContextType } from '@/contexts/AuthContext';
 import { authService } from '@/services/authService';
 import { mediaService } from '@/services/mediaService';
-import { BloodType, Gender, UserRole } from '@/types/auth';
+import { Gender, UserRole } from '@/types/auth';
 import { t } from '../../setup/render';
 
 vi.mock('@/services/authService', () => ({ authService: { changePassword: vi.fn() } }));
@@ -17,9 +17,7 @@ const baseUser = {
   email: 'an@x.vn',
   role: UserRole.Citizen,
   phoneNumber: '0912345678',
-  bloodType: BloodType.O_Positive,
   gender: Gender.Female,
-  allergies: ['Tôm', 'Cua'],
   dateOfBirth: '1990-05-01T00:00:00Z',
 };
 
@@ -55,7 +53,7 @@ describe('UserProfileModal', () => {
     saveGeneral();
     expect(await screen.findByText(t('profile.messages.updateSuccess'))).toBeInTheDocument();
     expect(updateProfile).toHaveBeenCalledWith(
-      expect.objectContaining({ fullName: 'Nguyễn An', phoneNumber: '0912345678', gender: Gender.Female, bloodType: BloodType.O_Positive, allergies: ['Tôm', 'Cua'] }),
+      expect.objectContaining({ fullName: 'Nguyễn An', phoneNumber: '0912345678', gender: Gender.Female }),
     );
   });
 
@@ -63,7 +61,6 @@ describe('UserProfileModal', () => {
     ['tên trống', { fullName: '' }, 'profile.messages.nameRequired'],
     ['SĐT sai', { phoneNumber: '0123' }, 'profile.messages.invalidPhone'],
     ['CCCD sai', { citizenIdNumber: '12ab' }, 'profile.messages.invalidCitizenId'],
-    ['SĐT người thân sai', { emergencyContactPhone: '111' }, 'profile.messages.invalidIcePhone'],
     ['số người trong hộ < 1', { householdMembersCount: 0 }, 'profile.messages.invalidHouseholdCount'],
   ])('kiểm tra: %s', async (_n, override, key) => {
     const { updateProfile } = setup({ ...baseUser, ...override });
@@ -113,11 +110,9 @@ describe('UserProfileModal', () => {
     expect(await screen.findByText(t('profile.messages.changePasswordSuccess'))).toBeInTheDocument();
   });
 
-  it('chuyển tab y tế / người thân', async () => {
+  it('không hiển thị tab hồ sơ y tế và người thân khẩn cấp', () => {
     setup();
-    await userEvent.click(screen.getByText(t('profile.tabs.medical')));
-    expect(screen.getByDisplayValue('Tôm, Cua')).toBeInTheDocument();
-    await userEvent.click(screen.getByText(t('profile.tabs.ice')));
-    expect(screen.getByPlaceholderText(t('profile.ice.contactNamePlaceholder'))).toBeInTheDocument();
+    expect(screen.queryByText(t('profile.tabs.medical'))).not.toBeInTheDocument();
+    expect(screen.queryByText(t('profile.tabs.ice'))).not.toBeInTheDocument();
   });
 });
