@@ -130,6 +130,7 @@ export const liveMapEn: Messages<typeof liveMapVi> = {
     etaShort: ' · ETA {{count}}m',
     costTitle: 'Cost: distance + station load ({{load}}%) + missions',
     supportUnit: 'Support team · {{station}}',
+    shortNoTeamNearby: 'Missing {{units}} · no ready team at this or nearby stations',
     assign: 'Dispatch',
     readyTeams: 'Ready teams ({{count}})',
     dragHint: 'Drag onto an incident',

@@ -130,6 +130,7 @@ export const liveMapVi = {
     etaShort: ' · ETA {{count}}ph',
     costTitle: 'Cost: khoảng cách + tải trạm ({{load}}%) + nhiệm vụ',
     supportUnit: 'Tổ hỗ trợ · {{station}}',
+    shortNoTeamNearby: 'Thiếu {{units}} · trạm mình và các trạm lân cận đều hết tổ sẵn sàng',
     assign: 'Điều phối',
     readyTeams: 'Tổ sẵn sàng ({{count}})',
     dragHint: 'Kéo thả vào sự cố',

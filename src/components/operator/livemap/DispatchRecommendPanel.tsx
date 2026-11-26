@@ -166,18 +166,21 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   // Cấp 3 không vượt được 5 xe kể cả theo yêu cầu chi viện; Cấp 1–2 giao đủ số xe đội xin.
   const level3Remaining = selectedIncident?.severity === 3 ? Math.max(0, maxVehicles - activeCount) : Infinity;
   const pickMax = fieldRequest ? Math.min(fieldRequest.quantity, level3Remaining) : 0;
-  // Cần xe ngay: chưa có xe nào, chưa đủ tổ theo kế hoạch (trạm còn tổ đúng loại), hoặc có đội từ chối / không phản hồi →
-  // mở gợi ý sẵn; còn lại chờ Operator bấm. Thiếu kế hoạch mà trạm hết tổ loại còn thiếu (VD AI điều được một phần) → chỉ
-  // báo một dòng, không mở danh sách trống; Operator bấm "Giao thêm tổ" nếu muốn tìm tổ trạm khác / ngoài kế hoạch.
+  // Cần xe ngay: chưa có xe nào, chưa đủ tổ theo kế hoạch, hoặc có đội từ chối / không phản hồi → mở gợi ý sẵn; còn lại
+  // chờ Operator bấm. Thiếu kế hoạch mà trạm mình hết tổ loại còn thiếu (VD AI điều được một phần) → vẫn hỏi gợi ý ngầm
+  // (backend quét cả trạm khác theo bán kính tăng dần): có tổ trạm khác đúng loại → mở sẵn để điều hỗ trợ; không có → chỉ
+  // một dòng báo thiếu, không mở danh sách trống.
   const readyTypes = useStationReadyUnitTypes();
   const planShort = !!progress && progress.missing.length > 0;
   const stationExhausted = planShort && progress.missing.every((m) => !readyTypes.has(m.unitType));
-  const needsVehicles =
+  const probeOtherStations = stationExhausted && !isCompleted && !serving && !isFull;
+  const baseNeedsVehicles =
     !!selectedIncident &&
     (activeCount === 0 || (planShort && !stationExhausted) || selectedIncident.responseNotices.length > 0);
-  const wantsSuggestions = serving || needsVehicles || recommendOpen || extraMode;
-  const showSuggestions =
-    !isCompleted && wantsSuggestions && (serving ? pickMax > 0 : !isFull || (canAddExtra && extraMode));
+  const baseShowSuggestions =
+    !isCompleted &&
+    (serving || baseNeedsVehicles || recommendOpen || extraMode) &&
+    (serving ? pickMax > 0 : !isFull || (canAddExtra && extraMode));
   const isEscalated = selectedIncident ? escalatedIncidentIds.has(selectedIncident.id) : false;
   const category = selectedIncident ? INCIDENT_CATEGORY_META[selectedIncident.category] : null;
 
@@ -186,11 +189,19 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
 
   const { suggestion, loading: suggestionLoading, error: suggestionError } = useDispatchRecommendations(
     selectedIncidentId,
-    !!selectedIncidentId && showSuggestions,
+    !!selectedIncidentId && (baseShowSuggestions || probeOtherStations),
     algorithm,
     refreshKey,
     neededTypes
   );
+  // Trạm khác có tổ sẵn sàng đúng loại còn thiếu → mở sẵn gợi ý (tổ hỗ trợ có nhãn trạm, giao xong hỏi xác nhận).
+  const missingTypes = new Set(progress?.missing.map((m) => m.unitType) ?? []);
+  const otherStationsCanHelp =
+    probeOtherStations &&
+    (suggestion?.teams ?? []).some((team) => team.isSupportUnit && team.options.some((o) => missingTypes.has(o.unitType)));
+  const showSuggestions = baseShowSuggestions || otherStationsCanHelp;
+  // Đã hỏi xong mà trạm khác cũng không có → nói rõ để Operator không phải bấm thử.
+  const noTeamAnywhere = probeOtherStations && !suggestionLoading && !!suggestion && !otherStationsCanHelp;
 
   // §34: backend chỉ gợi ý tổ có nhân viên đang hoạt động, không bận và có xe đúng chức năng đang Sẵn sàng.
   // Đáp ứng yêu cầu chi viện có chỉ định loại xe → tổ có chức năng đó lên đầu (sort ổn định, giữ thứ tự gợi ý).
@@ -580,7 +591,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
             {stationExhausted && !isCompleted && progress && (
               <p className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] font-semibold text-amber-800">
                 <ListChecks className="w-3.5 h-3.5 shrink-0 mt-px" />
-                {t('liveMap.cases.reason.planShortNoTeam', {
+                {t(noTeamAnywhere ? 'liveMap.recommend.shortNoTeamNearby' : 'liveMap.cases.reason.planShortNoTeam', {
                   units: progress.missing
                     .map((m) => t('liveMap.plan.teams', { count: m.missing, type: unitTypeLabel(m.unitType) }))
                     .join(' · '),
