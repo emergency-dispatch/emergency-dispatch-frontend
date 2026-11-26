@@ -55,10 +55,11 @@ export const overviewAdminService = {
     const stations = stationPage.items;
     const countStatus = (match: (u: (typeof units)[number]) => boolean) => units.filter(match).length;
 
-    const eqList: EquipmentDto[] | null = Array.isArray(equipment)
-      ? equipment
-      : Array.isArray((equipment as { items?: unknown })?.items)
-      ? ((equipment as { items: EquipmentDto[] }).items)
+    const rawEquipment: unknown = equipment;
+    const eqList: EquipmentDto[] | null = Array.isArray(rawEquipment)
+      ? (rawEquipment as EquipmentDto[])
+      : Array.isArray((rawEquipment as { items?: unknown })?.items)
+      ? (rawEquipment as { items: EquipmentDto[] }).items
       : null;
 
     return {
