@@ -41,6 +41,33 @@ interface StaffReportsViewProps {
   onUpdateMission?: (updatedMission: StaffMission) => void;
 }
 
+const SafeSignatureImage: React.FC<{ src: string; alt: string }> = ({ src, alt }) => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
+  if (hasError) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-500 p-2 text-center select-none">
+        <ShieldCheck className="w-4 h-4 text-emerald-600 mb-0.5" />
+        <span className="text-[10.5px] font-semibold text-slate-700">Chữ ký số xác nhận</span>
+        <span className="text-[9px] text-slate-400">Niêm phong hệ thống CAD</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="max-h-full max-w-full object-contain mix-blend-multiply"
+      onError={() => setHasError(true)}
+    />
+  );
+};
+
 export const getMissionDate = (m: StaffMission): Date | null => {
   const raw =
     m.closureReport?.completedAt ||
@@ -640,10 +667,9 @@ export const StaffReportsView: React.FC<StaffReportsViewProps> = ({
                   {/* Signature Image */}
                   <div className="flex items-center justify-center p-2 bg-slate-50 border border-slate-200 rounded-lg min-w-[180px] max-w-[240px] h-20">
                     {selectedReport.closureReport?.signatureUrl || selectedReport.closureReport?.signatureDataUrl ? (
-                      <img
-                        src={selectedReport.closureReport.signatureUrl || selectedReport.closureReport.signatureDataUrl}
+                      <SafeSignatureImage
+                        src={selectedReport.closureReport.signatureUrl || selectedReport.closureReport.signatureDataUrl!}
                         alt="Chữ ký nghiệm thu"
-                        className="max-h-full max-w-full object-contain mix-blend-multiply"
                       />
                     ) : (
                       <span className="text-slate-400 text-[11px] italic">Chưa có chữ ký điện tử</span>

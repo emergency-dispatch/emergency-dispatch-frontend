@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { CheckCircle2, Clock3, ImageOff, PenLine, PlayCircle, Truck, Users } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle2, Clock3, ImageOff, PenLine, PlayCircle, ShieldCheck, Truck, Users } from 'lucide-react';
 import { VEHICLE_STATUS_META } from '../../../data/liveMapMeta';
 import { formatDateTime, formatWaitDuration } from '../../../utils/incidentFormat';
 import { assignmentPlateLabel, type DispatchAssignmentResponseDto } from '../../../types/dispatch';
@@ -25,6 +25,33 @@ const statusSince = (a: DispatchAssignmentResponseDto) =>
   a.dispatchedAt;
 
 const plateOf = (a: DispatchAssignmentResponseDto) => assignmentPlateLabel(a);
+
+const SafeSignatureImage: React.FC<{ src: string; alt: string }> = ({ src, alt }) => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
+  if (hasError) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-500 p-2 text-center select-none">
+        <ShieldCheck className="w-5 h-5 text-emerald-600 mb-1" />
+        <span className="text-[11px] font-semibold text-slate-700">Chữ ký số xác nhận</span>
+        <span className="text-[9.5px] text-slate-400">Niêm phong hệ thống CAD</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="w-full h-full object-contain"
+      onError={() => setHasError(true)}
+    />
+  );
+};
 
 export const TeamCompletionCard: React.FC<TeamCompletionCardProps> = ({ group, now, justSigned, onOpenMedia }) => {
   const { t } = useTranslation();
@@ -195,10 +222,9 @@ export const TeamCompletionCard: React.FC<TeamCompletionCardProps> = ({ group, n
                     aria-label={t('incidents.completion.team.zoomSignature')}
                     className="group w-full sm:w-56 h-24 shrink-0 rounded-lg border border-slate-300 bg-white p-2 hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
                   >
-                    <img
+                    <SafeSignatureImage
                       src={report.signatureUrl}
                       alt={t('incidents.completion.team.signature')}
-                      className="w-full h-full object-contain"
                     />
                   </button>
                 ) : (

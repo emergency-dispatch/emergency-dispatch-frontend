@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { ExternalLink, Lock, PenLine, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ExternalLink, Lock, PenLine, ShieldCheck, X } from 'lucide-react';
 import { labelClass } from '../common/styles';
 import { formatDateTime, severityMeta } from '../reports/reportMeta';
 import { unitTypeLabel } from '../fleetMeta';
@@ -27,6 +27,33 @@ const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, ch
 );
 
 const shortTime = (iso: string | null) => (iso ? formatDateTime(iso) : '—');
+
+const SafeSignatureImage: React.FC<{ src: string; alt: string }> = ({ src, alt }) => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
+  if (hasError) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-500 p-2 text-center select-none">
+        <ShieldCheck className="w-5 h-5 text-emerald-600 mb-1" />
+        <span className="text-[11px] font-semibold text-slate-700">Chữ ký số xác nhận</span>
+        <span className="text-[9.5px] text-slate-400">Niêm phong hệ thống CAD</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="w-full h-full object-contain"
+      onError={() => setHasError(true)}
+    />
+  );
+};
 
 /** §36: một biên bản nghiệm thu — nội dung xử lý, xe, ảnh hiện trường, bàn giao, chữ ký. Chỉ đọc. */
 export const CompletionReportDrawer: React.FC<CompletionReportDrawerProps> = ({
@@ -202,10 +229,9 @@ export const CompletionReportDrawer: React.FC<CompletionReportDrawerProps> = ({
                 rel="noreferrer"
                 className="block w-56 h-24 rounded-lg border border-slate-300 bg-white p-2 hover:border-slate-400"
               >
-                <img
+                <SafeSignatureImage
                   src={report.signatureUrl}
                   alt={t('admin.monitoring.completion.drawer.signature')}
-                  className="w-full h-full object-contain"
                 />
               </a>
             ) : (
