@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   BrainCircuit,
   Building2,
+  ChevronDown,
   Eye,
   GitCompareArrows,
   Loader2,
@@ -12,8 +13,8 @@ import {
   User,
 } from 'lucide-react';
 import { AudioEvidencePlayer } from '../../common/AudioEvidencePlayer';
-import { HazardTagBadge } from '../../common/HazardTagBadge';
 import { aiVoteTally } from '../../../types/aiVote';
+import { AiVotesPanel } from './AiVotesPanel';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { IncidentMediaGallery } from './IncidentMediaGallery';
 import { IncidentSupplementList } from './IncidentSupplementList';
@@ -37,8 +38,6 @@ import { dateLocale, useTranslation } from '../../../i18n';
  * bằng chứng của người báo, kết quả AI, phần nhập lý do hủy ca.
  */
 
-// Số thẻ nguy cơ hiện sẵn; phần còn lại gộp vào nút "+N".
-const MAX_VISIBLE_TAGS = 4;
 // Tiêu đề mục: chữ thường đậm; mono chỉ dành cho số liệu (tọa độ, biển số, %, đếm ngược).
 const SECTION_HEADING = 'text-[13px] font-semibold text-slate-700 mb-1.5';
 
@@ -61,7 +60,9 @@ interface ReporterEvidenceProps {
 /**
  * Đoạn văn dài thu gọn còn `lines` dòng; chỉ hiện "Xem thêm" khi chữ thật sự bị cắt (đo theo khung, không đoán theo số ký tự).
  */
-const ClampedText: React.FC<{ text: string; className?: string; lines?: 3 | 4 }> = ({ text, className = '', lines = 4 }) => {
+const CLAMP_CLASS = { 2: 'line-clamp-2', 3: 'line-clamp-3', 4: 'line-clamp-4' } as const;
+
+const ClampedText: React.FC<{ text: string; className?: string; lines?: 2 | 3 | 4 }> = ({ text, className = '', lines = 4 }) => {
   const { t } = useTranslation();
   const ref = useRef<HTMLParagraphElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -77,7 +78,7 @@ const ClampedText: React.FC<{ text: string; className?: string; lines?: 3 | 4 }>
   }, [text, expanded, lines]);
   return (
     <>
-      <p ref={ref} className={`${className} ${expanded ? '' : lines === 3 ? 'line-clamp-3' : 'line-clamp-4'}`}>
+      <p ref={ref} className={`${className} ${expanded ? '' : CLAMP_CLASS[lines]}`}>
         {text}
       </p>
       {(overflowing || expanded) && (
@@ -286,23 +287,24 @@ export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
 
 /**
  * "AI nhận định" ở cột hiện trường của panel thẩm định: mọi điều AI nói về ca — tóm tắt (loại, độ tin cậy, cấp đề xuất,
- * phiếu 3 AI), thẻ nguy cơ, đoạn mô tả ảnh, nhận định ùn tắc, cảnh báo — gom trong một khối vạch chàm (màu việc của AI),
+ * phiếu 3 AI), đoạn mô tả ảnh, nhận định ùn tắc, cảnh báo — gom trong một khối vạch chàm (màu việc của AI),
  * đọc liền sau lời người báo. AI lỗi → một câu hướng dẫn, không hiện số liệu rỗng hay câu dự phòng của backend.
  */
 export const AiInsightBlock: React.FC<{
   incident: Incident;
   /**
-   * Hồ sơ ca đã duyệt: bỏ cảnh báo (chỉ dành cho lúc thẩm định) và dòng ùn tắc (Hồ sơ ca có khối ùn tắc riêng); thêm dòng
+   * Hồ sơ ca đã duyệt: bỏ cảnh báo (chỉ dành cho lúc thẩm định); thêm dòng
    * "Đã xác nhận … — khác nhận định AI" khi loại / cấp Operator chốt khác AI.
    */
   verified?: boolean;
 }> = ({ incident, verified = false }) => {
   const { t } = useTranslation();
   const { incidentKindLabel } = useDispatchStore();
-  const [showAllTags, setShowAllTags] = useState(false);
   const category = INCIDENT_CATEGORY_META[incident.category];
   const CategoryIcon = category.icon;
   const tally = incident.aiVotes ? aiVoteTally(incident.aiVotes) : null;
+  // Bảng phiếu từng AI (loại · cấp · %): Hồ sơ ca rộng chỗ → mở sẵn; panel thẩm định chật → bấm dòng tổng để mở.
+  const [showVotes, setShowVotes] = useState(verified);
   const verdict = incident.aiVerdict;
   // Không có nhận định dùng được (AI lỗi / quá thời gian / không đọc được kết quả) → một câu hướng dẫn.
   const aiFailed = !incident.aiPending && (incident.aiFailed || !verdict);
@@ -352,7 +354,10 @@ export const AiInsightBlock: React.FC<{
       body: t('incidents.drawer.engineDisagreementBody'),
     });
   }
-  const jam = verified ? null : incident.trafficJam;
+  const jam = incident.trafficJam;
+  // Nhận định của AI (Nghi ngờ / Bất đồng / Chưa xác minh) chỉ hiện nhãn + icon: câu căn cứ của backend nặng tên mô hình,
+  // không giúp Operator quyết định. Đã có người chốt (Xác nhận / Bác bỏ) thì hiện câu đó vì có ghi chú của Operator.
+  const jamEvidence = jam?.reviewed ? jam.evidence?.trim() || null : null;
 
   return (
     <section aria-label={t('incidents.drawer.aiInsight')} className="border-l-2 border-indigo-400 pl-3.5 space-y-2">
@@ -397,15 +402,25 @@ export const AiInsightBlock: React.FC<{
                 <SeverityBadge severity={verdict.severity ?? 1} unclassified={verdict.severity === null} />
               </span>
               {tally && (
-                <span className={`font-semibold ${tally.agree > 1 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                <button
+                  type="button"
+                  onClick={() => setShowVotes((v) => !v)}
+                  aria-expanded={showVotes}
+                  className={`inline-flex items-center gap-0.5 font-semibold rounded hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
+                    tally.agree > 1 ? 'text-emerald-700' : 'text-amber-700'
+                  }`}
+                >
                   {t('incidents.aiVotes.title')}: {t('incidents.aiVotes.tally', tally)}
-                </span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showVotes ? 'rotate-180' : ''}`} />
+                </button>
               )}
             </div>
           ) : (
             // AI không thấy sự cố: không hiện % (con số lúc này là AI chắc "không có gì", dễ đọc nhầm).
             <p className="text-sm font-semibold text-slate-700">{t('incidents.drawer.aiNoIncident')}</p>
           )}
+
+          {showVotes && <AiVotesPanel votes={incident.aiVotes} />}
 
           {!verified && !aiCategory && incident.needsEventType && incident.category !== 'unknown' && (
             <p className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -415,23 +430,6 @@ export const AiInsightBlock: React.FC<{
                 {t(`enums.category.${incident.category}`)}
               </span>
             </p>
-          )}
-
-          {incident.hazardTags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {(showAllTags ? incident.hazardTags : incident.hazardTags.slice(0, MAX_VISIBLE_TAGS)).map((tag) => (
-                <HazardTagBadge key={tag} tag={tag} />
-              ))}
-              {incident.hazardTags.length > MAX_VISIBLE_TAGS && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllTags((v) => !v)}
-                  className="text-[10px] px-1.5 py-0.5 rounded-md border border-slate-200 bg-white font-semibold text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                >
-                  {showAllTags ? t('incidents.drawer.hazardTagsLess') : `+${incident.hazardTags.length - MAX_VISIBLE_TAGS}`}
-                </button>
-              )}
-            </div>
           )}
 
           {incident.aiSummary && (
@@ -449,13 +447,20 @@ export const AiInsightBlock: React.FC<{
           )}
 
           {jam && (
-            <p className="flex items-start gap-1.5 text-xs text-slate-600 leading-relaxed" title={jam.evidence ?? undefined}>
+            <div className="flex items-start gap-1.5">
               <TrafficCone className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-600" />
-              <span className="line-clamp-2">
-                <strong className="text-slate-700">{t(`incidents.traffic.status.${jam.status}`)}</strong>
-                {jam.evidence ? ` — ${jam.evidence}` : ''}
-              </span>
-            </p>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-slate-700">{t(`incidents.traffic.status.${jam.status}`)}</p>
+                {jamEvidence && (
+                  <ClampedText
+                    key={incident.id}
+                    text={jamEvidence}
+                    lines={2}
+                    className="text-xs text-slate-600 leading-relaxed break-words"
+                  />
+                )}
+              </div>
+            </div>
           )}
 
           {confirmedDiffers && (

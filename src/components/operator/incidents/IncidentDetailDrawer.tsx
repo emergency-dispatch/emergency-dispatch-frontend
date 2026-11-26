@@ -292,16 +292,17 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
             <CategoryIcon className="w-3.5 h-3.5" />
             {incidentKindLabel(incident)}
           </span>
-          <span className="inline-flex items-center gap-1 min-w-0" title={incident.area}>
-            <MapPin className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">{incident.area}</span>
-          </span>
           <span className="inline-flex items-center gap-1 shrink-0" title={formatDateTime(incident.createdAt)}>
             <Clock className="w-3.5 h-3.5 shrink-0" />
             {/* Dưới 1 phút: "Vừa gửi" thay vì "Đã chờ Vừa xong". */}
             {waitMs < 60_000 ? t('incidents.drawer.justSent') : t('incidents.drawer.waited', { duration: formatWaitDuration(waitMs) })}
           </span>
         </div>
+        {/* Địa chỉ dòng riêng, xuống dòng đầy đủ (Operator cần đọc hết để đối chiếu / gọi lại). */}
+        <p className="mt-1 flex items-start gap-1 text-xs text-slate-500">
+          <MapPin className="w-3.5 h-3.5 shrink-0 mt-px" />
+          <span className="break-words">{incident.area}</span>
+        </p>
       </div>
 
       {leavePrompt}
