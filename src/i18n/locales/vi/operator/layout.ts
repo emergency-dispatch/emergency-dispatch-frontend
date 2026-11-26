@@ -6,6 +6,14 @@ export const layoutVi = {
     vehicles: 'Đội xe & Thiết bị',
     completion: 'Nghiệm thu',
   },
+  // Nhãn ngắn dưới icon thanh bên (rộng 80px); tên đầy đủ ở `nav` hiện trong tooltip.
+  navShort: {
+    liveMap: 'Bản đồ',
+    incidentQueue: 'Hàng đợi',
+    stationTeams: 'Trạm & Tổ',
+    vehicles: 'Đội xe',
+    completion: 'Nghiệm thu',
+  },
   hubStatus: {
     connected: { label: 'TRỰC TUYẾN', title: 'Đang nhận dữ liệu realtime' },
     connecting: { label: 'ĐANG KẾT NỐI', title: 'Đang kết nối realtime…' },

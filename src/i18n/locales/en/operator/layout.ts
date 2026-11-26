@@ -9,6 +9,13 @@ export const layoutEn: Messages<typeof layoutVi> = {
     vehicles: 'Fleet & Equipment',
     completion: 'Completion',
   },
+  navShort: {
+    liveMap: 'Map',
+    incidentQueue: 'Queue',
+    stationTeams: 'Teams',
+    vehicles: 'Fleet',
+    completion: 'Sign-off',
+  },
   hubStatus: {
     connected: { label: 'ONLINE', title: 'Receiving realtime data' },
     connecting: { label: 'CONNECTING', title: 'Connecting to realtime…' },

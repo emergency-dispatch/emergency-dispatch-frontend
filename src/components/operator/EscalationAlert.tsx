@@ -36,15 +36,15 @@ export const EscalationAlert: React.FC = () => {
   const besideRightDrawer = incidentDrawerOpen && incidentDrawerSide === 'right';
   const positionStyle = (halfWidth: string): React.CSSProperties =>
     besideRightDrawer ? { left: `max(1rem, calc((100vw - 48rem) / 2 - ${halfWidth}))` } : {};
-  // Panel trái Live Map đang rộng (thanh bên 64px + min(760px, 58vw)) → đặt banner giữa phần bản đồ còn lại.
+  // Panel trái Live Map đang rộng (thanh bên 80px + min(760px, 58vw)) → đặt banner giữa phần bản đồ còn lại.
   const centeredClass = besideRightDrawer
     ? ''
     : incidentDrawerOpen
-      ? 'left-1/2 lg:left-[calc(50%+32px+min(380px,29vw))] -translate-x-1/2'
+      ? 'left-1/2 lg:left-[calc(50%+40px+min(380px,29vw))] -translate-x-1/2'
       : 'left-1/2 -translate-x-1/2';
   const widthClass =
     incidentDrawerOpen && !besideRightDrawer
-      ? 'w-[min(640px,calc(100%-2rem))] lg:w-[min(640px,calc(100vw-96px-min(760px,58vw)))]'
+      ? 'w-[min(640px,calc(100%-2rem))] lg:w-[min(640px,calc(100vw-112px-min(760px,58vw)))]'
       : 'w-[min(640px,calc(100%-2rem))]';
   const thresholdMinutes = escalationThresholdMinutes(now, escalationSettings);
   const thresholdLabel =
