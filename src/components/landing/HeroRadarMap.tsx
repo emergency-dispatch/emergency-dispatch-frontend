@@ -44,7 +44,7 @@ import type { IncidentResponseDto, IncidentCategory, SeverityLevel } from '../..
 import {
   getIncidentVisualMeta,
   formatCitizenIncidentStatus,
-  formatCitizenDispatchStatus,
+  resolveCitizenLiveStatusLabel,
   getFirstIncidentPhotoUrl,
 } from '../../utils/incidentFormat';
 import type { RescueUnitResponseDto } from '../../types/rescueUnit';
@@ -1346,10 +1346,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
 
       const effectiveStatus = tData?.incidentStatus || inc.status;
       const isDispatched = effectiveStatus === 'Dispatched' || effectiveStatus === 'InProgress';
-      const statusText =
-        isDispatched && tData?.dispatchStatus === 'OnScene'
-          ? (i18n.language === 'en' ? 'On Scene' : 'Đã đến hiện trường')
-          : formatCitizenIncidentStatus(effectiveStatus);
+      const statusText = resolveCitizenLiveStatusLabel(effectiveStatus, tData?.dispatchStatus);
       const statusColor = isDispatched ? '#059669' : '#DC2626';
       const statusLabel = i18n.language === 'en' ? 'STATUS' : 'TRẠNG THÁI';
 
@@ -1363,7 +1360,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
           <div style="font-size: 11px; font-weight: 700; color: #0F172A;">${displayTitle}</div>
           <div style="font-size: 10px; color: #64748B; margin-top: 2px;">📍 ${inc.locationAddress}</div>
           <div style="font-size: 10px; font-weight: 700; color: ${statusColor}; margin-top: 4px; padding-top: 4px; border-top: 1px solid #E2E8F0;">
-            ${statusLabel}: ${statusText.toUpperCase()}
+            ${statusLabel}: ${statusText}
           </div>
         </div>
       `;
@@ -1647,7 +1644,7 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
                       : 'bg-red-600 text-white'
                   }`}
                 >
-                  {formatCitizenIncidentStatus(hudStatus).toUpperCase()}
+                  {resolveCitizenLiveStatusLabel(hudStatus, trackingData?.dispatchStatus)}
                 </span>
               </div>
 
@@ -1698,28 +1695,18 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
                   : liveDistKm !== null
                   ? Math.max(1, Math.round((liveDistKm / (liveVehicle?.speedKmh && liveVehicle.speedKmh > 5 ? liveVehicle.speedKmh : 35)) * 60))
                   : trackingData.estimatedArrivalMinutes || 3;
-                const dispatchLabel = formatCitizenDispatchStatus(trackingData.dispatchStatus);
 
                 return (
-                  <div className="mt-2 pt-1.5 border-t border-slate-100 space-y-1 text-[10px] font-mono">
-                    <div className="flex items-center justify-between gap-1.5">
-                      <span className={`font-extrabold truncate ${isOnScene ? 'text-amber-600' : 'text-blue-600'}`}>
-                        {dispatchLabel}
+                  <div className="mt-2 pt-1.5 border-t border-slate-100 text-[10px] font-mono">
+                    <div className="flex items-center justify-between gap-1.5 text-slate-600">
+                      <span className="text-emerald-700 font-bold flex items-center gap-1 min-w-0 truncate">
+                        <Navigation className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span className="truncate">{t('citizen.landing.radarTrackingEta', { min: liveEta })}</span>
                       </span>
-                      <span className="text-slate-700 font-bold truncate shrink-0 max-w-[100px]">
+                      <span className="text-slate-700 font-bold truncate shrink-0 max-w-[130px]">
                         {trackingData.plateNumber || t('citizen.reports.rescueUnitDefault')}
+                        {liveDistKm !== null ? ` · ${liveDistKm.toFixed(1)} km` : ''}
                       </span>
-                    </div>
-                    <div className="flex items-center justify-between text-slate-600">
-                      <span className="text-emerald-700 font-bold flex items-center gap-1">
-                        <Navigation className="w-3 h-3 text-emerald-600" />
-                        {t('citizen.landing.radarTrackingEta', { min: liveEta })}
-                      </span>
-                      {liveDistKm !== null && (
-                        <span className="font-semibold text-slate-500">
-                          {liveDistKm.toFixed(1)} km
-                        </span>
-                      )}
                     </div>
                   </div>
                 );

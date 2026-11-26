@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -15,6 +15,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Notice } from '../../components/admin/common/ui';
+import { OpenIncidentsDrawer } from '../../components/admin/overview/OpenIncidentsDrawer';
+import { OPEN_INCIDENT_STATUSES, type OpenIncidentStatus } from '../../services/admin/openIncidentAdminService';
 import { useServiceQuery } from '../../components/admin/common/hooks';
 import { RESCUE_UNIT_STATUS_META } from '../../components/admin/fleetMeta';
 import { severityLabel } from '../../components/admin/escalation/escalationMeta';
@@ -39,12 +41,18 @@ const VEHICLE_GROUPS: { key: OverviewVehicleGroup; color: string }[] = [
 ];
 
 // Sự cố đang mở theo giai đoạn xử lý. Nhãn: admin.monitoring.overview.incident*.
+// `statuses`: bấm ô → danh sách sự cố đang mở ở các trạng thái đó (có nút Hủy để dọn ca không ai xử lý được).
 const INCIDENT_GROUPS = [
-  { key: 'pending', labelKey: 'incidentPending', dotClass: 'bg-sky-500' },
-  { key: 'verified', labelKey: 'incidentVerified', dotClass: 'bg-indigo-400' },
-  { key: 'dispatched', labelKey: 'incidentDispatched', dotClass: 'bg-emerald-500' },
-  { key: 'escalated', labelKey: 'incidentEscalated', dotClass: 'bg-red-600' },
-] as const satisfies readonly { key: keyof AdminOverview['incidents']; labelKey: string; dotClass: string }[];
+  { key: 'pending', labelKey: 'incidentPending', dotClass: 'bg-sky-500', statuses: ['Pending', 'AiProcessing', 'AiProcessed'] },
+  { key: 'verified', labelKey: 'incidentVerified', dotClass: 'bg-indigo-400', statuses: ['Verified'] },
+  { key: 'dispatched', labelKey: 'incidentDispatched', dotClass: 'bg-emerald-500', statuses: ['Dispatched', 'InProgress'] },
+  { key: 'escalated', labelKey: 'incidentEscalated', dotClass: 'bg-red-600', statuses: ['Escalated'] },
+] as const satisfies readonly {
+  key: keyof AdminOverview['incidents'];
+  labelKey: string;
+  dotClass: string;
+  statuses: readonly OpenIncidentStatus[];
+}[];
 
 // Mọi hàng thẻ cùng một lưới 5 cột để các cột thẳng hàng.
 const STAT_GRID = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3';
@@ -64,6 +72,7 @@ const OverviewPage: React.FC = () => {
   const query = useServiceQuery(() => overviewAdminService.getOverview(), 'overview');
   const data = query.data;
   const vehicleTotal = data ? VEHICLE_GROUPS.reduce((sum, g) => sum + data.vehicleCounts[g.key], 0) : 0;
+  const [openList, setOpenList] = useState<{ title: string; statuses: readonly OpenIncidentStatus[] } | null>(null);
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -83,11 +92,29 @@ const OverviewPage: React.FC = () => {
 
       {query.error && <Notice notice={{ kind: 'error', message: query.error }} />}
 
+      {openList && (
+        <OpenIncidentsDrawer
+          key={openList.statuses.join(',')}
+          title={openList.title}
+          statuses={openList.statuses}
+          onClose={() => setOpenList(null)}
+          onChanged={query.reload}
+        />
+      )}
+
       {data && (
         <div className={`space-y-6 transition-opacity ${query.loading ? 'opacity-60' : ''}`}>
           <Section title={t('admin.monitoring.overview.openIncidents')} hint={t('admin.monitoring.overview.openIncidentsHint')}>
             <div className={STAT_GRID}>
-              <StatCard icon={Siren} label={t('admin.monitoring.overview.openTotal')} value={data.incidents.active} strong />
+              <StatCard
+                icon={Siren}
+                label={t('admin.monitoring.overview.openTotal')}
+                value={data.incidents.active}
+                strong
+                onClick={() =>
+                  setOpenList({ title: t('admin.monitoring.overview.openTotal'), statuses: OPEN_INCIDENT_STATUSES })
+                }
+              />
               {INCIDENT_GROUPS.map((g) => (
                 <StatCard
                   key={g.key}
@@ -95,6 +122,9 @@ const OverviewPage: React.FC = () => {
                   label={t(`admin.monitoring.overview.${g.labelKey}`)}
                   value={data.incidents[g.key]}
                   alert={g.key === 'escalated'}
+                  onClick={() =>
+                    setOpenList({ title: t(`admin.monitoring.overview.${g.labelKey}`), statuses: g.statuses })
+                  }
                 />
               ))}
             </div>
@@ -180,6 +210,8 @@ const Section: React.FC<{ title: string; count?: React.ReactNode; hint?: React.R
  */
 const StatCard: React.FC<{
   to?: string;
+  /** Bấm ô mở danh sách (không chuyển trang). */
+  onClick?: () => void;
   label: string;
   value: number | null;
   icon?: LucideIcon;
@@ -188,7 +220,7 @@ const StatCard: React.FC<{
   alert?: boolean;
   strong?: boolean;
   note?: string;
-}> = ({ to, label, value, icon: Icon, dotColor, dotClass, alert, strong, note }) => {
+}> = ({ to, onClick, label, value, icon: Icon, dotColor, dotClass, alert, strong, note }) => {
   const hot = alert && !!value;
   const numberClass = hot ? 'text-red-600' : value || strong ? 'text-slate-900' : 'text-slate-300';
   const body = (
@@ -204,7 +236,7 @@ const StatCard: React.FC<{
         <span className={`text-xl font-black font-mono-data tabular-nums ${numberClass}`}>{value ?? '—'}</span>
         {note && <span className="text-[11px] font-semibold text-amber-700 truncate">{note}</span>}
       </div>
-      {to && (
+      {(to || onClick) && (
         <ChevronRight className="absolute top-3 right-2.5 w-4 h-4 text-slate-300 group-hover:text-red-500 transition-colors" />
       )}
     </>
@@ -214,6 +246,14 @@ const StatCard: React.FC<{
     <Link to={to} className={`group block ${frame} hover:border-red-300 hover:shadow-sm transition-all`}>
       {body}
     </Link>
+  ) : onClick ? (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group block w-full text-left ${frame} hover:border-red-300 hover:shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300`}
+    >
+      {body}
+    </button>
   ) : (
     <div className={frame}>{body}</div>
   );

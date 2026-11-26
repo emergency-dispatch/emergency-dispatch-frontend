@@ -31,8 +31,9 @@ import type { BlockDuration, OperatorCancellationCode } from '../../types/incide
 import type { DispatchAlgorithm } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
 
-// DEV ONLY: giả lập GPS xe khi chưa có điện thoại Staff. Chỉ nạp khi `npm run dev`, bản build loại bỏ hẳn.
-const GpsSimulatorPanel = import.meta.env.DEV
+// Giả lập GPS xe để demo khi chưa có điện thoại Staff: bật cả bản dev lẫn bản deploy (nạp lười, chỉ tải khi mở Live Map).
+// Tắt ở bản thật bằng biến môi trường VITE_GPS_SIMULATOR=off.
+const GpsSimulatorPanel = import.meta.env.VITE_GPS_SIMULATOR !== 'off'
   ? React.lazy(() =>
       import('../../components/operator/livemap/GpsSimulatorPanel').then((m) => ({ default: m.GpsSimulatorPanel }))
     )

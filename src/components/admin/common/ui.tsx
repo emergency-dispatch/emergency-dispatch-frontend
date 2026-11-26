@@ -138,7 +138,10 @@ export const DrawerShell: React.FC<{
       </div>
       <form onSubmit={onSubmit} className="flex-1 min-h-0 flex flex-col">
         <div className="flex-1 overflow-y-auto p-5 space-y-4">{children}</div>
-        <div className="shrink-0 p-4 border-t border-slate-200 grid grid-cols-2 gap-3">{footer}</div>
+        {/* Chừa đáy rộng hơn (và vùng an toàn của máy có thanh home) để nút không sát mép cửa sổ. */}
+        <div className="shrink-0 px-5 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] border-t border-slate-200 grid grid-cols-2 gap-3">
+          {footer}
+        </div>
       </form>
     </aside>
   </>
