@@ -12,13 +12,7 @@ import {
   Siren,
 } from 'lucide-react';
 import { IncidentAuditTimeline } from './IncidentAuditTimeline';
-import {
-  AiFindings,
-  AiSummaryBlock,
-  AiVerdictFacts,
-  CancelCaseFields,
-  ReporterEvidence,
-} from './IncidentDossierSections';
+import { AiInsightBlock, CancelCaseFields, ReporterEvidence } from './IncidentDossierSections';
 import { LinkedReportsPanel } from './LinkedReportsPanel';
 import { StaleChip } from './StaleChip';
 import { TrafficJamReview } from './TrafficJamReview';
@@ -251,18 +245,6 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
         : !overrideReasonValid
           ? t('incidents.drawer.decisionHint.needReason', { min: OVERRIDE_REASON_MIN_LENGTH })
           : null;
-  // Panel hẹp (< xl): cột quyết định nằm dưới đáy → banner AI + nhận định AI đặt đầu cột bằng chứng.
-  // Panel rộng (xl): cột quyết định giữ lý do + nhận định AI gọn (`AiVerdictFacts`) để mức độ và nút duyệt không phải cuộn;
-  // cột bằng chứng chỉ giữ các cảnh báo AI (AI lỗi, độ tin cậy thấp…) dưới đoạn AI mô tả ảnh.
-  const evidenceAfterDescription = (
-    <>
-      <AiSummaryBlock incident={incident} lines={3} />
-      <div className="hidden xl:block space-y-2.5 empty:hidden">
-        <AiFindings key={incident.id} incident={incident} showSection={false} />
-      </div>
-    </>
-  );
-
   return (
     <aside aria-label={t('incidents.drawer.kicker')} className="h-full flex flex-col bg-white">
       {/* Đầu panel: quay lại + giữ ca + chuyển trạm; tên sự cố; mã / loại / nơi / thời gian chờ */}
@@ -380,10 +362,10 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
               />
             </div>
           ) : (
-            <div className="p-5 space-y-5">
-              <div className="xl:hidden space-y-4">
+            <div className="p-5">
+              {/* Panel hẹp: lý do AI chuyển ca đặt đầu cột (cột quyết định nằm dưới đáy). */}
+              <div className="xl:hidden mb-4 empty:hidden">
                 <AutoDispatchBanner incident={incident} compact />
-                <AiFindings key={incident.id} incident={incident} showSummary={false} />
               </div>
               <ReporterEvidence
                 incident={incident}
@@ -391,7 +373,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 phone={phone}
                 revealDisabled={lockedByOther}
                 showLocation={false}
-                afterDescription={evidenceAfterDescription}
+                afterDescription={<AiInsightBlock key={incident.id} incident={incident} />}
                 compact
                 showMedical={false}
               />
@@ -438,12 +420,11 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
               <CancelCaseFields incident={incident} value={cancelInput} onChange={setCancelInput} />
             ) : (
               <>
-                <div className="hidden xl:block space-y-3">
+                <div className="hidden xl:block xl:empty:hidden">
                   <AutoDispatchBanner incident={incident} compact />
-                  <AiVerdictFacts incident={incident} />
                 </div>
 
-                <div className="space-y-3.5 xl:pt-3.5 xl:border-t xl:border-slate-100">
+                <div className="space-y-3.5">
                   {incident.needsEventType && (
                     <div>
                       <p className={DOCK_LABEL}>
@@ -573,6 +554,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                       decision={trafficJamDecision}
                       onDecisionChange={setTrafficJamDecision}
                       readOnly={!canAct}
+                      compact
                     />
                   )}
                 </div>
