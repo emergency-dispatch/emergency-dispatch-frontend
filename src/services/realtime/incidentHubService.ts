@@ -12,6 +12,24 @@ const STOP_DELAY_MS = 300;
 const RETRY_DELAY_MS = 3000;
 type JobAssignedListener = (assignment: DispatchAssignmentResponseDto) => void;
 
+const NAME_ID_CLAIM = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
+
+/**
+ * Id người dùng trong access token (không kiểm chữ ký, chỉ để biết kết nối thuộc tài khoản nào).
+ * SignalR gắn danh tính lúc kết nối → token đổi sang người khác thì phải kết nối lại (§47).
+ */
+const tokenUserId = (token: string | null): string | null => {
+  if (!token) return null;
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return String(json[NAME_ID_CLAIM] ?? json.nameid ?? json.sub ?? '') || null;
+  } catch {
+    return null;
+  }
+};
+
 /** Tên sự kiện server → client (EmergencyDispatch.API.Realtime.RealtimeContract). */
 export const HubEvents = {
   ReceiveNewIncident: 'ReceiveNewIncident',
@@ -61,6 +79,8 @@ class HubClient {
   private status: HubStatus = 'disconnected';
   /** Đã từng kết nối thành công trong phiên này (lần nối sau tính là "nối lại"). */
   private hasConnected = false;
+  /** Tài khoản của kết nối hiện tại (theo token lúc kết nối) */
+  private connectedUserId: string | null = null;
   private statusListeners = new Set<() => void>();
 
   /** Ngôn ngữ thông báo lỗi của hub (?culture=). null = không gửi (mặc định của server). */
@@ -84,7 +104,10 @@ class HubClient {
   private register(event: string) {
     if (!this.connection || this.registeredEvents.has(event)) return;
     this.registeredEvents.add(event);
-    this.connection.on(event, (payload: unknown) => {
+    const connection = this.connection;
+    connection.on(event, (payload: unknown) => {
+      // Kết nối đã bị thay (đổi tài khoản) nhưng chưa đóng hẳn → bỏ sự kiện của tài khoản cũ (§47)
+      if (this.connection !== connection) return;
       this.listeners.get(event)?.forEach((listener) => {
         try {
           listener(payload);
@@ -119,11 +142,18 @@ class HubClient {
       clearTimeout(this.retryTimer);
       this.retryTimer = null;
     }
+    const token = localStorage.getItem(API_CONFIG.TOKEN_KEY);
+
+    // Kết nối đang mở của tài khoản khác (đăng xuất rồi đăng nhập tài khoản mới trên cùng tab, hoặc tab khác đổi token)
+    // → ngắt ngay, không dùng lại, nếu không tài khoản mới sẽ nhận sự kiện của tài khoản cũ (§47)
+    if (this.connection && this.connectedUserId !== tokenUserId(token)) {
+      this.dropConnection();
+    }
+
     if (this.connection && this.connection.state !== HubConnectionState.Disconnected) {
       return this.startPromise ?? Promise.resolve(true);
     }
 
-    const token = localStorage.getItem(API_CONFIG.TOKEN_KEY);
     if (!token) {
       this.setStatus('disconnected');
       return Promise.resolve(false);
@@ -137,6 +167,7 @@ class HubClient {
       .configureLogging(LogLevel.Warning)
       .build();
     this.connection = connection;
+    this.connectedUserId = tokenUserId(token);
     this.registeredEvents.clear();
     this.listeners.forEach((_, event) => this.register(event));
     connection.onreconnecting(() => this.setStatus('reconnecting'));
@@ -190,6 +221,7 @@ class HubClient {
         const pendingStart = this.startPromise;
         this.connection = null;
         this.startPromise = null;
+        this.connectedUserId = null;
         this.registeredEvents.clear();
         this.hasConnected = false;
         this.setStatus('disconnected');
@@ -203,6 +235,45 @@ class HubClient {
         resolve();
       }, STOP_DELAY_MS);
     });
+  }
+
+  /** Bỏ kết nối hiện tại ngay (không trễ như stop()); listener của các màn hình vẫn giữ để gắn vào kết nối mới */
+  private dropConnection() {
+    if (this.stopTimer) {
+      clearTimeout(this.stopTimer);
+      this.stopTimer = null;
+    }
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+    const connection = this.connection;
+    const pendingStart = this.startPromise;
+    this.connection = null;
+    this.startPromise = null;
+    this.connectedUserId = null;
+    this.registeredEvents.clear();
+    this.hasConnected = false;
+    this.setStatus('disconnected');
+    if (connection) {
+      // Chờ bắt tay xong rồi mới ngắt, tránh lỗi "stopped during negotiation"
+      void Promise.resolve(pendingStart)
+        .catch(() => undefined)
+        .then(() => connection.stop())
+        .catch(() => undefined);
+    }
+  }
+
+  /**
+   * Đăng xuất / đăng nhập tài khoản khác: ngắt kết nối của tài khoản cũ ngay.
+   * restart = true và đang có token → kết nối lại bằng tài khoản mới (màn hình đang mở không phải tự start lại)
+   */
+  public reset(restart = false): void {
+    const hadConnection = this.connection !== null;
+    this.dropConnection();
+    if (restart && hadConnection && localStorage.getItem(API_CONFIG.TOKEN_KEY)) {
+      void this.start();
+    }
   }
 
   public isConnected(): boolean {
@@ -266,6 +337,15 @@ export const incidentHubService = new HubClient('/hubs/incidents');
 /** Hub vị trí GPS: Operator nhận ReceiveRescueUnitLocation tại đây (không phát qua /hubs/incidents). */
 export const trackingHubService = new HubClient('/hubs/tracking');
 
+/**
+ * Gọi khi đăng xuất (restart = false) hoặc vừa đăng nhập tài khoản mới (restart = true):
+ * ngắt kết nối realtime mang danh tính tài khoản cũ trên cả 2 hub (§47)
+ */
+export const resetRealtimeHubs = (restart = false) => {
+  incidentHubService.reset(restart);
+  trackingHubService.reset(restart);
+};
+
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const resumeHubs = () => {
     if (document.visibilityState !== 'visible') return;
@@ -277,4 +357,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   };
   document.addEventListener('visibilitychange', resumeHubs);
   window.addEventListener('online', resumeHubs);
+
+  // Tab khác đăng xuất / đăng nhập tài khoản khác (localStorage dùng chung) → tab này ngắt kết nối của tài khoản cũ
+  window.addEventListener('storage', (e) => {
+    if (e.key !== API_CONFIG.TOKEN_KEY && e.key !== null) return;
+    if (tokenUserId(e.oldValue) === tokenUserId(e.newValue) && e.key !== null) return; // chỉ làm mới token cùng người
+    resetRealtimeHubs(true);
+  });
 }

@@ -237,6 +237,55 @@ describe('HubClient', () => {
     expect(last().url).toBe('http://api.test/hubs/incidents?culture=en');
   });
 
+  // §47: SignalR gắn danh tính lúc kết nối → đổi tài khoản trên cùng tab phải kết nối lại
+  const jwt = (userId: string, extra = '') =>
+    `h.${btoa(JSON.stringify({ 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier': userId, jti: extra }))}.s`;
+
+  it('token đổi sang tài khoản khác → bỏ kết nối cũ, tạo kết nối mới', async () => {
+    localStorage.setItem(API_CONFIG.TOKEN_KEY, jwt('staff-1'));
+    await mod.incidentHubService.start();
+    const old = last();
+
+    localStorage.setItem(API_CONFIG.TOKEN_KEY, jwt('staff-3'));
+    await mod.incidentHubService.start();
+
+    expect(h.connections).toHaveLength(2);
+    await vi.waitFor(() => expect(old.stop).toHaveBeenCalled());
+    expect(last().options.accessTokenFactory()).toBe(jwt('staff-3'));
+  });
+
+  it('làm mới token của cùng tài khoản → giữ kết nối', async () => {
+    localStorage.setItem(API_CONFIG.TOKEN_KEY, jwt('staff-1', 'a'));
+    await mod.incidentHubService.start();
+    localStorage.setItem(API_CONFIG.TOKEN_KEY, jwt('staff-1', 'b'));
+    await mod.incidentHubService.start();
+    expect(h.connections).toHaveLength(1);
+  });
+
+  it('resetRealtimeHubs: đăng xuất ngắt cả 2 hub ngay; listener vẫn gắn vào kết nối mới sau khi đăng nhập lại', async () => {
+    localStorage.setItem(API_CONFIG.TOKEN_KEY, jwt('staff-1'));
+    const onJob = vi.fn();
+    mod.incidentHubService.on(mod.HubEvents.ReceiveJobAssigned, onJob);
+    await mod.incidentHubService.start();
+    await mod.trackingHubService.start();
+    const [oldIncident, oldTracking] = h.connections;
+
+    localStorage.removeItem(API_CONFIG.TOKEN_KEY);
+    mod.resetRealtimeHubs(false);
+    expect(mod.incidentHubService.getStatus()).toBe('disconnected');
+    await vi.waitFor(() => expect(oldIncident.stop).toHaveBeenCalled());
+    expect(oldTracking.stop).toHaveBeenCalled();
+
+    localStorage.setItem(API_CONFIG.TOKEN_KEY, jwt('staff-3'));
+    mod.resetRealtimeHubs(true); // không có kết nối nào đang mở → không tự nối
+    expect(h.connections).toHaveLength(2);
+    await mod.incidentHubService.start();
+    oldIncident.emit(mod.HubEvents.ReceiveJobAssigned, { id: 'old' });
+    last().emit(mod.HubEvents.ReceiveJobAssigned, { id: 'new' });
+    expect(onJob).toHaveBeenCalledTimes(1);
+    expect(onJob).toHaveBeenCalledWith({ id: 'new' });
+  });
+
   it('danh sách sự kiện', () => {
     expect(mod.HubEvents.ForceLogout).toBe('ForceLogout');
     expect(Object.keys(mod.HubEvents).every((k) => mod.HubEvents[k as keyof typeof mod.HubEvents] === k)).toBe(true);
