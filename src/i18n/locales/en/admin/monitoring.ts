@@ -22,7 +22,14 @@ export const adminMonitoringEn: Messages<typeof adminMonitoringVi> = {
   refresh: 'Refresh',
   readOnlyRecord: 'Read-only record, cannot be edited or deleted.',
   openList: {
-    hint: 'Open incidents across the system. Operators handle day-to-day cases; Admin cancels here to clean up cases nobody can handle (e.g. the responsible station was deleted).',
+    hint: 'Open incidents across the system, for monitoring only — the responsible station\'s operators handle them. Admin can only cancel orphaned cases (no station left to handle them).',
+    orphanCount: '{{count}} orphaned case(s) to clean up',
+    handledByOperator: 'Handled by station operators',
+    orphan: {
+      none: 'Orphaned · no responsible station',
+      deleted: 'Orphaned · responsible station deleted',
+      inactive: 'Orphaned · responsible station inactive',
+    },
     empty: 'No incidents.',
     station: 'Responsible station:',
     noStation: 'none / deleted',

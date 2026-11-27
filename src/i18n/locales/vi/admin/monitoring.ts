@@ -20,7 +20,14 @@ export const adminMonitoringVi = {
   refresh: 'Làm mới',
   readOnlyRecord: 'Bản ghi chỉ đọc, không thể sửa hoặc xóa.',
   openList: {
-    hint: 'Sự cố chưa đóng toàn hệ thống. Ca thường ngày do Operator xử lý; Admin hủy ở đây để dọn ca không ai xử lý được (VD trạm phụ trách đã bị xóa).',
+    hint: 'Sự cố chưa đóng toàn hệ thống, chỉ để giám sát — Operator của trạm phụ trách xử lý. Admin chỉ hủy được ca mồ côi (không còn trạm nào xử lý được).',
+    orphanCount: '{{count}} ca mồ côi cần dọn',
+    handledByOperator: 'Operator trạm xử lý',
+    orphan: {
+      none: 'Mồ côi · chưa có trạm phụ trách',
+      deleted: 'Mồ côi · trạm phụ trách đã bị xóa',
+      inactive: 'Mồ côi · trạm phụ trách ngừng hoạt động',
+    },
     empty: 'Không có sự cố nào.',
     station: 'Trạm phụ trách:',
     noStation: 'không có / đã xóa',
