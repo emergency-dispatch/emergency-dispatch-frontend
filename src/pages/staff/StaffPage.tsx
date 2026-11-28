@@ -208,7 +208,9 @@ export const StaffPage: React.FC = () => {
         visible={isReportTrafficModalOpen}
         onClose={() => setIsReportTrafficModalOpen(false)}
         onSubmit={handleReportTrafficHotspot}
-        defaultAddress={profile.stationName || 'Khu Công nghệ cao TP.HCM'}
+        defaultLat={activeMission?.vehicleLat}
+        defaultLng={activeMission?.vehicleLng}
+        defaultAddress={activeMission?.address || profile.stationName || 'Khu Công nghệ cao TP.HCM'}
         reporterName={profile.name}
       />
 

@@ -318,7 +318,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
           </div>
           <div class="text-slate-800 mt-1 font-sans text-xs font-semibold">${locationAddress || 'Vị trí điểm nghẽn'}</div>
           ${taskNotes ? `<div class="text-slate-600 mt-1 text-[11px] font-sans bg-amber-50 p-1.5 rounded border border-amber-200">📌 ${taskNotes}</div>` : ''}
-          <div class="text-slate-500 mt-1 text-[11px] font-mono">${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E</div>
+          <div class="text-slate-500 mt-1 text-[11px] text-amber-600 font-sans font-medium">Chướng ngại vật giao thông</div>
         </div>
       `);
 
@@ -392,7 +392,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
                   <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500" />
                 </span>
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800">
-                  TRỰC CHIẾN SẴN SÀNG (STANDBY)
+                  TRỰC CHIẾN SẴN SÀNG
                 </span>
               </div>
             )}
@@ -417,7 +417,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
                 title="Kiểm tra lệnh điều phối mới từ máy chủ CAD"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                <span>{loading ? 'Đang đồng bộ...' : 'Đồng bộ CAD'}</span>
+                <span>{loading ? 'Đang đồng bộ...' : ''}</span>
               </button>
             </div>
           </div>
@@ -447,7 +447,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
             <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 text-emerald-900 space-y-2">
               <div className="flex items-center gap-2 font-bold text-sm">
                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>Kíp Trực Sẵn Sàng Tiếp Nhận Lệnh Điều Động</span>
+                <span> Kíp Trực Sẵn Sàng Tiếp Nhận Lệnh Điều Động</span>
               </div>
               <p className="text-xs text-emerald-800 leading-relaxed">
                 Hệ thống đang kết nối trực tuyến với Tổng đài Điều phối CAD qua SignalR. Khi có sự cố cứu nạn khẩn cấp phát lệnh tới đơn vị, còi hú cảnh báo và chỉ đường tác chiến sẽ tự động kích hoạt.
@@ -506,14 +506,6 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
                 {formatCrewRole(profile.crewRole || profile.role) ? `${formatCrewRole(profile.crewRole || profile.role)} • ` : ''}{profile.badgeNumber || 'Chưa cấp'}
               </p>
             </div>
-          </div>
-
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span className="flex items-center gap-1.5 font-mono">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              GPS: 10.8452° N, 106.7955° E
-            </span>
-            <span className="font-mono text-emerald-600 font-bold">12 VỆ TINH KHÓA</span>
           </div>
         </div>
 
@@ -650,8 +642,8 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
           <button
             onClick={handleToggle3D}
             className={`p-2.5 rounded-xl border shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer flex items-center justify-center font-mono font-bold text-xs ${is3DMode
-                ? 'bg-red-600 text-white border-red-600'
-                : 'bg-white/95 hover:bg-white text-slate-700 border-slate-200'
+              ? 'bg-red-600 text-white border-red-600'
+              : 'bg-white/95 hover:bg-white text-slate-700 border-slate-200'
               }`}
             title="Đổi góc nghiêng 2D / 3D"
           >

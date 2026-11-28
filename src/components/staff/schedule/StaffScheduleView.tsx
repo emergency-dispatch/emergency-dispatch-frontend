@@ -43,7 +43,7 @@ export const StaffScheduleView: React.FC = () => {
             Chưa Có Dữ Liệu Lịch Ca
           </h3>
           <p className="text-xs text-slate-500 max-w-lg mx-auto leading-relaxed">
-            Hiện tại bạn chưa được phân ca trực trong tuần này. Vui lòng liên hệ chỉ huy trạm để được xếp lịch trực tác chiến.
+            Tính năng đang phát triển
           </p>
         </div>
 

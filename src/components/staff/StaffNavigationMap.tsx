@@ -378,7 +378,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
               <span class="px-1.5 py-0.5 rounded text-[10px] bg-red-100 text-red-700 font-bold">KÍP XE CNCH</span>
             </div>
             <div class="text-slate-700 mt-1 font-sans font-medium">Vị trí hiện tại kíp xe đang tác chiến</div>
-            <div class="text-slate-500 mt-0.5 text-[11px] font-mono">${mission.vehicleLat.toFixed(4)}, ${mission.vehicleLng.toFixed(4)}</div>
+            <div class="text-slate-500 mt-0.5 text-[11px] font-sans">${mission.area || 'Khu vực quản lý'}</div>
           </div>
         `);
 
@@ -527,7 +527,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
             </div>
             <div class="text-slate-800 mt-1 font-sans text-xs font-semibold">${locationAddress || 'Vị trí điểm nghẽn'}</div>
             ${taskNotes ? `<div class="text-slate-600 mt-1 text-[11px] font-sans bg-amber-50 p-1.5 rounded border border-amber-200">📌 ${taskNotes}</div>` : ''}
-            <div class="text-slate-500 mt-1 text-[11px] font-mono">${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E</div>
+            <div class="text-slate-500 mt-1 text-[11px] text-amber-600 font-sans font-medium">Khu vực ùn tắc nội khu</div>
           </div>
         `);
 
@@ -1146,14 +1146,13 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
       <div className="hidden sm:flex absolute bottom-5 left-4 right-4 z-10 items-end justify-between pointer-events-none gap-2">
         {/* Left: Telemetry & Station Geofence Status */}
         <div className="flex flex-wrap items-center gap-2 pointer-events-auto max-w-[calc(100%-250px)]">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 backdrop-blur-md text-xs font-mono text-slate-200 shadow-xl">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 backdrop-blur-md text-xs font-sans text-slate-200 shadow-xl">
             <Radio className="w-3.5 h-3.5 text-red-500 animate-pulse shrink-0" />
-            <span className="text-slate-400">GPS:</span>
             <span className="font-bold text-white whitespace-nowrap">
-              {mission.vehicleLat.toFixed(4)}° N, {mission.vehicleLng.toFixed(4)}° E
+              TÍN HIỆU ĐỊNH VỊ TRỰC TUYẾN
             </span>
             <span className="text-slate-600">|</span>
-            <span className="text-emerald-400 font-bold whitespace-nowrap">12 VỆ TINH</span>
+            <span className="text-emerald-400 font-bold whitespace-nowrap">KẾT NỐI VỆ TINH TỐT</span>
           </div>
 
           {geofenceInfo && (

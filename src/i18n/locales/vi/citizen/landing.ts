@@ -110,7 +110,7 @@ export const citizenLandingVi = {
       b3: 'Offline Queue tự động lưu và gửi lại khi có mạng',
       b4: 'Giao diện tối ưu thao tác 1 tay trong tình huống khẩn cấp',
       log1: '[14:32:01.04] Nhận gói tin SOS từ ứng dụng công dân #8942',
-      log2: '[14:32:01.12] Khóa định vị GPS: 21.0285, 105.8542 (±2.8m)',
+      log2: '[14:32:01.12] Khóa định vị chuẩn xác: Khu Công nghệ cao TP.HCM (±2.8m)',
       log3: '[14:32:01.45] Đã tải lên 2 ảnh hiện trường & 1 bản ghi âm',
     },
     step2: {
