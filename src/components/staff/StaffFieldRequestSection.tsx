@@ -105,7 +105,6 @@ export const StaffFieldRequestSection: React.FC<StaffFieldRequestSectionProps> =
             <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-900">
               YÊU CẦU CHI VIỆN &amp; HỖ TRỢ HIỆN TRƯỜNG
             </h4>
-            <p className="text-[10px] text-slate-500 font-mono">Quy chuẩn Mục 21.2 &amp; 12.2</p>
           </div>
         </div>
 
@@ -180,25 +179,23 @@ export const StaffFieldRequestSection: React.FC<StaffFieldRequestSectionProps> =
               return (
                 <div
                   key={req.id}
-                  className={`p-3 rounded-xl border transition-all text-xs space-y-2 ${
-                    req.status === 'Fulfilled'
+                  className={`p-3 rounded-xl border transition-all text-xs space-y-2 ${req.status === 'Fulfilled'
                       ? 'bg-emerald-50/50 border-emerald-200'
                       : req.status === 'Declined'
-                      ? 'bg-rose-50/40 border-rose-200'
-                      : isOpen
-                      ? 'bg-amber-50/40 border-amber-300'
-                      : 'bg-slate-50 border-slate-200'
-                  }`}
+                        ? 'bg-rose-50/40 border-rose-200'
+                        : isOpen
+                          ? 'bg-amber-50/40 border-amber-300'
+                          : 'bg-slate-50 border-slate-200'
+                    }`}
                 >
                   {/* Top row: Type badge + Status */}
                   <div className="flex flex-wrap items-center justify-between gap-1.5">
                     <div className="flex items-center gap-1.5">
                       <span
-                        className={`px-2 py-0.5 rounded-md font-bold text-[10px] font-mono border ${
-                          isBackup
+                        className={`px-2 py-0.5 rounded-md font-bold text-[10px] font-mono border ${isBackup
                             ? 'bg-red-50 text-red-700 border-red-200'
                             : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                        }`}
+                          }`}
                       >
                         {isBackup ? `CHI VIỆN: +${req.quantity} XE` : 'VẤN ĐỀ KHÁC'}
                       </span>
@@ -225,13 +222,12 @@ export const StaffFieldRequestSection: React.FC<StaffFieldRequestSectionProps> =
                   {/* Response Note from Operator (if fulfilled or declined) */}
                   {req.responseNote && (
                     <div
-                      className={`p-2 rounded-lg text-[11px] flex items-start gap-1.5 ${
-                        req.status === 'Fulfilled'
+                      className={`p-2 rounded-lg text-[11px] flex items-start gap-1.5 ${req.status === 'Fulfilled'
                           ? 'bg-emerald-100/70 text-emerald-950 font-medium'
                           : req.status === 'Declined'
-                          ? 'bg-rose-100/70 text-rose-950 font-medium'
-                          : 'bg-slate-100 text-slate-800'
-                      }`}
+                            ? 'bg-rose-100/70 text-rose-950 font-medium'
+                            : 'bg-slate-100 text-slate-800'
+                        }`}
                     >
                       <MessageSquare className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                       <span>
@@ -246,9 +242,9 @@ export const StaffFieldRequestSection: React.FC<StaffFieldRequestSectionProps> =
                       {req.ageMinutes !== undefined
                         ? `${req.ageMinutes} phút trước`
                         : new Date(req.createdAt).toLocaleTimeString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                     </span>
 
                     {/* Cancel action if Open or Acknowledged */}
