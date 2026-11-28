@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldAlert, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ShieldCheck } from 'lucide-react';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -22,13 +22,8 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
           <span>Về trang chủ</span>
         </Link>
 
-        <Link to="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center shadow-xs text-white">
-            <ShieldAlert className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-black text-slate-900 tracking-wider">
-            ResQ<span className="text-red-600">-AI</span>
-          </span>
+        <Link to="/" className="flex items-center">
+          <img src="/brand-logo.png" alt="ResQ-AI" className="h-9 w-auto object-contain" />
         </Link>
       </header>
 

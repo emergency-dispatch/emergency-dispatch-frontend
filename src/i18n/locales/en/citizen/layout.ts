@@ -13,6 +13,7 @@ export const citizenLayoutEn: Messages<typeof citizenLayoutVi> = {
   myReports: 'Incident History',
   staffPortal: 'Rescue Operations',
   cadPortal: 'CAD Command Center',
+  adminPortal: 'Admin Portal',
   language: 'Language',
   menu: 'Navigation Menu',
   toPortal: 'Go to {{portal}}',

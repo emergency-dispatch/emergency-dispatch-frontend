@@ -7,15 +7,13 @@ import {
   UserCircle,
   ChevronsLeft,
   ChevronsRight,
-  ShieldAlert,
-  Flame,
   Clock,
   CheckCircle2,
   LogOut,
   Users,
   X,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { StaffProfile } from '../../types/staff';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -119,21 +117,27 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
         }`}
       >
         {/* Brand Header */}
-        <div className="flex items-center h-16 shrink-0 border-b border-slate-200 px-4 gap-3 overflow-hidden">
-          <div className="w-9 h-9 rounded-xl bg-red-600 flex items-center justify-center shrink-0 shadow-sm text-white">
-            <Flame className="w-5 h-5 text-white" />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <span className="text-sm font-extrabold text-slate-900 tracking-wide uppercase font-mono">
-                Staff <span className="text-red-600">MDT Hub</span>
-              </span>
-              <div className="text-[11px] text-red-600 font-mono font-bold truncate">
-                {profile.vehiclePlate}
+        <Link
+          to="/"
+          title="Về trang chủ"
+          className="flex items-center h-16 shrink-0 border-b border-slate-200 px-3.5 gap-2.5 overflow-hidden hover:bg-slate-50 transition-colors"
+        >
+          {collapsed ? (
+            <img src="/favicon.png?v=2" alt="ResQ-AI" className="w-8 h-8 object-contain shrink-0 mx-auto" />
+          ) : (
+            <>
+              <img src="/brand-logo.png" alt="ResQ-AI" className="h-8 w-auto object-contain shrink-0" />
+              <div className="min-w-0 flex-1 leading-tight">
+                <span className="block text-[10px] font-extrabold text-slate-600 tracking-wide uppercase font-mono">
+                  Staff Hub
+                </span>
+                <div className="text-[11px] text-red-600 font-mono font-bold truncate">
+                  {profile.vehiclePlate}
+                </div>
               </div>
-            </div>
+            </>
           )}
-        </div>
+        </Link>
 
         {/* Navigation menu items */}
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1.5">
@@ -261,20 +265,18 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
           {/* Drawer panel */}
           <aside className="relative w-72 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col z-[1001] select-none animate-fadeIn">
             {/* Drawer Header */}
-            <div className="flex items-center justify-between h-16 shrink-0 border-b border-slate-200 px-4">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-red-600 flex items-center justify-center shrink-0 shadow-sm text-white">
-                  <Flame className="w-5 h-5 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-sm font-extrabold text-slate-900 tracking-wide uppercase font-mono">
-                    Staff <span className="text-red-600">MDT Hub</span>
+            <div className="flex items-center justify-between h-16 shrink-0 border-b border-slate-200 px-3.5">
+              <Link to="/" title="Về trang chủ" className="flex items-center gap-2.5 min-w-0 hover:opacity-85 transition-opacity">
+                <img src="/brand-logo.png" alt="ResQ-AI" className="h-8 w-auto object-contain shrink-0" />
+                <div className="min-w-0 leading-tight">
+                  <span className="block text-[10px] font-extrabold text-slate-600 tracking-wide uppercase font-mono">
+                    Staff Hub
                   </span>
                   <div className="text-[11px] text-red-600 font-mono font-bold truncate">
                     {profile.vehiclePlate}
                   </div>
                 </div>
-              </div>
+              </Link>
 
               <button
                 type="button"

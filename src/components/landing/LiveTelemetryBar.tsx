@@ -25,8 +25,8 @@ export const LiveTelemetryBar: React.FC = () => {
   }, []);
 
   return (
-    <div className="bg-white border-y border-slate-200 py-3 px-4 sm:px-6 lg:px-8 font-mono-data text-xs overflow-hidden shadow-xs">
-      <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+    <div className="bg-white border-y border-slate-200 py-3 px-4 sm:px-6 lg:px-10 xl:px-12 font-mono-data text-xs overflow-hidden shadow-xs">
+      <div className="max-w-[1520px] mx-auto flex flex-wrap items-center justify-between gap-4">
         
         {/* Left Status Marker */}
         <div className="flex items-center gap-2.5">

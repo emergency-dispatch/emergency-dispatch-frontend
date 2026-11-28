@@ -1,6 +1,5 @@
 import React from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { ShieldAlert } from 'lucide-react';
 import { COMPLETION_PATH, INCIDENT_QUEUE_PATH, dashboardNavGroups } from '../../data/dashboardMock';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { hasPendingCompletion } from './completion/completionGroups';
@@ -55,15 +54,8 @@ export const OperatorSidebar: React.FC = () => {
   };
 
   return (
-    // Thanh điều hướng 80px: icon + nhãn ngắn luôn hiện (không cần rê chuột); tên đầy đủ trong tooltip.
+    // Thanh điều hướng 80px dưới topbar: icon + nhãn ngắn luôn hiện (không cần rê chuột); tên đầy đủ trong tooltip.
     <aside className="flex flex-col h-full w-20 shrink-0 bg-white border-r border-slate-200">
-      {/* Logo — cao bằng thanh trên cùng để hai đường viền dưới thẳng hàng. */}
-      <div className="flex items-center justify-center h-16 shrink-0 border-b border-slate-200">
-        <div className="w-9 h-9 rounded-lg bg-red-600 flex items-center justify-center shadow-sm">
-          <ShieldAlert className="w-5 h-5 text-white" />
-        </div>
-      </div>
-
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-1.5 flex flex-col gap-1">
         {dashboardNavGroups.map((group) =>

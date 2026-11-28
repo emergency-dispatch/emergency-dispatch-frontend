@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, ChevronDown, LogOut, MapPin, Plus, Settings, ShieldAlert, Siren, User } from 'lucide-react';
+import { Bell, CheckCheck, ChevronDown, LogOut, MapPin, Plus, Settings, Siren, User } from 'lucide-react';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -97,12 +97,10 @@ export const OperatorTopbar: React.FC = () => {
     <header className="relative z-[1300] h-16 shrink-0 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs flex items-center justify-between px-5">
       {/* Left: Logo + Station on duty */}
       <div className="flex items-center gap-4 min-w-0">
-        <Link to="/" className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center shadow-sm">
-            <ShieldAlert className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-base font-black text-slate-900 tracking-wide hidden xl:inline whitespace-nowrap">
-            ResQ<span className="text-red-600">-AI</span>
+        <Link to="/" title="Về trang chủ" className="flex items-center gap-2 shrink-0 hover:opacity-85 transition-opacity">
+          <img src="/brand-logo.png" alt="ResQ-AI" className="h-8 w-auto object-contain shrink-0" />
+          <span className="inline-flex px-2 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 text-[10px] font-mono font-bold uppercase tracking-wider whitespace-nowrap">
+            Operator
           </span>
         </Link>
 
