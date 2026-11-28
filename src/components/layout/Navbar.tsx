@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ShieldAlert,
   Menu,
   X,
   LogIn,
@@ -25,7 +24,8 @@ import { useSosCooldown } from '../../hooks/useSosCooldown';
 import { UserRole } from '../../types/auth';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { getAvatarUrl, DEFAULT_AVATAR } from '../../utils/avatar';
-import { useTranslation, getLanguage, setLanguage, LANGUAGE_OPTIONS } from '../../i18n';
+import { LanguageSwitcher } from '../common/LanguageSwitcher';
+import { useTranslation } from '../../i18n';
 
 interface NavbarProps {
   onOpenSos: () => void;
@@ -132,8 +132,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
     if (user.role === UserRole.RescueStaff) {
       return { label: t('citizen.layout.staffPortal'), path: '/staff', icon: Radio };
     }
-    if (user.role === UserRole.Operator || user.role === UserRole.Admin) {
+    if (user.role === UserRole.Operator) {
       return { label: t('citizen.layout.cadPortal'), path: '/dashboard', icon: LayoutDashboard };
+    }
+    if (user.role === UserRole.Admin) {
+      return { label: t('citizen.layout.adminPortal'), path: '/admin/overview', icon: LayoutDashboard };
     }
     return null;
   };
@@ -143,35 +146,27 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-out ${
-          isHeroMapExpanded
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-out ${isHeroMapExpanded
             ? '-translate-y-full opacity-0 pointer-events-none'
             : 'translate-y-0 opacity-100'
-        } ${
-          isScrolled
+          } ${isScrolled
             ? 'bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm py-3'
             : 'bg-white/90 backdrop-blur-sm border-b border-slate-200/60 py-3.5'
-        }`}
+          }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1520px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12">
           <div className="flex items-center justify-between h-11">
             {/* Clean Brand Logo */}
-            <Link to="/" className="flex items-center gap-2.5 group shrink-0 whitespace-nowrap mr-4 xl:mr-8">
-              <div className="relative shrink-0">
-                <div className="w-9 h-9 rounded-xl bg-red-600 flex items-center justify-center shadow-md shadow-red-500/25 group-hover:bg-red-700 transition-all duration-300">
-                  <ShieldAlert className="w-5 h-5 text-white animate-pulse" />
-                </div>
-                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-                </span>
-              </div>
-
-              <div className="flex items-center whitespace-nowrap">
-                <span className="text-xl xl:text-2xl font-black tracking-wider text-slate-900">
-                  ResQ<span className="text-red-600 font-extrabold">-AI</span>
-                </span>
-              </div>
+            <Link
+              to="/"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="flex items-center group shrink-0 whitespace-nowrap mr-4 xl:mr-8"
+            >
+              <img
+                src="/brand-logo.png"
+                alt="ResQ-AI"
+                className="h-9 xl:h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+              />
             </Link>
 
             {/* Desktop Navigation: Clutter-free with grouped Features Dropdown */}
@@ -257,34 +252,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
               )}
 
               {/* Language Switcher */}
-              <div
-                role="group"
-                aria-label={t('citizen.layout.language')}
-                className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5 shadow-xs"
-              >
-                {LANGUAGE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setLanguage(option.value)}
-                    aria-pressed={getLanguage() === option.value}
-                    className={`px-2 py-1 rounded-lg text-[11px] font-bold font-mono-data transition-colors ${
-                      getLanguage() === option.value
-                        ? 'bg-white text-red-600 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+              <LanguageSwitcher label={t('citizen.layout.language')} className="rounded-xl shadow-xs" />
 
               {/* Clean Red Emergency SOS CTA */}
               <button
                 onClick={onOpenSos}
                 disabled={isCooldown}
                 className={`relative group px-4 xl:px-5 py-2 rounded-xl text-white font-bold text-xs xl:text-sm tracking-wide transition-all duration-200 flex items-center gap-2 overflow-hidden whitespace-nowrap shrink-0 ${isCooldown
-                    ? 'bg-slate-400 opacity-60 cursor-not-allowed shadow-none'
-                    : 'bg-red-600 hover:bg-red-700 shadow-md shadow-red-500/25 hover:scale-[1.02] active:scale-[0.98] cursor-pointer'
+                  ? 'bg-slate-400 opacity-60 cursor-not-allowed shadow-none'
+                  : 'bg-red-600 hover:bg-red-700 shadow-md shadow-red-500/25 hover:scale-[1.02] active:scale-[0.98] cursor-pointer'
                   }`}
                 id="nav-emergency-sos-btn"
                 title={isCooldown ? t('citizen.layout.cooldownLabel', { time: cooldownLabel }) : t('citizen.layout.reportSos')}
@@ -346,17 +322,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                       </div>
 
                       <div className="py-1">
-                        {portal && (
-                          <Link
-                            to={portal.path}
-                            onClick={() => setUserDropdownOpen(false)}
-                            className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-red-600 transition-colors"
-                          >
-                            <portal.icon className="w-3.5 h-3.5 text-red-500" />
-                            <span>{t('citizen.layout.toPortal', { portal: portal.label })}</span>
-                          </Link>
-                        )}
-
                         <button
                           onClick={() => {
                             setUserDropdownOpen(false);
@@ -420,8 +385,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
                 onClick={onOpenSos}
                 disabled={isCooldown}
                 className={`px-3 py-1.5 rounded-md text-white text-xs font-bold flex items-center gap-1 whitespace-nowrap ${isCooldown
-                    ? 'bg-slate-400 opacity-60 cursor-not-allowed shadow-none'
-                    : 'bg-red-600 shadow-md shadow-red-500/30'
+                  ? 'bg-slate-400 opacity-60 cursor-not-allowed shadow-none'
+                  : 'bg-red-600 shadow-md shadow-red-500/30'
                   }`}
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
@@ -446,26 +411,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
               {/* Language Switcher in Mobile Drawer */}
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-semibold text-slate-500">{t('citizen.layout.language')}</span>
-                <div
-                  role="group"
-                  aria-label={t('citizen.layout.language')}
-                  className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5"
-                >
-                  {LANGUAGE_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => setLanguage(option.value)}
-                      aria-pressed={getLanguage() === option.value}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold font-mono-data transition-colors ${
-                        getLanguage() === option.value
-                          ? 'bg-white text-red-600 shadow-xs'
-                          : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
+                <LanguageSwitcher label={t('citizen.layout.language')} className="rounded-xl" />
               </div>
 
               {isAuthenticated && user ? (

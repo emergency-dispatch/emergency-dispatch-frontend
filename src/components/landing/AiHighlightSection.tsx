@@ -35,10 +35,10 @@ export const AiHighlightSection: React.FC = () => {
 
   return (
     <section id="ai-technology" className="py-20 sm:py-24 bg-slate-50 relative overflow-hidden border-t border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="max-w-[1520px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 relative z-10">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
+        <div className="text-center max-w-4xl mx-auto space-y-4 mb-12 sm:mb-14">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50 border border-red-100 shadow-xs whitespace-nowrap">
             <BrainCircuit className="w-4 h-4 text-red-600 shrink-0" />
             <span className="text-xs font-mono-data uppercase tracking-widest text-red-600 font-bold">
@@ -98,7 +98,7 @@ export const AiHighlightSection: React.FC = () => {
                 <div className="absolute top-[35%] left-[25%] w-[48%] h-[46%] border-2 border-red-500 bg-red-500/10 rounded-lg pointer-events-none animate-pulse">
                   <div className="absolute -top-6 left-0 bg-red-600 text-white font-mono-data text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1">
                     <Car className="w-3 h-3" />
-                    <span>#Vehicle_Collision (99.2%)</span>
+                    <span>{t('citizen.landing.aiBoxVehicle')} (99.2%)</span>
                   </div>
                 </div>
 
@@ -106,7 +106,7 @@ export const AiHighlightSection: React.FC = () => {
                 <div className="absolute top-[48%] left-[58%] w-[18%] h-[30%] border-2 border-orange-500 bg-orange-500/15 rounded-md pointer-events-none">
                   <div className="absolute -top-6 right-0 bg-orange-600 text-white font-mono-data text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1">
                     <Flame className="w-3 h-3" />
-                    <span>#Fire_Flare (96.8%)</span>
+                    <span>{t('citizen.landing.aiBoxFire')} (96.8%)</span>
                   </div>
                 </div>
 
@@ -114,16 +114,16 @@ export const AiHighlightSection: React.FC = () => {
                 <div className="absolute top-[30%] right-[8%] w-[16%] h-[40%] border-2 border-blue-500 bg-blue-500/10 rounded-md pointer-events-none">
                   <div className="absolute -top-6 left-0 bg-blue-600 text-white font-mono-data text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1">
                     <Users className="w-3 h-3" />
-                    <span>#Personnel (94.5%)</span>
+                    <span>{t('citizen.landing.aiBoxResponders')} (94.5%)</span>
                   </div>
                 </div>
 
                 {/* Corner HUD Overlay */}
                 <div className="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur-md border border-slate-700 px-3 py-1.5 rounded-lg font-mono-data text-[11px] text-slate-300 flex items-center gap-2">
                   <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>LATENCY: <strong className="text-white">142ms</strong></span>
+                  <span>{t('citizen.landing.aiHudMode')}</span>
                   <span className="text-slate-600">|</span>
-                  <span>TOKENS: <strong className="text-white">1,280</strong></span>
+                  <span>{t('citizen.landing.aiHudModel')}</span>
                 </div>
 
               </div>
@@ -164,11 +164,11 @@ export const AiHighlightSection: React.FC = () => {
                     <p className="text-xs font-mono-data text-red-600 font-bold">{t('citizen.landing.aiTriageSubtitle')}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="px-3 py-1 rounded-lg bg-red-600 text-white font-black text-sm font-mono-data shadow-md">
+                <div className="text-right shrink-0">
+                  <div className="inline-block px-3 py-1 rounded-lg bg-red-600 text-white font-black text-sm font-mono-data shadow-md whitespace-nowrap">
                     {t('citizen.landing.aiLevel3Badge')}
                   </div>
-                  <span className="text-[10px] font-mono-data text-slate-500 font-bold">{t('citizen.landing.aiLevel3Desc')}</span>
+                  <span className="block mt-1 text-[10px] font-mono-data text-slate-500 font-bold whitespace-nowrap">{t('citizen.landing.aiLevel3Desc')}</span>
                 </div>
               </div>
 
@@ -197,14 +197,14 @@ export const AiHighlightSection: React.FC = () => {
             {/* Interactive Mode Tabs */}
             <div className="rounded-2xl bg-white p-6 border border-slate-200 shadow-sm flex-1 flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-                  <span className="text-xs font-mono-data uppercase tracking-wider text-slate-500 font-bold">
+                <div className="flex flex-wrap xl:flex-nowrap items-center justify-between gap-3 mb-4 border-b border-slate-100 pb-3">
+                  <span className="text-xs font-mono-data uppercase tracking-wider text-slate-500 font-bold whitespace-nowrap">
                     {t('citizen.landing.aiDecisionProcess')}
                   </span>
-                  <div className="flex gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                  <div className="flex gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 shrink-0">
                     <button
                       onClick={() => setActiveTab('vlm')}
-                      className={`px-3 py-1 text-xs font-mono-data rounded-md font-bold transition-all ${
+                      className={`px-3 py-1 text-xs font-mono-data rounded-md font-bold whitespace-nowrap transition-all ${
                         activeTab === 'vlm' ? 'bg-red-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-950'
                       }`}
                     >
@@ -212,7 +212,7 @@ export const AiHighlightSection: React.FC = () => {
                     </button>
                     <button
                       onClick={() => setActiveTab('risk')}
-                      className={`px-3 py-1 text-xs font-mono-data rounded-md font-bold transition-all ${
+                      className={`px-3 py-1 text-xs font-mono-data rounded-md font-bold whitespace-nowrap transition-all ${
                         activeTab === 'risk' ? 'bg-red-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-950'
                       }`}
                     >
@@ -220,7 +220,7 @@ export const AiHighlightSection: React.FC = () => {
                     </button>
                     <button
                       onClick={() => setActiveTab('resources')}
-                      className={`px-3 py-1 text-xs font-mono-data rounded-md font-bold transition-all ${
+                      className={`px-3 py-1 text-xs font-mono-data rounded-md font-bold whitespace-nowrap transition-all ${
                         activeTab === 'resources' ? 'bg-red-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-950'
                       }`}
                     >

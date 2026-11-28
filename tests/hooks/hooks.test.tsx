@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNow } from '@/hooks/useNow';
-import { useSosCooldown } from '@/hooks/useSosCooldown';
+import { setCachedReportCooldownMinutes, useSosCooldown } from '@/hooks/useSosCooldown';
 import { useAuth } from '@/hooks/useAuth';
 import { useStationTeams, useTeamByVehicle } from '@/hooks/useStationTeams';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -76,6 +76,22 @@ describe('useSosCooldown', () => {
     expect(a.result.current.isCooldown).toBe(false);
     expect(localStorage.getItem('resq_last_reported_time')).toBeNull();
   });
+
+  it('cập nhật thời gian chờ động theo cấu hình Admin (gồm tắt = 0)', () => {
+    vi.setSystemTime(new Date("2026-10-01T08:00:00Z"));
+    const { result } = renderHook(() => useSosCooldown());
+    act(() => result.current.triggerCooldown());
+    expect(result.current.cooldownSeconds).toBe(180);
+
+    act(() => setCachedReportCooldownMinutes(5));
+    expect(result.current.cooldownSeconds).toBe(300);
+    expect(result.current.cooldownLabel).toBe('5:00');
+
+    act(() => setCachedReportCooldownMinutes(0));
+    expect(result.current.isCooldown).toBe(false);
+    expect(result.current.cooldownSeconds).toBe(0);
+    localStorage.removeItem('resq_report_cooldown_minutes');
+  });
 });
 
 describe('useAuth', () => {
@@ -88,8 +104,8 @@ describe('useAuth', () => {
 describe('useStationTeams / useTeamByVehicle', () => {
   it('đọc snapshot từ store và map tổ theo xe', () => {
     const teams = [
-      { id: 't1', stationId: 's', name: 'A', vehicleIds: ['v1', 'v3'], vehiclePlates: ['P1', 'P3'], members: [] },
-      { id: 't2', stationId: 's', name: 'B', vehicleIds: [], vehiclePlates: [], members: [] },
+      { id: 't1', stationId: 's', name: 'A', vehicleIds: ['v1', 'v3'], vehiclePlates: ['P1', 'P3'], members: [], functions: [], canBeAssigned: true },
+      { id: 't2', stationId: 's', name: 'B', vehicleIds: [], vehiclePlates: [], members: [], functions: [], canBeAssigned: false },
     ];
     vi.spyOn(stationTeamService, 'getSnapshot').mockReturnValue({ staff: [], teams });
     expect(renderHook(() => useStationTeams()).result.current.teams).toBe(teams);

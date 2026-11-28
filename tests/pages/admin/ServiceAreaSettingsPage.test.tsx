@@ -1,11 +1,21 @@
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ServiceAreaSettingsPage from '@/pages/admin/ServiceAreaSettingsPage';
 import { adminSettingsService } from '@/services/admin/adminSettingsService';
+import { searchAdministrativeBoundaries } from '@/services/admin/geocodeService';
 import { stationAdminService } from '@/services/admin/stationAdminService';
 import { FakeMap } from '../../setup/mapboxGlMock';
 import { page, renderWithRouter, t } from '../../setup/render';
+
+vi.mock('@/services/admin/geocodeService', async (orig) => {
+  const actual = await orig<typeof import('@/services/admin/geocodeService')>();
+  return { ...actual, searchAdministrativeBoundaries: vi.fn() };
+});
+vi.mock('@/components/admin/settings/serviceAreaDraw', () => ({
+  createBoundaryDraw: () => ({ add: vi.fn(), changeMode: vi.fn(), getAll: () => ({ type: 'FeatureCollection', features: [] }) }),
+  polygonsFromDraw: () => [],
+}));
 
 vi.mock('@/services/admin/adminSettingsService', async (orig) => {
   const actual = await orig<typeof import('@/services/admin/adminSettingsService')>();
@@ -16,7 +26,8 @@ vi.mock('@/services/admin/adminSettingsService', async (orig) => {
       getServiceArea: vi.fn(),
       updateServiceArea: vi.fn(),
       getDuplicateDetection: vi.fn().mockResolvedValue({ values: { enabled: false, duplicateRadiusMeters: 500, duplicateWindowMinutes: 30 }, updatedAt: null, updatedByName: null }),
-      getCitizenIncidentAlerts: vi.fn().mockResolvedValue({ values: { enabled: false, enabledFromUtc: null }, updatedAt: null, updatedByName: null }),
+      getCitizenIncidentAlerts: vi.fn().mockResolvedValue({ values: { enabled: false, enabledFromUtc: null, reportCooldownMinutes: 3 }, updatedAt: null, updatedByName: null }),
+      updateCitizenIncidentAlerts: vi.fn(),
     },
   };
 });
@@ -86,5 +97,83 @@ describe('ServiceAreaSettingsPage', () => {
     svc.getServiceArea.mockRejectedValue(new Error('Lỗi máy chủ'));
     renderWithRouter(<ServiceAreaSettingsPage />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Lỗi máy chủ');
+  });
+
+  it('tìm ranh giới theo tên khu vực → tự chuyển sang đa giác và nạp GeoJSON', async () => {
+    vi.mocked(searchAdministrativeBoundaries).mockResolvedValue([
+      {
+        label: 'Phường Thảo Điền, Thành phố Thủ Đức, Thành phố Hồ Chí Minh, Việt Nam',
+        shortName: 'Phường Thảo Điền',
+        lat: 10.804,
+        lng: 106.733,
+        geojson: {
+          type: 'Polygon',
+          coordinates: [[[106.72, 10.79], [106.74, 10.79], [106.74, 10.81], [106.72, 10.81], [106.72, 10.79]]],
+        },
+      },
+    ]);
+    svc.updateServiceArea.mockResolvedValue({ values: area, updatedAt: 'x', updatedByName: null });
+
+    renderWithRouter(<ServiceAreaSettingsPage />);
+    const nameInput = await screen.findByLabelText(t('admin.settings.serviceArea.name'));
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, 'Phường Thảo Điền');
+    await userEvent.click(screen.getByRole('button', { name: t('admin.settings.serviceArea.boundarySearch.button') }));
+
+    expect(searchAdministrativeBoundaries).toHaveBeenCalledWith('Phường Thảo Điền', expect.any(AbortSignal));
+    expect(await screen.findByText(t('admin.settings.serviceArea.polygonSummary', { vertices: 4, parts: 1 }))).toBeInTheDocument();
+    expect(nameInput).toHaveValue('Phường Thảo Điền');
+    expect(svc.updateServiceArea).not.toHaveBeenCalled();
+  });
+
+  it('nhiều kết quả ranh giới → hiện danh sách để chọn và áp dụng lên bản đồ', async () => {
+    vi.mocked(searchAdministrativeBoundaries).mockResolvedValue([
+      {
+        label: 'Phường 1, Quận 3, Thành phố Hồ Chí Minh, Việt Nam',
+        shortName: 'Phường 1',
+        lat: 10.77,
+        lng: 106.68,
+        geojson: {
+          type: 'Polygon',
+          coordinates: [[[106.67, 10.76], [106.69, 10.76], [106.69, 10.78], [106.67, 10.78], [106.67, 10.76]]],
+        },
+      },
+      {
+        label: 'Trạm y tế Phường 1, Quận 3, Thành phố Hồ Chí Minh, Việt Nam',
+        shortName: 'Trạm y tế Phường 1',
+        lat: 10.771,
+        lng: 106.681,
+      },
+    ]);
+
+    renderWithRouter(<ServiceAreaSettingsPage />);
+    const nameInput = await screen.findByLabelText(t('admin.settings.serviceArea.name'));
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, 'Phường 1{Enter}');
+
+    expect(await screen.findByText(t('admin.settings.serviceArea.boundarySearch.resultsTitle', { count: 2 }))).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Phường 1, Quận 3, Thành phố Hồ Chí Minh, Việt Nam'));
+
+    expect(await screen.findByText(t('admin.settings.serviceArea.polygonSummary', { vertices: 4, parts: 1 }))).toBeInTheDocument();
+    expect(nameInput).toHaveValue('Phường 1');
+  });
+
+  it('tab Thông báo: cấu hình giới hạn chờ gửi SOS gộp chung với thông báo khu vực', async () => {
+    svc.updateCitizenIncidentAlerts.mockResolvedValue({
+      values: { enabled: false, enabledFromUtc: null, reportCooldownMinutes: 5 },
+      updatedAt: 'x',
+      updatedByName: 'Admin',
+    });
+    renderWithRouter(<ServiceAreaSettingsPage />);
+    await screen.findByRole('tab', { name: t('admin.settings.serviceArea.tabs.alerts') });
+    await userEvent.click(screen.getByRole('tab', { name: t('admin.settings.serviceArea.tabs.alerts') }));
+
+    const cooldownInput = await screen.findByLabelText(t('admin.settings.citizenAlerts.cooldownTitle'));
+    expect(cooldownInput).toHaveValue(3);
+    await userEvent.clear(cooldownInput);
+    await userEvent.type(cooldownInput, '5');
+    await userEvent.click(within(cooldownInput.closest('form')!).getByRole('button', { name: t('admin.common.settings.save') }));
+
+    expect(svc.updateCitizenIncidentAlerts).toHaveBeenCalledWith({ enabled: false, reportCooldownMinutes: 5 });
   });
 });

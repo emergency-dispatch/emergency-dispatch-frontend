@@ -45,7 +45,7 @@ export const HotlineBannerSection: React.FC<HotlineBannerSectionProps> = ({ onOp
 
   return (
     <section id="hotlines" className="py-20 bg-white relative overflow-hidden border-t border-slate-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="max-w-[1520px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 relative z-10">
         
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">

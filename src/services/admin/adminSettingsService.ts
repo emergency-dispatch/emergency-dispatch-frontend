@@ -93,11 +93,15 @@ export interface ServiceAreaSettings {
   boundaryGeoJson?: string | null;
 }
 
-/** §49: thông báo khu vực có sự cố cho mọi người dân. `enabledFromUtc` do server đặt khi bật. */
+/** §49: thông báo khu vực có sự cố + giới hạn chờ gửi SOS liên tiếp cho mọi người dân. */
 export interface CitizenIncidentAlertSettings {
   enabled: boolean;
   enabledFromUtc?: string | null;
+  /** Thời gian chờ giữa hai lần gửi SOS của người dân (phút). 0 = tắt giới hạn chờ. */
+  reportCooldownMinutes?: number;
 }
+
+export const REPORT_COOLDOWN_MINUTES = { min: 0, max: 60 } as const;
 
 /** Giới hạn bán kính của StationAssignment.ValidateServiceArea. */
 export const SERVICE_AREA_RADIUS_KM = { min: 1, max: 100 };
@@ -299,9 +303,12 @@ export const adminSettingsService = {
     );
   },
 
-  async updateCitizenIncidentAlerts(enabled: boolean): Promise<SettingsRecord<CitizenIncidentAlertSettings>> {
+  async updateCitizenIncidentAlerts(
+    values: boolean | { enabled: boolean; reportCooldownMinutes: number }
+  ): Promise<SettingsRecord<CitizenIncidentAlertSettings>> {
+    const payload = typeof values === 'boolean' ? { enabled: values, reportCooldownMinutes: 3 } : values;
     return unwrapApi(
-      apiClient.put<ApiResponse<SettingsRecord<CitizenIncidentAlertSettings>>>('/settings/citizen-incident-alerts', { enabled })
+      apiClient.put<ApiResponse<SettingsRecord<CitizenIncidentAlertSettings>>>('/settings/citizen-incident-alerts', payload)
     );
   },
 

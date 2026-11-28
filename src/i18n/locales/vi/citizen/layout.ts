@@ -10,6 +10,7 @@ export const citizenLayoutVi = {
   myReports: 'Lịch sử báo sự cố',
   staffPortal: 'Tác chiến Cứu hộ',
   cadPortal: 'Trung tâm CAD',
+  adminPortal: 'Quản trị hệ thống',
   language: 'Ngôn ngữ',
   menu: 'Menu điều hướng',
   toPortal: 'Đến {{portal}}',

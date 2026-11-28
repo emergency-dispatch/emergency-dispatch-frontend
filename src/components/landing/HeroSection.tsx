@@ -54,15 +54,15 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
       {/* Subtle Warm Glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-red-100/50 rounded-full blur-[100px] pointer-events-none"></div>
 
-      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative ${isMapExpanded ? 'z-[9990]' : 'z-10'} w-full flex-1 flex flex-col justify-between`}>
+      <div className={`max-w-[1520px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 relative ${isMapExpanded ? 'z-[9990]' : 'z-10'} w-full flex-1 flex flex-col justify-between`}>
 
         {/* 1. Headline */}
         <div className="text-center pt-1 pb-1 shrink-0">
-          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-black text-slate-900 tracking-tight leading-tight max-w-5xl mx-auto">
-            <span className="text-red-600">AI Emergency</span> Dispatch &amp; Real-Time{' '}
-            <span className="text-slate-900">Rescue Coordination</span>
+          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight leading-tight max-w-6xl mx-auto">
+            <span className="text-red-600">{t('citizen.landing.heroTitleAccent')}</span>{' '}
+            <span className="text-slate-900">{t('citizen.landing.heroTitleMain')}</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-600 max-w-4xl mx-auto mt-1.5 font-medium">
+          <p className="text-xs sm:text-sm text-slate-600 max-w-5xl mx-auto mt-1.5 font-medium">
             {t('citizen.landing.heroSubtitle')}
           </p>
         </div>
@@ -74,7 +74,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 text-xs font-mono-data shrink-0">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
-                <span className="text-red-600 font-bold tracking-wider">LIVE CAD INCIDENT RADAR</span>
+                <span className="text-red-600 font-bold tracking-wider">{t('citizen.landing.radarTitle')}</span>
               </div>
             </div>
 
@@ -91,7 +91,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
         <div className="w-full flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 pt-1.5 pb-1 sm:pb-2 shrink-0">
 
           {/* Left Guide Note: How to Report */}
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-slate-200 text-left w-full md:w-auto md:flex-1 max-w-md shadow-sm">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-slate-200 text-left w-full md:w-auto md:flex-1 max-w-lg shadow-sm">
             <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center shrink-0 text-red-600">
               <MapPin className="w-4 h-4 animate-pulse" />
             </div>
@@ -122,7 +122,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenSos, onOpenRepor
           </button>
 
           {/* Right Guide Note: AI Coordination */}
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-slate-200 text-left w-full md:w-auto md:flex-1 max-w-md shadow-sm">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-slate-200 text-left w-full md:w-auto md:flex-1 max-w-lg shadow-sm">
             <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center shrink-0 text-red-600">
               <Zap className="w-4 h-4 animate-pulse" />
             </div>

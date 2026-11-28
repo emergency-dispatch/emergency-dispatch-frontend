@@ -22,7 +22,7 @@ export const FeaturesSection: React.FC = () => {
       icon: BrainCircuit,
       title: t('citizen.landing.featureItems.f1Title'),
       description: t('citizen.landing.featureItems.f1Desc'),
-      badge: 'AI Vision Engine',
+      badge: t('citizen.landing.featureBadges.f1'),
       color: 'from-red-600 to-rose-600',
       border: 'hover:border-red-500/60',
       glow: 'hover:shadow-glow-red'
@@ -31,7 +31,7 @@ export const FeaturesSection: React.FC = () => {
       icon: Navigation,
       title: t('citizen.landing.featureItems.f2Title'),
       description: t('citizen.landing.featureItems.f2Desc'),
-      badge: 'Traffic-Aware Routing',
+      badge: t('citizen.landing.featureBadges.f2'),
       color: 'from-blue-600 to-cyan-600',
       border: 'hover:border-blue-500/60',
       glow: 'hover:shadow-glow-blue'
@@ -40,7 +40,7 @@ export const FeaturesSection: React.FC = () => {
       icon: Gauge,
       title: t('citizen.landing.featureItems.f3Title'),
       description: t('citizen.landing.featureItems.f3Desc'),
-      badge: 'Severity Matrix 1-3',
+      badge: t('citizen.landing.featureBadges.f3'),
       color: 'from-amber-600 to-orange-600',
       border: 'hover:border-amber-500/60',
       glow: 'hover:shadow-orange-500/20'
@@ -49,7 +49,7 @@ export const FeaturesSection: React.FC = () => {
       icon: Radio,
       title: t('citizen.landing.featureItems.f4Title'),
       description: t('citizen.landing.featureItems.f4Desc'),
-      badge: 'Smart Heuristics',
+      badge: t('citizen.landing.featureBadges.f4'),
       color: 'from-emerald-600 to-teal-600',
       border: 'hover:border-emerald-500/60',
       glow: 'hover:shadow-emerald-500/20'
@@ -58,7 +58,7 @@ export const FeaturesSection: React.FC = () => {
       icon: Layers,
       title: t('citizen.landing.featureItems.f5Title'),
       description: t('citizen.landing.featureItems.f5Desc'),
-      badge: 'Internal Command Center',
+      badge: t('citizen.landing.featureBadges.f5'),
       color: 'from-purple-600 to-indigo-600',
       border: 'hover:border-purple-500/60',
       glow: 'hover:shadow-purple-500/20'
@@ -67,7 +67,7 @@ export const FeaturesSection: React.FC = () => {
       icon: Smartphone,
       title: t('citizen.landing.featureItems.f6Title'),
       description: t('citizen.landing.featureItems.f6Desc'),
-      badge: 'Worker SOS & Traffic Flow',
+      badge: t('citizen.landing.featureBadges.f6'),
       color: 'from-pink-600 to-rose-600',
       border: 'hover:border-pink-500/60',
       glow: 'hover:shadow-pink-500/20'
@@ -76,10 +76,10 @@ export const FeaturesSection: React.FC = () => {
 
   return (
     <section id="features" className="py-20 sm:py-24 bg-white relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="max-w-[1520px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 relative z-10">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
+        <div className="text-center max-w-4xl mx-auto space-y-4 mb-12 sm:mb-14">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50 border border-red-100 shadow-xs whitespace-nowrap">
             <Zap className="w-4 h-4 text-red-600 shrink-0" />
             <span className="text-xs font-mono-data uppercase tracking-widest text-red-600 font-bold">
@@ -126,8 +126,10 @@ export const FeaturesSection: React.FC = () => {
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-mono-data text-slate-500">
-                  <span className="text-red-600 font-semibold whitespace-nowrap">CAD TIÊU CHUẨN</span>
-                  <span className="group-hover:text-slate-900 transition-colors whitespace-nowrap">PHÂN HỆ 0{idx + 1}</span>
+                  <span className="text-red-600 font-semibold whitespace-nowrap">{t('citizen.landing.featureFooterStd')}</span>
+                  <span className="group-hover:text-slate-900 transition-colors whitespace-nowrap">
+                    {t('citizen.landing.featureFooterIndex', { index: idx + 1 })}
+                  </span>
                 </div>
               </div>
             );

@@ -1,6 +1,6 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { ChevronsLeft, ChevronsRight, ShieldCheck, X } from 'lucide-react';
+import { Link, NavLink } from 'react-router-dom';
+import { ChevronsLeft, ChevronsRight, X } from 'lucide-react';
 import { adminNavGroups } from './adminNav';
 import { useTranslation } from '../../i18n';
 
@@ -21,15 +21,19 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed, onToggle,
       }`}
     >
       {/* Brand mark */}
-      <div className="flex items-center h-16 shrink-0 border-b border-slate-200 px-4 gap-2.5 overflow-hidden">
-        <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center shrink-0 shadow-sm">
-          <ShieldCheck className="w-4 h-4 text-white" />
-        </div>
-        {!collapsed && (
-          <span className="flex-1 text-sm font-black text-slate-900 tracking-wide whitespace-nowrap">
-            ResQ<span className="text-red-600"> Admin</span>
-          </span>
-        )}
+      <div className="flex items-center h-16 shrink-0 border-b border-slate-200 px-3.5 gap-2 overflow-hidden">
+        <Link to="/" title="Về trang chủ" className="flex items-center gap-2 flex-1 min-w-0 hover:opacity-85 transition-opacity">
+          {collapsed ? (
+            <img src="/favicon.png?v=2" alt="ResQ-AI" className="w-8 h-8 object-contain shrink-0 mx-auto" />
+          ) : (
+            <>
+              <img src="/brand-logo.png" alt="ResQ-AI" className="h-8 w-auto object-contain shrink-0" />
+              <span className="px-2 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 text-[10px] font-mono font-bold uppercase tracking-wider whitespace-nowrap">
+                Admin
+              </span>
+            </>
+          )}
+        </Link>
         {onClose && (
           <button
             onClick={onClose}

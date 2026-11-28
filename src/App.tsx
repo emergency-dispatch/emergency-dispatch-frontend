@@ -49,12 +49,15 @@ const App: React.FC = () => {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-          {/* Staff Field Operations Portal (Protected: RescueStaff, Admin) */}
+          {/* Staff Field Operations Portal (Protected: RescueStaff only — Admin được chuyển về /admin) */}
           <Route
             path="/staff"
             element={
               <ProtectedRoute>
-                <RoleRoute allowedRoles={[UserRole.RescueStaff, UserRole.Admin]}>
+                <RoleRoute
+                  allowedRoles={[UserRole.RescueStaff]}
+                  redirectByRole={{ [UserRole.Admin]: '/admin/overview' }}
+                >
                   <StaffPage />
                 </RoleRoute>
               </ProtectedRoute>

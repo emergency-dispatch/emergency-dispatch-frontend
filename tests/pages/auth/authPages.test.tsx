@@ -72,6 +72,15 @@ describe('LoginPage', () => {
     await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/admin/stations'));
   });
 
+  it('?redirect=/ không kéo Admin/Operator/RescueStaff về trang Citizen', async () => {
+    const login = vi.fn().mockResolvedValue(loginResult(UserRole.Operator));
+    renderAt(<LoginPage />, { login }, '/x?redirect=/');
+    await userEvent.type(screen.getByPlaceholderText('ten@resq.gov.vn hoặc email người dân'), 'op@b.vn');
+    await userEvent.type(screen.getByPlaceholderText('••••••••••••'), 'x');
+    await userEvent.click(screen.getByRole('button', { name: /Xác thực & Vào hệ thống/ }));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/dashboard/command-center/live-map'));
+  });
+
   it('đã đăng nhập → chuyển hướng ngay', async () => {
     renderAt(<LoginPage />, { isAuthenticated: true, user: { role: UserRole.Operator } as never });
     await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/dashboard/command-center/live-map'));
