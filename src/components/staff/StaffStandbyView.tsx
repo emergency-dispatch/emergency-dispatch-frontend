@@ -17,12 +17,18 @@ import {
   CheckCircle2,
   Sparkles,
   Car,
+  AlertTriangle,
   Shield,
+  Maximize2,
 } from 'lucide-react';
 import type { StaffProfile, StaffMission } from '../../types/staff';
 import { StaffTrafficTaskCard, type ActiveTrafficTask } from './StaffTrafficTaskCard';
 import type { ServiceAreaDto } from '../../services/liveMapService';
 import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
+import {
+  buildStaffServiceAreaFeatureCollection,
+  getStaffServiceAreaBounds,
+} from '../../pages/staff/utils/staffMissionUtils';
 import { glowStationMarkerHtml, glowTrafficJamMarkerHtml } from '../operator/livemap/glowMarkers';
 import {
   MAPBOX_ACCESS_TOKEN,
@@ -38,6 +44,7 @@ interface StaffStandbyViewProps {
   completedMissions: StaffMission[];
   activeTrafficTask?: ActiveTrafficTask | null;
   onResolveTrafficTask?: (hotspotId: string, note?: string) => Promise<boolean>;
+  onOpenReportIncidentModal?: () => void;
   onOpenReportTrafficModal?: () => void;
   serviceArea?: ServiceAreaDto | null;
   onSelectMission?: (mission: StaffMission) => void;
@@ -53,6 +60,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
   completedMissions,
   activeTrafficTask,
   onResolveTrafficTask,
+  onOpenReportIncidentModal,
   onOpenReportTrafficModal,
   serviceArea,
   onSelectMission,
@@ -60,6 +68,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const stationMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const trafficMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const [layerMode, setLayerMode] = useState<MapLayerMode>('satellite');
   const [is3DMode, setIs3DMode] = useState<boolean>(true);
@@ -104,10 +113,13 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
   };
 
   // Vị trí mặc định: Tọa độ trạm PCCC Khu Công nghệ cao TP.HCM hoặc vị trí kíp xe
-  const standbyLat = 10.8452;
-  const standbyLng = 106.7955;
+  const standbyLat = serviceArea?.centerLat || 10.8452;
+  const standbyLng = serviceArea?.centerLng || 106.7955;
 
-  // Helper để thêm/cập nhật GeoJSON Ranh giới phục vụ của Trạm
+  const serviceAreaRef = React.useRef<ServiceAreaDto | null | undefined>(serviceArea);
+  serviceAreaRef.current = serviceArea;
+
+  // Helper để thêm/cập nhật GeoJSON Ranh giới phục vụ của Trạm (hỗ trợ cả đa giác/lục giác và vòng tròn)
   const setupServiceAreaLayer = React.useCallback((map: mapboxgl.Map, area: ServiceAreaDto | null | undefined) => {
     const SOURCE_ID = 'standby-service-area-source';
     const FILL_ID = 'standby-service-area-fill';
@@ -115,22 +127,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
 
     const addOrUpdate = () => {
       try {
-        const featureCollection = {
-          type: 'FeatureCollection' as const,
-          features:
-            area && area.enabled && area.radiusKm > 0
-              ? [
-                {
-                  type: 'Feature' as const,
-                  properties: { name: area.name ?? 'Ranh giới phục vụ trạm' },
-                  geometry: {
-                    type: 'Polygon' as const,
-                    coordinates: [circlePolygon(area.centerLat, area.centerLng, area.radiusKm)],
-                  },
-                },
-              ]
-              : [],
-        };
+        const featureCollection = buildStaffServiceAreaFeatureCollection(area ?? null);
 
         if (!map.getSource(SOURCE_ID)) {
           map.addSource(SOURCE_ID, {
@@ -156,9 +153,9 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
               type: 'line',
               source: SOURCE_ID,
               paint: {
-                'line-color': '#3B82F6',
-                'line-width': 2.2,
-                'line-opacity': 0.85,
+                'line-color': '#2563EB',
+                'line-width': 2.5,
+                'line-opacity': 1,
                 'line-dasharray': [3, 2],
               },
             });
@@ -185,9 +182,9 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
               type: 'line',
               source: SOURCE_ID,
               paint: {
-                'line-color': '#3B82F6',
-                'line-width': 2.2,
-                'line-opacity': 0.85,
+                'line-color': '#2563EB',
+                'line-width': 2.5,
+                'line-opacity': 1,
                 'line-dasharray': [3, 2],
               },
             });
@@ -226,7 +223,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
     });
 
     const ensureLayer = () => {
-      setupServiceAreaLayer(map, serviceArea);
+      setupServiceAreaLayer(map, serviceAreaRef.current);
     };
 
     map.on('load', ensureLayer);
@@ -249,11 +246,13 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
     const marker = new mapboxgl.Marker({ element: el })
       .setLngLat([standbyLng, standbyLat])
       .addTo(map);
+    stationMarkerRef.current = marker;
 
     mapRef.current = map;
 
     return () => {
       marker.remove();
+      stationMarkerRef.current = null;
       if (trafficMarkerRef.current) {
         trafficMarkerRef.current.remove();
         trafficMarkerRef.current = null;
@@ -267,6 +266,9 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
   useEffect(() => {
     if (mapRef.current) {
       setupServiceAreaLayer(mapRef.current, serviceArea);
+    }
+    if (stationMarkerRef.current && serviceArea?.centerLat && serviceArea?.centerLng) {
+      stationMarkerRef.current.setLngLat([serviceArea.centerLng, serviceArea.centerLat]);
     }
   }, [serviceArea, setupServiceAreaLayer]);
 
@@ -318,7 +320,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
           </div>
           <div class="text-slate-800 mt-1 font-sans text-xs font-semibold">${locationAddress || 'Vị trí điểm nghẽn'}</div>
           ${taskNotes ? `<div class="text-slate-600 mt-1 text-[11px] font-sans bg-amber-50 p-1.5 rounded border border-amber-200">📌 ${taskNotes}</div>` : ''}
-          <div class="text-slate-500 mt-1 text-[11px] font-mono">${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E</div>
+          <div class="text-slate-500 mt-1 text-[11px] text-amber-600 font-sans font-medium">Chướng ngại vật giao thông</div>
         </div>
       `);
 
@@ -360,6 +362,17 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
     });
   };
 
+  const handleFitServiceArea = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const bounds = getStaffServiceAreaBounds(serviceArea);
+    if (bounds) {
+      map.fitBounds(bounds, { padding: 45, duration: 800 });
+    } else {
+      map.flyTo({ center: [standbyLng, standbyLat], zoom: 13, duration: 800 });
+    }
+  };
+
   return (
     <div className="p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 h-full">
       {/* Left Column: Standby Telemetry & Unit Status (5 cols) */}
@@ -392,21 +405,21 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
                   <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500" />
                 </span>
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800">
-                  TRỰC CHIẾN SẴN SÀNG (STANDBY)
+                  TRỰC CHIẾN SẴN SÀNG
                 </span>
               </div>
             )}
 
             <div className="flex items-center gap-1.5">
-              {onOpenReportTrafficModal && (
+              {(onOpenReportIncidentModal || onOpenReportTrafficModal) && (
                 <button
                   type="button"
-                  onClick={onOpenReportTrafficModal}
+                  onClick={onOpenReportIncidentModal || onOpenReportTrafficModal}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-mono font-bold text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-xl transition-all cursor-pointer"
-                  title="Báo cáo điểm nghẽn hoặc chướng ngại vật giao thông (POST /api/traffic/report)"
+                  title="Báo cáo sự cố khẩn cấp hoặc điểm nghẽn giao thông tại hiện trường)"
                 >
-                  <Car className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Báo Kẹt Xe</span>
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Báo Cáo Sự Cố</span>
                 </button>
               )}
 
@@ -417,7 +430,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
                 title="Kiểm tra lệnh điều phối mới từ máy chủ CAD"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                <span>{loading ? 'Đang đồng bộ...' : 'Đồng bộ CAD'}</span>
+                <span>{loading ? 'Đang đồng bộ...' : ''}</span>
               </button>
             </div>
           </div>
@@ -447,7 +460,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
             <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 text-emerald-900 space-y-2">
               <div className="flex items-center gap-2 font-bold text-sm">
                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>Kíp Trực Sẵn Sàng Tiếp Nhận Lệnh Điều Động</span>
+                <span> Kíp Trực Sẵn Sàng Tiếp Nhận Lệnh Điều Động</span>
               </div>
               <p className="text-xs text-emerald-800 leading-relaxed">
                 Hệ thống đang kết nối trực tuyến với Tổng đài Điều phối CAD qua SignalR. Khi có sự cố cứu nạn khẩn cấp phát lệnh tới đơn vị, còi hú cảnh báo và chỉ đường tác chiến sẽ tự động kích hoạt.
@@ -506,14 +519,6 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
                 {formatCrewRole(profile.crewRole || profile.role) ? `${formatCrewRole(profile.crewRole || profile.role)} • ` : ''}{profile.badgeNumber || 'Chưa cấp'}
               </p>
             </div>
-          </div>
-
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span className="flex items-center gap-1.5 font-mono">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              GPS: 10.8452° N, 106.7955° E
-            </span>
-            <span className="font-mono text-emerald-600 font-bold">12 VỆ TINH KHÓA</span>
           </div>
         </div>
 
@@ -610,17 +615,20 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
             </button>
           </div>
 
-          {/* Service Area Geofence Pill */}
-          {serviceArea && serviceArea.enabled && serviceArea.radiusKm > 0 && (
-            <div
-              className="hidden sm:flex bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl px-2.5 py-1.5 text-blue-300 text-xs font-mono font-bold items-center gap-1.5 shadow-xl max-w-[220px] md:max-w-[260px] xl:max-w-[320px] pointer-events-auto shrink min-w-0"
-              title={`Ranh giới trạm: ${serviceArea.name || `${serviceArea.radiusKm} km`}`}
+          {/* Service Area Geofence Pill - Bấm để zoom xem trọn vẹn ranh giới trạm */}
+          {serviceArea && (serviceArea.radiusKm > 0 || serviceArea.boundaryGeoJson) && (
+            <button
+              type="button"
+              onClick={handleFitServiceArea}
+              className="hidden sm:flex bg-slate-900/90 hover:bg-slate-800 transition-all cursor-pointer backdrop-blur-md border border-slate-800 rounded-xl px-2.5 py-1.5 text-blue-300 text-xs font-mono font-bold items-center gap-1.5 shadow-xl max-w-[240px] md:max-w-[280px] xl:max-w-[340px] pointer-events-auto shrink min-w-0 active:scale-95"
+              title="Bấm để căn góc nhìn trọn vẹn ranh giới phục vụ trạm"
             >
               <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <span className="truncate whitespace-nowrap">
-                RANH GIỚI TRẠM: {serviceArea.name || `${serviceArea.radiusKm} km`}
+                RANH GIỚI TRẠM: {serviceArea.name || (serviceArea.boundaryGeoJson ? 'ĐA GIÁC' : `${serviceArea.radiusKm} km`)}
               </span>
-            </div>
+              <Maximize2 className="w-3 h-3 text-slate-400 hover:text-white shrink-0 ml-0.5" />
+            </button>
           )}
 
           {/* Quick Fly-to Traffic Hotspot Button (Mục 20) */}
@@ -650,8 +658,8 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
           <button
             onClick={handleToggle3D}
             className={`p-2.5 rounded-xl border shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer flex items-center justify-center font-mono font-bold text-xs ${is3DMode
-                ? 'bg-red-600 text-white border-red-600'
-                : 'bg-white/95 hover:bg-white text-slate-700 border-slate-200'
+              ? 'bg-red-600 text-white border-red-600'
+              : 'bg-white/95 hover:bg-white text-slate-700 border-slate-200'
               }`}
             title="Đổi góc nghiêng 2D / 3D"
           >
@@ -669,11 +677,17 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
             <span className="text-slate-300">ĐANG LẮNG NGHE TỔNG ĐÀI CAD</span>
           </div>
 
-          {serviceArea && serviceArea.enabled && serviceArea.radiusKm > 0 && (
-            <div className="flex sm:hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-blue-950/90 border border-blue-700/80 backdrop-blur-md text-[11px] font-mono text-blue-200 shadow-xl">
+          {serviceArea && (serviceArea.radiusKm > 0 || serviceArea.boundaryGeoJson) && (
+            <button
+              type="button"
+              onClick={handleFitServiceArea}
+              className="flex sm:hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-blue-950/90 hover:bg-blue-900/90 border border-blue-700/80 backdrop-blur-md text-[11px] font-mono text-blue-200 shadow-xl cursor-pointer active:scale-95"
+              title="Bấm để căn góc nhìn trọn vẹn ranh giới phục vụ trạm"
+            >
               <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-              <span>VÙNG PHỤC VỤ: {serviceArea.radiusKm} KM</span>
-            </div>
+              <span>VÙNG PHỤC VỤ: {serviceArea.boundaryGeoJson ? 'ĐA GIÁC' : `${serviceArea.radiusKm} KM`}</span>
+              <Maximize2 className="w-3 h-3 text-slate-400 shrink-0 ml-0.5" />
+            </button>
           )}
         </div>
       </div>

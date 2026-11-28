@@ -63,7 +63,14 @@ const AssignmentRow: React.FC<{ assignment: DispatchAssignmentResponseDto }> = (
   return (
     <li className="flex items-center justify-between gap-3 py-2.5">
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-900 truncate">{team?.name ?? t('liveMap.incidentList.vehicleNoTeam')}</p>
+        <p className="text-sm font-semibold text-slate-900 truncate">
+          {team?.name ?? t('liveMap.incidentList.vehicleNoTeam')}
+          {assignment.isSelfDispatched && (
+            <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Tổ tự nhận · Đang xử lý tại hiện trường
+            </span>
+          )}
+        </p>
         <p className="text-xs text-slate-500 truncate">
           <span className="font-mono-data">{plate}</span>
           {unitType && ` · ${unitTypeLabel(unitType)}`}

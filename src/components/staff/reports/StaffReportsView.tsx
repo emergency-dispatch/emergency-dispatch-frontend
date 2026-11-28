@@ -611,14 +611,17 @@ export const StaffReportsView: React.FC<StaffReportsViewProps> = ({
                     Vật Tư &amp; Thiết Bị Đã Sử Dụng
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {selectedReport.closureReport?.resourcesUsed.map((r, i) => (
-                      <span
-                        key={i}
-                        className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium text-slate-700"
-                      >
-                        {r.name}: <strong className="text-red-600 font-mono">{r.quantity} {r.unit}</strong>
-                      </span>
-                    ))}
+                    {selectedReport.closureReport?.resourcesUsed.map((r, i) => {
+                      const cleanUnit = (r.unit || '').trim().replace(new RegExp(`^${r.quantity}\\s*`), '');
+                      return (
+                        <span
+                          key={i}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium text-slate-700"
+                        >
+                          {r.name}: <strong className="text-red-600 font-mono">{r.quantity} {cleanUnit || 'Cái'}</strong>
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}

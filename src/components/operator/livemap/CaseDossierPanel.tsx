@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, Ban, Clock, Loader2, MapPin } from 'lucide-react';
 import { AutoDispatchNotice } from '../incidents/AutoDispatchInfo';
 import { DispatchAssignmentList } from '../incidents/DispatchAssignmentList';
@@ -6,6 +6,7 @@ import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
 import { IncidentCode } from '../incidents/IncidentCode';
 import { AiInsightBlock, CancelCaseFields, ReporterEvidence } from '../incidents/IncidentDossierSections';
 import { LinkedReportsPanel } from '../incidents/LinkedReportsPanel';
+import { NewLinkedDot } from '../incidents/NewLinkedDot';
 import { SeverityBadge } from '../incidents/SeverityBadge';
 import { SourceChip } from '../incidents/SourceChip';
 import { blockDurationOf, EMPTY_CANCEL_INPUT } from '../incidents/cancelCaseInput';
@@ -46,12 +47,22 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
   onCancelCase,
 }) => {
   const { t } = useTranslation();
-  const { incidentKindLabel, operatorNotesOf, revealReporterPhone, unlinkLinkedReport, supplementVersions } =
-    useDispatchStore();
+  const {
+    incidentKindLabel,
+    operatorNotesOf,
+    revealReporterPhone,
+    unlinkLinkedReport,
+    supplementVersions,
+    markLinkedReportsSeen,
+  } = useDispatchStore();
   const supplements = useIncidentSupplements(incident.id, supplementVersions.get(incident.id) ?? 0);
   const phone = useRevealPhone(incident.id, revealReporterPhone);
   const [tab, setTab] = useState<DossierTab>('info');
   const [cancelOpen, setCancelOpen] = useState(startCancelling);
+  // Đã mở danh sách báo cáo trùng → bỏ chấm "mới".
+  useEffect(() => {
+    if (tab === 'linked') markLinkedReportsSeen(incident.id);
+  }, [tab, incident.id, markLinkedReportsSeen]);
   const [cancelInput, setCancelInput] = useState(EMPTY_CANCEL_INPUT);
 
   const category = INCIDENT_CATEGORY_META[incident.category];
@@ -123,6 +134,11 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({
             }`}
           >
             {label}
+            {key === 'linked' && (
+              <span className="ml-1.5">
+                <NewLinkedDot incidentId={incident.id} />
+              </span>
+            )}
           </button>
         ))}
       </div>

@@ -100,7 +100,7 @@ export const StaffNavbar: React.FC<StaffNavbarProps> = ({
             </span>
           )}
         </h1>
-        {hasActiveMission ? (
+        {/* {hasActiveMission ? (
           <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-red-50 text-red-700 border border-red-200">
             <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
             Đang làm nhiệm vụ
@@ -110,7 +110,7 @@ export const StaffNavbar: React.FC<StaffNavbarProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Sẵn sàng nhận lệnh
           </span>
-        )}
+        )} */}
       </div>
 
       {/* Right: Actions, Switchers & User Profile Menu */}
@@ -119,11 +119,10 @@ export const StaffNavbar: React.FC<StaffNavbarProps> = ({
         <button
           onClick={toggleSound}
           title={isMuted ? 'Bật âm thanh còi báo' : 'Tắt âm thanh'}
-          className={`p-2 rounded-lg border transition-all cursor-pointer ${
-            isMuted
-              ? 'bg-slate-100 border-slate-200 text-slate-500 hover:text-slate-800'
-              : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
-          }`}
+          className={`p-2 rounded-lg border transition-all cursor-pointer ${isMuted
+            ? 'bg-slate-100 border-slate-200 text-slate-500 hover:text-slate-800'
+            : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
+            }`}
         >
           {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 animate-pulse" />}
         </button>
@@ -136,17 +135,6 @@ export const StaffNavbar: React.FC<StaffNavbarProps> = ({
           <History className="w-3.5 h-3.5 text-slate-500" />
           <span className="hidden sm:inline">Nhật Ký</span>
         </button>
-
-        {/* Link to CAD Dashboard Console */}
-        <Link
-          to="/dashboard"
-          className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-red-600 rounded-lg text-xs font-medium transition-all"
-          title="Chuyển sang màn hình điều phối CAD Dispatcher"
-        >
-          <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
-          <span className="hidden md:inline">Tổng Đài CAD</span>
-          <ChevronRight className="w-3.5 h-3.5 ml-0.5 opacity-70" />
-        </Link>
 
         {/* Vertical divider */}
         <div className="h-6 w-px bg-slate-200 mx-0.5" />

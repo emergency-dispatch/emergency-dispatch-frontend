@@ -297,7 +297,7 @@ export const mapboxService = {
       // Ignore
     }
 
-    const fallback = `Tọa độ (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+    const fallback = 'Khu Công nghệ cao TP.HCM';
     geocodeCache.set(cacheKey, fallback);
     return fallback;
   },

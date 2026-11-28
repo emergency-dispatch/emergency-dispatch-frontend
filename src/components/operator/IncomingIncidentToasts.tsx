@@ -21,9 +21,9 @@ import { useNow } from '../../hooks/useNow';
 import { useDispatchStore, type IncomingTransferNote } from '../../context/DispatchContext';
 import type { Incident } from '../../types/incident';
 import { useTranslation } from '../../i18n';
+import { INCIDENT_QUEUE_PATH } from '../../data/dashboardMock';
 import { IncidentCode } from './incidents/IncidentCode';
 
-const LIVE_MAP_PATH = '/dashboard/command-center/live-map';
 
 interface ModalProps {
   incident: Incident;
@@ -206,7 +206,7 @@ const IncidentModal: React.FC<ModalProps> = ({ incident, verdict, threshold, tra
 
 /**
  * Tin báo mới từ người dân (§31.E — AI tự điều phối là luồng chính):
- * - AI đang phân tích / đang điều phối → hiện ở dải AI trên thanh trên cùng (`AiLane`) + marker có vòng trên Live Map,
+ * - AI đang phân tích / đang điều phối → dải AI trên thanh trên cùng (`AiLane`) + tab "AI đang phân tích" của Hàng đợi;
  *   không chặn màn hình, không giữ ca;
  * - AI chuyển cho người (hoặc tự điều phối đang tắt, ca chuyển trạm) → modal giữa màn hình, kèm lý do;
  * - AI đã điều phối → sự cố rời khỏi danh sách chờ duyệt, thông báo "AI đã điều phối" do OperatorAlerts hiện.
@@ -234,7 +234,7 @@ export const IncomingIncidentToasts: React.FC = () => {
       onDismiss={() => dismissIncomingIncident(human.incident.id)}
       onReview={() => {
         dismissIncomingIncident(human.incident.id);
-        navigate(LIVE_MAP_PATH, { state: { triageIncidentId: human.incident.id } });
+        navigate(INCIDENT_QUEUE_PATH, { state: { openIncidentId: human.incident.id } });
       }}
     />
   );

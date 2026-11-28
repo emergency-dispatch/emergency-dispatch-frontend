@@ -6,6 +6,7 @@ import {
   Gauge,
   HandHelping,
   History,
+  ListChecks,
   MessageSquarePlus,
   X,
   Loader2,
@@ -19,6 +20,7 @@ import { DispatchShortages } from './DispatchShortages';
 import { GpsFarNote } from './GpsFarNote';
 import { OffPlanTeams } from './OffPlanTeams';
 import { PlanTeamGroups } from './PlanTeamGroups';
+import { useStationReadyUnitTypes } from './readyTeams';
 import { SupportConfirmDialog, type SupportRow } from './SupportConfirmDialog';
 import { RecommendedTeamLabel } from '../teams/RecommendedTeamLabel';
 import { IncidentAuditTimeline } from '../incidents/IncidentAuditTimeline';
@@ -41,6 +43,7 @@ import { showToast } from '../../admin/common/toastStore';
 import { useTranslation } from '../../../i18n';
 import { AutoDispatchNotice } from '../incidents/AutoDispatchInfo';
 import { IncidentCode } from '../incidents/IncidentCode';
+import { NewLinkedDot } from '../incidents/NewLinkedDot';
 
 interface DispatchRecommendPanelProps {
   selectedIncidentId: string | null;
@@ -67,6 +70,8 @@ interface DispatchRecommendPanelProps {
   attentionCount: number;
   /** Phần ca: thông báo đội, tổ đã giao (thu hồi), hủy ca, nghiệm thu — đặt trên gợi ý xe. */
   caseBody?: React.ReactNode;
+  /** Đổi giá trị → mở hộp Báo cáo trùng của ca đang chọn (thông báo "Thêm người cùng báo"). */
+  openLinkedKey?: number;
 }
 
 export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
@@ -80,11 +85,13 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   onOpenDossier,
   attentionCount,
   caseBody,
+  openLinkedKey,
 }) => {
   const {
     incidents,
     escalatedIncidentIds,
     unlinkLinkedReport,
+    markLinkedReportsSeen,
     changeIncidentSeverity,
     currentOperatorId,
     supplementVersions,
@@ -141,6 +148,14 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
     supportResolveRef.current?.(false);
     supportResolveRef.current = null;
   }, [selectedIncidentId]);
+  // Chạy sau effect đặt lại ở trên (cùng lượt render) → mở được ngay khi vừa chọn ca từ thông báo.
+  useEffect(() => {
+    if (openLinkedKey) setLinkedOpen(true);
+  }, [openLinkedKey, selectedIncidentId]);
+  // Đã mở danh sách báo cáo trùng → bỏ chấm "mới".
+  useEffect(() => {
+    if (linkedOpen && selectedIncidentId) markLinkedReportsSeen(selectedIncidentId);
+  }, [linkedOpen, selectedIncidentId, markLinkedReportsSeen]);
 
   const selectedIncident = useMemo(
     () => incidents.find((i) => i.id === selectedIncidentId) ?? null,
@@ -165,13 +180,20 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
   const level3Remaining = selectedIncident?.severity === 3 ? Math.max(0, maxVehicles - activeCount) : Infinity;
   const pickMax = fieldRequest ? Math.min(fieldRequest.quantity, level3Remaining) : 0;
   // Cần xe ngay: chưa có xe nào, chưa đủ tổ theo kế hoạch, hoặc có đội từ chối / không phản hồi → mở gợi ý sẵn; còn lại
-  // chờ Operator bấm.
+  // chờ Operator bấm. Thiếu kế hoạch mà trạm mình hết tổ loại còn thiếu (VD AI điều được một phần) → vẫn hỏi gợi ý ngầm
+  // (backend quét cả trạm khác theo bán kính tăng dần): có tổ trạm khác đúng loại → mở sẵn để điều hỗ trợ; không có → chỉ
+  // một dòng báo thiếu, không mở danh sách trống.
+  const readyTypes = useStationReadyUnitTypes();
   const planShort = !!progress && progress.missing.length > 0;
-  const needsVehicles =
-    !!selectedIncident && (activeCount === 0 || planShort || selectedIncident.responseNotices.length > 0);
-  const wantsSuggestions = serving || needsVehicles || recommendOpen || extraMode;
-  const showSuggestions =
-    !isCompleted && wantsSuggestions && (serving ? pickMax > 0 : !isFull || (canAddExtra && extraMode));
+  const stationExhausted = planShort && progress.missing.every((m) => !readyTypes.has(m.unitType));
+  const probeOtherStations = stationExhausted && !isCompleted && !serving && !isFull;
+  const baseNeedsVehicles =
+    !!selectedIncident &&
+    (activeCount === 0 || (planShort && !stationExhausted) || selectedIncident.responseNotices.length > 0);
+  const baseShowSuggestions =
+    !isCompleted &&
+    (serving || baseNeedsVehicles || recommendOpen || extraMode) &&
+    (serving ? pickMax > 0 : !isFull || (canAddExtra && extraMode));
   const isEscalated = selectedIncident ? escalatedIncidentIds.has(selectedIncident.id) : false;
   const category = selectedIncident ? INCIDENT_CATEGORY_META[selectedIncident.category] : null;
 
@@ -180,11 +202,19 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
 
   const { suggestion, loading: suggestionLoading, error: suggestionError } = useDispatchRecommendations(
     selectedIncidentId,
-    !!selectedIncidentId && showSuggestions,
+    !!selectedIncidentId && (baseShowSuggestions || probeOtherStations),
     algorithm,
     refreshKey,
     neededTypes
   );
+  // Trạm khác có tổ sẵn sàng đúng loại còn thiếu → mở sẵn gợi ý (tổ hỗ trợ có nhãn trạm, giao xong hỏi xác nhận).
+  const missingTypes = new Set(progress?.missing.map((m) => m.unitType) ?? []);
+  const otherStationsCanHelp =
+    probeOtherStations &&
+    (suggestion?.teams ?? []).some((team) => team.isSupportUnit && team.options.some((o) => missingTypes.has(o.unitType)));
+  const showSuggestions = baseShowSuggestions || otherStationsCanHelp;
+  // Đã hỏi xong mà trạm khác cũng không có → nói rõ để Operator không phải bấm thử.
+  const noTeamAnywhere = probeOtherStations && !suggestionLoading && !!suggestion && !otherStationsCanHelp;
 
   // §34: backend chỉ gợi ý tổ có nhân viên đang hoạt động, không bận và có xe đúng chức năng đang Sẵn sàng.
   // Đáp ứng yêu cầu chi viện có chỉ định loại xe → tổ có chức năng đó lên đầu (sort ổn định, giữ thứ tự gợi ý).
@@ -473,6 +503,7 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
                 >
                   <Users className="w-3 h-3" />
                   {t('liveMap.recommend.linkedReports', { count: selectedIncident.linkedReportCount })}
+                  <NewLinkedDot incidentId={selectedIncident.id} />
                 </button>
               )}
               {(supplements.items.length > 0 || supplements.error) && (
@@ -571,6 +602,16 @@ export const DispatchRecommendPanel: React.FC<DispatchRecommendPanelProps> = ({
         ) : !showSuggestions ? (
           // Đang đáp ứng yêu cầu nhưng Cấp 3 đã đủ xe → banner phía trên đã giải thích.
           serving ? null : <div className="space-y-2 py-2">
+            {stationExhausted && !isCompleted && progress && (
+              <p className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] font-semibold text-amber-800">
+                <ListChecks className="w-3.5 h-3.5 shrink-0 mt-px" />
+                {t(noTeamAnywhere ? 'liveMap.recommend.shortNoTeamNearby' : 'liveMap.cases.reason.planShortNoTeam', {
+                  units: progress.missing
+                    .map((m) => t('liveMap.plan.teams', { count: m.missing, type: unitTypeLabel(m.unitType) }))
+                    .join(' · '),
+                })}
+              </p>
+            )}
             {(isFull || isCompleted) && (
               <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
                 <CheckCircle2 className="w-4 h-4" />

@@ -13,6 +13,7 @@ import { UnauthorizedPage } from './pages/auth/UnauthorizedPage';
 
 import { OperatorLayout } from './components/operator/OperatorLayout';
 import { LiveMapPage } from './pages/operator/LiveMapPage';
+import { IncidentQueuePage } from './pages/operator/IncidentQueuePage';
 import { CompletionPage } from './pages/operator/CompletionPage';
 import { StationTeamsPage } from './pages/operator/StationTeamsPage';
 import { VehiclesPage } from './pages/operator/VehiclesPage';
@@ -76,11 +77,7 @@ const App: React.FC = () => {
           >
             <Route index element={<Navigate to="command-center/live-map" replace />} />
             <Route path="command-center/live-map" element={<LiveMapPage />} />
-            {/* Hàng đợi đã gộp vào Live Map (thẩm định trong panel trái). */}
-            <Route
-              path="command-center/incidents"
-              element={<Navigate to="/dashboard/command-center/live-map" replace />}
-            />
+            <Route path="command-center/incidents" element={<IncidentQueuePage />} />
             <Route path="command-center/completion" element={<CompletionPage />} />
             <Route path="command-center/station-teams" element={<StationTeamsPage />} />
             <Route path="command-center/vehicles" element={<VehiclesPage />} />

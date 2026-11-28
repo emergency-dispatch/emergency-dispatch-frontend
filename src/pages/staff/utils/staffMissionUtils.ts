@@ -3,6 +3,8 @@ import type { DispatchAssignmentResponseDto } from '../../../types/dispatch';
 import type { RouteResult } from '../../../services/routingService';
 import type { IncidentCategory, SeverityLevel } from '../../../types/incident';
 import type { DispatchVehicleType, VehicleStatus } from '../../../types/vehicle';
+import type { ServiceAreaDto } from '../../../services/liveMapService';
+import { circlePolygon } from '../../../components/operator/livemap/MapServiceAreaLayer';
 
 export { formatShortId } from '../../../utils/incidentFormat';
 
@@ -145,25 +147,41 @@ export function mapCompletionReportDtoToClosureReport(
     hazardsNeutralized: existingLocal?.hazardsNeutralized ?? true,
     resourcesUsed: Array.isArray(eqList) && eqList.length > 0
       ? eqList.map((eq: string) => {
-          const parts = eq.split(':');
+        const parts = eq.split(':');
+        if (parts.length >= 2) {
+          const rawUnit = parts.slice(1).join(':').trim();
+          const match = rawUnit.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+          if (match) {
+            return {
+              name: parts[0]?.trim() || eq,
+              quantity: Number(match[1]),
+              unit: match[2]?.trim() || 'Cái',
+            };
+          }
           return {
             name: parts[0]?.trim() || eq,
             quantity: 1,
-            unit: parts[1]?.trim() || 'Cái',
+            unit: rawUnit || 'Cái',
           };
-        })
+        }
+        return {
+          name: eq.trim(),
+          quantity: 1,
+          unit: 'Cái',
+        };
+      })
       : existingLocal?.resourcesUsed || [],
     photos: Array.isArray(mediaUrls) && mediaUrls.length > 0
       ? mediaUrls.map((url: string, idx: number) => ({
-          id: `photo-be-${idx}`,
-          url,
-          category: 'after_action',
-          label: `Ảnh nghiệm thu #${idx + 1}`,
-          timestamp: new Date(submittedDate).toLocaleTimeString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-        }))
+        id: `photo-be-${idx}`,
+        url,
+        category: 'after_action',
+        label: `Ảnh nghiệm thu #${idx + 1}`,
+        timestamp: new Date(submittedDate).toLocaleTimeString('vi-VN', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      }))
       : existingLocal?.photos || [],
     handoverEntity: handoverEnt,
     handoverContactName: handoverContact,
@@ -204,9 +222,9 @@ export function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: numb
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -220,6 +238,9 @@ export function mapAssignmentDtoToMission(
     reporterName?: string | null;
     reporterPhone?: string | null;
     verifiedByName?: string | null;
+    source?: string | null;
+    isFieldReportedByTeam?: boolean;
+    isSelfDispatched?: boolean;
   },
   existingMission?: StaffMission
 ): StaffMission {
@@ -260,10 +281,22 @@ export function mapAssignmentDtoToMission(
   const vehLat = dto.rescueUnit?.currentLat || incLat - 0.006;
   const vehLng = dto.rescueUnit?.currentLng || incLng - 0.006;
 
-  const isAiDispatched = dto.assignedByUserId === null;
-  const dispatcherLabel = isAiDispatched
+  const isSelfDispatched =
+    dto.isSelfDispatched ||
+    Boolean(incidentDetails?.isFieldReportedByTeam) ||
+    incidentDetails?.source === 'RescueTeam';
+
+  const isAiDispatched = !isSelfDispatched && dto.assignedByUserId === null;
+  const dispatcherLabel = isSelfDispatched
+    ? 'Tổ tự phát hiện & tác chiến'
+    : isAiDispatched
     ? 'AI tự điều phối'
     : (incidentDetails?.verifiedByName || 'Điều phối viên CAD');
+
+  const callerNameLabel =
+    incidentDetails?.reporterName ||
+    (isSelfDispatched ? 'Tổ tác chiến hiện trường' : 'Người dân báo tin');
+  const callerPhoneVal = incidentDetails?.reporterPhone?.trim() || '';
 
   return {
     id: dto.id,
@@ -277,8 +310,9 @@ export function mapAssignmentDtoToMission(
     address: dto.incidentAddress || 'Địa chỉ sự cố đang xử lý',
     incidentLat: incLat,
     incidentLng: incLng,
-    callerName: incidentDetails?.reporterName || 'Người dân báo tin',
-    callerPhone: incidentDetails?.reporterPhone || '114',
+    callerName: callerNameLabel,
+    callerPhone: callerPhoneVal,
+    isPhoneRevealed: Boolean(callerPhoneVal && !callerPhoneVal.includes('*') && callerPhoneVal !== '114'),
     dispatcherName: dispatcherLabel,
     assignedByUserId: dto.assignedByUserId,
     isAiDispatched,
@@ -327,4 +361,155 @@ export function mapAssignmentDtoToMission(
       }] : []),
     ],
   };
+}
+
+/**
+ * Phân giải chuỗi hoặc object GeoJSON từ backend / OSM / Admin settings thành danh sách đa giác.
+ * Hỗ trợ Polygon, MultiPolygon, Feature, FeatureCollection, GeometryCollection và bỏ cao độ z nếu có.
+ */
+export function parseStaffBoundaryGeoJson(input: unknown): [number, number][][][] {
+  if (!input) return [];
+  let geo: unknown = input;
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (!trimmed) return [];
+    try {
+      geo = JSON.parse(trimmed);
+    } catch {
+      return [];
+    }
+  }
+  if (!geo || typeof geo !== 'object') return [];
+
+  const isPos = (p: unknown): p is [number, number] =>
+    Array.isArray(p) && p.length >= 2 && !isNaN(Number(p[0])) && !isNaN(Number(p[1]));
+  const isRing = (r: unknown): r is [number, number][] => Array.isArray(r) && r.every(isPos);
+  const isPoly = (p: unknown): p is [number, number][][] => Array.isArray(p) && p.length > 0 && p.every(isRing);
+
+  const collect = (node: unknown): [number, number][][][] => {
+    if (!node || typeof node !== 'object') return [];
+    const { type, coordinates, geometry, features, geometries } = node as {
+      type?: string;
+      coordinates?: unknown;
+      geometry?: unknown;
+      features?: unknown;
+      geometries?: unknown;
+    };
+    if (type === 'Polygon') return isPoly(coordinates) ? [coordinates] : [];
+    if (type === 'MultiPolygon' && Array.isArray(coordinates)) return coordinates.filter(isPoly);
+    if (type === 'Feature') return collect(geometry);
+    if (type === 'FeatureCollection' && Array.isArray(features)) return features.flatMap(collect);
+    if (type === 'GeometryCollection' && Array.isArray(geometries)) return geometries.flatMap(collect);
+    return [];
+  };
+
+  const rawPolygons = collect(geo);
+  if (rawPolygons.length === 0) return [];
+
+  // Chuẩn hóa tọa độ [lng, lat]:
+  // 1. Chuyển sang number và loại bỏ cao độ z nếu có
+  // 2. Tự động hoán vị nếu dữ liệu OSM bị nghịch đảo [lat, lng] thay vì [lng, lat]
+  const normalizeCoord = ([x, y]: [unknown, unknown]): [number, number] => {
+    const numX = Number(x);
+    const numY = Number(y);
+    if (numX >= 8 && numX <= 24 && numY >= 102 && numY <= 110) {
+      return [numY, numX]; // Lat/Lng bị đảo chiều tại Việt Nam
+    }
+    return [numX, numY];
+  };
+
+  return rawPolygons
+    .map((p) => p.map((ring) => ring.map(([lng, lat]) => normalizeCoord([lng, lat]))))
+    .filter((p) => p.length > 0 && (p[0]?.length ?? 0) >= 3);
+}
+
+/**
+ * Sinh FeatureCollection chuẩn cho Mapbox GL trên giao diện Staff:
+ * - Có đa giác ranh giới (boundaryGeoJson): vẽ đúng hình dáng đa giác / lục giác / ranh giới phường quận.
+ * - Không có đa giác: vẽ vòng tròn quanh tâm bán kính radiusKm.
+ * Tương thích cả camelCase và PascalCase (từ C# backend).
+ */
+export function buildStaffServiceAreaFeatureCollection(area?: ServiceAreaDto | null): {
+  type: 'FeatureCollection';
+  features: Array<{
+    type: 'Feature';
+    properties: { name: string };
+    geometry:
+    | { type: 'MultiPolygon'; coordinates: [number, number][][][] }
+    | { type: 'Polygon'; coordinates: [number, number][][] };
+  }>;
+} {
+  if (!area) return { type: 'FeatureCollection', features: [] };
+  const raw = area as any;
+  const boundaryRaw = area.boundaryGeoJson ?? raw.BoundaryGeoJson;
+  const centerLat = typeof area.centerLat === 'number' && area.centerLat !== 0 ? area.centerLat : (raw.CenterLat ?? 10.8441);
+  const centerLng = typeof area.centerLng === 'number' && area.centerLng !== 0 ? area.centerLng : (raw.CenterLng ?? 106.8089);
+  const radiusKm = typeof area.radiusKm === 'number' && area.radiusKm > 0 ? area.radiusKm : (raw.RadiusKm ?? 4.5);
+  const name = area.name ?? raw.Name ?? 'Ranh giới phục vụ trạm';
+
+  const polygons = parseStaffBoundaryGeoJson(boundaryRaw);
+  if (polygons.length > 0) {
+    return {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { name },
+          geometry: {
+            type: 'MultiPolygon',
+            coordinates: polygons,
+          },
+        },
+      ],
+    };
+  }
+
+  if (radiusKm > 0) {
+    return {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { name },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [circlePolygon(centerLat, centerLng, radiusKm)],
+          },
+        },
+      ],
+    };
+  }
+
+  return { type: 'FeatureCollection', features: [] };
+}
+
+/**
+ * Tính khung bao [minLng, minLat, maxLng, maxLat] của vùng phục vụ trạm để zoom trọn vẹn ranh giới.
+ */
+export function getStaffServiceAreaBounds(area?: ServiceAreaDto | null): [number, number, number, number] | null {
+  if (!area) return null;
+  const raw = area as any;
+  const boundaryRaw = area.boundaryGeoJson ?? raw.BoundaryGeoJson;
+  const polygons = parseStaffBoundaryGeoJson(boundaryRaw);
+  if (polygons.length > 0) {
+    const points = polygons.flatMap((p) => p[0] ?? []);
+    if (points.length > 0) {
+      return points.reduce<[number, number, number, number]>(
+        ([minX, minY, maxX, maxY], [lng, lat]) => [
+          Math.min(minX, lng),
+          Math.min(minY, lat),
+          Math.max(maxX, lng),
+          Math.max(maxY, lat),
+        ],
+        [Infinity, Infinity, -Infinity, -Infinity]
+      );
+    }
+  }
+
+  const centerLat = typeof area.centerLat === 'number' && area.centerLat !== 0 ? area.centerLat : (raw.CenterLat ?? 10.8441);
+  const centerLng = typeof area.centerLng === 'number' && area.centerLng !== 0 ? area.centerLng : (raw.CenterLng ?? 106.8089);
+  const radiusKm = typeof area.radiusKm === 'number' && area.radiusKm > 0 ? area.radiusKm : (raw.RadiusKm ?? 4.5);
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.cos((centerLat * Math.PI) / 180));
+  return [centerLng - lngDelta, centerLat - latDelta, centerLng + lngDelta, centerLat + latDelta];
 }

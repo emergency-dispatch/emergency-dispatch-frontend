@@ -252,7 +252,9 @@ export interface OperatorAlert {
     /** §31.E: AI đã tự xác minh + điều xe. */
     | 'auto_dispatched'
     /** §31.E: AI đủ tin cậy nhưng bỏ qua (nghi trùng, hết xe…) → Operator xử lý. */
-    | 'auto_dispatch_skipped';
+    | 'auto_dispatch_skipped'
+    /** BR-07: hệ thống vừa gộp thêm SOS trùng vào sự cố này (một thẻ cho mỗi sự cố, cộng dồn số người báo). */
+    | 'linked_report';
   /** Sự cố liên quan; `traffic_escalation` dùng `trafficJamId` (incidentId = id điểm ùn tắc). */
   incidentId: string;
   trafficJamId?: string;
@@ -368,9 +370,11 @@ interface DispatchContextValue {
   incidentsError: string | null;
   /** Sự cố backend đã leo thang (status Escalated). */
   escalatedIncidentIds: Set<string>;
-  /** Live Map đang mở thẩm định / Hồ sơ ca — banner leo thang tự thu gọn và né sang phần bản đồ. */
+  /** Đang mở drawer thẩm định (Hàng đợi) / Hồ sơ ca (Live Map) — banner leo thang tự thu gọn và né sang chỗ trống. */
   incidentDrawerOpen: boolean;
-  setIncidentDrawerOpen: (open: boolean) => void;
+  /** `left` = panel trái của Live Map, `right` = drawer phủ từ bên phải (banner leo thang né theo phía đó). */
+  incidentDrawerSide: 'left' | 'right';
+  setIncidentDrawerOpen: (open: boolean, side?: 'left' | 'right') => void;
   /**
    * Duyệt sự cố. `category` bắt buộc khi sự cố chưa có loại đã xác nhận (Incident.needsEventType) → gửi
    * confirmedEventType.
@@ -467,6 +471,10 @@ interface DispatchContextValue {
   vehicleLimitFor: (incident: Pick<Incident, 'severity' | 'incidentTypeCode' | 'category' | 'needsEventType'>) => DispatchVehicleLimit;
   operatorAlerts: OperatorAlert[];
   dismissOperatorAlert: (id: string) => void;
+  /** BR-07: sự cố vừa được gộp thêm báo cáo trùng mà Operator chưa mở xem (chấm "mới" cạnh số người cùng báo). */
+  newLinkedReportIds: Set<string>;
+  /** Operator đã mở danh sách báo cáo trùng của sự cố → bỏ chấm "mới". */
+  markLinkedReportsSeen: (incidentId: string) => void;
   /**
    * §21.4: số lần nhận ReceiveIncidentSupplement theo sự cố gốc trong phiên — dùng làm khóa tải lại
    * danh sách "Thông tin bổ sung từ người báo" (backend không trả bộ đếm trong IncidentResponseDto).
@@ -511,7 +519,11 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [highlightIncidentIds, setHighlightIncidentIds] = useState<Set<string>>(new Set());
   const [incidentsLoading, setIncidentsLoading] = useState(true);
   const [incidentsError, setIncidentsError] = useState<string | null>(null);
-  const [incidentDrawerOpen, setIncidentDrawerOpen] = useState(false);
+  const [incidentDrawerSide, setIncidentDrawerSide] = useState<'left' | 'right' | null>(null);
+  const setIncidentDrawerOpen = useCallback(
+    (open: boolean, side: 'left' | 'right' = 'right') => setIncidentDrawerSide(open ? side : null),
+    []
+  );
   const [incomingIds, setIncomingIds] = useState<string[]>([]);
   const [escalationTiers, setEscalationTiers] = useState<Map<string, number>>(new Map());
   const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(null);
@@ -565,11 +577,20 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     staffAudioService.playPriorityBeep();
   }, []);
 
-  const pushOperatorAlert = useCallback((alert: Omit<OperatorAlert, 'id' | 'at'>, autoDismissMs?: number) => {
+  /** `replaceSame`: bỏ thẻ cũ cùng loại của cùng sự cố (VD nhiều SOS gộp liên tiếp → một thẻ cập nhật số). */
+  const pushOperatorAlert = useCallback(
+    (alert: Omit<OperatorAlert, 'id' | 'at'>, autoDismissMs?: number, replaceSame = false) => {
     const id = `${alert.kind}-${alert.incidentId}-${Date.now()}`;
-    setOperatorAlerts((prev) => [{ ...alert, id, at: new Date().toISOString() }, ...prev].slice(0, 5));
+    setOperatorAlerts((prev) =>
+      [
+        { ...alert, id, at: new Date().toISOString() },
+        ...(replaceSame ? prev.filter((a) => !(a.kind === alert.kind && a.incidentId === alert.incidentId)) : prev),
+      ].slice(0, 5)
+    );
     if (autoDismissMs) setTimeout(() => setOperatorAlerts((prev) => prev.filter((a) => a.id !== id)), autoDismissMs);
-  }, []);
+    },
+    []
+  );
 
   /** Áp điểm ùn tắc mới nhất từ API / SignalR; hết trên bản đồ hoặc đã có đội → gỡ cảnh báo leo thang của nó. */
   const applyTrafficHotspot = useCallback((dto: TrafficHotspotResponseDto) => {
@@ -628,7 +649,48 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   /** Ghi đè / thêm sự cố từ API hoặc SignalR; sự cố đã hủy bị gỡ khỏi bảng. */
+  // BR-07: số báo cáo trùng đã thấy của từng sự cố (cập nhật ngay, không chờ render) → biết lúc nào được gộp thêm.
+  const linkedCountsRef = useRef<Map<string, number>>(new Map());
+  const [newLinkedReportIds, setNewLinkedReportIds] = useState<Set<string>>(new Set());
+  const markLinkedReportsSeen = useCallback((incidentId: string) => {
+    setNewLinkedReportIds((prev) => {
+      if (!prev.has(incidentId)) return prev;
+      const next = new Set(prev);
+      next.delete(incidentId);
+      return next;
+    });
+  }, []);
+
   const upsertIncidents = useCallback((dtos: IncidentResponseDto[]) => {
+    // Backend gộp SOS trùng chỉ phát ReceiveIncidentUpdate của sự cố gốc (không có thông báo riêng) → tự so số người báo.
+    // Lần đầu thấy sự cố (tải trang) thì chỉ ghi nhận, không báo.
+    const grown: { dto: IncidentResponseDto; added: number }[] = [];
+    dtos.forEach((dto) => {
+      const count = dto.linkedReportCount ?? 0;
+      const before = linkedCountsRef.current.get(dto.id);
+      if (before !== undefined && count > before && toOperatorStatus(dto) !== null) grown.push({ dto, added: count - before });
+      linkedCountsRef.current.set(dto.id, count);
+    });
+    if (grown.length > 0) {
+      setNewLinkedReportIds((prev) => new Set([...prev, ...grown.map((g) => g.dto.id)]));
+      highlight(grown.map((g) => g.dto.id));
+      grown.forEach(({ dto, added }) =>
+        pushOperatorAlert(
+          {
+            kind: 'linked_report',
+            incidentId: dto.id,
+            title: i18n.t('layout.operatorAlerts.linkedReportTitle'),
+            message: i18n.t('layout.operatorAlerts.linkedReportMessage', {
+              incident: dto.code ? `${dto.code} · ${dto.title}` : dto.title,
+              added,
+              total: (dto.linkedReportCount ?? 0) + 1,
+            }),
+          },
+          INFO_ALERT_MS,
+          true
+        )
+      );
+    }
     setIncidentDtos((prev) => {
       const next = new Map(prev);
       dtos.forEach((dto) => {
@@ -637,7 +699,7 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
       return next;
     });
-  }, []);
+  }, [highlight, pushOperatorAlert]);
 
   const refreshUnits = useCallback(async () => {
     try {
@@ -1798,7 +1860,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incidentsLoading,
         incidentsError,
         escalatedIncidentIds,
-        incidentDrawerOpen,
+        incidentDrawerOpen: incidentDrawerSide !== null,
+        incidentDrawerSide: incidentDrawerSide ?? 'right',
         setIncidentDrawerOpen,
         approveIncident,
         reviewTrafficJam,
@@ -1828,6 +1891,8 @@ export const DispatchProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incidentKindLabel,
         operatorAlerts,
         dismissOperatorAlert,
+        newLinkedReportIds,
+        markLinkedReportsSeen,
         supplementVersions,
         stationNotAssigned,
         assignmentsByIncident,
