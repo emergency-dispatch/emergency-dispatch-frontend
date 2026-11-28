@@ -636,7 +636,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
 
           {/* TAB 2: Change Password */}
           {activeTab === 'security' && (
-            <form onSubmit={handleChangePassword} className="space-y-4">
+            <form onSubmit={handleChangePassword} autoComplete="off" className="space-y-4">
+              {/* Khai báo username ẩn để trình duyệt không điền nhầm email vào ô Mật khẩu hiện tại. */}
+              <input
+                type="text"
+                name="username"
+                autoComplete="username"
+                value={user?.email ?? ''}
+                readOnly
+                tabIndex={-1}
+                aria-hidden="true"
+                className="sr-only"
+              />
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed font-mono-data flex items-start gap-2.5">
                 <KeyRound className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                 <span>
@@ -645,13 +656,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                <label htmlFor="profile-current-password" className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                   {t('profile.security.currentPassword')}
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                   <input
+                    id="profile-current-password"
+                    name="currentPassword"
                     type={showCurrentPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
                     required
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
@@ -669,13 +683,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                <label htmlFor="profile-new-password" className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                   {t('profile.security.newPassword')}
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                   <input
+                    id="profile-new-password"
+                    name="newPassword"
                     type={showNewPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
                     required
                     minLength={6}
                     value={newPassword}
@@ -694,13 +711,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
+                <label htmlFor="profile-confirm-password" className="block text-xs font-mono-data uppercase tracking-wider text-slate-700 font-bold">
                   {t('profile.security.confirmPassword')}
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                   <input
+                    id="profile-confirm-password"
+                    name="confirmNewPassword"
                     type={showNewPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}

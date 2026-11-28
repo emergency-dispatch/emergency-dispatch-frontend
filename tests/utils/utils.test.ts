@@ -256,8 +256,11 @@ describe('routeUtils', () => {
     [UserRole.Operator, '/dashboard/command-center/live-map'],
     [UserRole.Admin, '/admin/overview'],
     [UserRole.Citizen, '/'],
+    ['admin', '/admin/overview'],
+    ['operator', '/dashboard/command-center/live-map'],
+    ['staff', '/staff'],
     [undefined, '/'],
-  ])('getDefaultRouteForRole(%s) → %s', (role: UserRole | undefined, path: string) => {
+  ])('getDefaultRouteForRole(%s) → %s', (role: string | UserRole | undefined, path: string) => {
     expect(getDefaultRouteForRole(role)).toBe(path);
   });
 
@@ -284,7 +287,7 @@ describe('routeUtils', () => {
     expect(isRouteAllowedForRole('/admin/stations', UserRole.Admin)).toBe(true);
     expect(isRouteAllowedForRole('/admin/stations', UserRole.Operator)).toBe(false);
     expect(isRouteAllowedForRole('/staff', UserRole.RescueStaff)).toBe(true);
-    expect(isRouteAllowedForRole('/staff', UserRole.Admin)).toBe(true);
+    expect(isRouteAllowedForRole('/staff', UserRole.Admin)).toBe(false);
     expect(isRouteAllowedForRole('/staff', UserRole.Citizen)).toBe(false);
     expect(isRouteAllowedForRole('/profile', UserRole.Citizen)).toBe(true);
   });

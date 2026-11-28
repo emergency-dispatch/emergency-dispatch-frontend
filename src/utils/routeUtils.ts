@@ -1,10 +1,28 @@
 import { UserRole } from '../types/auth';
 
+export const normalizeRole = (role?: string | UserRole | null): UserRole | undefined => {
+  if (!role) return undefined;
+  switch (String(role).trim().toLowerCase()) {
+    case 'admin':
+      return UserRole.Admin;
+    case 'operator':
+      return UserRole.Operator;
+    case 'rescuestaff':
+    case 'rescue_staff':
+    case 'staff':
+      return UserRole.RescueStaff;
+    case 'citizen':
+      return UserRole.Citizen;
+    default:
+      return role as UserRole;
+  }
+};
+
 /**
  * Returns the default home landing path based on the user's role.
  */
-export const getDefaultRouteForRole = (role?: UserRole): string => {
-  switch (role) {
+export const getDefaultRouteForRole = (role?: string | UserRole): string => {
+  switch (normalizeRole(role)) {
     case UserRole.RescueStaff:
       return '/staff';
     case UserRole.Operator:
@@ -21,7 +39,8 @@ export const getDefaultRouteForRole = (role?: UserRole): string => {
  * Validates whether the given route is accessible for the provided user role.
  * Also filters out authentication / error routes from being redirect targets.
  */
-export const isRouteAllowedForRole = (pathname?: string, role?: UserRole): boolean => {
+export const isRouteAllowedForRole = (pathname?: string, role?: string | UserRole): boolean => {
+  const normalizedRole = normalizeRole(role);
   if (!pathname || pathname === '/' || pathname === '') {
     return true;
   }
@@ -40,17 +59,17 @@ export const isRouteAllowedForRole = (pathname?: string, role?: UserRole): boole
 
   // Command Center: Operator only (Admin có layout riêng /admin)
   if (pathname.startsWith('/dashboard')) {
-    return role === UserRole.Operator;
+    return normalizedRole === UserRole.Operator;
   }
 
   // Admin portal: Admin only
   if (pathname.startsWith('/admin')) {
-    return role === UserRole.Admin;
+    return normalizedRole === UserRole.Admin;
   }
 
-  // Rescue staff field operations portal: RescueStaff and Admin only
+  // Rescue staff field operations portal: RescueStaff only (Admin có layout riêng /admin)
   if (pathname.startsWith('/staff')) {
-    return role === UserRole.Admin || role === UserRole.RescueStaff;
+    return normalizedRole === UserRole.RescueStaff;
   }
 
   return true;

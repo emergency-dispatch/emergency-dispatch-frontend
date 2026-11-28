@@ -4,6 +4,7 @@ import { API_CONFIG } from '../config/api';
 import { authService } from '../services/authService';
 import { userService } from '../services/userService';
 import { resetRealtimeHubs } from '../services/realtime/incidentHubService';
+import { normalizeRole } from '../utils/routeUtils';
 import type {
   UserDto,
   UserResponseDto,
@@ -36,7 +37,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<UserDto | UserResponseDto | null>(() => {
     try {
       const cached = localStorage.getItem(API_CONFIG.USER_KEY);
-      return cached ? JSON.parse(cached) : null;
+      if (!cached) return null;
+      const parsed = JSON.parse(cached) as UserDto | UserResponseDto;
+      return { ...parsed, role: normalizeRole(parsed.role) ?? parsed.role };
     } catch {
       return null;
     }
@@ -50,8 +53,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.setItem(API_CONFIG.REFRESH_TOKEN_KEY, authData.refreshToken);
     }
     if (authData.user) {
-      localStorage.setItem(API_CONFIG.USER_KEY, JSON.stringify(authData.user));
-      setUser(authData.user);
+      const normalizedUser = { ...authData.user, role: normalizeRole(authData.user.role) ?? authData.user.role };
+      localStorage.setItem(API_CONFIG.USER_KEY, JSON.stringify(normalizedUser));
+      setUser(normalizedUser);
     }
     // Đăng nhập tài khoản mới: kết nối realtime của tài khoản trước (nếu còn) bị ngắt và nối lại bằng token mới (§47)
     resetRealtimeHubs(true);
@@ -79,9 +83,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response = await userService.getMe();
       if (response.success && response.data) {
-        setUser(response.data);
-        localStorage.setItem(API_CONFIG.USER_KEY, JSON.stringify(response.data));
-        return response.data;
+        const normalizedUser = { ...response.data, role: normalizeRole(response.data.role) ?? response.data.role };
+        setUser(normalizedUser);
+        localStorage.setItem(API_CONFIG.USER_KEY, JSON.stringify(normalizedUser));
+        return normalizedUser;
       }
       return null;
     } catch (err) {

@@ -34,18 +34,19 @@ export const LoginPage: React.FC = () => {
   // Read message or redirect if passed from navigation
   const successRedirectMsg = (location.state as { message?: string })?.message;
 
-  const handleRoleRedirect = (role: UserRole) => {
+  const handleRoleRedirect = (role: UserRole | string) => {
     const rawRedirect =
       (location.state as { from?: { pathname?: string } })?.from?.pathname ||
       new URLSearchParams(location.search).get('redirect') ||
       undefined;
 
-    if (rawRedirect && isRouteAllowedForRole(rawRedirect, role)) {
+    const defaultRoute = getDefaultRouteForRole(role);
+    if (rawRedirect && rawRedirect !== '/' && isRouteAllowedForRole(rawRedirect, role)) {
       navigate(rawRedirect, { replace: true });
       return;
     }
 
-    navigate(getDefaultRouteForRole(role), { replace: true });
+    navigate(defaultRoute, { replace: true });
   };
 
   // If already authenticated, redirect to appropriate role portal
@@ -142,7 +143,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <AuthLayout
-      title="Resq-ai Login"
+      title="Đăng Nhập Tài Khoản"
       subtitle="Truy cập thiết bị đầu cuối điều phối khẩn cấp hoặc cổng tác chiến"
     >
       {successRedirectMsg && (
