@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { StaffMission } from '../../../types/staff';
 import type { IncidentSupplementDto } from '../../../types/incident';
 import { SEVERITY_META } from '../../../data/incidentMock';
@@ -39,11 +39,33 @@ export const StaffIncidentCard: React.FC<StaffIncidentCardProps> = ({
   const severityMeta = SEVERITY_META[mission.severity];
 
   // Phone Reveal State (POST /api/incidents/{id}/reveal-phone - BR-32)
-  const isMaskedInitial = mission.callerPhone?.includes('*') || false;
-  const [isRevealed, setIsRevealed] = useState<boolean>(!isMaskedInitial);
-  const [displayedPhone, setDisplayedPhone] = useState<string>(mission.callerPhone || '114');
+  const rawPhone = mission.callerPhone?.trim() || '';
+  const hasCallerPhone = Boolean(rawPhone && rawPhone !== '114');
+  const isMaskedInitial = rawPhone.includes('*');
+
+  const [isRevealed, setIsRevealed] = useState<boolean>(
+    hasCallerPhone && (!isMaskedInitial || Boolean(mission.isPhoneRevealed))
+  );
+  const [displayedPhone, setDisplayedPhone] = useState<string>(
+    hasCallerPhone ? rawPhone : ''
+  );
   const [isRevealing, setIsRevealing] = useState<boolean>(false);
   const [revealError, setRevealError] = useState<string | null>(null);
+
+  // Sync state when mission prop changes
+  useEffect(() => {
+    const phone = mission.callerPhone?.trim() || '';
+    const hasPhone = Boolean(phone && phone !== '114');
+    const isMasked = phone.includes('*');
+    if (hasPhone) {
+      setDisplayedPhone(phone);
+      setIsRevealed(!isMasked || Boolean(mission.isPhoneRevealed));
+    } else {
+      setDisplayedPhone('');
+      setIsRevealed(false);
+    }
+    setRevealError(null);
+  }, [mission.callerPhone, mission.incidentId, mission.isPhoneRevealed]);
 
   // Lightbox Modal for Citizen Evidence Photos
   const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
@@ -147,7 +169,7 @@ export const StaffIncidentCard: React.FC<StaffIncidentCardProps> = ({
             {/* Caller Phone with Reveal Button */}
             <div className="flex items-center gap-2">
               <Phone className="w-3.5 h-3.5 text-red-600 shrink-0" />
-              {isRevealed ? (
+              {displayedPhone && isRevealed ? (
                 <div className="flex items-center gap-1.5">
                   <a
                     href={`tel:${displayedPhone}`}
@@ -160,9 +182,9 @@ export const StaffIncidentCard: React.FC<StaffIncidentCardProps> = ({
                     ĐÃ MỞ KHÓA
                   </span>
                 </div>
-              ) : (
+              ) : displayedPhone ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-500 font-mono font-bold">
+                  <span className="text-slate-600 font-mono font-bold">
                     {displayedPhone}
                   </span>
                   <button
@@ -180,6 +202,21 @@ export const StaffIncidentCard: React.FC<StaffIncidentCardProps> = ({
                       </>
                     )}
                   </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 italic text-[11px]">
+                    {mission.isAiDispatched || mission.dispatcherName?.includes('Tổ tự') || mission.callerName?.includes('Tổ')
+                      ? 'Tổ tự phát hiện (không có SĐT người dân)'
+                      : 'Không có SĐT người báo'}
+                  </span>
+                  <a
+                    href="tel:114"
+                    className="text-slate-500 hover:text-red-600 font-mono text-[10px] underline ml-0.5"
+                    title="Gọi tổng đài CAD"
+                  >
+
+                  </a>
                 </div>
               )}
             </div>

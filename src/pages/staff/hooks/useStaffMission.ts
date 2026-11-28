@@ -353,15 +353,25 @@ export const useStaffMission = ({
               const vehLat = activeDto.rescueUnit?.currentLat || incLat - 0.006;
               const vehLng = activeDto.rescueUnit?.currentLng || incLng - 0.006;
 
-              let incDetails: { reporterName?: string; reporterPhone?: string; verifiedByName?: string } | undefined;
+              let incDetails: {
+                code?: string | null;
+                reporterName?: string | null;
+                reporterPhone?: string | null;
+                verifiedByName?: string | null;
+                source?: string | null;
+                isFieldReportedByTeam?: boolean;
+              } | undefined;
               if (isGuid(activeDto.incidentId)) {
                 try {
                   const incRes = await incidentService.getById(activeDto.incidentId);
                   if (incRes.success && incRes.data) {
                     incDetails = {
+                      code: incRes.data.code,
                       reporterName: incRes.data.reporterName,
                       reporterPhone: incRes.data.reporterPhone,
                       verifiedByName: incRes.data.verifiedByUserName || incRes.data.lockedByOperatorName || 'Tổng đài viên CAD',
+                      source: incRes.data.source,
+                      isFieldReportedByTeam: incRes.data.isFieldReportedByTeam,
                     };
                   }
                 } catch {
@@ -406,9 +416,19 @@ export const useStaffMission = ({
                     prev.status === mapped.status &&
                     prev.severity === mapped.severity &&
                     prev.incidentId === mapped.incidentId &&
-                    prev.timeline.length === mapped.timeline.length
+                    prev.timeline.length === mapped.timeline.length &&
+                    prev.callerPhone === mapped.callerPhone &&
+                    prev.callerName === mapped.callerName
                   ) {
                     return prev;
+                  }
+                  // Nếu prev đã mở khóa số điện thoại (không còn mask), giữ số đã mở khóa
+                  if (prev.callerPhone && !prev.callerPhone.includes('*') && mapped.callerPhone.includes('*')) {
+                    return {
+                      ...mapped,
+                      callerPhone: prev.callerPhone,
+                      isPhoneRevealed: true,
+                    };
                   }
                 }
                 return mapped;
@@ -472,7 +492,7 @@ export const useStaffMission = ({
                   incidentLat: 10.8441,
                   incidentLng: 106.8089,
                   callerName: 'Tổng đài CAD',
-                  callerPhone: '114',
+                  callerPhone: '',
                   assignedAt: r.completedAt,
                   completedAt: r.completedAt,
                   vehicleId: '',
@@ -537,7 +557,19 @@ export const useStaffMission = ({
 
         staffAudioService.playSuccessChime();
         const assignmentDto = res.data.assignment;
-        const mission = mapAssignmentDtoToMission(assignmentDto, vehiclePlateRef.current);
+        const mission = mapAssignmentDtoToMission(
+          assignmentDto,
+          vehiclePlateRef.current,
+          undefined,
+          {
+            code: res.data.incidentCode,
+            reporterName: 'Tổ tác chiến hiện trường',
+            reporterPhone: '',
+            verifiedByName: 'Tổ tự phát hiện & tác chiến',
+            isFieldReportedByTeam: true,
+            source: 'RescueTeam',
+          }
+        );
         mission.status = 'on_scene';
 
         // Suppress alert modal & activate mission immediately
@@ -583,15 +615,25 @@ export const useStaffMission = ({
       const vehLat = assignmentDto.rescueUnit?.currentLat || incLat - 0.006;
       const vehLng = assignmentDto.rescueUnit?.currentLng || incLng - 0.006;
 
-      let incDetails: { reporterName?: string; reporterPhone?: string; verifiedByName?: string } | undefined;
+      let incDetails: {
+        code?: string | null;
+        reporterName?: string | null;
+        reporterPhone?: string | null;
+        verifiedByName?: string | null;
+        source?: string | null;
+        isFieldReportedByTeam?: boolean;
+      } | undefined;
       if (isGuid(assignmentDto.incidentId)) {
         try {
           const incRes = await incidentService.getById(assignmentDto.incidentId);
           if (incRes.success && incRes.data) {
             incDetails = {
+              code: incRes.data.code,
               reporterName: incRes.data.reporterName,
               reporterPhone: incRes.data.reporterPhone,
               verifiedByName: incRes.data.verifiedByUserName || incRes.data.lockedByOperatorName || 'Tổng đài viên CAD',
+              source: incRes.data.source,
+              isFieldReportedByTeam: incRes.data.isFieldReportedByTeam,
             };
           }
         } catch {

@@ -147,41 +147,41 @@ export function mapCompletionReportDtoToClosureReport(
     hazardsNeutralized: existingLocal?.hazardsNeutralized ?? true,
     resourcesUsed: Array.isArray(eqList) && eqList.length > 0
       ? eqList.map((eq: string) => {
-          const parts = eq.split(':');
-          if (parts.length >= 2) {
-            const rawUnit = parts.slice(1).join(':').trim();
-            const match = rawUnit.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
-            if (match) {
-              return {
-                name: parts[0]?.trim() || eq,
-                quantity: Number(match[1]),
-                unit: match[2]?.trim() || 'Cái',
-              };
-            }
+        const parts = eq.split(':');
+        if (parts.length >= 2) {
+          const rawUnit = parts.slice(1).join(':').trim();
+          const match = rawUnit.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+          if (match) {
             return {
               name: parts[0]?.trim() || eq,
-              quantity: 1,
-              unit: rawUnit || 'Cái',
+              quantity: Number(match[1]),
+              unit: match[2]?.trim() || 'Cái',
             };
           }
           return {
-            name: eq.trim(),
+            name: parts[0]?.trim() || eq,
             quantity: 1,
-            unit: 'Cái',
+            unit: rawUnit || 'Cái',
           };
-        })
+        }
+        return {
+          name: eq.trim(),
+          quantity: 1,
+          unit: 'Cái',
+        };
+      })
       : existingLocal?.resourcesUsed || [],
     photos: Array.isArray(mediaUrls) && mediaUrls.length > 0
       ? mediaUrls.map((url: string, idx: number) => ({
-          id: `photo-be-${idx}`,
-          url,
-          category: 'after_action',
-          label: `Ảnh nghiệm thu #${idx + 1}`,
-          timestamp: new Date(submittedDate).toLocaleTimeString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-        }))
+        id: `photo-be-${idx}`,
+        url,
+        category: 'after_action',
+        label: `Ảnh nghiệm thu #${idx + 1}`,
+        timestamp: new Date(submittedDate).toLocaleTimeString('vi-VN', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      }))
       : existingLocal?.photos || [],
     handoverEntity: handoverEnt,
     handoverContactName: handoverContact,
@@ -222,9 +222,9 @@ export function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: numb
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -238,6 +238,9 @@ export function mapAssignmentDtoToMission(
     reporterName?: string | null;
     reporterPhone?: string | null;
     verifiedByName?: string | null;
+    source?: string | null;
+    isFieldReportedByTeam?: boolean;
+    isSelfDispatched?: boolean;
   },
   existingMission?: StaffMission
 ): StaffMission {
@@ -278,10 +281,22 @@ export function mapAssignmentDtoToMission(
   const vehLat = dto.rescueUnit?.currentLat || incLat - 0.006;
   const vehLng = dto.rescueUnit?.currentLng || incLng - 0.006;
 
-  const isAiDispatched = dto.assignedByUserId === null;
-  const dispatcherLabel = isAiDispatched
+  const isSelfDispatched =
+    dto.isSelfDispatched ||
+    Boolean(incidentDetails?.isFieldReportedByTeam) ||
+    incidentDetails?.source === 'RescueTeam';
+
+  const isAiDispatched = !isSelfDispatched && dto.assignedByUserId === null;
+  const dispatcherLabel = isSelfDispatched
+    ? 'Tổ tự phát hiện & tác chiến'
+    : isAiDispatched
     ? 'AI tự điều phối'
     : (incidentDetails?.verifiedByName || 'Điều phối viên CAD');
+
+  const callerNameLabel =
+    incidentDetails?.reporterName ||
+    (isSelfDispatched ? 'Tổ tác chiến hiện trường' : 'Người dân báo tin');
+  const callerPhoneVal = incidentDetails?.reporterPhone?.trim() || '';
 
   return {
     id: dto.id,
@@ -295,8 +310,9 @@ export function mapAssignmentDtoToMission(
     address: dto.incidentAddress || 'Địa chỉ sự cố đang xử lý',
     incidentLat: incLat,
     incidentLng: incLng,
-    callerName: incidentDetails?.reporterName || 'Người dân báo tin',
-    callerPhone: incidentDetails?.reporterPhone || '114',
+    callerName: callerNameLabel,
+    callerPhone: callerPhoneVal,
+    isPhoneRevealed: Boolean(callerPhoneVal && !callerPhoneVal.includes('*') && callerPhoneVal !== '114'),
     dispatcherName: dispatcherLabel,
     assignedByUserId: dto.assignedByUserId,
     isAiDispatched,
@@ -419,8 +435,8 @@ export function buildStaffServiceAreaFeatureCollection(area?: ServiceAreaDto | n
     type: 'Feature';
     properties: { name: string };
     geometry:
-      | { type: 'MultiPolygon'; coordinates: [number, number][][][] }
-      | { type: 'Polygon'; coordinates: [number, number][][] };
+    | { type: 'MultiPolygon'; coordinates: [number, number][][][] }
+    | { type: 'Polygon'; coordinates: [number, number][][] };
   }>;
 } {
   if (!area) return { type: 'FeatureCollection', features: [] };

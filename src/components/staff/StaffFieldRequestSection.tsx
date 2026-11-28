@@ -128,10 +128,10 @@ export const StaffFieldRequestSection: React.FC<StaffFieldRequestSectionProps> =
           </div>
           <div className="space-y-0.5 min-w-0">
             <div className="text-xs font-extrabold text-red-950 flex items-center gap-1.5">
-              <span>YÊU CẦU CHI VIỆN (BACKUP)</span>
+              <span>YÊU CẦU CHI VIỆN</span>
             </div>
             <p className="text-[11px] text-red-800 leading-tight">
-              Xin trung tâm gửi thêm từ 1 đến 5 xe (Ambulance, xe chữa cháy...)
+              Xin trung tâm gửi thêm chi viện
             </p>
           </div>
         </button>
@@ -147,10 +147,10 @@ export const StaffFieldRequestSection: React.FC<StaffFieldRequestSectionProps> =
           </div>
           <div className="space-y-0.5 min-w-0">
             <div className="text-xs font-extrabold text-indigo-950 flex items-center gap-1.5">
-              <span>BÁO VẤN ĐỀ KHÁC (OTHER)</span>
+              <span>BÁO VẤN ĐỀ KHÁC</span>
             </div>
             <p className="text-[11px] text-indigo-800 leading-tight">
-              Cần CSGT phân luồng, điện lực cúp điện lưới, rào chắn hiện trường...
+              Báo các vấn đề khác cần hỗ trợ
             </p>
           </div>
         </button>
@@ -180,12 +180,12 @@ export const StaffFieldRequestSection: React.FC<StaffFieldRequestSectionProps> =
                 <div
                   key={req.id}
                   className={`p-3 rounded-xl border transition-all text-xs space-y-2 ${req.status === 'Fulfilled'
-                      ? 'bg-emerald-50/50 border-emerald-200'
-                      : req.status === 'Declined'
-                        ? 'bg-rose-50/40 border-rose-200'
-                        : isOpen
-                          ? 'bg-amber-50/40 border-amber-300'
-                          : 'bg-slate-50 border-slate-200'
+                    ? 'bg-emerald-50/50 border-emerald-200'
+                    : req.status === 'Declined'
+                      ? 'bg-rose-50/40 border-rose-200'
+                      : isOpen
+                        ? 'bg-amber-50/40 border-amber-300'
+                        : 'bg-slate-50 border-slate-200'
                     }`}
                 >
                   {/* Top row: Type badge + Status */}
@@ -193,8 +193,8 @@ export const StaffFieldRequestSection: React.FC<StaffFieldRequestSectionProps> =
                     <div className="flex items-center gap-1.5">
                       <span
                         className={`px-2 py-0.5 rounded-md font-bold text-[10px] font-mono border ${isBackup
-                            ? 'bg-red-50 text-red-700 border-red-200'
-                            : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          ? 'bg-red-50 text-red-700 border-red-200'
+                          : 'bg-indigo-50 text-indigo-700 border-indigo-200'
                           }`}
                       >
                         {isBackup ? `CHI VIỆN: +${req.quantity} XE` : 'VẤN ĐỀ KHÁC'}
@@ -223,10 +223,10 @@ export const StaffFieldRequestSection: React.FC<StaffFieldRequestSectionProps> =
                   {req.responseNote && (
                     <div
                       className={`p-2 rounded-lg text-[11px] flex items-start gap-1.5 ${req.status === 'Fulfilled'
-                          ? 'bg-emerald-100/70 text-emerald-950 font-medium'
-                          : req.status === 'Declined'
-                            ? 'bg-rose-100/70 text-rose-950 font-medium'
-                            : 'bg-slate-100 text-slate-800'
+                        ? 'bg-emerald-100/70 text-emerald-950 font-medium'
+                        : req.status === 'Declined'
+                          ? 'bg-rose-100/70 text-rose-950 font-medium'
+                          : 'bg-slate-100 text-slate-800'
                         }`}
                     >
                       <MessageSquare className="w-3.5 h-3.5 shrink-0 mt-0.5" />
