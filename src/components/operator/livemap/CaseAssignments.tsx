@@ -114,9 +114,11 @@ export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
               const statusMeta = VEHICLE_STATUS_META[vehicle.status];
               const hasReported = incident.reportedVehicleIds.includes(vehicle.id);
               const canRecall = !hasReported && !!vehicle.assignmentId && vehicle.status !== 'on_scene';
+              const currAssignment = findVehicleAssignment(assignments, vehicle.id, vehicle.assignmentId);
+              const isSelf = currAssignment?.isSelfDispatched;
               const team = assignmentTeam(
                 vehicle.id,
-                findVehicleAssignment(assignments, vehicle.id, vehicle.assignmentId)
+                currAssignment
               );
               const progressEl = (
                 <>
@@ -128,7 +130,7 @@ export const CaseAssignments: React.FC<CaseAssignmentsProps> = ({
                     </span>
                   ) : (
                     <span style={{ color: statusMeta.color }} className="font-semibold">
-                      {t(`enums.vehicleStatus.${vehicle.status}`)}
+                      {isSelf ? 'Tổ tự nhận · Đang tại hiện trường' : t(`enums.vehicleStatus.${vehicle.status}`)}
                     </span>
                   )}
                   {!hasReported &&

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { StaffMission, MissionStatus, DigitalClosureReport } from '../../../types/staff';
-import type { DispatchAssignmentResponseDto, RejectionReason, ResolveDispatchDto } from '../../../types/dispatch';
+import type { DispatchAssignmentResponseDto, RejectionReason, ResolveDispatchDto, FieldIncidentReportDto } from '../../../types/dispatch';
 import type { StaffNavTab } from '../../../components/staff/StaffSidebar';
 import { dispatchService } from '../../../services/dispatchService';
 import { incidentService } from '../../../services/incidentService';
@@ -223,9 +223,10 @@ export const useStaffMission = ({
     [showToast]
   );
 
-  // §20: Nhiệm vụ giải tỏa điểm nghẽn giao thông (Traffic Hotspot Task)
+  // §20: Nhiệm vụ giải tỏa điểm nghẽn giao thông (Traffic Hotspot Task) & Báo sự cố hiện trường (§64)
   const [activeTrafficTask, setActiveTrafficTask] = useState<ActiveTrafficTask | null>(null);
   const [isReportTrafficModalOpen, setIsReportTrafficModalOpen] = useState<boolean>(false);
+  const [isReportIncidentModalOpen, setIsReportIncidentModalOpen] = useState<boolean>(false);
 
   const fetchActiveTrafficTask = useCallback(async () => {
     try {
@@ -520,6 +521,51 @@ export const useStaffMission = ({
       }
     },
     []
+  );
+
+  /**
+   * §64: Báo sự cố hiện trường & tự nhận tác chiến tại chỗ (POST /api/dispatch/field-report).
+   * Lượt phân công vào thẳng OnScene, chuyển tab tác chiến mà không bị bật còi báo động / popup nhận lệnh.
+   */
+  const handleCreateFieldIncident = useCallback(
+    async (dto: FieldIncidentReportDto): Promise<boolean> => {
+      try {
+        const res = await dispatchService.reportFieldIncident(dto);
+        if (!res.success || !res.data) {
+          throw new Error(res.message || 'Không thể tạo sự cố hiện trường.');
+        }
+
+        staffAudioService.playSuccessChime();
+        const assignmentDto = res.data.assignment;
+        const mission = mapAssignmentDtoToMission(assignmentDto, vehiclePlateRef.current);
+        mission.status = 'on_scene';
+
+        // Suppress alert modal & activate mission immediately
+        alertedAssignmentIdsRef.current.add(assignmentDto.id);
+        setIsAlertOpen(false);
+        setPendingMission(null);
+        setActiveMission(mission);
+        setIsViewingStandby(false);
+
+        // Switch to mission view
+        onNavigateTabRef.current?.('mission');
+
+        showToast(
+          'success',
+          'TỰ NHẬN TÁC CHIẾN TẠI HIỆN TRƯỜNG',
+          `Đã lập hồ sơ sự cố ${res.data.incidentCode || ''} và chuyển thẳng sang trạng thái Tại hiện trường.`
+        );
+
+        // Background sync assignments
+        fetchMyAssignments(true).catch(() => {});
+        return true;
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || 'Không thể gửi báo cáo sự cố hiện trường.';
+        showToast('error', 'LỖI BÁO CÁO SỰ CỐ', msg);
+        return false;
+      }
+    },
+    [showToast, fetchMyAssignments]
   );
 
   // Connect SignalR hub and poll fallback
@@ -1322,12 +1368,15 @@ export const useStaffMission = ({
     handlePhoneRevealed: (fullPhone: string) => {
       setActiveMission((prev) => (prev ? { ...prev, callerPhone: fullPhone, isPhoneRevealed: true } : null));
     },
-    // Traffic Task (§20)
+    // Traffic Task (§20) & Field Incident Report (§64)
     activeTrafficTask,
     isReportTrafficModalOpen,
     setIsReportTrafficModalOpen,
+    isReportIncidentModalOpen,
+    setIsReportIncidentModalOpen,
     handleResolveTrafficTask,
     handleReportTrafficHotspot,
+    handleCreateFieldIncident,
     // GIS Service Area Geofence Boundary
     serviceArea,
     // Operations

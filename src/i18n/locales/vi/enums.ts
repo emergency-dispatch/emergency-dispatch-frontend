@@ -10,6 +10,7 @@ export const enumsVi = {
     Radio: 'Bộ đàm',
     Cctv: 'Camera',
     FieldObservation: 'Quan sát',
+    RescueTeam: 'Tổ tự phát hiện',
     Other: 'Kênh khác',
   },
   hazardTag: { fire: '#Fire', accident: '#Accident', traffic_jam: '#Traffic_Jam', other: 'Khác' },

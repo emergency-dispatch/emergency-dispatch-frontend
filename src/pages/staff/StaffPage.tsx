@@ -5,6 +5,7 @@ import { StaffMissionAlertModal } from '../../components/staff/StaffMissionAlert
 import { StaffClosureReportModal } from '../../components/staff/StaffClosureReportModal';
 import { StaffMissionHistoryModal } from '../../components/staff/StaffMissionHistoryModal';
 import { StaffReportTrafficModal } from '../../components/staff/StaffReportTrafficModal';
+import { StaffReportIncidentModal } from '../../components/staff/StaffReportIncidentModal';
 import { StaffToastContainer } from '../../components/staff/StaffToast';
 import { StaffScheduleView } from '../../components/staff/schedule/StaffScheduleView';
 import { StaffReportsView } from '../../components/staff/reports/StaffReportsView';
@@ -57,8 +58,11 @@ export const StaffPage: React.FC = () => {
     activeTrafficTask,
     isReportTrafficModalOpen,
     setIsReportTrafficModalOpen,
+    isReportIncidentModalOpen,
+    setIsReportIncidentModalOpen,
     handleResolveTrafficTask,
     handleReportTrafficHotspot,
+    handleCreateFieldIncident,
     serviceArea,
     fetchMyAssignments,
     handleStatusChange,
@@ -120,6 +124,7 @@ export const StaffPage: React.FC = () => {
               onPhoneRevealed={handlePhoneRevealed}
               activeTrafficTask={activeTrafficTask}
               onResolveTrafficTask={handleResolveTrafficTask}
+              onOpenReportIncidentModal={() => setIsReportIncidentModalOpen(true)}
               onOpenReportTrafficModal={() => setIsReportTrafficModalOpen(true)}
               onCreateFieldRequest={handleCreateFieldRequest}
               onCancelFieldRequest={handleCancelFieldRequest}
@@ -203,15 +208,21 @@ export const StaffPage: React.FC = () => {
         }}
       />
 
-      {/* Staff Report Traffic Hotspot Modal (POST /api/traffic/report) */}
-      <StaffReportTrafficModal
-        visible={isReportTrafficModalOpen}
-        onClose={() => setIsReportTrafficModalOpen(false)}
-        onSubmit={handleReportTrafficHotspot}
+      {/* Staff Report Incident & Traffic Modal (§64: POST /api/dispatch/field-report & POST /api/traffic/report) */}
+      <StaffReportIncidentModal
+        visible={isReportIncidentModalOpen || isReportTrafficModalOpen}
+        onClose={() => {
+          setIsReportIncidentModalOpen(false);
+          setIsReportTrafficModalOpen(false);
+        }}
+        onSubmitFieldIncident={handleCreateFieldIncident}
+        onSubmitTraffic={handleReportTrafficHotspot}
         defaultLat={activeMission?.vehicleLat}
         defaultLng={activeMission?.vehicleLng}
         defaultAddress={activeMission?.address || profile.stationName || 'Khu Công nghệ cao TP.HCM'}
         reporterName={profile.name}
+        profile={profile}
+        initialTab={isReportTrafficModalOpen && !isReportIncidentModalOpen ? 'traffic' : 'field_incident'}
       />
 
       {/* Staff Floating Toast Notifications */}

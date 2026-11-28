@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Sparkles,
   Car,
+  AlertTriangle,
   Shield,
   Maximize2,
 } from 'lucide-react';
@@ -43,6 +44,7 @@ interface StaffStandbyViewProps {
   completedMissions: StaffMission[];
   activeTrafficTask?: ActiveTrafficTask | null;
   onResolveTrafficTask?: (hotspotId: string, note?: string) => Promise<boolean>;
+  onOpenReportIncidentModal?: () => void;
   onOpenReportTrafficModal?: () => void;
   serviceArea?: ServiceAreaDto | null;
   onSelectMission?: (mission: StaffMission) => void;
@@ -58,6 +60,7 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
   completedMissions,
   activeTrafficTask,
   onResolveTrafficTask,
+  onOpenReportIncidentModal,
   onOpenReportTrafficModal,
   serviceArea,
   onSelectMission,
@@ -408,15 +411,15 @@ export const StaffStandbyView: React.FC<StaffStandbyViewProps> = ({
             )}
 
             <div className="flex items-center gap-1.5">
-              {onOpenReportTrafficModal && (
+              {(onOpenReportIncidentModal || onOpenReportTrafficModal) && (
                 <button
                   type="button"
-                  onClick={onOpenReportTrafficModal}
+                  onClick={onOpenReportIncidentModal || onOpenReportTrafficModal}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-mono font-bold text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-xl transition-all cursor-pointer"
-                  title="Báo cáo điểm nghẽn hoặc chướng ngại vật giao thông (POST /api/traffic/report)"
+                  title="Báo cáo sự cố khẩn cấp hoặc điểm nghẽn giao thông tại hiện trường)"
                 >
-                  <Car className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Báo Kẹt Xe</span>
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Báo Cáo Sự Cố</span>
                 </button>
               )}
 

@@ -11,6 +11,7 @@ export const enumsEn: Messages<typeof enumsVi> = {
     Radio: 'Radio',
     Cctv: 'CCTV',
     FieldObservation: 'Observed',
+    RescueTeam: 'Rescue team (field)',
     Other: 'Other',
   },
   hazardTag: { fire: '#Fire', accident: '#Accident', traffic_jam: '#Traffic_Jam', other: 'Other' },
