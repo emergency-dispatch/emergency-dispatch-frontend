@@ -55,6 +55,11 @@ interface ReporterEvidenceProps {
    * để ca thông thường đọc hết bằng chứng mà không phải cuộn.
    */
   compact?: boolean;
+  /**
+   * Kèm `compact` (drawer thẩm định của Hàng đợi): từ `md` ảnh bên trái, ghi âm / người báo / mô tả / AI nhận định bên phải
+   * → ảnh và lời kể nằm trong một tầm nhìn, không phải cuộn qua ảnh mới đọc được mô tả.
+   */
+  split?: boolean;
 }
 
 /**
@@ -103,6 +108,7 @@ export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
   showLocation = true,
   afterDescription,
   compact = false,
+  split = false,
 }) => {
   const { t } = useTranslation();
   const hasPhone = hasReporterPhone(incident);
@@ -248,6 +254,36 @@ export const ReporterEvidence: React.FC<ReporterEvidenceProps> = ({
         )}
       </div>
     );
+    const outOfArea = incident.isOutOfServiceArea && (
+      <p className="flex items-start gap-1.5 rounded-lg bg-red-50 border border-red-200 px-2.5 py-1.5 text-xs text-red-700">
+        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+        {t('incidents.drawer.outOfArea')}
+        {incident.distanceOutsideAreaKm != null &&
+          t('incidents.drawer.outOfAreaDistance', {
+            km: incident.distanceOutsideAreaKm.toLocaleString(dateLocale(), { maximumFractionDigits: 1 }),
+          })}
+        {t('incidents.drawer.outOfAreaSuffix')}
+      </p>
+    );
+    if (split) {
+      return (
+        <div className="space-y-4 min-w-0">
+          <div className={`grid gap-4 ${gallery ? 'md:grid-cols-[minmax(0,44%)_minmax(0,1fr)]' : ''}`}>
+            {gallery && <div className="min-w-0">{gallery}</div>}
+            <div className="space-y-3 min-w-0">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {audio}
+                {reporterInline}
+              </div>
+              {outOfArea}
+              {description}
+              {afterDescription}
+            </div>
+          </div>
+          {supplementSection}
+        </div>
+      );
+    }
     return (
       <div className="space-y-4 min-w-0">
         {gallery}

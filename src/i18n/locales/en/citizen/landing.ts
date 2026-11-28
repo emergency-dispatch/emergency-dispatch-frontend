@@ -113,7 +113,7 @@ export const citizenLandingEn: Messages<typeof citizenLandingVi> = {
       b3: 'Offline Queue automatically stores and resends when back online',
       b4: 'UI optimized for one-handed operation during emergency',
       log1: '[14:32:01.04] Received SOS packet from citizen app #8942',
-      log2: '[14:32:01.12] Locked GPS coordinates: 21.0285, 105.8542 (±2.8m)',
+      log2: '[14:32:01.12] High-precision location locked: SHTP Tech Park (±2.8m)',
       log3: '[14:32:01.45] Uploaded 2 scene photos & 1 audio note',
     },
     step2: {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { StaffMission, MissionStatus, DigitalClosureReport } from '../../../types/staff';
-import type { DispatchAssignmentResponseDto, RejectionReason, ResolveDispatchDto } from '../../../types/dispatch';
+import type { DispatchAssignmentResponseDto, RejectionReason, ResolveDispatchDto, FieldIncidentReportDto } from '../../../types/dispatch';
 import type { StaffNavTab } from '../../../components/staff/StaffSidebar';
 import { dispatchService } from '../../../services/dispatchService';
 import { incidentService } from '../../../services/incidentService';
@@ -11,6 +11,7 @@ import { staffAudioService } from '../../../services/staffAudioService';
 import { routingService, type RouteResult } from '../../../services/routingService';
 import { mediaService } from '../../../services/mediaService';
 import { liveMapService, type TrafficTaskEventDto, type ReportTrafficHotspotDto, type ServiceAreaDto } from '../../../services/liveMapService';
+import { DEFAULT_SERVICE_AREA, getCachedServiceArea, cacheServiceArea } from '../../../utils/serviceArea';
 import type { ActiveTrafficTask } from '../../../components/staff/StaffTrafficTaskCard';
 import type { FieldRequestDto, CreateFieldRequestDto, FieldRequestEventDto } from '../../../types/fieldRequest';
 import type { IncidentSupplementDto } from '../../../types/incident';
@@ -126,14 +127,20 @@ export const useStaffMission = ({
   const [loadingSupplements, setLoadingSupplements] = useState<boolean>(false);
 
   // GIS Service Area Geofence Boundary (§12 & §20)
-  const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(null);
+  const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(() => getCachedServiceArea() ?? DEFAULT_SERVICE_AREA);
 
   useEffect(() => {
     liveMapService.getServiceArea()
       .then((area) => {
-        if (area) setServiceArea(area);
+        if (area) {
+          setServiceArea(area);
+          cacheServiceArea(area);
+        }
       })
-      .catch((err) => console.warn('[useStaffMission] ServiceArea load notice:', err));
+      .catch((err) => {
+        console.warn('[useStaffMission] ServiceArea load notice:', err);
+        setServiceArea((prev) => prev ?? getCachedServiceArea() ?? DEFAULT_SERVICE_AREA);
+      });
   }, []);
 
   const fetchSupplements = useCallback(async (incidentId: string) => {
@@ -216,9 +223,10 @@ export const useStaffMission = ({
     [showToast]
   );
 
-  // §20: Nhiệm vụ giải tỏa điểm nghẽn giao thông (Traffic Hotspot Task)
+  // §20: Nhiệm vụ giải tỏa điểm nghẽn giao thông (Traffic Hotspot Task) & Báo sự cố hiện trường (§64)
   const [activeTrafficTask, setActiveTrafficTask] = useState<ActiveTrafficTask | null>(null);
   const [isReportTrafficModalOpen, setIsReportTrafficModalOpen] = useState<boolean>(false);
+  const [isReportIncidentModalOpen, setIsReportIncidentModalOpen] = useState<boolean>(false);
 
   const fetchActiveTrafficTask = useCallback(async () => {
     try {
@@ -345,15 +353,25 @@ export const useStaffMission = ({
               const vehLat = activeDto.rescueUnit?.currentLat || incLat - 0.006;
               const vehLng = activeDto.rescueUnit?.currentLng || incLng - 0.006;
 
-              let incDetails: { reporterName?: string; reporterPhone?: string; verifiedByName?: string } | undefined;
+              let incDetails: {
+                code?: string | null;
+                reporterName?: string | null;
+                reporterPhone?: string | null;
+                verifiedByName?: string | null;
+                source?: string | null;
+                isFieldReportedByTeam?: boolean;
+              } | undefined;
               if (isGuid(activeDto.incidentId)) {
                 try {
                   const incRes = await incidentService.getById(activeDto.incidentId);
                   if (incRes.success && incRes.data) {
                     incDetails = {
+                      code: incRes.data.code,
                       reporterName: incRes.data.reporterName,
                       reporterPhone: incRes.data.reporterPhone,
                       verifiedByName: incRes.data.verifiedByUserName || incRes.data.lockedByOperatorName || 'Tổng đài viên CAD',
+                      source: incRes.data.source,
+                      isFieldReportedByTeam: incRes.data.isFieldReportedByTeam,
                     };
                   }
                 } catch {
@@ -398,9 +416,19 @@ export const useStaffMission = ({
                     prev.status === mapped.status &&
                     prev.severity === mapped.severity &&
                     prev.incidentId === mapped.incidentId &&
-                    prev.timeline.length === mapped.timeline.length
+                    prev.timeline.length === mapped.timeline.length &&
+                    prev.callerPhone === mapped.callerPhone &&
+                    prev.callerName === mapped.callerName
                   ) {
                     return prev;
+                  }
+                  // Nếu prev đã mở khóa số điện thoại (không còn mask), giữ số đã mở khóa
+                  if (prev.callerPhone && !prev.callerPhone.includes('*') && mapped.callerPhone.includes('*')) {
+                    return {
+                      ...mapped,
+                      callerPhone: prev.callerPhone,
+                      isPhoneRevealed: true,
+                    };
                   }
                 }
                 return mapped;
@@ -464,7 +492,7 @@ export const useStaffMission = ({
                   incidentLat: 10.8441,
                   incidentLng: 106.8089,
                   callerName: 'Tổng đài CAD',
-                  callerPhone: '114',
+                  callerPhone: '',
                   assignedAt: r.completedAt,
                   completedAt: r.completedAt,
                   vehicleId: '',
@@ -515,6 +543,63 @@ export const useStaffMission = ({
     []
   );
 
+  /**
+   * §64: Báo sự cố hiện trường & tự nhận tác chiến tại chỗ (POST /api/dispatch/field-report).
+   * Lượt phân công vào thẳng OnScene, chuyển tab tác chiến mà không bị bật còi báo động / popup nhận lệnh.
+   */
+  const handleCreateFieldIncident = useCallback(
+    async (dto: FieldIncidentReportDto): Promise<boolean> => {
+      try {
+        const res = await dispatchService.reportFieldIncident(dto);
+        if (!res.success || !res.data) {
+          throw new Error(res.message || 'Không thể tạo sự cố hiện trường.');
+        }
+
+        staffAudioService.playSuccessChime();
+        const assignmentDto = res.data.assignment;
+        const mission = mapAssignmentDtoToMission(
+          assignmentDto,
+          vehiclePlateRef.current,
+          undefined,
+          {
+            code: res.data.incidentCode,
+            reporterName: 'Tổ tác chiến hiện trường',
+            reporterPhone: '',
+            verifiedByName: 'Tổ tự phát hiện & tác chiến',
+            isFieldReportedByTeam: true,
+            source: 'RescueTeam',
+          }
+        );
+        mission.status = 'on_scene';
+
+        // Suppress alert modal & activate mission immediately
+        alertedAssignmentIdsRef.current.add(assignmentDto.id);
+        setIsAlertOpen(false);
+        setPendingMission(null);
+        setActiveMission(mission);
+        setIsViewingStandby(false);
+
+        // Switch to mission view
+        onNavigateTabRef.current?.('mission');
+
+        showToast(
+          'success',
+          'TỰ NHẬN TÁC CHIẾN TẠI HIỆN TRƯỜNG',
+          `Đã lập hồ sơ sự cố ${res.data.incidentCode || ''} và chuyển thẳng sang trạng thái Tại hiện trường.`
+        );
+
+        // Background sync assignments
+        fetchMyAssignments(true).catch(() => {});
+        return true;
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || 'Không thể gửi báo cáo sự cố hiện trường.';
+        showToast('error', 'LỖI BÁO CÁO SỰ CỐ', msg);
+        return false;
+      }
+    },
+    [showToast, fetchMyAssignments]
+  );
+
   // Connect SignalR hub and poll fallback
   useEffect(() => {
     fetchMyAssignments(false);
@@ -530,15 +615,25 @@ export const useStaffMission = ({
       const vehLat = assignmentDto.rescueUnit?.currentLat || incLat - 0.006;
       const vehLng = assignmentDto.rescueUnit?.currentLng || incLng - 0.006;
 
-      let incDetails: { reporterName?: string; reporterPhone?: string; verifiedByName?: string } | undefined;
+      let incDetails: {
+        code?: string | null;
+        reporterName?: string | null;
+        reporterPhone?: string | null;
+        verifiedByName?: string | null;
+        source?: string | null;
+        isFieldReportedByTeam?: boolean;
+      } | undefined;
       if (isGuid(assignmentDto.incidentId)) {
         try {
           const incRes = await incidentService.getById(assignmentDto.incidentId);
           if (incRes.success && incRes.data) {
             incDetails = {
+              code: incRes.data.code,
               reporterName: incRes.data.reporterName,
               reporterPhone: incRes.data.reporterPhone,
               verifiedByName: incRes.data.verifiedByUserName || incRes.data.lockedByOperatorName || 'Tổng đài viên CAD',
+              source: incRes.data.source,
+              isFieldReportedByTeam: incRes.data.isFieldReportedByTeam,
             };
           }
         } catch {
@@ -1315,12 +1410,15 @@ export const useStaffMission = ({
     handlePhoneRevealed: (fullPhone: string) => {
       setActiveMission((prev) => (prev ? { ...prev, callerPhone: fullPhone, isPhoneRevealed: true } : null));
     },
-    // Traffic Task (§20)
+    // Traffic Task (§20) & Field Incident Report (§64)
     activeTrafficTask,
     isReportTrafficModalOpen,
     setIsReportTrafficModalOpen,
+    isReportIncidentModalOpen,
+    setIsReportIncidentModalOpen,
     handleResolveTrafficTask,
     handleReportTrafficHotspot,
+    handleCreateFieldIncident,
     // GIS Service Area Geofence Boundary
     serviceArea,
     // Operations

@@ -12,10 +12,11 @@ import {
   TrafficCone,
   UserX,
   X,
+  Users,
 } from 'lucide-react';
 import { useDispatchStore, type OperatorAlert } from '../../context/DispatchContext';
 import { useTranslation } from '../../i18n';
-import { COMPLETION_PATH } from '../../data/dashboardMock';
+import { COMPLETION_PATH, INCIDENT_QUEUE_PATH } from '../../data/dashboardMock';
 
 const KIND_META: Record<
   OperatorAlert['kind'],
@@ -23,7 +24,15 @@ const KIND_META: Record<
     icon: React.ElementType;
     className: string;
     iconClassName: string;
-    action?: 'verify' | 'viewOnMap' | 'viewDetail' | 'assignTrafficTeam' | 'openFieldRequest' | 'viewCompletion' | 'reassign';
+    action?:
+      | 'verify'
+      | 'viewOnMap'
+      | 'viewDetail'
+      | 'assignTrafficTeam'
+      | 'openFieldRequest'
+      | 'viewCompletion'
+      | 'reassign'
+      | 'viewLinked';
   }
 > = {
   out_of_area: {
@@ -85,7 +94,7 @@ const KIND_META: Record<
     iconClassName: 'text-white',
     action: 'reassign',
   },
-  // §31.E: AI đã tự điều xe → xem trên Live Map (Operator vẫn hủy / đổi xe được); bỏ qua → mở thẩm định.
+  // §31.E: AI đã tự điều xe → xem trên Live Map (Operator vẫn hủy / đổi xe được); bỏ qua → mở thẩm định ở Hàng đợi.
   auto_dispatched: {
     icon: Bot,
     className: 'border-indigo-200 bg-white text-slate-800',
@@ -98,6 +107,13 @@ const KIND_META: Record<
     iconClassName: 'text-amber-600',
     action: 'verify',
   },
+  // BR-07: hệ thống gộp thêm SOS trùng → mở thẳng danh sách báo cáo trùng (xác nhận / tách nếu gộp nhầm).
+  linked_report: {
+    icon: Users,
+    className: 'border-blue-200 bg-white text-slate-800',
+    iconClassName: 'text-blue-600',
+    action: 'viewLinked',
+  },
 };
 
 /**
@@ -105,7 +121,7 @@ const KIND_META: Record<
  * xe trạm mình được điều hỗ trợ trạm khác, sự cố chuyển đi / chuyển tới trạm mình, người báo bổ sung thông tin (tự đóng).
  */
 export const OperatorAlerts: React.FC = () => {
-  const { operatorAlerts, dismissOperatorAlert } = useDispatchStore();
+  const { operatorAlerts, dismissOperatorAlert, incidents } = useDispatchStore();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -129,8 +145,25 @@ export const OperatorAlerts: React.FC = () => {
       navigate(`${COMPLETION_PATH}?incident=${encodeURIComponent(alert.incidentId)}`);
       return;
     }
-    // Live Map tự chọn: ca chờ người → mở thẩm định, ca AI đang làm → chỉ bay tới, ca đã duyệt → Chi tiết ca.
-    navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: alert.incidentId } });
+    // Sự cố chưa duyệt → mở drawer thẩm định ở Hàng đợi; đã duyệt → chọn trên Live Map.
+    const incident = incidents.find((i) => i.id === alert.incidentId);
+    // BR-07: mở sẵn danh sách báo cáo trùng — tab trong drawer thẩm định (Hàng đợi) / hộp thoại ở Chi tiết ca (Live Map).
+    if (alert.kind === 'linked_report') {
+      if (incident?.status === 'pending') {
+        navigate(INCIDENT_QUEUE_PATH, { state: { openIncidentId: alert.incidentId, openTab: 'linked' } });
+      } else {
+        navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: alert.incidentId, openLinked: true } });
+      }
+      return;
+    }
+    if (
+      (alert.kind === 'out_of_area' || alert.kind === 'supplement' || alert.kind === 'auto_dispatch_skipped') &&
+      incident?.status === 'pending'
+    ) {
+      navigate(INCIDENT_QUEUE_PATH, { state: { openIncidentId: alert.incidentId } });
+    } else {
+      navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: alert.incidentId } });
+    }
   };
 
   return (

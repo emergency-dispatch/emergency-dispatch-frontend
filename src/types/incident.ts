@@ -131,8 +131,8 @@ export interface AutoDispatchEventDto {
  * Kênh tiếp nhận sự cố. CitizenApp = người dân gửi SOS qua app; còn lại = Operator tự tạo khi biết tin
  * từ bên ngoài (POST /api/incidents/operator).
  */
-export type IncidentSource = 'CitizenApp' | 'PhoneCall' | 'Radio' | 'Cctv' | 'FieldObservation' | 'Other';
-export type OperatorIncidentSource = Exclude<IncidentSource, 'CitizenApp'>;
+export type IncidentSource = 'CitizenApp' | 'PhoneCall' | 'Radio' | 'Cctv' | 'FieldObservation' | 'RescueTeam' | 'Other';
+export type OperatorIncidentSource = Exclude<IncidentSource, 'CitizenApp' | 'RescueTeam'>;
 export const OPERATOR_INCIDENT_SOURCES: OperatorIncidentSource[] = ['PhoneCall', 'Radio', 'Cctv', 'FieldObservation', 'Other'];
 
 /** CancellationReason của backend; Operator chỉ gửi được 4 mã đầu. */
@@ -197,6 +197,8 @@ export interface Incident {
   category: IncidentCategory;
   /** Kênh tiếp nhận — khác CitizenApp là Operator tự tạo (không qua AI). */
   source: IncidentSource;
+  /** §64: sự cố do tổ cứu hộ tự phát hiện tại hiện trường (nguồn RescueTeam). */
+  isFieldReportedByTeam?: boolean;
   /**
    * Backend chưa có loại sự cố đã xác nhận (eventType = None) → khi duyệt bắt buộc gửi confirmedEventType.
    * `category` lúc này chỉ là gợi ý suy từ tiêu đề SOS (hoặc 'unknown').
@@ -458,6 +460,8 @@ export interface IncidentResponseDto {
   eventType?: BackendEventType;
   /** Backend cũ không gửi → coi như CitizenApp. */
   source?: IncidentSource;
+  /** §64: sự cố do tổ cứu hộ tự phát hiện tại hiện trường (nguồn RescueTeam). */
+  isFieldReportedByTeam?: boolean;
   cancellationReason?: CancellationReasonCode | null;
   cancelledAt?: string | null;
   cancelledByUserId?: string | null;
@@ -883,6 +887,7 @@ export function mapIncidentResponseToIncident(dto: IncidentResponseDto, language
     description: dto.description,
     category,
     source: dto.source ?? 'CitizenApp',
+    isFieldReportedByTeam: dto.isFieldReportedByTeam ?? (dto.source === 'RescueTeam'),
     needsEventType: !CATEGORY_FROM_EVENT_TYPE[dto.eventType ?? 'None'],
     // Backend cũ chưa có trường này → dùng mã của nhóm (mã loại hệ thống trùng tên nhóm).
     incidentTypeCode: dto.incidentTypeCode || (dto.eventType && dto.eventType !== 'None' ? dto.eventType : null),

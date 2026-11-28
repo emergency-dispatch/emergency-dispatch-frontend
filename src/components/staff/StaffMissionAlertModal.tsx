@@ -411,8 +411,9 @@ export const StaffMissionAlertModal: React.FC<StaffMissionAlertModalProps> = ({
               <span>RADAR KHẨN CẤP HIỆN TRƯỜNG</span>
             </div>
 
-            <div className="absolute bottom-2.5 right-2.5 z-10 px-2 py-0.5 rounded bg-black/75 backdrop-blur-xs text-[10px] font-mono text-white/90">
-              {mission.incidentLat.toFixed(4)}° N, {mission.incidentLng.toFixed(4)}° E
+            <div className="absolute bottom-2.5 right-2.5 z-10 px-2 py-0.5 rounded bg-black/75 backdrop-blur-xs text-[10px] font-medium text-emerald-400 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Định vị trực tuyến</span>
             </div>
           </div>
 

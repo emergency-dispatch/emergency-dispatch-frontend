@@ -30,7 +30,7 @@ export const liveMapVi = {
   // Panel trái của Live Map.
   cases: {
     title: 'Theo dõi ca',
-    subtitle: 'Mọi ca của trạm: AI đang làm, đội đang đi, ca cần bạn',
+    subtitle: 'Ca đã duyệt của trạm: đội đang đi, ca cần bạn điều tiếp',
     groups: { attention: 'Cần xử lý', active: 'Đang diễn ra', completed: 'Vừa hoàn tất' },
     viewCompletion: 'Xem ở Nghiệm thu',
     ai: { unknownKind: 'SOS · chờ AI nhận diện' },
@@ -60,7 +60,7 @@ export const liveMapVi = {
     addVehicles: 'Giao thêm tổ',
     cancelCase: 'Hủy ca',
   },
-  // Thẩm định ca chờ duyệt ngay trong panel trái.
+  // Thẩm định ca chờ duyệt (drawer của Hàng đợi; key giữ tên cũ).
   triage: {
     gone: 'Ca bạn đang mở không còn chờ thẩm định (đã hủy, đã gộp, AI đã tự điều phối hoặc đã có người xử lý).',
     leavePrompt: 'Bạn đang nhập dở. Rời ca này thì nội dung chưa lưu sẽ mất.',
@@ -130,6 +130,7 @@ export const liveMapVi = {
     etaShort: ' · ETA {{count}}ph',
     costTitle: 'Cost: khoảng cách + tải trạm ({{load}}%) + nhiệm vụ',
     supportUnit: 'Tổ hỗ trợ · {{station}}',
+    shortNoTeamNearby: 'Thiếu {{units}} · trạm mình và các trạm lân cận đều hết tổ sẵn sàng',
     assign: 'Điều phối',
     readyTeams: 'Tổ sẵn sàng ({{count}})',
     dragHint: 'Kéo thả vào sự cố',

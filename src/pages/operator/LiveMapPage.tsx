@@ -5,10 +5,7 @@ import { useDispatchStore } from '../../context/DispatchContext';
 import { useAuth } from '../../hooks/useAuth';
 import { usePlanProgress } from '../../hooks/usePlanProgress';
 import { useDispatchRoutes } from '../../hooks/useDispatchRoutes';
-import { useIncidentTriage } from '../../hooks/useIncidentTriage';
-import { useNow } from '../../hooks/useNow';
 import { CaseDossierPanel } from '../../components/operator/livemap/CaseDossierPanel';
-import { IncidentDetailDrawer } from '../../components/operator/incidents/IncidentDetailDrawer';
 import { DispatchIncidentList } from '../../components/operator/livemap/DispatchIncidentList';
 import { DispatchRecommendPanel } from '../../components/operator/livemap/DispatchRecommendPanel';
 import { CaseAssignments } from '../../components/operator/livemap/CaseAssignments';
@@ -16,7 +13,7 @@ import { ReadyTeamsCard } from '../../components/operator/livemap/ReadyTeamsCard
 import { countAttentionCases } from '../../components/operator/livemap/caseGroups';
 import { autoDispatchVerdictAt, needsOperator } from '../../components/operator/incidents/autoDispatchVerdict';
 import { groupCompletion, progressOf } from '../../components/operator/completion/completionGroups';
-import { COMPLETION_PATH } from '../../data/dashboardMock';
+import { COMPLETION_PATH, INCIDENT_QUEUE_PATH } from '../../data/dashboardMock';
 import { useTeamByVehicle } from '../../hooks/useStationTeams';
 import { LiveMapView } from '../../components/operator/livemap/LiveMapView';
 import { CreateIncidentPanel, type IncidentCreatedInfo } from '../../components/operator/livemap/CreateIncidentPanel';
@@ -40,8 +37,8 @@ const GpsSimulatorPanel = import.meta.env.VITE_GPS_SIMULATOR !== 'off'
   : null;
 
 /**
- * Live Map — giám sát, thẩm định và điều phối:
- *   [Panel trái: Danh sách ca ⇄ Chi tiết ca (380px) / Thẩm định, Hồ sơ ca (760px)] | [Bản đồ + thẻ "Tổ sẵn sàng"]
+ * Live Map — giám sát và điều phối (thẩm định ca chờ duyệt nằm ở Hàng đợi, FR-OP-02):
+ *   [Panel trái: Danh sách ca ⇄ Chi tiết ca (380px) / Hồ sơ ca (760px)] | [Bản đồ + thẻ "Tổ sẵn sàng"]
  *
  * Tablet < 1024px: cùng panel đó trong Bottom Sheet (tablet cũng giao xe được).
  * Chế độ tạo sự cố (?create=1, nút "Tạo sự cố" trên Topbar): form tiếp nhận thay panel trái (rộng hơn),
@@ -78,10 +75,6 @@ export const LiveMapPage: React.FC = () => {
     escalatedIncidentIds,
     assignmentsByIncident,
     autoDispatchSettings,
-    currentOperatorId,
-    revealReporterPhone,
-    unlinkLinkedReport,
-    supplementVersions,
     setIncidentDrawerOpen,
   } = useDispatchStore();
   const teamByVehicle = useTeamByVehicle();
@@ -119,8 +112,6 @@ export const LiveMapPage: React.FC = () => {
   const { user } = useAuth();
   const planProgressOf = usePlanProgress();
 
-  // Nhịp chậm: chỉ để đếm, không vẽ lại cả trang (bản đồ) mỗi giây.
-  const slowNow = useNow(15_000);
   // Danh sách ca là màn chính → không tự mở ca nào; số ca cần xử lý hiện cạnh nút quay lại ở Chi tiết ca.
   const attentionCount = useMemo(() => {
     const fieldRequestCounts = new Map<string, number>();
@@ -128,12 +119,11 @@ export const LiveMapPage: React.FC = () => {
     return countAttentionCases(incidents, {
       escalatedIds: escalatedIncidentIds,
       fieldRequestCounts,
-      verdictOf: (incident) => autoDispatchVerdictAt(incident, autoDispatchSettings, slowNow),
       missingOf: (incident) => planProgressOf(incident).missing,
     });
-  }, [incidents, fieldRequests, escalatedIncidentIds, autoDispatchSettings, slowNow, planProgressOf]);
+  }, [incidents, fieldRequests, escalatedIncidentIds, planProgressOf]);
 
-  // Chọn ca ngay (không hỏi) — chỉ gọi khi chắc chắn không còn ca nào đang thẩm định.
+  // Chọn ca trên Live Map (ca đã duyệt / đã hoàn tất → Chi tiết ca).
   const showIncident = (id: string | null) => {
     setSelectedIncidentId(id);
     setDossier(null);
@@ -143,49 +133,27 @@ export const LiveMapPage: React.FC = () => {
     if (id) setSheetOpen(true);
   };
 
-  // Thẩm định ngay trên Live Map; duyệt xong chuyển thẳng sang Chi tiết ca để điều tổ.
-  const triage = useIncidentTriage({ onApproved: showIncident });
-  const handleSelectIncident = (id: string | null) => triage.requestLeave(() => showIncident(id));
-  const handleOpenTriage = (id: string) => {
-    if (triage.openId === id) {
-      setSheetOpen(true);
-      return;
-    }
-    triage.requestLeave(() => {
-      showIncident(null);
-      triage.open(id);
-      setSheetOpen(true);
-    });
-  };
+  const handleSelectIncident = showIncident;
 
-  // "Mở ca" ở dải AI / thẻ AI / marker AI, "Thẩm định ngay" ở modal tin báo mới → mở thẩm định. Chờ ca có trong danh
-  // sách rồi mới mở, xong thì xóa khỏi lịch sử để tải lại trang không tự giữ khóa ca cũ.
-  const triageIncidentId = (location.state as { triageIncidentId?: string } | null)?.triageIncidentId;
-  const triageTargetStatus = triageIncidentId ? incidentsById.get(triageIncidentId)?.status : undefined;
-  useEffect(() => {
-    if (!triageIncidentId || !triageTargetStatus) return;
-    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
-    if (triageTargetStatus === 'pending') handleOpenTriage(triageIncidentId);
-    else handleSelectIncident(triageIncidentId);
-    // Mỗi yêu cầu là một location.key mới.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [triageIncidentId, triageTargetStatus, location.key]);
-
-  // Deep link từ banner leo thang / thông báo / chuông: ca đã duyệt → Chi tiết ca; ca chờ người → mở thẩm định; ca AI đang
-  // làm → chỉ bay tới (để AI làm; muốn xem thì bấm "Mở ca").
+  // Deep link từ banner leo thang / thông báo / chuông: ca đã duyệt → Chi tiết ca. Ca chờ duyệt không thuộc Live Map →
+  // sang Hàng đợi: ca chờ người mở sẵn thẩm định, ca AI đang làm mở tab "AI đang phân tích" (để AI làm).
   const focusIncidentId = (location.state as { focusIncidentId?: string } | null)?.focusIncidentId;
-  const [focusAiIncident, setFocusAiIncident] = useState<{ id: string; key: number } | null>(null);
+  // Thông báo "Thêm người cùng báo" (ca đã duyệt) → chọn ca rồi mở sẵn hộp Báo cáo trùng.
+  const openLinked = !!(location.state as { openLinked?: boolean } | null)?.openLinked;
+  const [linkedRequest, setLinkedRequest] = useState<{ id: string; key: number } | null>(null);
   useEffect(() => {
     if (!focusIncidentId) return;
     const target = incidentsById.get(focusIncidentId);
     if (target?.status !== 'pending') {
       handleSelectIncident(focusIncidentId);
+      if (openLinked) setLinkedRequest((prev) => ({ id: focusIncidentId, key: (prev?.key ?? 0) + 1 }));
       return;
     }
-    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
     const aiWorking = !target.lock && !needsOperator(autoDispatchVerdictAt(target, autoDispatchSettings, Date.now()));
-    if (aiWorking) setFocusAiIncident((prev) => ({ id: target.id, key: (prev?.key ?? 0) + 1 }));
-    else handleOpenTriage(target.id);
+    navigate(INCIDENT_QUEUE_PATH, {
+      replace: true,
+      state: aiWorking ? { queueTab: 'ai' } : { openIncidentId: target.id },
+    });
     // Chỉ chạy theo yêu cầu mới.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusIncidentId, location.key]);
@@ -196,12 +164,6 @@ export const LiveMapPage: React.FC = () => {
   useEffect(() => {
     if (focusTrafficJamId) setFocusTrafficJam((prev) => ({ id: focusTrafficJamId, key: (prev?.key ?? 0) + 1 }));
   }, [focusTrafficJamId, location.key]);
-
-  // §31.E: dải AI → "Xem trên bản đồ": bay tới tin báo AI đang xử lý, không chọn / không mở ca (AI vẫn chạy).
-  const focusAiIncidentId = (location.state as { focusAiIncidentId?: string } | null)?.focusAiIncidentId;
-  useEffect(() => {
-    if (focusAiIncidentId) setFocusAiIncident((prev) => ({ id: focusAiIncidentId, key: (prev?.key ?? 0) + 1 }));
-  }, [focusAiIncidentId, location.key]);
 
   // §21.2: thông báo yêu cầu hiện trường → làm nổi yêu cầu trong mục "Yêu cầu từ hiện trường".
   const focusFieldRequestId = (location.state as { focusFieldRequestId?: string } | null)?.focusFieldRequestId ?? null;
@@ -258,24 +220,6 @@ export const LiveMapPage: React.FC = () => {
   // Tablet: mở form thì kéo bottom sheet lên.
   useEffect(() => {
     if (createOpen) setSheetOpen(true);
-  }, [createOpen]);
-
-  // Bấm "Tạo sự cố" khi đang thẩm định → rời ca (nhả khóa); đang nhập dở thì hỏi trước rồi mới mở form.
-  useEffect(() => {
-    if (!createOpen || !triage.openId) return;
-    if (!triage.isDirty()) {
-      triage.close();
-      return;
-    }
-    closeCreate();
-    triage.requestLeave(() =>
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('create', '1');
-        return next;
-      })
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createOpen]);
 
   // Sự cố Operator tạo đã được xác minh → chọn ngay để panel phải mở gợi ý xe.
@@ -369,59 +313,15 @@ export const LiveMapPage: React.FC = () => {
   const completion = ownAssignments ? progressOf(groupCompletion(ownAssignments, teamByVehicle)) : null;
 
   const dossierOpen = showDetail && !!selectedCase && dossier?.incidentId === selectedCase.id;
-  // Thẩm định / Hồ sơ ca cần hai cột → panel rộng; banner leo thang né sang phần bản đồ.
-  const widePanel = !createOpen && (!!triage.incident || dossierOpen);
+  // Hồ sơ ca cần hai cột → panel rộng; banner leo thang né sang phần bản đồ.
+  const widePanel = !createOpen && dossierOpen;
   useEffect(() => {
-    setIncidentDrawerOpen(widePanel);
+    setIncidentDrawerOpen(widePanel, 'left');
     return () => setIncidentDrawerOpen(false);
   }, [widePanel, setIncidentDrawerOpen]);
 
   const casePanel =
-    triage.incident ? (
-      <IncidentDetailDrawer
-        key={triage.incident.id}
-        incident={triage.incident}
-        currentOperatorId={currentOperatorId}
-        isEscalated={escalatedIncidentIds.has(triage.incident.id)}
-        attentionCount={attentionCount}
-        onClose={() => handleSelectIncident(null)}
-        onApprove={triage.approve}
-        onReject={triage.reject}
-        onTransfer={triage.transfer}
-        transferStations={triage.transferStations}
-        onRevealPhone={revealReporterPhone}
-        onUnlinkReport={unlinkLinkedReport}
-        supplementVersion={supplementVersions.get(triage.incident.id) ?? 0}
-        isSubmitting={triage.submitting}
-        errorMsg={triage.actionError}
-        onDirtyChange={triage.setDirty}
-        leavePrompt={
-          triage.leavePending && (
-            <div
-              role="alertdialog"
-              aria-label={t('liveMap.triage.leavePrompt')}
-              className="shrink-0 flex flex-wrap items-center gap-2 px-5 py-2 border-b border-amber-300 bg-amber-50 text-xs text-amber-900"
-            >
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              <span className="flex-1 min-w-[12rem] font-semibold">{t('liveMap.triage.leavePrompt')}</span>
-              <button
-                onClick={triage.cancelLeave}
-                autoFocus
-                className="px-2.5 py-1 rounded-md border border-amber-300 bg-white font-bold hover:bg-amber-100"
-              >
-                {t('liveMap.triage.stay')}
-              </button>
-              <button
-                onClick={triage.confirmLeave}
-                className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-500 text-white font-bold"
-              >
-                {t('liveMap.triage.leave')}
-              </button>
-            </div>
-          )
-        }
-      />
-    ) : showDetail && selectedCase ? (
+    showDetail && selectedCase ? (
       <>
         {dossierOpen && (
           <CaseDossierPanel
@@ -451,6 +351,7 @@ export const LiveMapPage: React.FC = () => {
             onBack={() => handleSelectIncident(null)}
             onOpenIncident={handleSelectIncident}
             onOpenDossier={() => setDossier({ incidentId: selectedCase.id, cancelling: false })}
+            openLinkedKey={linkedRequest?.id === selectedCase.id ? linkedRequest.key : undefined}
             attentionCount={attentionCount}
             caseBody={
               <>
@@ -499,12 +400,10 @@ export const LiveMapPage: React.FC = () => {
       <DispatchIncidentList
         selectedIncidentId={selectedIncidentId}
         onSelectIncident={handleSelectIncident}
-        onOpenTriage={handleOpenTriage}
         panelError={panelError}
         onClearError={() => setPanelError(null)}
         onServeFieldRequest={handleServeFieldRequest}
         highlightFieldRequestId={highlightFieldRequestId}
-        onFocusAiIncident={(id) => setFocusAiIncident((prev) => ({ id, key: (prev?.key ?? 0) + 1 }))}
       />
     );
 
@@ -539,9 +438,6 @@ export const LiveMapPage: React.FC = () => {
           onUnassignTrafficJam={unassignTrafficJam}
           trafficAssignableUnits={trafficAssignableUnits}
           focusTrafficJam={focusTrafficJam}
-          focusAiIncident={focusAiIncident}
-          triageIncidentId={triage.incident?.id ?? null}
-          onOpenTriage={handleOpenTriage}
           routes={routes}
           vehiclesById={vehiclesById}
           incidentsById={incidentsById}
@@ -603,7 +499,7 @@ export const LiveMapPage: React.FC = () => {
           // Giữ form mounted khi thu sheet (để xem bản đồ chọn vị trí) — không mất dữ liệu đang nhập.
           <div className={`flex-1 min-h-0 ${sheetOpen ? '' : 'hidden'}`}>{createPanel}</div>
         ) : (sheetOpen || widePanel) && (
-          // Đang thẩm định / xem hồ sơ: thu sheet để nhìn bản đồ không làm mất nội dung đang nhập.
+          // Đang xem hồ sơ: thu sheet để nhìn bản đồ không làm mất nội dung đang nhập.
           <div className={`flex-1 min-h-0 ${sheetOpen ? '' : 'hidden'}`}>{!isDesktop && casePanel}</div>
         )}
       </div>

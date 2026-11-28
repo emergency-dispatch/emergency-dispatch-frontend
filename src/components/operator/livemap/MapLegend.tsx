@@ -6,7 +6,6 @@ import type { IncidentCategory } from '../../../types/incident';
 import { MAP_VISIBLE_VEHICLE_STATUSES } from './mapIcons';
 import {
   legendIncidentIconHtml,
-  legendPendingIconHtml,
   legendSeverityIconHtml,
   legendStationIconHtml,
   legendTrafficJamIconHtml,
@@ -90,9 +89,6 @@ export const MapLegend: React.FC = () => {
           {(Object.keys(INCIDENT_CATEGORY_META) as IncidentCategory[]).map((key) => (
             <Item key={key} icon={<MarkerIcon html={legendIncidentIconHtml(key, 16)} />} label={t(`enums.category.${key}`)} />
           ))}
-        </div>
-        <div className="mt-1">
-          <Item icon={<MarkerIcon html={legendPendingIconHtml(16)} />} label={t('liveMap.legend.pendingReview')} />
         </div>
         {/* Cấp độ = số cung sáng quanh lõi marker sự cố (Cấp 1 = 1 cung … Cấp 3 = 3 cung). */}
         <div className="flex items-center gap-2.5 mt-1.5 text-[11px] text-slate-700">

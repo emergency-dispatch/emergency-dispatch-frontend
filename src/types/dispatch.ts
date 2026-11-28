@@ -61,6 +61,8 @@ export interface DispatchAssignmentResponseDto {
   assignedByUserId?: string | null;
   dispatchAlgorithm?: string | null;
   responsibleStationId?: string | null;
+  /** §64: lượt phân công do tổ tự nhận tại hiện trường (POST /api/dispatch/field-report). */
+  isSelfDispatched?: boolean;
   rejectionReason?: RejectionReason | null;
   rejectionNotes?: string | null;
   rejectedAt?: string | null;
@@ -231,3 +233,29 @@ export const assignmentPlateLabel = (a: Pick<DispatchAssignmentResponseDto, 'res
   const plate = a.rescueUnit?.plateNumber ?? '—';
   return a.rescueUnitDeleted ? i18n.t('incidents.assignmentLabel.unitDeleted', { plate }) : plate;
 };
+
+/**
+ * §64: DTO gửi lên khi tổ cứu hộ phát hiện sự cố ngoài hiện trường (POST /api/dispatch/field-report).
+ */
+export interface FieldIncidentReportDto {
+  title?: string;
+  description?: string;
+  latitude: number;
+  longitude: number;
+  locationAddress: string;
+  eventType?: 'FireExplosion' | 'TrafficAccident' | 'Other';
+  incidentTypeCode?: string | null;
+  severity: 'Level1' | 'Level2' | 'Level3';
+  rescueUnitId?: string | null;
+  mediaUrls?: string[];
+}
+
+/**
+ * Kết quả trả về từ POST /api/dispatch/field-report
+ */
+export interface FieldIncidentReportResultDto {
+  incidentId: string;
+  incidentCode: string;
+  assignment: DispatchAssignmentResponseDto;
+}
+

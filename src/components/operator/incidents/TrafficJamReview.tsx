@@ -45,9 +45,10 @@ export const TrafficJamReview: React.FC<TrafficJamReviewProps> = ({
     : null;
 
   if (compact) {
+    // Một hàng: nhãn (+ ai đã chốt) bên trái, hai nút bên phải — dải quyết định không phải cao thêm.
     return (
-      <div>
-        <div className="flex items-baseline gap-2 mb-1.5 min-w-0">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <div className="flex items-baseline gap-2 min-w-0">
           <p className="text-[13px] font-semibold text-slate-700 shrink-0">{t('incidents.traffic.compactLabel')}</p>
           {reviewed && verifiedTime && (
             <span className="text-[11px] text-slate-400 truncate">
@@ -64,7 +65,11 @@ export const TrafficJamReview: React.FC<TrafficJamReviewProps> = ({
             {t(`incidents.traffic.status.${status}`)}
           </span>
         ) : (
-          <div className="grid grid-cols-2 gap-1.5" role="group" aria-label={t('incidents.traffic.decisionGroup')}>
+          <div
+            className="ml-auto grid grid-cols-2 gap-1.5 w-full sm:w-[22rem]"
+            role="group"
+            aria-label={t('incidents.traffic.decisionGroup')}
+          >
             {DECISIONS.map(({ value, icon: Icon, activeClass }) => {
               const isActive = (decision ?? (reviewed ? status : null)) === value;
               return (
@@ -74,7 +79,7 @@ export const TrafficJamReview: React.FC<TrafficJamReviewProps> = ({
                   aria-pressed={isActive}
                   title={value === 'Confirmed' ? t('incidents.traffic.confirm') : t('incidents.traffic.dismiss')}
                   onClick={() => onDecisionChange(decision === value ? null : value)}
-                  className={`inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg border text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
+                  className={`inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg border text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
                     isActive ? activeClass : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                   }`}
                 >

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bot, Building2, ChevronDown, Image as ImageIcon, MapPin, Truck, X } from 'lucide-react';
+import { Bot, Building2, ChevronDown, Image as ImageIcon, ListChecks, Truck, X } from 'lucide-react';
 import { SEVERITY_LEVEL_COLOR } from '../../data/incidentMock';
 import { useDispatchStore } from '../../context/DispatchContext';
 import { SeverityBadge } from './incidents/SeverityBadge';
@@ -14,9 +14,8 @@ import {
   type AiWorkingItem,
 } from './incidents/incomingTriage';
 import { useTranslation } from '../../i18n';
+import { INCIDENT_QUEUE_PATH } from '../../data/dashboardMock';
 import './aiLane.css';
-
-const LIVE_MAP_PATH = '/dashboard/command-center/live-map';
 
 /** Số ô hiện được trên thanh trên cùng theo bề ngang; còn lại gộp vào "+N". Dưới lg chỉ còn nút "AI · N". */
 function useVisibleTicketCount(): number {
@@ -68,8 +67,8 @@ export const SegmentBar: React.FC<{ progress: AiProgress; className?: string; he
 };
 
 /**
- * "Mở ca" — mở thẩm định ca AI đang làm. Không giữ khóa nữa (bỏ 2026-11-26) nên không chặn được AI: AI điều xong trước khi
- * Operator duyệt thì ca tự rời panel.
+ * "Mở ca" — mở thẩm định ca AI đang làm ở Hàng đợi. Không giữ khóa nữa (bỏ 2026-11-26) nên không chặn được AI: AI điều xong
+ * trước khi Operator duyệt thì drawer thẩm định tự đóng.
  */
 export const AiTakeOver: React.FC<{ incidentId: string; onDone?: () => void }> = ({ incidentId, onDone }) => {
   const { t } = useTranslation();
@@ -82,7 +81,7 @@ export const AiTakeOver: React.FC<{ incidentId: string; onDone?: () => void }> =
       onClick={() => {
         dismissIncomingIncident(incidentId);
         onDone?.();
-        navigate(LIVE_MAP_PATH, { state: { triageIncidentId: incidentId } });
+        navigate(INCIDENT_QUEUE_PATH, { state: { openIncidentId: incidentId } });
       }}
       className="px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
     >
@@ -255,13 +254,13 @@ const TicketPanel: React.FC<{ item: AiWorkingItem; now: number; onClose: () => v
             type="button"
             onClick={() => {
               onClose();
-              navigate(LIVE_MAP_PATH, { state: { focusAiIncidentId: incident.id } });
+              navigate(INCIDENT_QUEUE_PATH, { state: { queueTab: 'ai' } });
             }}
-            title={t('layout.aiLane.viewOnMapHint')}
+            title={t('layout.aiLane.viewInQueueHint')}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
-            <MapPin className="w-3.5 h-3.5" />
-            {t('layout.aiLane.viewOnMap')}
+            <ListChecks className="w-3.5 h-3.5" />
+            {t('layout.aiLane.viewInQueue')}
           </button>
           <AiTakeOver incidentId={incident.id} onDone={onClose} />
         </div>
@@ -274,16 +273,17 @@ type OpenState = { kind: 'detail'; id: string } | { kind: 'list' } | null;
 
 /**
  * §31.E: dải "Ca AI đang xử lý" trên thanh trên cùng của Operator — thay thẻ nổi góc phải (che bản đồ). Mỗi ô là một tin
- * báo AI đang phân tích / điều phối (Live Map: chỉ còn nút gọn, vì panel "Theo dõi ca" đã có thẻ); bấm mở bảng chi tiết (xem trên bản đồ hoặc "Mở ca"). Ca AI
+ * báo AI đang phân tích / điều phối (ở Hàng đợi chỉ còn nút gọn, vì đã có tab "AI đang phân tích"); bấm mở bảng chi tiết
+ * ("Xem ở Hàng đợi" hoặc "Mở ca"). Ca AI
  * chuyển cho người vẫn bật modal "Cần bạn xử lý" (IncomingIncidentToasts).
  */
 export const AiLane: React.FC = () => {
   const { t } = useTranslation();
   const { items: working, now } = useAiWorkingItems();
-  // Live Map đã có thẻ AI trong panel "Theo dõi ca" → thu gọn thành nút "AI · N" để không hiện trùng.
-  const onLiveMap = useLocation().pathname.startsWith(LIVE_MAP_PATH);
+  // Hàng đợi đã có tab "AI đang phân tích" → thu gọn thành nút "AI · N" để không hiện trùng.
+  const onQueue = useLocation().pathname.startsWith(INCIDENT_QUEUE_PATH);
   const ticketCount = useVisibleTicketCount();
-  const visibleCount = onLiveMap ? 0 : ticketCount;
+  const visibleCount = onQueue ? 0 : ticketCount;
   const [open, setOpen] = useState<OpenState>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);

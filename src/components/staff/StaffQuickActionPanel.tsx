@@ -63,7 +63,7 @@ export const StaffQuickActionPanel: React.FC<StaffQuickActionPanelProps> = ({
       )}
 
       {/* Quick Action Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-3 w-full">
         {/* Button 1: Request Backup SOS */}
         <button
           onClick={() => {
@@ -73,25 +73,23 @@ export const StaffQuickActionPanel: React.FC<StaffQuickActionPanelProps> = ({
               setActiveDialog('backup');
             }
           }}
-          className="p-3 rounded-xl bg-red-50 hover:bg-red-100/80 border border-red-200 text-red-700 flex flex-col items-center text-center gap-1.5 transition-all active:scale-95 group cursor-pointer"
+          className="p-3 sm:p-4 rounded-xl bg-red-50 hover:bg-red-100/80 border border-red-200 text-red-700 flex flex-col items-center justify-center text-center gap-2 transition-all active:scale-95 group cursor-pointer w-full h-full min-h-[96px]"
         >
-          <div className="p-2 rounded-lg bg-red-600 text-white shadow-xs">
-            <ShieldAlert className="w-4 h-4" />
+          <div className="p-2 sm:p-2.5 rounded-lg bg-red-600 text-white shadow-xs group-hover:scale-105 transition-transform">
+            <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <span className="text-xs font-bold leading-tight">Yêu Cầu Chi Viện</span>
-          <span className="text-[10px] text-red-600 font-mono font-semibold">SOS BACKUP</span>
+          <span className="text-xs sm:text-[13px] font-bold leading-tight">Yêu Cầu Chi Viện</span>
         </button>
 
         {/* Button 2: Direct Call CAD */}
         <a
           href="tel:114"
-          className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 flex flex-col items-center text-center gap-1.5 transition-all active:scale-95 group cursor-pointer"
+          className="p-3 sm:p-4 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 flex flex-col items-center justify-center text-center gap-2 transition-all active:scale-95 group cursor-pointer w-full h-full min-h-[96px]"
         >
-          <div className="p-2 rounded-lg bg-slate-200 text-slate-700 shadow-xs">
-            <PhoneCall className="w-4 h-4" />
+          <div className="p-2 sm:p-2.5 rounded-lg bg-slate-200 text-slate-700 shadow-xs group-hover:scale-105 transition-transform">
+            <PhoneCall className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <span className="text-xs font-bold leading-tight">Gọi Tổng Đài CAD</span>
-          <span className="text-[10px] text-slate-500 font-mono">HOTLINE 114</span>
+          <span className="text-xs sm:text-[13px] font-bold leading-tight">Gọi Tổng Đài CAD</span>
         </a>
 
         {/* Button 3: Report Traffic Block */}
@@ -103,29 +101,12 @@ export const StaffQuickActionPanel: React.FC<StaffQuickActionPanelProps> = ({
               setActiveDialog('traffic');
             }
           }}
-          className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 flex flex-col items-center text-center gap-1.5 transition-all active:scale-95 group cursor-pointer"
+          className="p-3 sm:p-4 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 flex flex-col items-center justify-center text-center gap-2 transition-all active:scale-95 group cursor-pointer w-full h-full min-h-[96px]"
         >
-          <div className="p-2 rounded-lg bg-slate-200 text-slate-700 shadow-xs">
-            <AlertOctagon className="w-4 h-4" />
+          <div className="p-2 sm:p-2.5 rounded-lg bg-slate-200 text-slate-700 shadow-xs group-hover:scale-105 transition-transform">
+            <AlertOctagon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <span className="text-xs font-bold leading-tight">Báo Kẹt Tuyến</span>
-          <span className="text-[10px] text-slate-500 font-mono">TRAFFIC JAM</span>
-        </button>
-
-        {/* Button 4: Radio intercom */}
-        <button
-          onClick={() => {
-            staffAudioService.playPriorityBeep();
-            setSentNotification('Đang mở kênh đàm thoại bộ đàm Channel #01 (Chỉ huy)...');
-            setTimeout(() => setSentNotification(null), 3000);
-          }}
-          className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 flex flex-col items-center text-center gap-1.5 transition-all active:scale-95 group cursor-pointer"
-        >
-          <div className="p-2 rounded-lg bg-slate-200 text-slate-700 shadow-xs">
-            <Radio className="w-4 h-4" />
-          </div>
-          <span className="text-xs font-bold leading-tight">Bộ Đàm Kíp Trực</span>
-          <span className="text-[10px] text-slate-500 font-mono">CH #01</span>
+          <span className="text-xs sm:text-[13px] font-bold leading-tight">Báo Kẹt Tuyến</span>
         </button>
       </div>
 

@@ -11,11 +11,11 @@ import type {
 import { useTranslation } from '../i18n';
 
 /**
- * Thẩm định một ca ngay trên Live Map: duyệt, hủy (kèm chặn số), chuyển trạm.
+ * Thẩm định một ca trong drawer của Hàng đợi: duyệt, hủy (kèm chặn số), chuyển trạm.
  * Không giữ khóa mềm (bỏ 2026-11-26: mỗi trạm một Operator mỗi ca làm, không có chuyện hai người làm trùng). Hệ quả: mở ca
  * không chặn AI tự điều phối nữa — AI điều xong thì ca rời panel (`vanished`). Ca còn bị người khác giữ khóa (bản cũ / app
- * khác) thì panel chỉ xem, vì backend vẫn trả 409.
- * Rời ca khi đang nhập dở thì hỏi lại (`requestLeave`) vì bản đồ và các thông báo vẫn bấm được bên cạnh panel.
+ * khác) thì drawer chỉ xem, vì backend vẫn trả 409.
+ * Rời ca (đóng drawer, mở ca khác qua thông báo) khi đang nhập dở thì hỏi lại (`requestLeave`).
  */
 export function useIncidentTriage({ onApproved }: { onApproved: (incidentId: string) => void }) {
   const { incidents, stations, approveIncident, rejectIncident, transferIncident } = useDispatchStore();
@@ -70,7 +70,7 @@ export function useIncidentTriage({ onApproved }: { onApproved: (incidentId: str
     action?.();
   };
 
-  // Ca không còn chờ thẩm định (người dân hủy, người khác xử lý, bị gộp, AI điều) → về danh sách.
+  // Ca không còn chờ thẩm định (người dân hủy, người khác xử lý, bị gộp, AI điều) → đóng drawer, về danh sách.
   const vanished = !!openId && !incident;
   useEffect(() => {
     if (!vanished || submitting) return;

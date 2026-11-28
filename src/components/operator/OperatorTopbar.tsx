@@ -7,6 +7,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import type { NotificationDto } from '../../services/notificationService';
 import { incidentHubService, type HubStatus } from '../../services/realtime/incidentHubService';
 import { LANGUAGE_OPTIONS, dateLocale, getLanguage, setLanguage, useTranslation } from '../../i18n';
+import { INCIDENT_QUEUE_PATH } from '../../data/dashboardMock';
 
 // Chấm trạng thái = kết nối realtime thật. Mất kết nối thì dữ liệu vẫn tự tải lại định kỳ (poll dự phòng).
 const HUB_STATUS_STYLE: Record<HubStatus, { dot: string; text: string; ping: boolean }> = {
@@ -61,7 +62,8 @@ export const OperatorTopbar: React.FC = () => {
     if (!notification.incidentId) return;
     setNotifOpen(false);
     const incident = incidents.find((i) => i.id === notification.incidentId);
-    if (incident) navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: incident.id } });
+    if (incident?.status === 'pending') navigate(INCIDENT_QUEUE_PATH, { state: { openIncidentId: incident.id } });
+    else if (incident) navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: incident.id } });
   };
 
   // Tạo sự cố từ tin báo ngoài app: mở form trên Live Map.

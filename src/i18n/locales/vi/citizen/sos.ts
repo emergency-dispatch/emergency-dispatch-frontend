@@ -61,7 +61,7 @@ export const citizenSosVi = {
   cooldownWaitError: 'Bạn vừa gửi một yêu cầu cứu hộ đang được xử lý. Vui lòng chờ {{time}} trước khi gửi lại hoặc gọi trực tiếp 114 / 115.',
   locationRequiredError: 'Chưa xác định được vị trí. Vui lòng nhập địa chỉ hoặc click chọn trên bản đồ.',
   invalidPhoneError: 'Số điện thoại liên lạc không đúng định dạng Việt Nam (ví dụ: 0912345678).',
-  outsideAreaCoordsError: 'Toạ độ đã chọn ({{lat}}, {{lng}}) nằm ngoài phạm vi hoạt động của hệ thống ResQ (+{{km}} km). Không thể gửi tín hiệu SOS.',
+  outsideAreaCoordsError: 'Vị trí đã chọn nằm ngoài phạm vi hoạt động của hệ thống ResQ (+{{km}} km). Không thể gửi tín hiệu SOS.',
   createError: 'Gửi tín hiệu cứu nạn thất bại. Vui lòng thử lại hoặc gọi ngay 114/115.',
   cancelError: 'Không thể hủy sự cố lúc này.',
 

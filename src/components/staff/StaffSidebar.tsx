@@ -53,40 +53,30 @@ const getNavItems = (hasActiveMission: boolean): {
     label: 'Tổ Làm Việc & Trạm',
     sublabel: 'Kíp trực & Phương tiện',
     icon: Users,
-    badge: 'Đơn vị',
-    badgeColor: 'bg-blue-50 text-blue-700 border border-blue-200',
   },
   {
     id: 'reports',
     label: 'Báo Cáo & Hiện Trường',
     sublabel: 'Digital Closure Reports',
     icon: FileCheck2,
-    badge: 'Lưu trữ',
-    badgeColor: 'bg-slate-100 text-slate-700 border border-slate-200',
   },
   {
     id: 'schedule',
     label: 'Quản Lý Ca Trực',
     sublabel: 'Ca trực & Điểm danh',
     icon: CalendarDays,
-    badge: 'Lịch trực',
-    badgeColor: 'bg-slate-100 text-slate-700 border border-slate-200',
   },
   {
     id: 'equipment',
     label: 'Kiểm Tra Phương Tiện',
     sublabel: 'Readiness Checklist',
     icon: Wrench,
-    badge: 'Kiểm tra',
-    badgeColor: 'bg-slate-100 text-slate-700 border border-slate-200',
   },
   {
     id: 'profile',
     label: 'Hồ Sơ Cán Bộ',
     sublabel: 'Định danh quân số',
     icon: UserCircle,
-    badge: 'Hồ sơ',
-    badgeColor: 'bg-slate-100 text-slate-700 border border-slate-200',
   },
 ];
 
@@ -186,7 +176,7 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
                       </span>
                       {item.badge && (
                         <span className={`text-[10px] font-mono px-2 py-0.5 rounded-md font-bold whitespace-nowrap shrink-0 leading-none ${
-                          item.id === 'mission' ? 'bg-red-600 text-white animate-pulse' : 'bg-red-50 text-red-600 border border-red-200'
+                          item.badgeColor || 'bg-red-600 text-white'
                         }`}>
                           {item.badge}
                         </span>
@@ -332,7 +322,7 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
                         <span className="font-bold text-xs truncate">{item.label}</span>
                         {item.badge && (
                           <span className={`text-[10px] font-mono px-2 py-0.5 rounded-md font-bold whitespace-nowrap shrink-0 leading-none ${
-                            item.id === 'mission' ? 'bg-red-600 text-white animate-pulse' : 'bg-red-50 text-red-600 border border-red-200'
+                            item.badgeColor || 'bg-red-600 text-white'
                           }`}>
                             {item.badge}
                           </span>

@@ -56,37 +56,42 @@ export const PlanForcePreview: React.FC<PlanForcePreviewProps> = ({ incident, se
     );
   }
 
+  // Một hàng chip (xanh = trạm đủ tổ, vàng = thiếu); chi tiết tổ sẵn / thiếu bao nhiêu ở tooltip từng chip. Thiếu → một câu
+  // nhắc chuyển trạm ở cuối thay vì lặp lại trên từng dòng.
+  const rows = limit.planUnits.map((unit) => {
+    const teams = usable.filter((r) => r.vehicle.type === unit.unitTypeCode).map((r) => r.team.name);
+    return { unit, teams, short: Math.max(0, unit.quantity - teams.length) };
+  });
+  const anyShort = rows.some((row) => row.short > 0);
+  const noneAtAll = rows.every((row) => row.teams.length === 0);
   return (
-    <section title={t('incidents.drawer.force.estimateNote')}>
-      <p className="text-[13px] font-semibold text-slate-700 mb-1.5">{heading}</p>
-      <ul className="space-y-1">
-        {limit.planUnits.map((unit) => {
-          const teams = usable.filter((r) => r.vehicle.type === unit.unitTypeCode).map((r) => r.team.name);
-          const short = Math.max(0, unit.quantity - teams.length);
-          return (
-            <li key={unit.unitTypeCode} className="flex items-start gap-1.5 text-xs">
-              {short === 0 ? (
-                <CircleCheck className="w-3.5 h-3.5 shrink-0 mt-px text-emerald-600" />
-              ) : (
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px text-amber-600" />
-              )}
-              <span className="min-w-0">
-                <span className="font-semibold text-slate-700">
-                  {unit.quantity} × {unit.unitTypeName || unitTypeLabel(unit.unitTypeCode)}
-                </span>
-                <span className={short === 0 ? 'text-slate-500' : 'text-amber-800'}>
-                  {' · '}
-                  {short === 0
-                    ? t('incidents.drawer.force.ready', { names: teams.slice(0, 2).join(', ') + (teams.length > 2 ? '…' : '') })
-                    : teams.length === 0
-                      ? t('incidents.drawer.force.none')
-                      : t('incidents.drawer.force.short', { ready: teams.length, short })}
-                </span>
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+    <section title={t('incidents.drawer.force.estimateNote')} className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs">
+      <span className="text-[13px] font-semibold text-slate-700">{heading}</span>
+      {rows.map(({ unit, teams, short }) => (
+        <span
+          key={unit.unitTypeCode}
+          title={
+            short === 0
+              ? t('incidents.drawer.force.ready', { names: teams.join(', ') })
+              : teams.length === 0
+                ? t('incidents.drawer.force.none')
+                : t('incidents.drawer.force.short', { ready: teams.length, short })
+          }
+          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border font-semibold ${
+            short === 0
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-amber-200 bg-amber-50 text-amber-800'
+          }`}
+        >
+          {short === 0 ? <CircleCheck className="w-3.5 h-3.5 shrink-0" /> : <AlertTriangle className="w-3.5 h-3.5 shrink-0" />}
+          {unit.quantity} × {unit.unitTypeName || unitTypeLabel(unit.unitTypeCode)}
+        </span>
+      ))}
+      {anyShort && (
+        <span className="text-amber-800">
+          {noneAtAll ? t('incidents.drawer.force.none') : t('incidents.drawer.force.shortSummary')}
+        </span>
+      )}
     </section>
   );
 };

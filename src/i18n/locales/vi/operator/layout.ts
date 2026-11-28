@@ -1,8 +1,17 @@
 export const layoutVi = {
   nav: {
     liveMap: 'Bản đồ điều phối',
+    incidentQueue: 'Hàng đợi sự cố',
     stationTeams: 'Trạm & Tổ',
     vehicles: 'Đội xe & Thiết bị',
+    completion: 'Nghiệm thu',
+  },
+  // Nhãn ngắn dưới icon thanh bên (rộng 80px); tên đầy đủ ở `nav` hiện trong tooltip.
+  navShort: {
+    liveMap: 'Bản đồ',
+    incidentQueue: 'Hàng đợi',
+    stationTeams: 'Trạm & Tổ',
+    vehicles: 'Đội xe',
     completion: 'Nghiệm thu',
   },
   hubStatus: {
@@ -61,8 +70,8 @@ export const layoutVi = {
     moreTitle: 'Còn {{count}} ca AI đang xử lý',
     compact: 'AI · {{count}}',
     listTitle: 'Ca AI đang xử lý ({{count}})',
-    viewOnMap: 'Xem trên bản đồ',
-    viewOnMapHint: 'Chỉ xem vị trí, không mở ca — AI vẫn tiếp tục.',
+    viewInQueue: 'Xem ở Hàng đợi',
+    viewInQueueHint: 'Mở tab "AI đang phân tích" của Hàng đợi, không mở ca — AI vẫn tiếp tục.',
     takeOver: 'Mở ca',
     takeOverTitle: 'Mở thẩm định ca này. AI vẫn có thể tự điều phối nếu xong trước khi bạn duyệt.',
     close: 'Đóng',
@@ -120,6 +129,7 @@ export const layoutVi = {
     verify: 'Thẩm định',
     viewOnMap: 'Xem trên bản đồ',
     viewDetail: 'Xem chi tiết',
+    viewLinked: 'Xem báo cáo trùng',
     assignTrafficTeam: 'Mở điểm ùn tắc',
     openFieldRequest: 'Xem yêu cầu',
     viewCompletion: 'Xem nghiệm thu',
@@ -144,6 +154,8 @@ export const layoutVi = {
     otherStation: 'trạm khác',
     supplementTitle: 'Người báo bổ sung thông tin',
     supplementMessage: '{{incident}}: {{content}}',
+    linkedReportTitle: 'Thêm người cùng báo một vụ',
+    linkedReportMessage: '{{incident}} — +{{added}} người (tổng {{total}} người báo)',
     supplementMediaOnly: '{{count}} ảnh / video mới',
     trafficEscalationTitle: 'Điểm nghẽn tê liệt chưa có đội giải tỏa',
     trafficEscalationMessage: '{{area}} — quá ngưỡng chờ, cần giao đội phân luồng.',

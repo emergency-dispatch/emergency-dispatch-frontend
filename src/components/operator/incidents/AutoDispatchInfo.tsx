@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, BotOff, ExternalLink, Loader2 } from 'lucide-react';
+import { AlertTriangle, Bot, BotOff, ExternalLink, Loader2 } from 'lucide-react';
 import { useDispatchStore } from '../../../context/DispatchContext';
 import type { Incident } from '../../../types/incident';
 import { aiVoteTally } from '../../../types/aiVote';
@@ -188,17 +188,22 @@ export const HandoverReasonBox: React.FC<HandoverReasonBoxProps> = ({
 };
 
 /**
- * §31.E: khối giải thích trong drawer thẩm định / panel ca: kết quả AI tự điều phối, lý do (autoDispatchNote) và cờ
- * "Nghi trùng với sự cố …" — bấm để mở sự cố kia trên Live Map (sự cố đó đã được điều xe).
+ * §31.E: khối kết quả AI tự điều phối (Chi tiết ca, Hồ sơ ca, xem nhanh ở Hàng đợi).
+ * - Đã điều: gọn 2 dòng — tiêu đề + % tin cậy góc phải; dòng phụ "N/3 AI đồng ý · ngưỡng X%"; dòng vàng khi điều chưa đủ tổ.
+ *   Câu đầy đủ của backend (autoDispatchNote) để trong tooltip.
+ * - Bỏ qua: lý do của backend + hướng dẫn; cờ "Nghi trùng với sự cố …" bấm mở sự cố kia trên Live Map.
  */
 export const AutoDispatchNotice: React.FC<{
   incident: Incident;
   /** Dòng "3 AI bỏ phiếu: 2/3 đồng ý" — nơi không có chỗ cho bảng phiếu (panel ca Live Map). */
   showTally?: boolean;
+  /** Drawer thẩm định: bỏ các câu hướng dẫn (đưa vào tooltip) cho khối gọn. */
+  compact?: boolean;
   className?: string;
 }> = ({
   incident,
   showTally = false,
+  compact = false,
   className = '',
 }) => {
   const { t } = useTranslation();
@@ -212,48 +217,75 @@ export const AutoDispatchNotice: React.FC<{
   const duplicate = duplicateId ? incidents.find((i) => i.id === duplicateId) : undefined;
   // Sự cố kia có thể không thuộc trạm mình / đã đóng → hiện mã ngắn.
   const duplicateLabel = duplicate?.title ?? (duplicateId ? `#${duplicateId.slice(0, 8)}` : '');
+  const duplicateLink = duplicateId && (
+    <div className={compact ? '' : 'pt-1 space-y-1'}>
+      <button
+        type="button"
+        onClick={() => navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: duplicateId } })}
+        title={compact ? t('incidents.autoDispatch.duplicateHint') : undefined}
+        className="inline-flex items-center gap-1 font-bold underline underline-offset-2 hover:no-underline"
+      >
+        {t('incidents.autoDispatch.suspectedDuplicate', { title: duplicateLabel })}
+        <ExternalLink className="w-3 h-3" />
+      </button>
+      {!compact && <p className="text-[11px] opacity-80">{t('incidents.autoDispatch.duplicateHint')}</p>}
+    </div>
+  );
+
+  if (dispatched) {
+    const threshold = autoDispatchSettings ? Math.round(autoDispatchSettings.minConfidence * 100) : null;
+    const measured = incident.confidenceMeasured !== false;
+    const details = [
+      showTally && incident.aiVotes ? t('incidents.autoDispatch.votesShort', aiVoteTally(incident.aiVotes)) : null,
+      threshold !== null ? t('incidents.autoDispatch.thresholdShort', { threshold }) : null,
+    ].filter(Boolean);
+    return (
+      <div
+        title={auto.note ?? undefined}
+        className={`rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-indigo-900 ${className}`}
+      >
+        <div className="flex items-start gap-2">
+          <Icon className="w-4 h-4 shrink-0 mt-px text-indigo-600" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-bold leading-snug">{t('incidents.autoDispatch.dispatchedTitle')}</p>
+            {details.length > 0 && <p className="text-[11px] text-indigo-700/80">{details.join(' · ')}</p>}
+          </div>
+          <span
+            title={
+              measured && threshold !== null
+                ? t('incidents.autoDispatch.confidenceVsThreshold', { confidence: incident.confidenceScore, threshold })
+                : t('incidents.autoDispatch.notMeasured')
+            }
+            className="shrink-0 px-1.5 py-0.5 rounded-md bg-indigo-600 text-white text-xs font-bold tabular-nums"
+          >
+            {incident.confidenceScore}%{!measured && ` · ${t('incidents.autoDispatch.estimatedShort')}`}
+          </span>
+        </div>
+        {auto.partial && (
+          <p className="mt-1.5 flex items-start gap-1.5 text-[11px] font-semibold text-amber-800">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+            {t('incidents.autoDispatch.partialShort')}
+          </p>
+        )}
+        {duplicateLink && <div className="text-xs">{duplicateLink}</div>}
+      </div>
+    );
+  }
 
   return (
     <div
-      className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${
-        dispatched ? 'border-indigo-200 bg-indigo-50 text-indigo-900' : 'border-amber-300 bg-amber-50 text-amber-900'
-      } ${className}`}
+      className={`rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 space-y-1 ${className}`}
     >
-      <p className="flex items-center gap-1.5 font-bold">
+      <p className="flex items-center gap-1.5 font-bold" title={compact ? t('incidents.autoDispatch.skippedHint') : undefined}>
         <Icon className="w-3.5 h-3.5 shrink-0" />
-        {dispatched
-          ? t('incidents.autoDispatch.dispatchedTitle', { confidence: incident.confidenceScore })
-          : t('incidents.autoDispatch.skippedTitle')}
+        {t('incidents.autoDispatch.skippedTitle')}
       </p>
       {auto.note && <p className="leading-relaxed">{auto.note}</p>}
       {showTally && incident.aiVotes && (
         <p className="font-semibold">{t('incidents.aiVotes.summary', aiVoteTally(incident.aiVotes))}</p>
       )}
-      {/* AI đã điều: cho thấy độ tin cậy vượt ngưỡng bao nhiêu (ngưỡng hiện tại của Admin). */}
-      {dispatched && autoDispatchSettings && (
-        <ConfidenceThresholdBar
-          confidence={incident.confidenceScore}
-          threshold={Math.round(autoDispatchSettings.minConfidence * 100)}
-          measured={incident.confidenceMeasured}
-          tone="indigo"
-        />
-      )}
-      <p className="text-[11px] opacity-80">
-        {dispatched ? t('incidents.autoDispatch.dispatchedHint') : t('incidents.autoDispatch.skippedHint')}
-      </p>
-      {duplicateId && (
-        <div className="pt-1 space-y-1">
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: duplicateId } })}
-            className="inline-flex items-center gap-1 font-bold underline underline-offset-2 hover:no-underline"
-          >
-            {t('incidents.autoDispatch.suspectedDuplicate', { title: duplicateLabel })}
-            <ExternalLink className="w-3 h-3" />
-          </button>
-          <p className="text-[11px] opacity-80">{t('incidents.autoDispatch.duplicateHint')}</p>
-        </div>
-      )}
+      {!compact && <p className="text-[11px] opacity-80">{t('incidents.autoDispatch.skippedHint')}</p>}
+      {duplicateLink}
     </div>
   );
 };
@@ -274,7 +306,7 @@ export const AutoDispatchBanner: React.FC<{
   const { t } = useTranslation();
   const { autoDispatchSettings } = useDispatchStore();
   const now = useNow();
-  if (incident.autoDispatch) return <AutoDispatchNotice incident={incident} className={className} />;
+  if (incident.autoDispatch) return <AutoDispatchNotice incident={incident} compact={compact} className={className} />;
   if (incident.status !== 'pending') return null;
   // Mở ca không còn giữ khóa (bỏ 2026-11-26) → AI vẫn có thể đang điều phối; tính theo thời gian từ lúc tiếp nhận.
   const verdict = autoDispatchVerdictAt(incident, autoDispatchSettings, now);
