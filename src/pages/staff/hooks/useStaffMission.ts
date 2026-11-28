@@ -11,6 +11,7 @@ import { staffAudioService } from '../../../services/staffAudioService';
 import { routingService, type RouteResult } from '../../../services/routingService';
 import { mediaService } from '../../../services/mediaService';
 import { liveMapService, type TrafficTaskEventDto, type ReportTrafficHotspotDto, type ServiceAreaDto } from '../../../services/liveMapService';
+import { DEFAULT_SERVICE_AREA, getCachedServiceArea, cacheServiceArea } from '../../../utils/serviceArea';
 import type { ActiveTrafficTask } from '../../../components/staff/StaffTrafficTaskCard';
 import type { FieldRequestDto, CreateFieldRequestDto, FieldRequestEventDto } from '../../../types/fieldRequest';
 import type { IncidentSupplementDto } from '../../../types/incident';
@@ -126,14 +127,20 @@ export const useStaffMission = ({
   const [loadingSupplements, setLoadingSupplements] = useState<boolean>(false);
 
   // GIS Service Area Geofence Boundary (§12 & §20)
-  const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(null);
+  const [serviceArea, setServiceArea] = useState<ServiceAreaDto | null>(() => getCachedServiceArea() ?? DEFAULT_SERVICE_AREA);
 
   useEffect(() => {
     liveMapService.getServiceArea()
       .then((area) => {
-        if (area) setServiceArea(area);
+        if (area) {
+          setServiceArea(area);
+          cacheServiceArea(area);
+        }
       })
-      .catch((err) => console.warn('[useStaffMission] ServiceArea load notice:', err));
+      .catch((err) => {
+        console.warn('[useStaffMission] ServiceArea load notice:', err);
+        setServiceArea((prev) => prev ?? getCachedServiceArea() ?? DEFAULT_SERVICE_AREA);
+      });
   }, []);
 
   const fetchSupplements = useCallback(async (incidentId: string) => {

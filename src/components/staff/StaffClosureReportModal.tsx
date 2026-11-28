@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   FileCheck2,
@@ -18,8 +18,12 @@ import {
   Loader2,
   Users,
   Truck,
+  ChevronDown,
+  Package,
 } from 'lucide-react';
 import type { DigitalClosureReport, ClosureEvidencePhoto, StaffMission } from '../../types/staff';
+import type { EquipmentDto } from '../../types/equipment';
+import { equipmentService } from '../../services/equipmentService';
 import { StaffSignaturePad } from './StaffSignaturePad';
 import { staffAudioService } from '../../services/staffAudioService';
 import { mediaService } from '../../services/mediaService';
@@ -104,6 +108,77 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
   const [newResourceQty, setNewResourceQty] = useState<number>(1);
   const [newResourceUnit, setNewResourceUnit] = useState<string>('Bình');
 
+  // Trang thiết bị gắn trên xe của kíp trực (FE_MOBILE_HANDOFF §25)
+  const [vehicleEquipment, setVehicleEquipment] = useState<EquipmentDto[]>([]);
+  const [loadingEquipment, setLoadingEquipment] = useState<boolean>(false);
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    setLoadingEquipment(true);
+
+    equipmentService
+      .list()
+      .then((data) => {
+        if (!isMounted) return;
+        const plate = mission.vehiclePlate?.toUpperCase()?.trim();
+        const vehId = mission.vehicleId;
+        const teamPlates = (mission.teamVehicles || []).map((p) => p.toUpperCase().trim());
+
+        // Lọc các thiết bị đã trang bị trên xe của kíp trực
+        const onVehicle = (data || []).filter((item) => {
+          const itemPlate = item.rescueUnitPlate?.toUpperCase()?.trim();
+          if (plate && itemPlate === plate) return true;
+          if (vehId && item.rescueUnitId === vehId) return true;
+          if (itemPlate && teamPlates.includes(itemPlate)) return true;
+          return false;
+        });
+
+        // Ưu tiên hiển thị thiết bị trên xe; nếu xe chưa cấu hình riêng thì hiển thị toàn bộ thiết bị trạm
+        setVehicleEquipment(onVehicle.length > 0 ? onVehicle : (data || []));
+      })
+      .catch((err) => {
+        console.warn('[StaffClosureReportModal] Error loading vehicle equipment:', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingEquipment(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, mission.vehicleId, mission.vehiclePlate, mission.teamVehicles]);
+
+  const selectedEquipment = useMemo(() => {
+    return vehicleEquipment.find((e) => e.id === selectedEquipmentId) || null;
+  }, [vehicleEquipment, selectedEquipmentId]);
+
+  const inferEquipmentUnit = (name: string): string => {
+    const lower = name.toLowerCase();
+    if (lower.includes('bình')) return 'Bình';
+    if (lower.includes('túi')) return 'Túi';
+    if (lower.includes('hộp')) return 'Hộp';
+    if (lower.includes('cuộn') || lower.includes('băng') || lower.includes('gạc') || lower.includes('dây')) return 'Cuộn';
+    if (lower.includes('bộ') || lower.includes('đồ bảo hộ') || lower.includes('quần áo')) return 'Bộ';
+    if (lower.includes('đôi') || lower.includes('găng') || lower.includes('ủng')) return 'Đôi';
+    if (lower.includes('viên') || lower.includes('thuốc')) return 'Viên';
+    if (lower.includes('lít') || lower.includes('nước') || lower.includes('xăng') || lower.includes('dầu')) return 'Lít';
+    if (lower.includes('ống')) return 'Ống';
+    return 'Cái';
+  };
+
+  const handleSelectEquipment = (eqId: string) => {
+    setSelectedEquipmentId(eqId);
+    if (!eqId) return;
+    const item = vehicleEquipment.find((e) => e.id === eqId);
+    if (item) {
+      setNewResourceName(item.name);
+      setNewResourceUnit(inferEquipmentUnit(item.name));
+      setNewResourceQty(1);
+    }
+  };
+
   // Validation error banner
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isUploadingPhotos, setIsUploadingPhotos] = useState<boolean>(false);
@@ -172,12 +247,27 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
 
   const handleAddResource = () => {
     if (!newResourceName.trim()) return;
-    setResources((prev) => [
-      ...prev,
-      { name: newResourceName.trim(), quantity: newResourceQty, unit: newResourceUnit.trim() || 'Cái' },
-    ]);
+    const name = newResourceName.trim();
+    const unit = newResourceUnit.trim() || 'Cái';
+    const qty = Math.max(1, newResourceQty);
+
+    setResources((prev) => {
+      const existingIdx = prev.findIndex((r) => r.name.toLowerCase() === name.toLowerCase());
+      if (existingIdx >= 0) {
+        const next = [...prev];
+        next[existingIdx] = {
+          ...next[existingIdx],
+          quantity: next[existingIdx].quantity + qty,
+        };
+        return next;
+      }
+      return [...prev, { name, quantity: qty, unit }];
+    });
+
     setNewResourceName('');
+    setSelectedEquipmentId('');
     setNewResourceQty(1);
+    setNewResourceUnit('Bình');
   };
 
   const handleRemoveResource = (index: number) => {
@@ -620,43 +710,170 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
               </div>
             </div>
 
-            {/* Section 4: Resources Consumed */}
+            {/* Section 5: Resources Consumed */}
             <div className="space-y-3 bg-slate-50 border border-slate-200 rounded-xl p-4">
-              <label className="text-xs font-mono font-bold uppercase text-slate-800 flex items-center gap-1.5">
-                <PackageCheck className="w-4 h-4 text-red-600" />
-                5. Vật Tư &amp; Trang Thiết Bị Tiêu Hao Tại Hiện Trường
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-xs font-mono font-bold uppercase text-slate-800 flex items-center gap-1.5">
+                  <PackageCheck className="w-4 h-4 text-red-600" />
+                  5. Vật Tư &amp; Trang Thiết Bị Tiêu Hao Tại Hiện Trường
+                </label>
+                {mission.vehiclePlate && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
+                    <Truck className="w-3 h-3 text-blue-600" />
+                    Xe kíp trực: {mission.vehiclePlate}
+                  </span>
+                )}
+              </div>
 
+              {/* Lựa chọn nhanh từ trang thiết bị gắn trên xe */}
+              <div className="space-y-2 bg-white/80 border border-slate-200 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-red-600" />
+                    Chọn thiết bị đã trang bị trên xe:
+                  </label>
+                  {loadingEquipment && (
+                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
+                      Đang đồng bộ từ xe...
+                    </span>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <select
+                    value={selectedEquipmentId}
+                    onChange={(e) => handleSelectEquipment(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-red-500 font-medium shadow-2xs appearance-none pr-8 cursor-pointer"
+                  >
+                    <option value="">
+                      {loadingEquipment
+                        ? '⏳ Đang tải trang thiết bị trên xe...'
+                        : vehicleEquipment.length > 0
+                        ? `-- Bấm để chọn thiết bị gắn trên xe ${mission.vehiclePlate ? `(${mission.vehiclePlate})` : ''} (${vehicleEquipment.length} mục) --`
+                        : '-- Không có sẵn thiết bị trên xe (Có thể gõ nhập thủ công) --'}
+                    </option>
+                    {vehicleEquipment.map((eq) => {
+                      const onThisCar = eq.rescueUnitPlate === mission.vehiclePlate;
+                      return (
+                        <option key={eq.id} value={eq.id}>
+                          {eq.name} • Tồn: {eq.quantity} {inferEquipmentUnit(eq.name)} ({onThisCar ? `Xe ${eq.rescueUnitPlate}` : (eq.rescueUnitPlate ? `Xe ${eq.rescueUnitPlate}` : 'Kho trạm')})
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400">
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+
+                {/* Phím bấm chọn nhanh 1 chạm (Quick chips) */}
+                {vehicleEquipment.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[10px] font-semibold uppercase text-slate-400">Gợi ý nhanh:</span>
+                    {vehicleEquipment.map((eq) => {
+                      const isSelected = selectedEquipmentId === eq.id || newResourceName.trim().toLowerCase() === eq.name.toLowerCase();
+                      const isAdded = resources.some((r) => r.name.toLowerCase() === eq.name.toLowerCase());
+                      return (
+                        <button
+                          key={eq.id}
+                          type="button"
+                          onClick={() => handleSelectEquipment(eq.id)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-red-50 border-red-500 text-red-700 font-bold shadow-xs'
+                              : isAdded
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                              : 'bg-white border-slate-200 text-slate-700 hover:border-red-300 hover:bg-slate-50 shadow-2xs'
+                          }`}
+                          title={`Chọn nhanh ${eq.name} (có ${eq.quantity} trên xe)`}
+                        >
+                          <span>{eq.name}</span>
+                          <span className="text-[10px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-mono">
+                            x{eq.quantity}
+                          </span>
+                          {isAdded && <CheckCircle2 className="w-3 h-3 text-emerald-600 inline ml-0.5" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Dòng nhập chi tiết & bấm Thêm */}
               <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="text"
-                  value={newResourceName}
-                  onChange={(e) => setNewResourceName(e.target.value)}
-                  placeholder="Tên vật tư (bình bột, gạc y tế...)"
-                  className="flex-1 min-w-[160px] bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-red-500"
-                />
-                <input
-                  type="number"
-                  min={1}
-                  value={newResourceQty}
-                  onChange={(e) => setNewResourceQty(Number(e.target.value) || 1)}
-                  className="w-20 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-red-500 font-mono text-center"
-                />
+                <div className="flex-1 min-w-[160px] relative">
+                  <input
+                    type="text"
+                    list="vehicle-equipment-datalist"
+                    value={newResourceName}
+                    onChange={(e) => {
+                      setNewResourceName(e.target.value);
+                      const matched = vehicleEquipment.find(
+                        (eq) => eq.name.toLowerCase() === e.target.value.toLowerCase()
+                      );
+                      if (matched) {
+                        setSelectedEquipmentId(matched.id);
+                        setNewResourceUnit(inferEquipmentUnit(matched.name));
+                      } else {
+                        setSelectedEquipmentId('');
+                      }
+                    }}
+                    placeholder="Tên vật tư (bình bột, gạc y tế... hoặc chọn từ xe ở trên)"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-red-500"
+                  />
+                  <datalist id="vehicle-equipment-datalist">
+                    {vehicleEquipment.map((eq) => (
+                      <option key={eq.id} value={eq.name}>
+                        {eq.name} ({eq.quantity} {inferEquipmentUnit(eq.name)} trên xe)
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={selectedEquipment ? selectedEquipment.quantity : 999}
+                    value={newResourceQty}
+                    onChange={(e) => setNewResourceQty(Number(e.target.value) || 1)}
+                    className="w-20 bg-white border border-slate-300 rounded-xl px-2 py-2 text-xs text-slate-900 focus:outline-none focus:border-red-500 font-mono text-center"
+                    title={selectedEquipment ? `Tồn trên xe: ${selectedEquipment.quantity}` : undefined}
+                  />
+                  {selectedEquipment && (
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      /{selectedEquipment.quantity}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={newResourceUnit}
                   onChange={(e) => setNewResourceUnit(e.target.value)}
                   placeholder="Đơn vị"
-                  className="w-24 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-red-500"
+                  className="w-20 bg-white border border-slate-300 rounded-xl px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-red-500"
                 />
                 <button
                   type="button"
                   onClick={handleAddResource}
-                  className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer"
+                  disabled={!newResourceName.trim()}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
                 >
+                  <Plus className="w-3.5 h-3.5" />
                   Thêm
                 </button>
               </div>
+
+              {selectedEquipment && (
+                <div className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg flex items-center justify-between">
+                  <span>
+                   Thiết bị từ xe: <strong>{selectedEquipment.name}</strong> (Tồn trên xe: {selectedEquipment.quantity} {newResourceUnit})
+                  </span>
+                  <span className="text-[10px] text-blue-500">
+                    {selectedEquipment.rescueUnitPlate ? `Biển số: ${selectedEquipment.rescueUnitPlate}` : 'Kho trạm'}
+                  </span>
+                </div>
+              )}
 
               {resources.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
@@ -665,7 +882,10 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
                       key={idx}
                       className="flex items-center justify-between px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs shadow-xs"
                     >
-                      <span className="text-slate-800 font-medium truncate">{item.name}</span>
+                      <div className="flex items-center gap-1.5 truncate pr-1">
+                        <PackageCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="text-slate-800 font-medium truncate">{item.name}</span>
+                      </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="font-mono font-bold text-red-600">
                           {item.quantity} {item.unit}
@@ -688,7 +908,7 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
               )}
             </div>
 
-            {/* Section 5: Signature Pad Component */}
+            {/* Section 6: Signature Pad Component */}
             <div
               ref={signatureSectionRef}
               className={`rounded-xl p-4 space-y-3 transition-all ${
@@ -700,7 +920,7 @@ export const StaffClosureReportModal: React.FC<StaffClosureReportModalProps> = (
               <div className="flex items-center justify-between">
                 <label className="text-xs font-mono font-bold uppercase text-slate-800 flex items-center gap-1.5">
                   <PenTool className="w-4 h-4 text-red-600" />
-                  5. Chữ Ký Xác Nhận Của Thành Viên Tổ (Bắt buộc)
+                  6. Chữ Ký Xác Nhận Của Thành Viên Tổ (Bắt buộc)
                 </label>
                 <span className={`text-[11px] font-mono font-bold ${signatureDataUrl ? 'text-emerald-600' : 'text-rose-600'}`}>
                   {signatureDataUrl ? '✓ Đã ký' : '✕ Bắt buộc ký'}

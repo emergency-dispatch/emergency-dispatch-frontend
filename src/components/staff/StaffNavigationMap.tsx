@@ -27,6 +27,12 @@ import type { ServiceAreaDto } from '../../services/liveMapService';
 import type { SeverityLevel } from '../../types/incident';
 import { circlePolygon } from '../operator/livemap/MapServiceAreaLayer';
 import {
+  buildStaffServiceAreaFeatureCollection,
+  getStaffServiceAreaBounds,
+  parseStaffBoundaryGeoJson,
+} from '../../pages/staff/utils/staffMissionUtils';
+import { resolveServiceArea, distanceOutsideAreaKm } from '../../utils/serviceArea';
+import {
   glowIncidentMarkerHtml,
   vehicle3dMarkerHtml,
   glowTrafficJamMarkerHtml,
@@ -227,22 +233,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
 
     const addOrUpdate = () => {
       try {
-        const featureCollection = {
-          type: 'FeatureCollection' as const,
-          features:
-            area && area.enabled && area.radiusKm > 0
-              ? [
-                  {
-                    type: 'Feature' as const,
-                    properties: { name: area.name ?? 'Ranh giới phục vụ trạm' },
-                    geometry: {
-                      type: 'Polygon' as const,
-                      coordinates: [circlePolygon(area.centerLat, area.centerLng, area.radiusKm)],
-                    },
-                  },
-                ]
-              : [],
-        };
+        const featureCollection = buildStaffServiceAreaFeatureCollection(area ?? null);
 
         if (!map.getSource(SOURCE_ID)) {
           map.addSource(SOURCE_ID, {
@@ -266,7 +257,7 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
             );
           }
 
-          // Lớp đường viền nét đứt ranh giới trạm
+          // Lớp đường viền nét đứt ranh giới trạm khớp CAD
           if (!map.getLayer(LINE_ID)) {
             map.addLayer(
               {
@@ -274,9 +265,9 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
                 type: 'line',
                 source: SOURCE_ID,
                 paint: {
-                  'line-color': '#3B82F6',
-                  'line-width': 2.2,
-                  'line-opacity': 0.85,
+                  'line-color': '#2563EB',
+                  'line-width': 2.5,
+                  'line-opacity': 1,
                   'line-dasharray': [3, 2],
                 },
               },
@@ -309,9 +300,9 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
                 type: 'line',
                 source: SOURCE_ID,
                 paint: {
-                  'line-color': '#3B82F6',
-                  'line-width': 2.2,
-                  'line-opacity': 0.85,
+                  'line-color': '#2563EB',
+                  'line-width': 2.5,
+                  'line-opacity': 1,
                   'line-dasharray': [3, 2],
                 },
               },
@@ -863,21 +854,42 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
 
   // 12. Tính toán vị trí xe so với Ranh giới phục vụ của Trạm (Geofence status)
   const geofenceInfo = React.useMemo(() => {
-    if (!serviceArea || !serviceArea.enabled || serviceArea.radiusKm <= 0) {
+    if (!serviceArea) {
       return null;
     }
+    const raw = serviceArea as any;
+    const boundaryRaw = serviceArea.boundaryGeoJson ?? raw.BoundaryGeoJson;
+    const polygons = parseStaffBoundaryGeoJson(boundaryRaw);
+    const radiusKm = typeof serviceArea.radiusKm === 'number' && serviceArea.radiusKm > 0 ? serviceArea.radiusKm : (raw.RadiusKm ?? 4.5);
+    const centerLat = typeof serviceArea.centerLat === 'number' && serviceArea.centerLat !== 0 ? serviceArea.centerLat : (raw.CenterLat ?? 10.8441);
+    const centerLng = typeof serviceArea.centerLng === 'number' && serviceArea.centerLng !== 0 ? serviceArea.centerLng : (raw.CenterLng ?? 106.8089);
+    const name = serviceArea.name ?? raw.Name ?? 'Địa bàn quản lý trạm';
+
+    const effective = {
+      name,
+      lat: centerLat,
+      lng: centerLng,
+      radiusKm,
+      polygons,
+    };
+    const outsideKm = distanceOutsideAreaKm(
+      { lat: mission.vehicleLat, lng: mission.vehicleLng },
+      effective
+    );
+    const isInside = outsideKm <= 0;
     const dist = getDistanceFromLatLonInKm(
       mission.vehicleLat,
       mission.vehicleLng,
-      serviceArea.centerLat,
-      serviceArea.centerLng
+      centerLat,
+      centerLng
     );
-    const isInside = dist <= serviceArea.radiusKm;
+    const hasPolygon = polygons.length > 0;
     return {
       isInside,
       distKm: dist.toFixed(1),
-      radiusKm: serviceArea.radiusKm,
-      name: serviceArea.name || 'Địa bàn quản lý trạm',
+      radiusKm,
+      hasPolygon,
+      name,
     };
   }, [serviceArea, mission.vehicleLat, mission.vehicleLng]);
 
@@ -1156,18 +1168,33 @@ export const StaffNavigationMap: React.FC<StaffNavigationMapProps> = ({
           </div>
 
           {geofenceInfo && (
-            <div
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border backdrop-blur-md text-xs font-mono font-bold shadow-xl whitespace-nowrap ${
+            <button
+              type="button"
+              onClick={() => {
+                const map = mapRef.current;
+                if (!map) return;
+                const bounds = getStaffServiceAreaBounds(serviceArea);
+                if (bounds) {
+                  map.fitBounds(bounds, { padding: 45, duration: 800 });
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border backdrop-blur-md text-xs font-mono font-bold shadow-xl whitespace-nowrap cursor-pointer active:scale-95 transition-all ${
                 geofenceInfo.isInside
-                  ? 'bg-blue-950/90 text-blue-200 border-blue-700/80'
-                  : 'bg-amber-950/90 text-amber-200 border-amber-600 animate-pulse'
+                  ? 'bg-blue-950/90 text-blue-200 border-blue-700/80 hover:bg-blue-900/90'
+                  : 'bg-amber-950/90 text-amber-200 border-amber-600 animate-pulse hover:bg-amber-900/90'
               }`}
-              title={`Khoảng cách đến tâm trạm: ${geofenceInfo.distKm} km • Bán kính phục vụ: ${geofenceInfo.radiusKm} km`}
+              title={
+                geofenceInfo.hasPolygon
+                  ? `Ranh giới đa giác • Cách tâm trạm: ${geofenceInfo.distKm} km (Bấm để xem trọn ranh giới)`
+                  : `Khoảng cách đến tâm trạm: ${geofenceInfo.distKm} km • Bán kính phục vụ: ${geofenceInfo.radiusKm} km (Bấm để xem trọn ranh giới)`
+              }
             >
               <Shield className={`w-3.5 h-3.5 shrink-0 ${geofenceInfo.isInside ? 'text-blue-400' : 'text-amber-400'}`} />
               <span>{geofenceInfo.isInside ? 'TRONG RANH GIỚI TRẠM' : 'NGOÀI RANH GIỚI TRẠM'}</span>
-              <span className="text-[10px] text-slate-400 font-normal">({geofenceInfo.radiusKm}km)</span>
-            </div>
+              <span className="text-[10px] text-slate-400 font-normal">
+                ({geofenceInfo.hasPolygon ? 'Đa giác' : `${geofenceInfo.radiusKm}km`})
+              </span>
+            </button>
           )}
         </div>
 
