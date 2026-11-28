@@ -90,11 +90,10 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
         <button
           type="button"
           onClick={() => setMobileView('map')}
-          className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-            mobileView === 'map'
+          className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${mobileView === 'map'
               ? 'bg-red-600 text-white shadow-xs'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
+            }`}
         >
           <Navigation className="w-3.5 h-3.5 shrink-0" />
           <span>Bản Đồ Dẫn Đường</span>
@@ -103,11 +102,10 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
         <button
           type="button"
           onClick={() => setMobileView('controls')}
-          className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer relative whitespace-nowrap ${
-            mobileView === 'controls'
+          className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer relative whitespace-nowrap ${mobileView === 'controls'
               ? 'bg-red-600 text-white shadow-xs'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
+            }`}
         >
           <Radio className="w-3.5 h-3.5 shrink-0" />
           <span>Chi Tiết Tác Chiến</span>
@@ -119,9 +117,8 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
 
       {/* Left Column: Mission Controls & Telemetry (5 cols) */}
       <div
-        className={`space-y-4 lg:col-span-5 ${
-          mobileView === 'map' ? 'hidden lg:block' : 'block'
-        }`}
+        className={`space-y-4 lg:col-span-5 ${mobileView === 'map' ? 'hidden lg:block' : 'block'
+          }`}
       >
         {/* Active Traffic Task (Mục 20: Nhiệm vụ giải tỏa điểm nghẽn) */}
         {activeTrafficTask && onResolveTrafficTask && (
@@ -147,7 +144,7 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
                 type="button"
                 onClick={onViewStandby}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-medium text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-all cursor-pointer active:scale-95"
-                title="Tạm ẩn bảng tác chiến để xem chế độ Túc trực (Standby)"
+                title="Tạm ẩn bảng tác chiến để xem chế độ Túc trực "
               >
                 <EyeOff className="w-3 h-3 text-slate-500" />
                 <span className="hidden xs:inline sm:inline">Xem Túc trực</span>
@@ -317,9 +314,8 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
 
       {/* Right Column: Navigation Map & In-Field MDT HUD (7 cols) */}
       <div
-        className={`lg:col-span-7 relative isolate ${
-          mobileView === 'controls' ? 'hidden lg:block' : 'block'
-        } h-[calc(100vh-140px)] min-h-[480px] lg:h-[calc(100vh-130px)] lg:sticky lg:top-0 rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-950`}
+        className={`lg:col-span-7 relative isolate ${mobileView === 'controls' ? 'hidden lg:block' : 'block'
+          } h-[calc(100vh-140px)] min-h-[480px] lg:h-[calc(100vh-130px)] lg:sticky lg:top-0 rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-950`}
       >
         {/* On Mobile in Map View: Sleek Floating Turn-by-Turn HUD at top */}
         {mission.status === 'en_route' && (
@@ -346,10 +342,10 @@ export const StaffActiveMissionView: React.FC<StaffActiveMissionViewProps> = ({
               {mission.status === 'accepted'
                 ? 'Đã nhận lệnh'
                 : mission.status === 'en_route'
-                ? 'Đang tiếp cận'
-                : mission.status === 'on_scene'
-                ? 'Tại hiện trường'
-                : 'Đã đóng ca'}
+                  ? 'Đang tiếp cận'
+                  : mission.status === 'on_scene'
+                    ? 'Tại hiện trường'
+                    : 'Đã đóng ca'}
             </span>
           </div>
 

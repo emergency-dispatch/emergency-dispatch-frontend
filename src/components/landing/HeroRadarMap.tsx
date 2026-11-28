@@ -51,6 +51,7 @@ import type { RescueUnitResponseDto } from '../../types/rescueUnit';
 import type { DispatchVehicleType, Station, VehicleStatus } from '../../types/vehicle';
 import { useTranslation } from '../../i18n';
 import { useAuth } from '../../hooks/useAuth';
+import { refreshReportCooldown } from '../../hooks/useSosCooldown';
 import { useMapExpandAnimation } from '../../hooks/useMapExpandAnimation';
 import { UserRole } from '../../types/auth';
 import { serviceAreaToFeatureCollection } from '../operator/livemap/MapServiceAreaLayer';
@@ -833,10 +834,13 @@ export const HeroRadarMap: React.FC<HeroRadarMapProps> = ({
     const unsubSettings = incidentHubService.on(
       HubEvents.ReceiveSettingsChanged,
       (msg: any) => {
-        if (msg?.key === 'serviceArea') {
+        const key = String(msg?.key ?? '').toLowerCase();
+        if (key === 'servicearea') {
           liveMapService.getServiceArea().then((area) => {
             if (area) setServiceArea(normalizeServiceArea(area));
           }).catch(() => {});
+        } else if (key === 'citizenincidentalerts') {
+          refreshReportCooldown(true).catch(() => {});
         }
       }
     );

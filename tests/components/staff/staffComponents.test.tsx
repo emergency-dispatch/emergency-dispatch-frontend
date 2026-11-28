@@ -23,6 +23,7 @@ import { StaffReportsView } from '@/components/staff/reports/StaffReportsView';
 import { StaffEquipmentView } from '@/components/staff/equipment/StaffEquipmentView';
 import { StaffProfileView } from '@/components/staff/profile/StaffProfileView';
 import { StaffTeamView } from '@/components/staff/team/StaffTeamView';
+import { StaffIncidentCard } from '@/pages/staff/components/StaffIncidentCard';
 import { AuthContext, type AuthContextType } from '@/contexts/AuthContext';
 import { userService } from '@/services/userService';
 import { initialStaffMission, mockRouteSteps, mockShiftSchedules, mockStaffProfile } from '@/data/staffMock';
@@ -178,5 +179,26 @@ describe('Staff – component lịch ca (hiện chưa được trang nào dùng)
     const { LiveTelemetryBar } = await import('@/components/landing/LiveTelemetryBar');
     wrap(<LiveTelemetryBar {...({} as any)} />);
     expect(document.body.textContent!.length).toBeGreaterThan(0);
+  });
+});
+
+describe('StaffIncidentCard - Phone Reveal & Fallback', () => {
+  it('khi có số điện thoại bị che (090*****89) → hiển thị số che và nút Mở SĐT, không hiện ĐÃ MỞ KHÓA', () => {
+    wrap(<StaffIncidentCard mission={mission({ callerPhone: '090*****89', isPhoneRevealed: false })} />);
+    expect(screen.getByText('090*****89')).toBeInTheDocument();
+    expect(screen.getByText('Mở SĐT')).toBeInTheDocument();
+    expect(screen.queryByText('ĐÃ MỞ KHÓA')).not.toBeInTheDocument();
+  });
+
+  it('khi không có SĐT hoặc sự cố do tổ tự phát hiện → không hiện badge ĐÃ MỞ KHÓA', () => {
+    wrap(<StaffIncidentCard mission={mission({ callerPhone: '', dispatcherName: 'Tổ tự phát hiện & tác chiến' })} />);
+    expect(screen.queryByText('ĐÃ MỞ KHÓA')).not.toBeInTheDocument();
+    expect(screen.getByText('Tổ tự phát hiện (không có SĐT người dân)')).toBeInTheDocument();
+  });
+
+  it('khi SĐT đã mở khóa → hiển thị số thật và badge ĐÃ MỞ KHÓA', () => {
+    wrap(<StaffIncidentCard mission={mission({ callerPhone: '0901234567', isPhoneRevealed: true })} />);
+    expect(screen.getByText('0901234567')).toBeInTheDocument();
+    expect(screen.getByText('ĐÃ MỞ KHÓA')).toBeInTheDocument();
   });
 });

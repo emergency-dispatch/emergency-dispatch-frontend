@@ -554,9 +554,9 @@ export const StaffTeamView: React.FC = () => {
                   </div>
 
                   <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                    <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-600">
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-sans">
                       <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>GPS: {veh.currentLat.toFixed(4)}, {veh.currentLng.toFixed(4)}</span>
+                      <span>{teamData?.stationName || 'Trạm thường trực'}</span>
                     </div>
                   </div>
                 </div>

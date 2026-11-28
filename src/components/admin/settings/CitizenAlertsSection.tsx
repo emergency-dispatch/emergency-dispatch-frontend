@@ -4,7 +4,14 @@ import { CompactSettingsForm } from './CompactSettingsForm';
 import { ConfirmModal, Notice, type NoticeState } from '../common/ui';
 import { showToast } from '../common/toastStore';
 import { useServiceQuery, useUnsavedChangesGuard } from '../common/hooks';
-import { adminSettingsService, type CitizenIncidentAlertSettings, type SettingsRecord } from '../../../services/admin/adminSettingsService';
+import {
+  REPORT_COOLDOWN_MINUTES,
+  adminSettingsService,
+  type CitizenIncidentAlertSettings,
+  type SettingsRecord,
+} from '../../../services/admin/adminSettingsService';
+import { setCachedReportCooldownMinutes } from '../../../hooks/useSosCooldown';
+import { toNumber } from './settingsDraft';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { dateLocale, useTranslation } from '../../../i18n';
 
@@ -68,21 +75,40 @@ const CitizenAlertsForm: React.FC<{
   onSaved: (message: string) => void;
 }> = ({ record, onDirtyChange, onSaved }) => {
   const { t } = useTranslation();
+  const initialCooldown = record.values.reportCooldownMinutes ?? 3;
   const [enabled, setEnabled] = useState(record.values.enabled);
+  const [cooldownMinutes, setCooldownMinutes] = useState(String(initialCooldown));
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<NoticeState>(null);
   const [confirming, setConfirming] = useState(false);
 
-  const dirty = enabled !== record.values.enabled;
+  const parsedCooldown = toNumber(cooldownMinutes);
+  const cooldownError =
+    !Number.isInteger(parsedCooldown) ||
+    parsedCooldown < REPORT_COOLDOWN_MINUTES.min ||
+    parsedCooldown > REPORT_COOLDOWN_MINUTES.max
+      ? t('admin.settings.citizenAlerts.cooldownRange', REPORT_COOLDOWN_MINUTES)
+      : undefined;
+
+  const dirty = enabled !== record.values.enabled || cooldownMinutes !== String(initialCooldown);
+  const canSave = dirty && !cooldownError;
   useUnsavedChangesGuard(dirty);
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
   const save = async () => {
+    if (cooldownError) return;
     setSaving(true);
     setNotice(null);
     try {
-      await adminSettingsService.updateCitizenIncidentAlerts(enabled);
-      onSaved(t(enabled ? 'admin.settings.citizenAlerts.savedEnabled' : 'admin.settings.citizenAlerts.savedDisabled'));
+      await adminSettingsService.updateCitizenIncidentAlerts({ enabled, reportCooldownMinutes: parsedCooldown });
+      setCachedReportCooldownMinutes(parsedCooldown);
+      const key =
+        enabled !== record.values.enabled
+          ? enabled
+            ? 'admin.settings.citizenAlerts.savedEnabled'
+            : 'admin.settings.citizenAlerts.savedDisabled'
+          : 'admin.settings.citizenAlerts.saved';
+      onSaved(t(key));
     } catch (err) {
       setNotice({ kind: 'error', message: getApiErrorMessage(err) });
       setSaving(false);
@@ -101,12 +127,13 @@ const CitizenAlertsForm: React.FC<{
         notice={notice}
         onCloseNotice={() => setNotice(null)}
         dirty={dirty}
-        canSave={dirty}
+        canSave={canSave}
         saving={saving}
-        // Bật = gửi tới mọi tài khoản người dân đang hoạt động → hỏi lại trước khi lưu.
-        onSave={() => (enabled ? setConfirming(true) : save())}
+        // Chỉ hỏi xác nhận khi chuyển từ tắt -> bật gửi thông báo khu vực.
+        onSave={() => (enabled && !record.values.enabled ? setConfirming(true) : save())}
         onDiscard={() => {
           setEnabled(record.values.enabled);
+          setCooldownMinutes(String(initialCooldown));
           setNotice(null);
         }}
       >
@@ -125,6 +152,43 @@ const CitizenAlertsForm: React.FC<{
               {t('admin.settings.citizenAlerts.enabledFrom', {
                 time: new Date(record.values.enabledFromUtc).toLocaleString(dateLocale()),
               })}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2 border-t border-slate-100 pt-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <label htmlFor="citizen-report-cooldown-input" className="block text-xs font-bold text-slate-900">
+                {t('admin.settings.citizenAlerts.cooldownTitle')}
+              </label>
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                {t('admin.settings.citizenAlerts.cooldownHint', REPORT_COOLDOWN_MINUTES)}
+              </p>
+            </div>
+            <div className="flex w-28 shrink-0 items-stretch">
+              <input
+                id="citizen-report-cooldown-input"
+                type="number"
+                inputMode="numeric"
+                min={REPORT_COOLDOWN_MINUTES.min}
+                max={REPORT_COOLDOWN_MINUTES.max}
+                step={1}
+                value={cooldownMinutes}
+                onChange={(e) => setCooldownMinutes(e.target.value)}
+                aria-invalid={!!cooldownError}
+                className={`w-full rounded-l-lg border bg-white px-2 py-1.5 text-center text-sm font-bold text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
+                  cooldownError ? 'border-red-500 bg-red-50/40' : 'border-slate-300'
+                }`}
+              />
+              <span className="flex items-center rounded-r-lg border border-l-0 border-slate-300 bg-slate-50 px-2.5 text-xs text-slate-500">
+                {t('admin.settings.citizenAlerts.cooldownUnit')}
+              </span>
+            </div>
+          </div>
+          {cooldownError && (
+            <p role="alert" className="text-[11px] font-medium text-red-600">
+              {cooldownError}
             </p>
           )}
         </div>

@@ -21,6 +21,7 @@ interface StaffMissionTabProps {
   onPhoneRevealed?: (fullPhone: string) => void;
   activeTrafficTask?: ActiveTrafficTask | null;
   onResolveTrafficTask?: (hotspotId: string, note?: string) => Promise<boolean>;
+  onOpenReportIncidentModal?: () => void;
   onOpenReportTrafficModal?: () => void;
   onCreateFieldRequest?: (dto: CreateFieldRequestDto) => Promise<boolean>;
   onCancelFieldRequest?: (requestId: string, note?: string) => Promise<boolean>;
@@ -49,6 +50,7 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
   onPhoneRevealed,
   activeTrafficTask,
   onResolveTrafficTask,
+  onOpenReportIncidentModal,
   onOpenReportTrafficModal,
   onCreateFieldRequest,
   onCancelFieldRequest,
@@ -126,6 +128,7 @@ export const StaffMissionTab: React.FC<StaffMissionTabProps> = ({
         completedMissions={completedMissions}
         activeTrafficTask={activeTrafficTask}
         onResolveTrafficTask={onResolveTrafficTask}
+        onOpenReportIncidentModal={onOpenReportIncidentModal}
         onOpenReportTrafficModal={onOpenReportTrafficModal}
         serviceArea={serviceArea}
         onSelectMission={onSelectStandbyMission}

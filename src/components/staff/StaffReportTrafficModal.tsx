@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   AlertOctagon,
@@ -62,8 +62,8 @@ export const StaffReportTrafficModal: React.FC<StaffReportTrafficModalProps> = (
   visible,
   onClose,
   onSubmit,
-  defaultLat = 10.8441,
-  defaultLng = 106.8089,
+  defaultLat,
+  defaultLng,
   defaultAddress = 'Khu Công nghệ cao TP.HCM',
   reporterName = 'Kíp xe cứu hộ',
 }) => {
@@ -72,10 +72,30 @@ export const StaffReportTrafficModal: React.FC<StaffReportTrafficModalProps> = (
   const [locationAddress, setLocationAddress] = useState(defaultAddress);
   const [description, setDescription] = useState('');
   const [ttlMinutes, setTtlMinutes] = useState(45);
-  const [latitude, setLatitude] = useState(defaultLat);
-  const [longitude, setLongitude] = useState(defaultLng);
+  const [latitude, setLatitude] = useState(defaultLat ?? 10.8441);
+  const [longitude, setLongitude] = useState(defaultLng ?? 106.8089);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (defaultLat && defaultLng) {
+      setLatitude(defaultLat);
+      setLongitude(defaultLng);
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLatitude(pos.coords.latitude);
+          setLongitude(pos.coords.longitude);
+        },
+        () => {},
+        { timeout: 5000 }
+      );
+    }
+    if (defaultAddress) {
+      setLocationAddress(defaultAddress);
+    }
+  }, [visible, defaultLat, defaultLng, defaultAddress]);
 
   if (!visible) return null;
 
@@ -136,8 +156,8 @@ export const StaffReportTrafficModal: React.FC<StaffReportTrafficModalProps> = (
               <h3 className="font-extrabold text-sm sm:text-base text-slate-900">
                 Báo Cáo Điểm Nghẽn / Chướng Ngại Vật Giao Thông
               </h3>
-              <p className="text-[11px] text-slate-500 font-mono">
-                API POST /api/traffic/report • Phát cảnh báo Live Map
+              <p className="text-[11px] text-slate-500 font-medium">
+                Phát cảnh báo sự cố giao thông lên Live Map điều phối
               </p>
             </div>
           </div>
@@ -225,11 +245,8 @@ export const StaffReportTrafficModal: React.FC<StaffReportTrafficModalProps> = (
 
           {/* Location Address */}
           <div className="space-y-1.5">
-            <label className="font-bold text-slate-700 flex items-center justify-between">
-              <span>Địa chỉ / Tuyến đường <span className="text-red-500">*</span>:</span>
-              <span className="font-mono text-[10px] text-slate-400">
-                GPS: {latitude.toFixed(4)}, {longitude.toFixed(4)}
-              </span>
+            <label className="font-bold text-slate-700">
+              Địa chỉ / Tuyến đường <span className="text-red-500">*</span>:
             </label>
             <div className="relative">
               <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />

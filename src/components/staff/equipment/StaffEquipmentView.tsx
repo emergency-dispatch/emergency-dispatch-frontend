@@ -90,6 +90,21 @@ export const StaffEquipmentView: React.FC<StaffEquipmentViewProps> = ({ profile 
 
   useEffect(() => {
     fetchEquipment();
+
+    // Tự động đồng bộ ngầm định kỳ 15s và khi người dùng focus lại tab
+    const interval = setInterval(() => {
+      fetchEquipment(true);
+    }, 15000);
+
+    const onFocus = () => {
+      fetchEquipment(true);
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [fetchEquipment]);
 
   // Dismiss toast message after 4s
@@ -184,7 +199,7 @@ export const StaffEquipmentView: React.FC<StaffEquipmentViewProps> = ({ profile 
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs uppercase font-mono font-bold text-red-600 tracking-wider">
-                QUẢN LÝ &amp; BÁO HỎNG THIẾT BỊ (MỤC 25)
+                QUẢN LÝ &amp; BÁO HỎNG THIẾT BỊ
               </span>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
                 <ShieldCheck className="w-3 h-3" />
@@ -196,8 +211,7 @@ export const StaffEquipmentView: React.FC<StaffEquipmentViewProps> = ({ profile 
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               Trạm: <span className="font-semibold text-slate-700">{profile?.stationName || 'Trạm trực chiến'}</span>
-              {profile?.vehiclePlate && (
-                <> &bull; Xe kíp: <span className="font-semibold text-red-600">{profile.vehiclePlate}</span></>
+              {profile?.vehiclePlate && (<><br /> Xe kíp: <span className="font-semibold text-red-600">{profile.vehiclePlate}</span></>
               )}
             </p>
           </div>
@@ -258,7 +272,7 @@ export const StaffEquipmentView: React.FC<StaffEquipmentViewProps> = ({ profile 
 
         <div className="bg-white border border-emerald-200 rounded-2xl p-4 shadow-xs bg-gradient-to-br from-white to-emerald-50/30">
           <div className="flex items-center justify-between text-emerald-700">
-            <span className="text-xs font-semibold">Sẵn sàng (Tác chiến)</span>
+            <span className="text-xs font-semibold">Sẵn sàng </span>
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
@@ -297,37 +311,33 @@ export const StaffEquipmentView: React.FC<StaffEquipmentViewProps> = ({ profile 
           <div className="inline-flex p-1 bg-slate-100 rounded-xl gap-1">
             <button
               onClick={() => setLocationTab('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                locationTab === 'all'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${locationTab === 'all'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+                }`}
             >
               Toàn trạm ({equipmentList.length})
             </button>
             <button
               onClick={() => setLocationTab('team_vehicle')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                locationTab === 'team_vehicle'
-                  ? 'bg-red-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${locationTab === 'team_vehicle'
+                ? 'bg-red-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+                }`}
             >
               <Truck className="w-3.5 h-3.5" />
               <span>Xe kíp trực {profile?.vehiclePlate ? `(${profile.vehiclePlate})` : ''}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
-                locationTab === 'team_vehicle' ? 'bg-red-700 text-white' : 'bg-slate-200 text-slate-700'
-              }`}>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${locationTab === 'team_vehicle' ? 'bg-red-700 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
                 {stats.onTeamVehicle}
               </span>
             </button>
             <button
               onClick={() => setLocationTab('stock')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                locationTab === 'stock'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${locationTab === 'stock'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+                }`}
             >
               <Building2 className="w-3.5 h-3.5" />
               <span>Kho trạm</span>
@@ -361,11 +371,10 @@ export const StaffEquipmentView: React.FC<StaffEquipmentViewProps> = ({ profile 
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               onClick={() => setSelectedCategory('')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                selectedCategory === ''
-                  ? 'bg-slate-800 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${selectedCategory === ''
+                ? 'bg-slate-800 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
             >
               Tất cả nhóm
             </button>
@@ -377,11 +386,10 @@ export const StaffEquipmentView: React.FC<StaffEquipmentViewProps> = ({ profile 
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(isSelected ? '' : cat)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                    isSelected
-                      ? `${meta.activeBg} text-white border-transparent shadow-xs`
-                      : `${meta.bg} ${meta.border} ${meta.text} hover:opacity-85`
-                  }`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${isSelected
+                    ? `${meta.activeBg} text-white border-transparent shadow-xs`
+                    : `${meta.bg} ${meta.border} ${meta.text} hover:opacity-85`
+                    }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
                   <span>{CATEGORY_NAMES[cat]}</span>
@@ -401,7 +409,7 @@ export const StaffEquipmentView: React.FC<StaffEquipmentViewProps> = ({ profile 
                 className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500/20"
               >
                 <option value="">Tất cả trạng thái</option>
-                <option value="Available">Sẵn sàng (Tác chiến)</option>
+                <option value="Available">Sẵn sàng </option>
                 <option value="Maintenance">Đang bảo trì / Báo hỏng</option>
               </select>
             </div>
@@ -410,9 +418,8 @@ export const StaffEquipmentView: React.FC<StaffEquipmentViewProps> = ({ profile 
               <button
                 type="button"
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                  viewMode === 'grid' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-                }`}
+                className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'grid' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                  }`}
                 title="Dạng lưới thẻ (Grid)"
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
@@ -420,9 +427,8 @@ export const StaffEquipmentView: React.FC<StaffEquipmentViewProps> = ({ profile 
               <button
                 type="button"
                 onClick={() => setViewMode('table')}
-                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                  viewMode === 'table' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-                }`}
+                className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'table' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                  }`}
                 title="Dạng bảng danh sách (Table)"
               >
                 <List className="w-3.5 h-3.5" />
@@ -470,7 +476,7 @@ export const StaffEquipmentView: React.FC<StaffEquipmentViewProps> = ({ profile 
         </div>
       ) : viewMode === 'grid' ? (
         /* ================== GRID CARD VIEW ================== */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
           {filteredList.map((item) => {
             const meta = EQUIPMENT_CATEGORY_META[item.category];
             const CategoryIcon = meta.icon;
@@ -480,13 +486,12 @@ export const StaffEquipmentView: React.FC<StaffEquipmentViewProps> = ({ profile 
             return (
               <div
                 key={item.id}
-                className={`group bg-white rounded-2xl border transition-all duration-200 hover:shadow-md flex flex-col justify-between overflow-hidden ${
-                  isMaintenance
-                    ? 'border-amber-300 ring-1 ring-amber-300/40 bg-gradient-to-b from-amber-50/25 via-white to-white'
-                    : isOnTeamVehicle
+                className={`group bg-white rounded-2xl border transition-all duration-200 hover:shadow-md flex flex-col justify-between overflow-hidden ${isMaintenance
+                  ? 'border-amber-300 ring-1 ring-amber-300/40 bg-gradient-to-b from-amber-50/25 via-white to-white'
+                  : isOnTeamVehicle
                     ? 'border-slate-200 hover:border-blue-400/80 hover:ring-2 hover:ring-blue-500/10'
                     : 'border-slate-200 hover:border-slate-300 hover:ring-2 hover:ring-slate-500/5'
-                }`}
+                  }`}
               >
                 {/* Card Main Body */}
                 <div className="p-4 sm:p-5 space-y-3.5">

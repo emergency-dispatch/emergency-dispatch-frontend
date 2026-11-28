@@ -6,7 +6,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
 import type { NotificationDto } from '../../services/notificationService';
 import { incidentHubService, type HubStatus } from '../../services/realtime/incidentHubService';
-import { LANGUAGE_OPTIONS, dateLocale, getLanguage, setLanguage, useTranslation } from '../../i18n';
+import { LanguageSwitcher } from '../common/LanguageSwitcher';
+import { dateLocale, useTranslation } from '../../i18n';
 import { INCIDENT_QUEUE_PATH } from '../../data/dashboardMock';
 
 // Chấm trạng thái = kết nối realtime thật. Mất kết nối thì dữ liệu vẫn tự tải lại định kỳ (poll dự phòng).
@@ -147,11 +148,10 @@ export const OperatorTopbar: React.FC = () => {
           <button
             onClick={() => setNotifOpen((v) => !v)}
             aria-label={t('layout.topbar.notifications')}
-            className={`relative p-2.5 rounded-lg border transition-colors ${
-              hasCriticalAlert
+            className={`relative p-2.5 rounded-lg border transition-colors ${hasCriticalAlert
                 ? 'bg-red-50 border-red-300 text-red-600 animate-flash-critical'
                 : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
+              }`}
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
@@ -196,15 +196,13 @@ export const OperatorTopbar: React.FC = () => {
                     <button
                       key={notification.id}
                       onClick={() => openNotification(notification)}
-                      className={`w-full text-left px-4 py-3 transition-colors hover:bg-slate-50 ${
-                        notification.isRead ? '' : 'bg-red-50/40'
-                      }`}
+                      className={`w-full text-left px-4 py-3 transition-colors hover:bg-slate-50 ${notification.isRead ? '' : 'bg-red-50/40'
+                        }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <span
-                          className={`text-xs ${notification.isRead ? 'font-medium' : 'font-bold'} ${
-                            notification.type === 'Escalation' ? 'text-red-700' : 'text-slate-900'
-                          }`}
+                          className={`text-xs ${notification.isRead ? 'font-medium' : 'font-bold'} ${notification.type === 'Escalation' ? 'text-red-700' : 'text-slate-900'
+                            }`}
                         >
                           {notification.title}
                         </span>
@@ -226,24 +224,7 @@ export const OperatorTopbar: React.FC = () => {
           )}
         </div>
 
-        <div
-          role="group"
-          aria-label={t('layout.topbar.language')}
-          className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5"
-        >
-          {LANGUAGE_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setLanguage(option.value)}
-              aria-pressed={getLanguage() === option.value}
-              className={`px-2 py-1 rounded-md text-[11px] font-bold font-mono-data transition-colors ${
-                getLanguage() === option.value ? 'bg-white text-red-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <LanguageSwitcher label={t('layout.topbar.language')} />
 
         <div className="relative" ref={userRef}>
           <button

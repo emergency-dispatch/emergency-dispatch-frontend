@@ -8,6 +8,8 @@ import type {
   ResolveDispatchDto,
   AssignDispatchDto,
   RecommendedUnitResponseDto,
+  FieldIncidentReportDto,
+  FieldIncidentReportResultDto,
 } from '../types/dispatch';
 
 export const dispatchService = {
@@ -28,6 +30,21 @@ export const dispatchService = {
   async getAssignmentById(id: string): Promise<ApiResponse<DispatchAssignmentResponseDto>> {
     const response = await apiClient.get<ApiResponse<DispatchAssignmentResponseDto>>(
       `/dispatch/assignments/${id}`
+    );
+    return response.data;
+  },
+
+  /**
+   * §64: Tổ cứu hộ phát hiện sự cố ngoài hiện trường: báo trung tâm và tự nhận xử lý tại chỗ
+   * (POST /api/dispatch/field-report).
+   * Lượt phân công vào thẳng OnScene, xe chuyển sang OnScene mà không cần qua quy trình rung còi/nhận lệnh.
+   */
+  async reportFieldIncident(
+    dto: FieldIncidentReportDto
+  ): Promise<ApiResponse<FieldIncidentReportResultDto>> {
+    const response = await apiClient.post<ApiResponse<FieldIncidentReportResultDto>>(
+      '/dispatch/field-report',
+      dto
     );
     return response.data;
   },

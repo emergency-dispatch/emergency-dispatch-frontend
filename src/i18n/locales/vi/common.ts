@@ -1,5 +1,5 @@
 export const commonVi = {
-  documentTitle: 'ResQ-AI | Hệ Thống Tiếp Nhận & Điều Phối Cứu Hộ Khẩn Cấp Quốc Gia',
+  documentTitle: 'ResQ-AI | Hệ thống điều phối cứu hộ khẩn cấp thời gian thực ứng dụng AI phân loại mức độ nguy hiểm sự cố',
   close: 'Đóng',
   cancel: 'Hủy',
   saving: 'Đang lưu...',

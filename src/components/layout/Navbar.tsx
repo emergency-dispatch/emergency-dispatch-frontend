@@ -25,7 +25,8 @@ import { useSosCooldown } from '../../hooks/useSosCooldown';
 import { UserRole } from '../../types/auth';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { getAvatarUrl, DEFAULT_AVATAR } from '../../utils/avatar';
-import { useTranslation, getLanguage, setLanguage, LANGUAGE_OPTIONS } from '../../i18n';
+import { LanguageSwitcher } from '../common/LanguageSwitcher';
+import { useTranslation } from '../../i18n';
 
 interface NavbarProps {
   onOpenSos: () => void;
@@ -257,26 +258,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
               )}
 
               {/* Language Switcher */}
-              <div
-                role="group"
-                aria-label={t('citizen.layout.language')}
-                className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5 shadow-xs"
-              >
-                {LANGUAGE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setLanguage(option.value)}
-                    aria-pressed={getLanguage() === option.value}
-                    className={`px-2 py-1 rounded-lg text-[11px] font-bold font-mono-data transition-colors ${
-                      getLanguage() === option.value
-                        ? 'bg-white text-red-600 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+              <LanguageSwitcher label={t('citizen.layout.language')} className="rounded-xl shadow-xs" />
 
               {/* Clean Red Emergency SOS CTA */}
               <button
@@ -446,26 +428,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSos, onOpenReports }) => {
               {/* Language Switcher in Mobile Drawer */}
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-semibold text-slate-500">{t('citizen.layout.language')}</span>
-                <div
-                  role="group"
-                  aria-label={t('citizen.layout.language')}
-                  className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5"
-                >
-                  {LANGUAGE_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => setLanguage(option.value)}
-                      aria-pressed={getLanguage() === option.value}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold font-mono-data transition-colors ${
-                        getLanguage() === option.value
-                          ? 'bg-white text-red-600 shadow-xs'
-                          : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
+                <LanguageSwitcher label={t('citizen.layout.language')} className="rounded-xl" />
               </div>
 
               {isAuthenticated && user ? (

@@ -1,9 +1,11 @@
 export const citizenLandingVi = {
   heroTag: 'HỆ THỐNG ĐIỀU PHỐI CỨU HỘ KHẨN CẤP THỜI GIAN THỰC',
-  heroTitle: 'Điều Phối Cứu Hộ Khẩn Cấp & Giám Sát Thời Gian Thực',
+  heroTitle: 'Hệ thống điều phối cứu hộ khẩn cấp thời gian thực ứng dụng AI phân loại mức độ nguy hiểm sự cố',
+  heroTitleAccent: 'Điều phối cứu hộ khẩn cấp thời gian thực',
+  heroTitleMain: 'ứng dụng AI phân loại mức độ nguy hiểm sự cố',
   heroSubtitle: 'Hệ thống điều phối cứu hộ khẩn cấp thời gian thực ứng dụng AI phân loại mức độ nguy hiểm sự cố · Khu Công nghệ cao & KCN',
   pressHoldTip: 'Nhấn & giữ 2 giây để gửi vị trí tức thời',
-  radarTitle: 'LIVE CAD INCIDENT RADAR',
+  radarTitle: 'BẢN ĐỒ SỰ CỐ TRỰC TIẾP',
   radarTrackingEta: 'ETA: ~{{min}}p',
   radarFollowAction: 'Bấm theo dõi chi tiết',
   radarLocatingGps: 'Đang lấy vị trí GPS...',
@@ -110,7 +112,7 @@ export const citizenLandingVi = {
       b3: 'Offline Queue tự động lưu và gửi lại khi có mạng',
       b4: 'Giao diện tối ưu thao tác 1 tay trong tình huống khẩn cấp',
       log1: '[14:32:01.04] Nhận gói tin SOS từ ứng dụng công dân #8942',
-      log2: '[14:32:01.12] Khóa định vị GPS: 21.0285, 105.8542 (±2.8m)',
+      log2: '[14:32:01.12] Khóa định vị chuẩn xác: Khu Công nghệ cao TP.HCM (±2.8m)',
       log3: '[14:32:01.45] Đã tải lên 2 ảnh hiện trường & 1 bản ghi âm',
     },
     step2: {

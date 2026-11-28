@@ -326,8 +326,8 @@ export const CreateIncidentPanel: React.FC<CreateIncidentPanelProps> = ({
           >
             {outsideKm > 0 ? <MapPinOff className="w-3.5 h-3.5 shrink-0" /> : <MapPin className="w-3.5 h-3.5 shrink-0" />}
             {position ? (
-              <span className="font-mono-data">
-                {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+              <span className="font-medium text-xs">
+                {outsideKm > 0 ? `Ngoài khu vực phục vụ (+${outsideKm.toFixed(1)} km)` : 'Đã ghim vị trí trên bản đồ'}
               </span>
             ) : (
               <span className="font-semibold">{t('liveMap.create.noPosition')}</span>

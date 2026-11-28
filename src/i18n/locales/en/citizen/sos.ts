@@ -64,7 +64,7 @@ export const citizenSosEn: Messages<typeof citizenSosVi> = {
   cooldownWaitError: 'You recently submitted a rescue request that is being handled. Please wait {{time}} before resending or call 114 / 115 directly.',
   locationRequiredError: 'Location not determined. Please enter an address or click on the map.',
   invalidPhoneError: 'Emergency contact phone number is not valid in Vietnam format (e.g., 0912345678).',
-  outsideAreaCoordsError: 'Selected coordinates ({{lat}}, {{lng}}) are outside the ResQ service radius (+{{km}} km). Cannot transmit SOS.',
+  outsideAreaCoordsError: 'Selected location is outside the ResQ service radius (+{{km}} km). Cannot transmit SOS.',
   createError: 'Failed to transmit SOS signal. Please try again or call 114/115 immediately.',
   cancelError: 'Unable to cancel this incident at this time.',
 

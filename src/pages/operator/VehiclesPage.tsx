@@ -375,15 +375,24 @@ export const VehiclesPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         {incident ? (
-                          <button
-                            onClick={() =>
-                              navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: incident.id } })
-                            }
-                            className="text-left text-xs font-semibold text-red-600 hover:underline max-w-[220px] truncate block"
-                            title={incident.title}
-                          >
-                            {incident.title}
-                          </button>
+                          <div className="space-y-0.5">
+                            <button
+                              onClick={() =>
+                                navigate('/dashboard/command-center/live-map', { state: { focusIncidentId: incident.id } })
+                              }
+                              className="text-left text-xs font-semibold text-red-600 hover:underline max-w-[240px] truncate block"
+                              title={incident.title}
+                            >
+                              {(incident.isFieldReportedByTeam || incident.source === 'RescueTeam')
+                                ? `Đang xử lý sự cố bên ngoài (${incident.code || incident.title})`
+                                : incident.title}
+                            </button>
+                            {(incident.isFieldReportedByTeam || incident.source === 'RescueTeam') && (
+                              <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Tổ tự nhận tại hiện trường
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-xs text-slate-400">—</span>
                         )}

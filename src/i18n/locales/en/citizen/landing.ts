@@ -3,7 +3,9 @@ import type { citizenLandingVi } from '../../vi/citizen/landing';
 
 export const citizenLandingEn: Messages<typeof citizenLandingVi> = {
   heroTag: 'REAL-TIME EMERGENCY DISPATCH SYSTEM',
-  heroTitle: 'Emergency Dispatch & Real-Time Rescue Coordination',
+  heroTitle: 'Real-Time AI Emergency Rescue Dispatch & Severity Classification System',
+  heroTitleAccent: 'AI Emergency',
+  heroTitleMain: 'Dispatch & Real-Time Rescue Coordination',
   heroSubtitle: 'Real-time emergency dispatch and incident monitoring system powered by AI triage · High-Tech Park & Industrial Zones',
   pressHoldTip: 'Press & hold 2 seconds to send instant location',
   radarTitle: 'LIVE CAD INCIDENT RADAR',
@@ -113,7 +115,7 @@ export const citizenLandingEn: Messages<typeof citizenLandingVi> = {
       b3: 'Offline Queue automatically stores and resends when back online',
       b4: 'UI optimized for one-handed operation during emergency',
       log1: '[14:32:01.04] Received SOS packet from citizen app #8942',
-      log2: '[14:32:01.12] Locked GPS coordinates: 21.0285, 105.8542 (±2.8m)',
+      log2: '[14:32:01.12] High-precision location locked: SHTP Tech Park (±2.8m)',
       log3: '[14:32:01.45] Uploaded 2 scene photos & 1 audio note',
     },
     step2: {
