@@ -148,10 +148,26 @@ export function mapCompletionReportDtoToClosureReport(
     resourcesUsed: Array.isArray(eqList) && eqList.length > 0
       ? eqList.map((eq: string) => {
           const parts = eq.split(':');
+          if (parts.length >= 2) {
+            const rawUnit = parts.slice(1).join(':').trim();
+            const match = rawUnit.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+            if (match) {
+              return {
+                name: parts[0]?.trim() || eq,
+                quantity: Number(match[1]),
+                unit: match[2]?.trim() || 'Cái',
+              };
+            }
+            return {
+              name: parts[0]?.trim() || eq,
+              quantity: 1,
+              unit: rawUnit || 'Cái',
+            };
+          }
           return {
-            name: parts[0]?.trim() || eq,
+            name: eq.trim(),
             quantity: 1,
-            unit: parts[1]?.trim() || 'Cái',
+            unit: 'Cái',
           };
         })
       : existingLocal?.resourcesUsed || [],
